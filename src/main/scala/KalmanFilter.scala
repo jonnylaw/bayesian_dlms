@@ -12,12 +12,12 @@ object KalmanFilter {
     ll: Double
   )
 
-  def log_to_covariance(log_p: Vector[Double]): DenseMatrix[Double] = {
+  def logToCovariance(log_p: Vector[Double]): DenseMatrix[Double] = {
     diag(DenseVector((log_p map exp _).toArray))
   }
 
-  def advance_state(mod: Model, x: State, time: Time, p: Parameters): State = {
-    val w = log_to_covariance(p.log_w)
+  def advanceState(mod: Model, x: State, time: Time, p: Parameters): State = {
+    val w = logToCovariance(p.log_w)
 
     val at = mod.g(time) * x.mean
     val rt = mod.g(time) * x.covariance * mod.g(time).t + w
@@ -25,8 +25,8 @@ object KalmanFilter {
     MultivariateGaussian(at, rt)
   }
 
-  def one_step_prediction(mod: Model, x: State, time: Time, p: Parameters) = {
-    val v = log_to_covariance(p.log_v)
+  def oneStepPrediction(mod: Model, x: State, time: Time, p: Parameters) = {
+    val v = logToCovariance(p.log_v)
 
     val ft = mod.f(time).t * x.mean
     val qt = mod.f(time).t * x.covariance * mod.f(time) + v
@@ -35,45 +35,51 @@ object KalmanFilter {
   }
 
   /**
-    * Update the state using Joseph Form Update
+    * Update the state using Joseph Form Update given the newly observed data
     * @param 
     */
-  def update_state(
+  def updateState(
     mod: Model, 
     x: State, 
-    predicted: DenseVector[Double], 
+    predicted: Observation, 
     y: Data, 
-    p: Parameters): State = {
+    p: Parameters): State = y.observation match {
+    case Some(obs) =>
+      val time = y.time
+      val v = logToCovariance(p.log_v)
+      val residual = obs - predicted
+      val kalman_gain = x.covariance * mod.f(time) * inv(x.covariance)
+      val mt1 = x.mean + kalman_gain * residual
+      val n = p.log_w.size
 
-    val time = y.time
-    val v = log_to_covariance(p.log_v)
-    val residual = y.observation - predicted
-    val kalman_gain = x.covariance * mod.f(time) * inv(x.covariance)
-    val mt1 = x.mean + kalman_gain * residual
-    val n = p.log_w.size
+      val identity = DenseMatrix.eye[Double](n)
 
-    val identity = DenseMatrix.eye[Double](n)
+      val diff = (identity - kalman_gain * mod.f(time).t)
+      val covariance = diff * x.covariance * diff.t + kalman_gain * v * kalman_gain.t
 
-    val covariance = (identity - kalman_gain * mod.f(time).t) * x.covariance * (identity - kalman_gain * mod.f(time).t).t + kalman_gain * v * kalman_gain.t
-
-    MultivariateGaussian(mt1, covariance)
+      MultivariateGaussian(mt1, covariance)
+    case None =>
+      x
   }
 
-  def conditional_likelihood(
+  def conditionalLikelihood(
     ft: Observation, 
     qt: DenseMatrix[Double], 
-    y: Observation) = {
-
-    MultivariateGaussian(ft, qt).logPdf(y)
+    data: Option[Observation]) = data match {
+    case Some(y) =>
+      MultivariateGaussian(ft, qt).logPdf(y)
+    case None => 0.0
   }
 
   def step_kalman_filter(
     mod: Model, p: Parameters)(state: KfState, y: Data): KfState = {
 
-    val state_prior = advance_state(mod, state.x, y.time, p)
-    val (ft, qt) = one_step_prediction(mod, state_prior, y.time, p)
-    val state_posterior = update_state(mod, state_prior, ft, y, p)
-    val ll = state.ll + conditional_likelihood(ft, qt, y.observation)
+    val state_prior = advanceState(mod, state.x, y.time, p)
+    val (ft, qt) = oneStepPrediction(mod, state_prior, y.time, p)
+    val state_posterior = updateState(mod, state_prior, ft, y, p)
+
+
+    val ll = state.ll + conditionalLikelihood(ft, qt, y.observation)
 
     KfState(state_posterior, Some(ft), Some(qt), ll)
   }
@@ -84,7 +90,7 @@ object KalmanFilter {
   def kalman_filter(mod: Model, observations: Array[Data], p: Parameters) = {
     val init_state = MultivariateGaussian(
       DenseVector(p.m0.toArray), 
-      log_to_covariance(p.log_c0)
+      logToCovariance(p.log_c0)
     )
     val init: KfState = KfState(
       init_state,
