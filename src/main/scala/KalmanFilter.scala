@@ -6,11 +6,14 @@ import Dlm._
 
 object KalmanFilter {
   case class KfState(
+    time: Time,
     x: State, 
     y: Option[Observation], 
     cov: Option[DenseMatrix[Double]],
     ll: Double
-  )
+  ) {
+    override def toString = s"${x.mean.data.mkString(", ")}, ${y.map(_.data.mkString(", ")).getOrElse("NA")}, ${cov.map(_.data.mkString(", ")).getOrElse("NA")}"
+  }
 
   def logToCovariance(log_p: Vector[Double]): DenseMatrix[Double] = {
     diag(DenseVector((log_p map exp _).toArray))
@@ -71,7 +74,7 @@ object KalmanFilter {
     case None => 0.0
   }
 
-  def step_kalman_filter(
+  def stepKalmanFilter(
     mod: Model, p: Parameters)(state: KfState, y: Data): KfState = {
 
     val state_prior = advanceState(mod, state.x, y.time, p)
@@ -81,27 +84,36 @@ object KalmanFilter {
 
     val ll = state.ll + conditionalLikelihood(ft, qt, y.observation)
 
-    KfState(state_posterior, Some(ft), Some(qt), ll)
+    KfState(y.time, state_posterior, Some(ft), Some(qt), ll)
   }
 
   /**
     * Run the Kalman Filter over an array of data
     */
-  def kalman_filter(mod: Model, observations: Array[Data], p: Parameters) = {
+  def kalmanFilter(mod: Model, observations: Array[Data], p: Parameters) = {
     val init_state = MultivariateGaussian(
       DenseVector(p.m0.toArray), 
       logToCovariance(p.log_c0)
     )
     val init: KfState = KfState(
+      observations.head.time,
       init_state,
       None, None, 0.0)
-    observations.scanLeft(init)(step_kalman_filter(mod, p)) 
+    observations.scanLeft(init)(stepKalmanFilter(mod, p)) 
   }
 
   /**
     * Calculate the marginal likelihood of a DLM using a kalman filter
     */
-  def kf_ll(mod: Model, observations: Array[Data])(p: Parameters): Double = {
-    kalman_filter(mod, observations, p).last.ll
+  def kfLogLikelihood(mod: Model, observations: Array[Data])(p: Parameters): Double = {
+    val init_state = MultivariateGaussian(
+      DenseVector(p.m0.toArray), 
+      logToCovariance(p.log_c0)
+    )
+    val init: KfState = KfState(
+      observations.head.time,
+      init_state,
+      None, None, 0.0)
+    observations.foldLeft(init)(stepKalmanFilter(mod, p)).ll
   }
 }

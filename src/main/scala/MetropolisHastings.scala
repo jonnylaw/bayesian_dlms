@@ -7,26 +7,28 @@ import Dlm._
 import cats.implicits._
 
 object MetropolisHastings {
-  def symmetric_proposal(delta: Double)(p: Parameters): Rand[Parameters] = {
+  /**
+    * State for the Metropolis Hastings algorithm
+    */
+  case class MhState(p: Parameters, ll: Double, accepted: Int) {
+    override def toString = s"${p.toString}, $accepted"
+  }
+
+  def symmetricProposal(delta: Double)(p: Parameters): Rand[Parameters] = {
     p.traverse(x => Gaussian(x, delta): Rand[Double])
   }
 
-  def metropolis_hastings_dlm(
+  def metropolisHastingsDlm(
     mod: Model,
     observations: Array[Data],
     proposal: Parameters => Rand[Parameters],
     initState: MhState
   ) = {
 
-    MarkovChain(initState)(mh_step(proposal, kf_ll(mod, observations)))
+    MarkovChain(initState)(mhStep(proposal, kfLogLikelihood(mod, observations)))
   }
 
-  /**
-    * State for the Metropolis Hastings algorithm
-    */
-  case class MhState(p: Parameters, ll: Double, accepted: Int)
-
-  def mh_step(
+  def mhStep(
     proposal: Parameters => Rand[Parameters],
     likelihood: Parameters => Double
   )(state: MhState) = {
