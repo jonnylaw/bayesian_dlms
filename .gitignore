@@ -1,3 +1,5 @@
 .ensime
 project/*
 target/*
+*.csv
+src/main/scala/target/*

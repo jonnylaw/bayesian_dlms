@@ -1,3 +1,5 @@
+package dlm.model
+
 import spray.json._
 import Dlm._
 import KalmanFilter._

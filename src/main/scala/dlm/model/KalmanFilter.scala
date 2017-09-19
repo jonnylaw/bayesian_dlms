@@ -1,3 +1,5 @@
+package dlm.model
+
 import breeze.linalg.{DenseMatrix, diag, DenseVector, inv}
 import breeze.stats.distributions._
 import scala.math.{exp, log}
@@ -12,27 +14,19 @@ object KalmanFilter {
     cov: Option[DenseMatrix[Double]],
     ll: Double
   ) {
-    override def toString = s"${x.mean.data.mkString(", ")}, ${y.map(_.data.mkString(", ")).getOrElse("NA")}, ${cov.map(_.data.mkString(", ")).getOrElse("NA")}"
-  }
-
-  def logToCovariance(log_p: Vector[Double]): DenseMatrix[Double] = {
-    diag(DenseVector((log_p map exp _).toArray))
+    override def toString = s"$time, ${x.mean.data.mkString(", ")}, ${x.covariance.data.mkString(", ")}, ${y.map(_.data.mkString(", ")).getOrElse("NA")}, ${cov.map(_.data.mkString(", ")).getOrElse("NA")}"
   }
 
   def advanceState(mod: Model, x: State, time: Time, p: Parameters): State = {
-    val w = logToCovariance(p.log_w)
-
     val at = mod.g(time) * x.mean
-    val rt = mod.g(time) * x.covariance * mod.g(time).t + w
+    val rt = mod.g(time) * x.covariance * mod.g(time).t + diag(DenseVector(p.w.toArray))
 
     MultivariateGaussian(at, rt)
   }
 
   def oneStepPrediction(mod: Model, x: State, time: Time, p: Parameters) = {
-    val v = logToCovariance(p.log_v)
-
     val ft = mod.f(time).t * x.mean
-    val qt = mod.f(time).t * x.covariance * mod.f(time) + v
+    val qt = mod.f(time).t * x.covariance * mod.f(time) + diag(DenseVector(p.v.toArray))
 
     (ft, qt)
   }
@@ -49,11 +43,11 @@ object KalmanFilter {
     p: Parameters): State = y.observation match {
     case Some(obs) =>
       val time = y.time
-      val v = logToCovariance(p.log_v)
+      val v = diag(DenseVector(p.v.toArray))
       val residual = obs - predicted
       val kalman_gain = x.covariance * mod.f(time) * inv(x.covariance)
       val mt1 = x.mean + kalman_gain * residual
-      val n = p.log_w.size
+      val n = p.w.size
 
       val identity = DenseMatrix.eye[Double](n)
 
@@ -81,7 +75,6 @@ object KalmanFilter {
     val (ft, qt) = oneStepPrediction(mod, state_prior, y.time, p)
     val state_posterior = updateState(mod, state_prior, ft, y, p)
 
-
     val ll = state.ll + conditionalLikelihood(ft, qt, y.observation)
 
     KfState(y.time, state_posterior, Some(ft), Some(qt), ll)
@@ -93,13 +86,14 @@ object KalmanFilter {
   def kalmanFilter(mod: Model, observations: Array[Data], p: Parameters) = {
     val init_state = MultivariateGaussian(
       DenseVector(p.m0.toArray), 
-      logToCovariance(p.log_c0)
+      diag(DenseVector(p.v.toArray))
     )
     val init: KfState = KfState(
       observations.head.time,
       init_state,
       None, None, 0.0)
-    observations.scanLeft(init)(stepKalmanFilter(mod, p)) 
+
+    observations.scanLeft(init)(stepKalmanFilter(mod, p)).drop(1)
   }
 
   /**
@@ -108,7 +102,7 @@ object KalmanFilter {
   def kfLogLikelihood(mod: Model, observations: Array[Data])(p: Parameters): Double = {
     val init_state = MultivariateGaussian(
       DenseVector(p.m0.toArray), 
-      logToCovariance(p.log_c0)
+      diag(DenseVector(p.c0.toArray))
     )
     val init: KfState = KfState(
       observations.head.time,

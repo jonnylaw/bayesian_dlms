@@ -1,3 +1,5 @@
+package dlm.model
+
 import breeze.linalg.{DenseMatrix, diag, DenseVector, inv}
 import breeze.stats.distributions._
 import scala.math.{exp, log}
@@ -15,7 +17,11 @@ object MetropolisHastings {
   }
 
   def symmetricProposal(delta: Double)(p: Parameters): Rand[Parameters] = {
-    p.traverse(x => Gaussian(x, delta): Rand[Double])
+    val p_logged = Parameters(p.v map log, p.w map log, p.m0, p.c0 map log)
+
+    p_logged.
+      traverse(x => Gaussian(x, delta): Rand[Double]).
+      map(p => Parameters(p.v map exp, p.w map exp, p.m0 map exp, p.c0 map exp))
   }
 
   def metropolisHastingsDlm(
@@ -38,7 +44,7 @@ object MetropolisHastings {
       prop_ll = likelihood(prop_p)
       a = prop_ll - state.ll
       u <- Uniform(0, 1)
-      next = if (a < log(u)) {
+      next = if (log(u) < a) {
         MhState(prop_p, prop_ll, state.accepted + 1)
       } else {
         state

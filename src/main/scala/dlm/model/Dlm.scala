@@ -1,8 +1,11 @@
+package dlm.model
+
 import breeze.linalg.{DenseMatrix, diag, DenseVector, inv}
 import breeze.stats.distributions._
 import scala.math.{exp, log, sin, cos}
 import cats.{Monad, Semigroup}
 import cats.implicits._
+import math.sqrt
 
 object Dlm {
   type State = MultivariateGaussian
@@ -20,20 +23,20 @@ object Dlm {
     * Parameters of a DLM
     */
   case class Parameters(
-    log_v: Vector[Double], 
-    log_w: Vector[Double], 
+    v: Vector[Double], 
+    w: Vector[Double], 
     m0: Vector[Double],
-    log_c0: Vector[Double]
+    c0: Vector[Double]
   ) {
-    override def toString = (log_v ++ log_w ++ m0 ++ log_c0).mkString(", ")
+    override def toString = (v ++ w ++ m0 ++ c0).mkString(", ")
 
     def traverse[G[_]: Monad](f: Double => G[Double]): G[Parameters] = {
       for {
-        v <- log_v traverse f
-        w <- log_w traverse f
+        nv <- v traverse f
+        nw <- w traverse f
         m <- m0 traverse f
-        c0 <- log_c0 traverse f
-      } yield Parameters(v, w, m, c0)
+        nc0 <- c0 traverse f
+      } yield Parameters(nv, nw, m, nc0)
     }
   }
 
@@ -100,18 +103,19 @@ object Dlm {
     * Dynamic Linear Models can be combined in order to model different
     * time dependent phenomena, for instance seasonal with trend
     */
-  implicit val addModel = new Semigroup[Model] {
+  implicit def addModel = new Semigroup[Model] {
     def combine(x: Model, y: Model): Model = {
-      def f(t: Time) = DenseMatrix.vertcat(x.f(t), y.f(t))
-      def g(t: Time) = blockDiagonal(x.g(t), y.g(t))
-      Model(f, g)
+      Model(
+        (t: Time) => DenseMatrix.vertcat(x.f(t), y.f(t)), 
+        (t: Time) => blockDiagonal(x.g(t), y.g(t))
+      )
     }
   }
 
   def simStep(mod: Model, x: DenseVector[Double], time: Time, p: Parameters): Rand[(Data, DenseVector[Double])] = {
     for {
-      w <- p.log_w.traverse(x => Gaussian(0.0, exp(x)): Rand[Double])
-      v <- p.log_v.traverse(x => Gaussian(0.0, exp(x)): Rand[Double])
+      w <- p.w.traverse(x => Gaussian(0.0, sqrt(x)): Rand[Double])
+      v <- p.v.traverse(x => Gaussian(0.0, sqrt(x)): Rand[Double])
       x1 = mod.f(time).t * x + DenseVector(w.toArray)
       y = mod.g(time) * x1 + DenseVector(v.toArray)
     } yield (Data(time, Some(y)), x1)
@@ -131,21 +135,5 @@ object Dlm {
     */
   implicit val outerSumModel = new Semigroup[Model] {
     def combine(x: Model, y: Model): Model = ???
-  }
-
-  /**
-    * Calculate the state given all the observed data
-    */
-  def backwardsSmoother(mod: Model, observations: Array[Data], p: Parameters) = ???
-
-  implicit val randMonad = new Monad[Rand] {
-    def pure[A](x: A): Rand[A] = Rand.always(x)
-    def flatMap[A, B](fa: Rand[A])(f: A => Rand[B]): Rand[B] = 
-      fa flatMap f
-
-    def tailRecM[A, B](a: A)(f: A => Rand[Either[A, B]]): Rand[B] = f(a).draw match {
-      case Left(a1) => tailRecM(a1)(f)
-      case Right(b) => Rand.always(b)
-    }
   }
 }
