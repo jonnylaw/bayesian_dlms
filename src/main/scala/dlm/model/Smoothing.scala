@@ -2,7 +2,7 @@ package dlm.model
 
 import Dlm._
 import KalmanFilter._
-import breeze.linalg.{inv, DenseVector}
+import breeze.linalg.{inv, DenseVector, diag}
 import breeze.stats.distributions.MultivariateGaussian
 
 object Smoothing {
@@ -55,19 +55,20 @@ object Smoothing {
 
   /**
     * Simulation version of the backwards smoother
+    * @param mod 
     */
   def backSampleStep(
     mod: Model, 
-    p: Parameters)(state: DenseVector[Double], kfState: KfState) = {
+    p: Parameters)(state: DenseVector[Double], 
+      nextKfState: KfState, 
+      curKfState: KfState) = {
 
     // extract elements from kalman state
-    val time = kfState.time
-    val mt = kfState.statePosterior.mean
-    val ct = kfState.statePosterior.covariance
-
-
-    val at1 = mod(g)(time + 1) * state
-    val rt1 = mod.g(time) * state * mod.g(time).t + diag(DenseVector(p.w.toArray))
+    val time = curKfState.time
+    val mt = curKfState.statePosterior.mean
+    val ct = curKfState.statePosterior.covariance
+    val at1 = nextKfState.statePrior.mean
+    val rt1 = nextKfState.statePrior.covariance
 
     // inverse rt
     val invrt = inv(rt1)
@@ -75,12 +76,12 @@ object Smoothing {
     // calculate the updated mean
     // the difference between the backwards sampler and smoother is here
     // we take the difference of the previously sampled state 
-    val mean = mt + ct * mod.g(time).t * invrt * (state - at1)
+    val mean = mt + ct * mod.g(time + 1).t * invrt * (state - at1)
 
     // calculate the updated covariance
-    val covariance = ct - ct * mod.g(time).t * invrt * mod.g(time) * ct
+    val covariance = ct - ct * mod.g(time + 1).t * invrt * mod.g(time + 1) * ct
 
-    (kfState.time, MultivariateGaussian(mean, covariance).draw)
+    (curKfState, curKfState.time, MultivariateGaussian(mean, covariance).draw)
   }
 
   def backwardSampling(
@@ -91,8 +92,8 @@ object Smoothing {
     val lastTime = kfState.last.time
     val lastState = kfState.last.statePosterior.draw
 
-    kfState.init.reverse.scanLeft((lastTime, lastState))((x, kfs) => 
-      backSampleStep(mod, p)(x._2, kfs)
-    ).reverse
+    kfState.init.reverse.scanLeft((kfState.last, lastTime, lastState))((x, kfs) => 
+      backSampleStep(mod, p)(x._3, x._1,  kfs)
+    ).reverse.map { case (_, time, state) => (time, state) }
   }
 }

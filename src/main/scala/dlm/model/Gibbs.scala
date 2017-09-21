@@ -26,8 +26,6 @@ object GibbsSampling extends App {
     val difference = observations.zip(forecasts).
       map { case (y,f) => (y - f) * (y - f) }
 
-    println(s"observation difference sum ${difference.sum}")
-
     val shape = prior.shape + n * 0.5
     val rate = (1 / prior.scale) + difference.sum * 0.5
     val scale = 1 / rate
@@ -65,8 +63,6 @@ object GibbsSampling extends App {
 
     val difference = state.zip(prevState).
       map { case (mt, mt1) => (mt1 - mt) * (mt1 - mt) }
-
-    println(s"state difference sum ${difference.sum}")
 
     val shape = prior.shape + n * 0.5
     val rate = (1 / prior.scale) + difference.sum * 0.5

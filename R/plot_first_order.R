@@ -33,7 +33,8 @@ filtered %>%
   gather(key, value, state_mean, state) %>%
   ggplot(aes(x = time, y = value, colour = key)) +
   geom_line() +
-  geom_line(aes(x = time, ymin = lower, ymax = upper), linetype = 3, alpha = 0.3, colour = NA) +
+  geom_line(aes(x = time, y = lower), linetype = 3, colour = "#000000") +
+  geom_line(aes(x = time, y = upper), linetype = 3, colour = "#000000") +
   theme(legend.position = "bottom") +
   ggtitle("Kalman Filtered")
 
@@ -98,5 +99,38 @@ gibbs_chain %>%
   inner_join(actual_values, by = "parameter") %>%
   ggplot(aes(x = iteration, y = value)) +
   geom_line() +
-  # geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
   facet_wrap(~parameter, scales = "free_y")
+
+# Gibbs Sampling for state
+
+state_gibbs_iters = read_csv("data/FirstOrderDlmStateGibbs.csv", col_names = F)
+
+upper = apply(state_gibbs_iters, 2, function(state) sort(state)[nrow(state_gibbs_iters)*0.995])
+lower = apply(state_gibbs_iters, 2, function(state) sort(state)[nrow(state_gibbs_iters)*0.005])
+
+data_frame(
+  time = 1:300,
+  state_gibbs = colMeans(state_gibbs_iters),
+  upper,
+  lower
+) %>%
+  inner_join(data, by = "time") %>%
+  filter(time > 250) %>%
+  gather(key, value, state, state_gibbs) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  geom_line(aes(x = time, y = lower), linetype = 2, colour = "#000000") +
+  geom_line(aes(x = time, y = upper), linetype = 2, colour = "#000000")
+
+## Observation Difference
+data %>%
+  mutate(differ = (observation - state) * (observation - state)) %>%
+  summarise(sum(differ))
+
+## State difference
+data %>%
+  mutate(differ = c( NA, diff(state))) %>%
+  summarise(sum(differ * differ, na.rm = T))
+
+1 / rgamma(10, shape = 151, rate = 278/2)
