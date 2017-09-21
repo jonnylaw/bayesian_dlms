@@ -39,43 +39,37 @@ filtered %>%
   theme(legend.position = "bottom") +
   ggtitle("Kalman Filtered")
 
-#############
+###########
 # Learn Parameters
-#############
+##########
 
-spain_invest = read_csv(file = "data/invest2.dat", col_names = c("unknown", "spain"))
+gibbs_iters = read_csv("data/SecondOrderDlmGibbs.csv",
+                       col_names = c("V", "W1", "W2", "m01", "m02", "C01", "C02"))
 
-spain_invest %>%
-  mutate(time = seq(from = 1960, by = 1, length.out = nrow(spain_invest))) %>%
-  ggplot(aes(x = time, y = spain)) +
-  geom_line()
+gibbs_chain = gibbs_iters %>%
+  select(V, W1, W2)
 
-# This is clearly a linear growth trend, perfect for a second order model
+actual_values = tibble(
+  parameter = c("V", "W1", "W2"),
+  actual_value = c(3.0, 0.0, 1.0)
+)
 
-chain = read_csv("data/GibbsInvestData.csv", col_names = c("V", "W1", "W2", "m0_1", "m0_2", "C0_1", "C0_2"))
-
-drop = function(df, n) {
-  df[-(1:n),]
-}
-
-# To Plot
-params = chain %>%
-  select(V, W1, W2) %>%
-  mutate(iteration = 1:nrow(chain)) %>%
+params = gibbs_chain %>%
+  mutate(iteration = 1:nrow(gibbs_chain)) %>%
+  drop(5000) %>%
   gather(key = parameter, value, -iteration) %>%
-  drop(1000)
+  inner_join(actual_values, by = "parameter")
 
-# Trace plots
-p1 = ggplot(params, aes(x = iteration, y = value)) +
-  geom_point() +
-  facet_wrap(~parameter, nrow = 1, scales = "free_y")
+params %>%
+  ggplot(aes(x = iteration, y = value)) +
+  geom_line() +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~parameter, scales = "free_y")
 
-# Running Mean
-p2 = params %>%
+params %>%
   group_by(parameter) %>%
-  mutate(running_mean = ergMean(value)) %>%
+  mutate(running_mean = dlm::ergMean(value)) %>%
   ggplot(aes(x = iteration, y = running_mean)) +
   geom_line() +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
   facet_wrap(~parameter, nrow = 1, scales = "free_y")
-
-gridExtra::grid.arrange(p1, p2, ncol = 1)

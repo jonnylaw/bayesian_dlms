@@ -153,7 +153,12 @@ object Dlm {
     * Similar Dynamic Linear Models can be combined in order to model
     * multiple similar times series in a vectorised way
     */
-  // implicit val outerSumModel = new Semigroup[Model] {
-  //   def combine(x: Model, y: Model): Model = ???
-  // }
+  implicit val outerSumModel = new Semigroup[Model] {
+    def combine(x: Model, y: Model): Model = {
+      Model(
+        (t: Time) => blockDiagonal(x.f(t), y.f(t)),
+        (t: Time) => blockDiagonal(x.g(t), y.g(t))
+      )
+    }
+  }
 }

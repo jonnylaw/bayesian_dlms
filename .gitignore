@@ -1,4 +1,5 @@
 .ensime
+*.dat
 project/*
 target/*
 *.csv

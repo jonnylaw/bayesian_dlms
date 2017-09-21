@@ -15,7 +15,7 @@ trait DlmModel {
 
   val p = Parameters(
     Vector(3.0), 
-    Vector(1.0, 1.0), 
+    Vector(2.0, 1.0), 
     Vector(0.0, 0.0), 
     Vector(100.0, 100.0)
   )
@@ -65,6 +65,34 @@ object SmoothSecondOrderDlm extends App with DlmModel {
   pw.close()
 }
 
+object SecondOrderGibbsParameters extends App with DlmModel {
+  val data: Array[Data] = scala.io.Source.fromFile("data/SecondOrderDlm.csv").
+    getLines.
+    map(_.split(",")).
+    map(x => Data(x(0).toInt, Some(DenseVector(x(1).toDouble)))).
+    toArray
+
+  val alphaV = 1.0/10.0
+  val betaV = 1.0/10.0
+
+  val alphaW = 100.0/1000.0
+  val betaW = 10.0/1000.0
+
+  val priorV = Gamma(alphaV, 1.0/betaV)
+  val priorW = Gamma(alphaW, 1.0/betaW)
+
+  val iters = gibbsSamples(mod, priorV, priorW, p, data).
+    steps.
+    take(24000)
+
+  // write iters to file
+  val pw = new PrintWriter(new File("data/SecondOrderDlmGibbs.csv"))
+  while (iters.hasNext) {
+    pw.write(iters.next.toString + "\n")
+  }
+  pw.close()
+}
+
 object GibbsInvestParameters extends App with DlmModel {
   val data: Array[Data] = scala.io.Source.fromFile("data/invest2.dat").
     getLines.
@@ -73,18 +101,30 @@ object GibbsInvestParameters extends App with DlmModel {
     map { case (x, i) => Data(i + 1960, Some(DenseVector(x(1).toDouble))) }.
     toArray
 
-  val alphaV = 1.0/1000.0
-  val betaV = 1.0/1000.0
+  val alphaV = 1.0/10.0
+  val betaV = 1.0/10.0
 
   val alphaW = 100.0/1000.0
-  val betaW = 100.0/1000.0
+  val betaW = 10.0/1000.0
 
   val priorV = Gamma(alphaV, 1.0/betaV)
   val priorW = Gamma(alphaW, 1.0/betaW)
 
-  val iters = gibbsSamples(mod, priorV, priorW, p, data).
+  println(priorV)
+  println(priorW)
+
+  val initP = Parameters(
+    v = Vector(1.0 / priorV.draw),
+    w = Vector(1.0 / priorW.draw, 1.0 / priorW.draw),
+    m0 = p.m0,
+    c0 = p.c0
+  )
+
+  println(initP)
+
+  val iters = gibbsSamples(mod, priorV, priorW, initP, data).
     steps.
-    take(10000)
+    take(24000)
 
   // write iters to file
   val pw = new PrintWriter(new File("data/GibbsInvestData.csv"))
