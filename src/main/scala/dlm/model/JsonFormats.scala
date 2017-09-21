@@ -60,17 +60,27 @@ object JsonFormats extends DefaultJsonProtocol {
   implicit object KalmanStateFormat extends RootJsonFormat[KfState] {
     def write(d: KfState) = d.y match {
       case Some(y) =>
-        JsArray(JsNumber(d.time), d.x.toJson, y.toJson, d.cov.get.toJson, JsNumber(d.ll))
+        JsArray(
+          JsNumber(d.time), d.statePosterior.toJson,
+          d.statePrior.toJson, y.toJson, d.cov.get.toJson, JsNumber(d.ll)
+        )
       case None => 
-        JsArray(JsNumber(d.time), d.x.toJson, JsString("NA"), JsString("NA"), JsNumber(d.ll))
+        JsArray(
+          JsNumber(d.time), d.statePosterior.toJson, 
+          d.statePrior.toJson, JsString("NA"), JsString("NA"), JsNumber(d.ll)
+        )
     }
 
     def read(value: JsValue) = value match {
-      case JsArray(Vector(JsNumber(t), state, JsString("NA"), JsString("NA"), JsNumber(ll))) => 
-        KfState(t.toInt, state.convertTo[State], None, None, ll.toDouble)
-      case JsArray(Vector(JsNumber(t), state, observation, cov, JsNumber(ll))) => 
+      case JsArray(Vector(JsNumber(t), statePost, statePrior, JsString("NA"), JsString("NA"), JsNumber(ll))) => 
         KfState(
-          t.toInt, state.convertTo[State],
+          t.toInt, statePost.convertTo[State],
+          statePrior.convertTo[State], None, None, ll.toDouble
+        )
+      case JsArray(Vector(JsNumber(t), statePost, statePrior, observation, cov, JsNumber(ll))) => 
+        KfState(
+          t.toInt, statePost.convertTo[State],
+          statePrior.convertTo[State],
           Some(observation.convertTo[DenseVector[Double]]),
           Some(cov.convertTo[DenseMatrix[Double]]), 
           ll.toDouble)

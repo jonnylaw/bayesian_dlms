@@ -23,8 +23,8 @@ object Dlm {
     * Parameters of a DLM
     */
   case class Parameters(
-    v: Vector[Double], 
-    w: Vector[Double], 
+    v:  Vector[Double], 
+    w:  Vector[Double], 
     m0: Vector[Double],
     c0: Vector[Double]
   ) {
@@ -43,7 +43,27 @@ object Dlm {
   /**
     * A single observation of a DLM
     */
-  case class Data(time: Time, observation: Option[Observation])
+  case class Data(time: Time, observation: Option[Observation]) {
+    override def toString = observation match {
+      case Some(y) => s"$time, ${y.data.mkString(", ")}"
+      case None => s"$time, NA"
+    }
+  }
+
+  def polynomial(order: Int): Model = {
+    Model(
+      (t: Time) => {
+        val elements = Array.fill(order)(0.0)
+        elements(0) = 1.0
+        new DenseMatrix(order, 1, elements)
+      },
+      (t: Time) => DenseMatrix.tabulate(order, order){ 
+        case (i, j) if (i == j) => 1.0
+        case (i, j) if (i == (j - 1)) => 1.0
+        case _ => 0.0
+      }
+    )
+  }
 
   /**
     * A first order regression model with intercept
@@ -94,7 +114,7 @@ object Dlm {
     val matrices = (1 to harmonics) map (h => rotationMatrix(freq * h))
 
     Model(
-      (t: Time) => DenseMatrix.tabulate(1, harmonics * 2){ case (i, h) => h % 2 },
+      (t: Time) => DenseMatrix.tabulate(harmonics * 2, 1){ case (i, h) => h % 2 },
       (t: Time) => matrices.reduce(blockDiagonal)
     )
   }
@@ -116,8 +136,8 @@ object Dlm {
     for {
       w <- p.w.traverse(x => Gaussian(0.0, sqrt(x)): Rand[Double])
       v <- p.v.traverse(x => Gaussian(0.0, sqrt(x)): Rand[Double])
-      x1 = mod.f(time).t * x + DenseVector(w.toArray)
-      y = mod.g(time) * x1 + DenseVector(v.toArray)
+      x1 = mod.g(time) * x + DenseVector(w.toArray)
+      y = mod.f(time).t * x1 + DenseVector(v.toArray)
     } yield (Data(time, Some(y)), x1)
   }
 
@@ -133,7 +153,7 @@ object Dlm {
     * Similar Dynamic Linear Models can be combined in order to model
     * multiple similar times series in a vectorised way
     */
-  implicit val outerSumModel = new Semigroup[Model] {
-    def combine(x: Model, y: Model): Model = ???
-  }
+  // implicit val outerSumModel = new Semigroup[Model] {
+  //   def combine(x: Model, y: Model): Model = ???
+  // }
 }

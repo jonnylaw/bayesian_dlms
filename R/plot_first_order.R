@@ -33,7 +33,7 @@ filtered %>%
   gather(key, value, state_mean, state) %>%
   ggplot(aes(x = time, y = value, colour = key)) +
   geom_line() +
-  geom_ribbon(aes(x = time, ymin = lower, ymax = upper), alpha = 0.3, colour = NA) +
+  geom_line(aes(x = time, ymin = lower, ymax = upper), linetype = 3, alpha = 0.3, colour = NA) +
   theme(legend.position = "bottom") +
   ggtitle("Kalman Filtered")
 
@@ -62,24 +62,18 @@ smoothed %>%
 
 ggsave("figures/SmoothedState.png")
 
-
-
 #######################
 # Metropolis Hastings #
 #######################
 
-iters = read_csv("data/FirstOrderDlmIters.csv", col_names = c("V", "W", "m0", "C0", "accepted"), skip = 10000)
+iters = read_csv("data/FirstOrderDlmIters.csv", col_names = c("V", "W", "m0", "C0", "accepted"))
 
 actual_values = tibble(
   parameter = c("V", "W", "m0", "C0"),
   actual_value = c(3.0, 1.0, 0.0, 1.0)
 )
 
-chain = iters %>%
-  mutate_at(c("W", "V", "C0"), exp) %>%
-  select(-accepted)
-
-chain %>%
+iters %>%
   select(V, W) %>%
   mutate(iteration = 1:nrow(chain)) %>%
   gather(key = parameter, value, -iteration) %>%
@@ -93,7 +87,7 @@ chain %>%
 # Gibbs Sampling #
 ##################
 
-gibbs_iters = read_csv("data/FirstOrderDlmGibbs.csv", col_names = c("V", "W", "m0", "C0"), skip = 1000)
+gibbs_iters = read_csv("data/FirstOrderDlmGibbs.csv", col_names = c("V", "W", "m0", "C0"))
 
 gibbs_chain = gibbs_iters %>%
   select(V, W)
@@ -104,5 +98,5 @@ gibbs_chain %>%
   inner_join(actual_values, by = "parameter") %>%
   ggplot(aes(x = iteration, y = value)) +
   geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  # geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
   facet_wrap(~parameter, scales = "free_y")

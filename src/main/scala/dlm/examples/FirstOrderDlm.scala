@@ -1,21 +1,27 @@
+package dlm.examples
+
 import dlm.model._
 import Dlm._
 import MetropolisHastings._
 import GibbsSampling._
 import breeze.linalg.{DenseMatrix, DenseVector}
-import breeze.stats.distributions.Gamma
+import breeze.stats.distributions.{Gamma, Gaussian, Rand}
 import java.io.{File, PrintWriter}
-import math.log
+import math.{log, exp}
+import cats.implicits._
 
 trait FirstOrderDlm {
-  val mod = Model(f = (t: Time) => DenseMatrix((1.0)), g = (t: Time) => DenseMatrix((1.0)))
+  val mod = Model(
+    f = (t: Time) => DenseMatrix((1.0)), 
+    g = (t: Time) => DenseMatrix((1.0))
+  )
   val p = Parameters(Vector(3.0), Vector(1.0), Vector(0.0), Vector(1.0))
 }
 
 object SimulateDlm extends App with FirstOrderDlm {
   val data = simulate(0, mod, p).
     steps.
-    take(300).
+    take(1000).
     toArray
 
   val pw = new PrintWriter(new File("data/FirstOrderDlm.csv"))
@@ -63,7 +69,8 @@ object LearnParameters extends App with FirstOrderDlm {
     toArray
 
   val iters = metropolisHastingsDlm(mod, data, 
-    symmetricProposal(0.25), MhState(p, -1e99, 0)).
+    symmetricProposal(0.25), 
+    MhState(p, -1e99, 0)).
     steps.
     take(10000)
 
@@ -88,8 +95,11 @@ object GibbsParameters extends App with FirstOrderDlm {
 
   // write iters to file
   val pw = new PrintWriter(new File("data/FirstOrderDlmGibbs.csv"))
-  while (iters.hasNext) {
+  // val pw1 = new PrintWriter(new File("data/FirstOrderDlmStateGibbs.csv"))
+ while (iters.hasNext) {
     pw.write(iters.next.toString + "\n")
+    //    pw1.write(iters.next.state.map(_._2.data).transpose.head.mkString(", ") + "\n")
   }
-  pw.close()
+  // pw.close()
+  // pw1.close()
 }

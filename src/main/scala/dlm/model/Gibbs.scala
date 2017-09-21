@@ -4,18 +4,29 @@ import Dlm._
 import Smoothing._
 import KalmanFilter._
 import cats.implicits._
+import breeze.linalg.DenseVector
 import breeze.stats.distributions.{Rand, Gamma, MarkovChain}
 
 object GibbsSampling extends App {
-  case class GibbsState(p: Parameters, state: Array[State]) {
+  case class GibbsState(
+    p:     Parameters, 
+    state: Array[(Time, DenseVector[Double])]
+  ) {
+
     override def toString = p.toString
   }
 
-  def sampleGamma(prior: Gamma, observations: Array[Double], forecasts: Array[Double]) = {
+  def sampleGamma(
+    prior:        Gamma, 
+    observations: Array[Double], 
+    forecasts:    Array[Double]) = {
+
     val n = observations.size
 
     val difference = observations.zip(forecasts).
       map { case (y,f) => (y - f) * (y - f) }
+
+    println(s"observation difference sum ${difference.sum}")
 
     val shape = prior.shape + n * 0.5
     val rate = (1 / prior.scale) + difference.sum * 0.5
@@ -26,26 +37,36 @@ object GibbsSampling extends App {
 
   /**
     * Sample the (diagonal) observation noise precision matrix from a Gamma distribution
+    * TODO: Join forcasts and state on Time, instead of zipping 
     */
   def sampleObservationMatrix(
     priorV:       Gamma,
     mod:          Model, 
-    state:        Array[SmoothingState],
+    state:        Array[(Time, DenseVector[Double])],
     observations: Array[Data]) = {
 
-    val forecasts = state.reverse.map(x => mod.f(x.time) * x.smoothedState.mean).init
+    val forecasts = state.map { case (time, x) => mod.f(time).t * x }
 
-    val res = for {
-      oneStepForecasts <- forecasts.map(_.data).transpose
-      obs <- observations.map(_.observation).flatten.map(_.data).tail.transpose
-    } yield sampleGamma(priorV, obs, oneStepForecasts)
+    val oneStepForecasts = forecasts.map(_.data).transpose
+    val obs = observations.map(_.observation).flatten.map(_.data).transpose
+    
+    val res = oneStepForecasts.zip(obs).map { case (y, f) =>
+      sampleGamma(priorV, y, f)
+    }
 
     res.toVector.sequence
   }
 
-  def sampleGammaState(n: Int, prior: Gamma, state: Array[Double], prevState: Array[Double]) = {
+  def sampleGammaState(
+    n:         Int, 
+    prior:     Gamma, 
+    state:     Array[Double], 
+    prevState: Array[Double]) = {
+
     val difference = state.zip(prevState).
-      map { case (mt, mt1) => (mt - mt1) * (mt - mt1) }
+      map { case (mt, mt1) => (mt1 - mt) * (mt1 - mt) }
+
+    println(s"state difference sum ${difference.sum}")
 
     val shape = prior.shape + n * 0.5
     val rate = (1 / prior.scale) + difference.sum * 0.5
@@ -60,51 +81,70 @@ object GibbsSampling extends App {
   def sampleSystemMatrix(
     priorW:       Gamma,
     mod:          Model,
-    state:        Array[SmoothingState], 
+    state:        Array[(Time, DenseVector[Double])], 
     observations: Array[Data]) = {
 
     val n = observations.size
-    val states = state.map(_.smoothedState.mean)
 
-    val res = for {
-      prevStateMean <- states.map(_.data).init.transpose
-      stateMean <- states.map(_.data).tail.transpose
-    } yield sampleGammaState(n, priorW, stateMean, prevStateMean)
+    val prevState = state.
+      map { case (time, x) => mod.g(time) * x }.
+      map(_.data).transpose
+    val stateMean = state.
+      map { case (time, x) => x.data }.
+      tail.transpose
+
+    val res = (prevState.zip(stateMean)).map { case (mt, mt1) =>
+         sampleGammaState(n, priorW, mt1, mt)
+     }
 
     res.toVector.sequence
   }
 
-  def sampleState(mod: Model, observations: Array[Data], p: Parameters) = {
+  def sampleState(
+    mod:          Model, 
+    observations: Array[Data], 
+    p:            Parameters) = {
+
     val filtered = kalmanFilter(mod, observations, p)
-    backwardsSmoother(mod, p)(filtered)
+    backwardSampling(mod, filtered, p)
   }
 
   /**
     * A single step of a Gibbs Sampler
     */
-  def dinvGammaStep(mod: Model, priorV: Gamma, priorW: Gamma, observations: Array[Data])(gibbsState: GibbsState) = {
+  def dinvGammaStep(
+    mod:          Model, 
+    priorV:       Gamma,
+    priorW:       Gamma, 
+    observations: Array[Data])(gibbsState: GibbsState) = {
+
     val state = sampleState(mod, observations, gibbsState.p)
 
     for {
       prec_obs <- sampleObservationMatrix(priorV, mod, state, observations)
       prec_system <- sampleSystemMatrix(priorW, mod, state, observations)
-      x = state.map(_.smoothedState)
     } yield GibbsState(
       Parameters(
         prec_obs map (pv => 1/pv), 
         prec_system map (pw => 1/pw), 
         gibbsState.p.m0, 
         gibbsState.p.c0), 
-      x
+      state
     )
   }
 
   /**
     * Do some gibbs samples
     */
-  def gibbsSamples(mod: Model, priorV: Gamma, priorW: Gamma, initParams: Parameters, observations: Array[Data]) = {
+  def gibbsSamples(
+    mod:          Model, 
+    priorV:       Gamma, 
+    priorW:       Gamma, 
+    initParams:   Parameters, 
+    observations: Array[Data]) = {
+
     val initState = sampleState(mod, observations, initParams)
-    val init = GibbsState(initParams, initState.map(_.smoothedState))
+    val init = GibbsState(initParams, initState)
 
     MarkovChain(init)(dinvGammaStep(mod, priorV, priorW, observations))
   }
