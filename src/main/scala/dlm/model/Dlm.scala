@@ -23,22 +23,11 @@ object Dlm {
     * Parameters of a DLM
     */
   case class Parameters(
-    v:  Vector[Double], 
-    w:  Vector[Double], 
-    m0: Vector[Double],
-    c0: Vector[Double]
-  ) {
-    override def toString = (v ++ w ++ m0 ++ c0).mkString(", ")
-
-    def traverse[G[_]: Monad](f: Double => G[Double]): G[Parameters] = {
-      for {
-        nv <- v traverse f
-        nw <- w traverse f
-        m <- m0 traverse f
-        nc0 <- c0 traverse f
-      } yield Parameters(nv, nw, m, nc0)
-    }
-  }
+    v:  DenseMatrix[Double], 
+    w:  DenseMatrix[Double], 
+    m0: DenseVector[Double],
+    c0: DenseMatrix[Double]
+  )
 
   /**
     * A single observation of a DLM
@@ -90,20 +79,18 @@ object Dlm {
     * Build a block diagonal matrix by combining two matrices of the same size
     * TODO: Test and check this function
     */
-  def blockDiagonal(a: DenseMatrix[Double], 
-    b: DenseMatrix[Double]): DenseMatrix[Double] = {
-    val n = a.rows + b.rows
-    val m = a.cols + b.cols
+  def blockDiagonal(
+    a: DenseMatrix[Double],
+    b: DenseMatrix[Double]) = {
 
-    DenseMatrix.tabulate(n, m){ case (i, j) => 
-      if (i < a.rows && j < a.cols) {
-        a(i, j)
-      } else if (i >= a.rows && j >= a.cols) {
-        b(i % a.rows, j % a.cols)
-      } else {
-        0.0
-      }
-    }
+    val right = DenseMatrix.zeros[Double](a.rows, b.cols)
+
+    val left = DenseMatrix.zeros[Double](b.rows, a.cols)
+
+    DenseMatrix.vertcat(
+      DenseMatrix.horzcat(a, right),
+      DenseMatrix.horzcat(left, b)
+    )
   }
 
   /**
@@ -132,33 +119,43 @@ object Dlm {
     }
   }
 
-  def simStep(mod: Model, x: DenseVector[Double], time: Time, p: Parameters): Rand[(Data, DenseVector[Double])] = {
+  /**
+    * Simulate a single step from a DLM
+    */
+  def simStep(
+    mod: Model, 
+    x: DenseVector[Double], 
+    time: Time, 
+    p: Parameters): Rand[(Data, DenseVector[Double])] = {
+
     for {
-      w <- p.w.traverse(x => Gaussian(0.0, sqrt(x)): Rand[Double])
-      v <- p.v.traverse(x => Gaussian(0.0, sqrt(x)): Rand[Double])
-      x1 = mod.g(time) * x + DenseVector(w.toArray)
-      y = mod.f(time).t * x1 + DenseVector(v.toArray)
+      w <- MultivariateGaussian(DenseVector.zeros[Double](p.w.cols), p.w)
+      v <- MultivariateGaussian(DenseVector.zeros[Double](p.v.cols), p.v)
+      x1 = mod.g(time) * x + w
+      y = mod.f(time).t * x1 + v
     } yield (Data(time, Some(y)), x1)
   }
 
   /**
     * Simulate from a DLM
     */
-  def simulate(startTime: Time, mod: Model, p: Parameters): Process[(Data, DenseVector[Double])] = {
+  def simulate(
+    startTime: Time, 
+    mod: Model, 
+    p: Parameters): Process[(Data, DenseVector[Double])] = {
 
-    MarkovChain((Data(startTime, None), DenseVector(p.m0.toArray))){ case (y, x) => simStep(mod, x, y.time + 1, p) }
+    val init = (Data(startTime, None), p.m0)
+    MarkovChain(init){ case (y, x) => simStep(mod, x, y.time + 1, p) }
   }
 
   /**
     * Similar Dynamic Linear Models can be combined in order to model
     * multiple similar times series in a vectorised way
     */
-  implicit val outerSumModel = new Semigroup[Model] {
-    def combine(x: Model, y: Model): Model = {
+  def outerSumModel(x: Model, y: Model) = {
       Model(
         (t: Time) => blockDiagonal(x.f(t), y.f(t)),
         (t: Time) => blockDiagonal(x.g(t), y.g(t))
       )
-    }
   }
 }

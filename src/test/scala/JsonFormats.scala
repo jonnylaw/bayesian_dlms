@@ -1,6 +1,5 @@
 import org.scalacheck._
 import Prop.forAll
-import spray.json._
 import dlm.model._
 import JsonFormats._
 import Dlm._

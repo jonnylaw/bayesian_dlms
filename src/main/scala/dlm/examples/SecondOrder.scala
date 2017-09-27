@@ -4,7 +4,7 @@ import dlm.model._
 import Dlm._
 import MetropolisHastings._
 import GibbsSampling._
-import breeze.linalg.{DenseMatrix, DenseVector}
+import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions.{Gamma, Gaussian, Rand}
 import java.io.{File, PrintWriter}
 import math.{log, exp}
@@ -14,10 +14,10 @@ trait DlmModel {
   val mod = polynomial(2)
 
   val p = Parameters(
-    Vector(3.0), 
-    Vector(2.0, 1.0), 
-    Vector(0.0, 0.0), 
-    Vector(100.0, 100.0)
+    DenseMatrix(3.0),
+    diag(DenseVector(2.0, 1.0)),
+    DenseVector(0.0, 0.0), 
+    diag(DenseVector(100.0, 100.0))
   )
 }
 
@@ -114,8 +114,8 @@ object GibbsInvestParameters extends App with DlmModel {
   println(priorW)
 
   val initP = Parameters(
-    v = Vector(1.0 / priorV.draw),
-    w = Vector(1.0 / priorW.draw, 1.0 / priorW.draw),
+    v = DenseMatrix(1.0 / priorV.draw),
+    w = diag(DenseVector(1.0 / priorW.draw, 1.0 / priorW.draw)),
     m0 = p.m0,
     c0 = p.c0
   )

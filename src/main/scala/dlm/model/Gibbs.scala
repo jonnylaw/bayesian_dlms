@@ -4,17 +4,14 @@ import Dlm._
 import Smoothing._
 import KalmanFilter._
 import cats.implicits._
-import breeze.linalg.DenseVector
+import breeze.linalg.{DenseVector, diag}
 import breeze.stats.distributions.{Rand, Gamma, MarkovChain}
 
 object GibbsSampling extends App {
-  case class GibbsState(
+  case class State(
     p:     Parameters, 
     state: Array[(Time, DenseVector[Double])]
-  ) {
-
-    override def toString = p.toString
-  }
+  )
 
   def sampleGamma(
     prior:        Gamma, 
@@ -49,10 +46,10 @@ object GibbsSampling extends App {
     val obs = observations.map(_.observation).flatten.map(_.data).transpose
     
     val res = oneStepForecasts.zip(obs).map { case (y, f) =>
-      sampleGamma(priorV, y, f)
+      sampleGamma(priorV, y, f).draw
     }
 
-    res.toVector.sequence
+    diag(DenseVector(res))
   }
 
   def sampleGammaState(
@@ -90,10 +87,10 @@ object GibbsSampling extends App {
       tail.transpose
 
     val res = (prevState.zip(stateMean)).map { case (mt, mt1) =>
-         sampleGammaState(n, priorW, mt1, mt)
+         sampleGammaState(n, priorW, mt1, mt).draw
      }
 
-    res.toVector.sequence
+    diag(DenseVector(res))
   }
 
   def sampleState(
@@ -112,20 +109,22 @@ object GibbsSampling extends App {
     mod:          Model, 
     priorV:       Gamma,
     priorW:       Gamma, 
-    observations: Array[Data])(gibbsState: GibbsState) = {
+    observations: Array[Data])(gibbsState: State) = {
 
     val state = sampleState(mod, observations, gibbsState.p)
 
-    for {
-      prec_obs <- sampleObservationMatrix(priorV, mod, state, observations)
-      prec_system <- sampleSystemMatrix(priorW, mod, state, observations)
-    } yield GibbsState(
-      Parameters(
-        prec_obs map (pv => 1/pv), 
-        prec_system map (pw => 1/pw), 
-        gibbsState.p.m0, 
-        gibbsState.p.c0), 
-      state
+    val prec_obs = sampleObservationMatrix(priorV, mod, state, observations)
+    val prec_system = sampleSystemMatrix(priorW, mod, state, observations)
+    
+    Rand.always(
+      State(
+        Parameters(
+          prec_obs map (pv => 1/pv),
+          prec_system map (pw => 1/pw),
+          gibbsState.p.m0,
+          gibbsState.p.c0),
+        state
+      )
     )
   }
 
@@ -140,7 +139,7 @@ object GibbsSampling extends App {
     observations: Array[Data]) = {
 
     val initState = sampleState(mod, observations, initParams)
-    val init = GibbsState(initParams, initState)
+    val init = State(initParams, initState)
 
     MarkovChain(init)(dinvGammaStep(mod, priorV, priorW, observations))
   }

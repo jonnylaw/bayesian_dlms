@@ -8,26 +8,24 @@ import Dlm._
 
 object KalmanFilter {
   case class KfState(
-    time: Time,
+    time:           Time,
     statePosterior: State, 
-    statePrior: State,
-    y: Option[Observation], 
-    cov: Option[DenseMatrix[Double]],
-    ll: Double
-  ) {
-    override def toString = s"$time, ${statePosterior.mean.data.mkString(", ")}, ${statePosterior.covariance.data.mkString(", ")}, ${y.map(_.data.mkString(", ")).getOrElse("NA")}, ${cov.map(_.data.mkString(", ")).getOrElse("NA")}"
-  }
+    statePrior:     State,
+    y:              Option[Observation],
+    cov:            Option[DenseMatrix[Double]],
+    ll:             Double
+  )
 
   def advanceState(mod: Model, x: State, time: Time, p: Parameters): State = {
     val at = mod.g(time) * x.mean
-    val rt = mod.g(time) * x.covariance * mod.g(time).t + diag(DenseVector(p.w.toArray))
+    val rt = mod.g(time) * x.covariance * mod.g(time).t + p.w
 
     MultivariateGaussian(at, rt)
   }
 
   def oneStepPrediction(mod: Model, x: State, time: Time, p: Parameters) = {
     val ft = mod.f(time).t * x.mean
-    val qt = mod.f(time).t * x.covariance * mod.f(time) + diag(DenseVector(p.v.toArray))
+    val qt = mod.f(time).t * x.covariance * mod.f(time) + p.v
 
     (ft, qt)
   }
@@ -45,16 +43,15 @@ object KalmanFilter {
     p: Parameters): State = y.observation match {
     case Some(obs) =>
       val time = y.time
-      val v = diag(DenseVector(p.v.toArray))
       val residual = obs - predicted
       val kalman_gain = x.covariance * mod.f(time) * inv(qt)
       val mt1 = x.mean + kalman_gain * residual
-      val n = p.w.size
+      val n = p.w.cols
 
       val identity = DenseMatrix.eye[Double](n)
 
       val diff = (identity - kalman_gain * mod.f(time).t)
-      val covariance = diff * x.covariance * diff.t + kalman_gain * v * kalman_gain.t
+      val covariance = diff * x.covariance * diff.t + kalman_gain * p.v * kalman_gain.t
 
       MultivariateGaussian(mt1, covariance)
     case None =>
@@ -86,14 +83,11 @@ object KalmanFilter {
     * Run the Kalman Filter over an array of data
     */
   def kalmanFilter(mod: Model, observations: Array[Data], p: Parameters) = {
-    val init_state = MultivariateGaussian(
-      DenseVector(p.m0.toArray), 
-      diag(DenseVector(p.c0.toArray))
-    )
+    val initState = MultivariateGaussian(p.m0, p.c0)
     val init: KfState = KfState(
       observations.head.time,
-      init_state,
-      advanceState(mod, init_state, 0, p),
+      initState,
+      advanceState(mod, initState, 0, p),
       None, None, 0.0)
 
     observations.scanLeft(init)(stepKalmanFilter(mod, p)).drop(1)
@@ -103,10 +97,7 @@ object KalmanFilter {
     * Calculate the marginal likelihood of a DLM using a kalman filter
     */
   def kfLogLikelihood(mod: Model, observations: Array[Data])(p: Parameters): Double = {
-    val initState = MultivariateGaussian(
-      DenseVector(p.m0.toArray), 
-      diag(DenseVector(p.c0.toArray))
-    )
+    val initState = MultivariateGaussian(p.m0, p.c0)
     val init: KfState = KfState(
       observations.head.time,
       initState,

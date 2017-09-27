@@ -1,0 +1,128 @@
+---
+title: "Correlated DLM"
+author: "Jonathan Law"
+date: "27 September 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+
+con = DBI::dbConnect(drv = RPostgreSQL::PostgreSQL(), 
+                     host = "uodata1",
+                     user= "uo_read",
+                     password = rstudioapi::askForPassword("Database password"),
+                     dbname = "uodata_2")
+```
+
+# Problem Description
+
+In order to model many related time series and perform forecasting jointly we can formulate a Dynamic Linear Model with an observation *vector* containing values from the related time series at each timestep. To induce correlation in the model, the State evolution matrix, $W$, is allowed to be full-rank. This can be learned from the data.
+
+$$\begin{align}
+\textbf{Y}_t &= F_t x_t + \textbf{v}_t, \quad v_t \sim \mathcal{N}(0, V), \\
+X_t &= G_t x_{t-1} + w_t, \quad w_t \sim \mathcal{N}(0, W).
+\end{align}$$
+
+The observation at each time point consists of $n$ related time series, $\textbf{Y}_t = (y_{1,t},\dots,y_{n,t})$.
+
+TODO: Describe composition of models
+
+## Example
+
+To illustrate the combination of single models into a combined model, we consider the "outer sum" of two models. The first model is a first order polynomial model, the second model in the composition is a linear trend. The first model is given by:
+
+$$\begin{align}
+Y_t &= x_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
+X_t &= x_{t-1} + w_t, \quad w_t \sim \mathcal{N}(0, W), \\
+X_0 &\sim \mathcal{N}(m_0, C_0).
+\end{align}$$
+
+Where the state, $x_t$ is univarate an evolves according to a random walk. The second model is given by: 
+
+$$\begin{align}
+Y_t &= F \textbf{x}_t + \textbf{v}_t, \quad v_t \sim \mathcal{N}(0, V), \\
+\textbf{X}_t &= G \textbf{x}_{t-1} + w_t, \quad w_t \sim \mathcal{N}(0, W), \\
+\textbf{X}_0 &\sim \mathcal{N}(m_0, C_0).
+\end{align}$$
+
+The state is two dimensional, as such the system noise matrix $W$ is a $2 \times 2$ matrix. The observation matrix does not depend on time and is given by, $F = (1 \quad 0)$ and the system evolution matrix is:
+
+$$G = \begin{pmatrix} 
+1 & 1 \\
+0 & 1
+\end{pmatrix}.$$
+
+The two DLMs above can be composed using an outer sum to model two time series which are thought to be related. The observation matrices are concatenated so that the composed model has as the observation matrix, $F = (1 \quad 1 \quad 0)$ and the system evolution matrices are block-concatenated so that the system matrix of the composed model is:
+
+$$G = \begin{pmatrix} 
+1 & 0 & 0 \\
+0 & 1 & 1 \\
+0 & 0 & 1
+\end{pmatrix}.$$
+
+The figure below shows a simulation from the composed model
+
+```{r}
+data = read_csv("../data/CorrelatedDlm.csv")
+
+data %>%
+  gather(key, value, observation_1, observation_2) %>%
+  ggplot(aes(x = time, y = value)) +
+  geom_line() +
+  facet_wrap(~key, scales = "free_y", ncol = 1)
+```
+
+# Parameter Learning
+
+The unkown parameters of the model are the system noise matrix, $W$ and the observation noise matrix, $V$. The observation noise matrix is assumed to be diagonal. We can use Gibbs Sampling to determine the values of $W$ and $V$, by utilising conjugate structure of the conditional distributions of the model. Assume initially that the parameters of the initial state are known, then the unknown parameters can be written as the vector, $\theta = (v_1, v_2, w_1, \dots, w_9)$. The joint distribution of all the random variables in the model can be written as:
+
+$$p(\textbf{X}_{1:T}, \textbf{Y}_{1:T}, \theta) = p(\theta) p(\textbf{x}_0) \prod_{i=1}^T p(\textbf{y}_i| \textbf{x}_i, \theta) p(\textbf{x}_i | \textbf{x}_{i-1}, \theta)$$
+
+This factorisation of the random variables makes it clearer to see how a gibbs sampling approach could be used. We observe values of the observations $Y_{1:T}$ from time $t = \{1, \dots, T}$, then given the value of the parameters we sample a value of the state using forward filtering - backward sampling (FFBS). Then given the values of the states, we can draw a value for both the observation and system noise covariances. 
+
+## Observation Noise Matrix: d-Inverse Gamma
+
+First consider the observation variance matrix, this matrix is diagonal, so the following argument is simplified by considering only one time series in the observation vector. The prior distribution of the observation precision, $\tau_v$ (the inverse fo the variance) is the gamma distribution:
+
+$$p(\tau_v) \sim \textrm{Gamma}(\alpha, \beta)$$
+
+The likelihood of $y_t$ is Gaussian, with mean $F^T \textbf{x}_t$ and precision $\tau_v$. The Gamma distribution is conjugate to the Normal distribution with known mean and unknown precision, hence the posterior distribution of the observation precision is:
+
+$$p(\tau_v | y_{1:T}, \textbf{x}_{1:T}) = \textrm{Gamma}\left(\alpha + \frac{n}{2}, \beta + \frac{1}{2}\sum_{i=1}^T(y_t - F^T\textbf{x}_t)^2\right).$$
+
+## System Noise Matrix: Inverse Wishart Prior
+
+For the system noise matrix, the Wishart distribution can be used as the conjugate prior for the Gaussian likelihood for $\textbf{x}_t$ with unknown precision, $\tau_w = W^{-1}$ and known mean $G_t\textbf{x}_{t-1}$. 
+
+## Example: Parameter Learning in a simulated Model
+
+```{r}
+iters = read_csv("../data/correlated_dlm_gibbs.csv")
+
+actual_values = tibble(
+  parameter = c("V1", "V2", paste0("W", 1:4)),
+  actual_value = c(1.0, 2.0, 0.75, 0.5, 0.5, 1.25)
+)
+
+params = mutate(iteration = 1:nrow(gibbs_chain)) %>%
+  gather(key = parameter, value, -iteration) %>%
+  inner_join(actual_values, by = "parameter")
+
+p1 = params %>%
+  ggplot(aes(x = iteration, y = value)) +
+  geom_line() +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~parameter, scales = "free_y")
+
+p2 = params %>%
+  group_by(parameter) %>%
+  mutate(running_mean = dlm::ergMean(value)) %>%
+  ggplot(aes(x = iteration, y = running_mean)) +
+  geom_line() +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~parameter, nrow = 1, scales = "free_y")
+
+gridExtra::grid.arrange(p1, p2, ncol = 1)
+```
+
