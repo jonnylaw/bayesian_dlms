@@ -5,7 +5,7 @@ import breeze.linalg._
 import Dlm._
 
 /**
-  * This class learns a correlated system matrix using the Wishart prior on the precision matrix
+  * This class learns a correlated system matrix using the InverseWishart prior on the system noise matrix
   */
 object GibbsWishart {
   /**
@@ -17,33 +17,35 @@ object GibbsWishart {
     state:        Array[(Time, DenseVector[Double])], 
     observations: Array[Data]) = {
 
-    GibbsSampling.sampleObservationMatrix(priorV, mod, state, observations).map(1/_)
+    GibbsSampling.sampleObservationMatrix(priorV, mod, state, observations)
   }
 
   /**
     * Sample the system covariance matrix using a Wishart prior on the system precision matrix
     */
   def sampleSystemMatrix(
-    priorW:       Wishart, 
+    priorW:       InverseWishart,
     mod:          Model, 
     state:        Array[(Time, DenseVector[Double])], 
     observations: Array[Data]): Rand[DenseMatrix[Double]] = {
 
     val n = observations.size
-    val prevState = state.
-      map { case (time, x) => mod.g(time) * x }
-    val stateMean = state.map { case (t, x) => x }
+    val prevState = state.map { case (time, x) => mod.g(time) * x }
+    val stateMean = state.map { case (t, x) => x }.tail
     val difference = stateMean.zip(prevState).
-      map { case (mt, mt1) => (mt1 - mt) * (mt1 - mt).t }.
+      map { case (mt, mt1) => (mt - mt1) * (mt - mt1).t }.
       reduce(_ + _)
 
-    Wishart(priorW.n + n, inv(inv(priorW.scale) + difference)).map(inv(_))
+    val dof = priorW.nu + n
+    val scale = priorW.psi + difference
+
+    InverseWishart(dof, scale)
   }
 
   def wishartStep(
     mod:          Model, 
     priorV:       Gamma,
-    priorW:       Wishart, 
+    priorW:       InverseWishart, 
     observations: Array[Data])(state: GibbsSampling.State) = {
 
     val latentState = GibbsSampling.sampleState(mod, observations, state.p)
@@ -51,14 +53,8 @@ object GibbsWishart {
     for {
       system <- sampleSystemMatrix(priorW, mod, latentState, observations)
       obs = sampleObservationMatrix(priorV, mod, latentState, observations)
-    } yield GibbsSampling.State(
-        Parameters(
-          obs,
-          system,
-          state.p.m0,
-          state.p.c0),
-        latentState
-      )
+      p = Parameters(obs, system, state.p.m0, state.p.c0)
+    } yield GibbsSampling.State(p, latentState)
   }
 
   /**
@@ -67,7 +63,7 @@ object GibbsWishart {
   def gibbsSamples(
     mod:          Model, 
     priorV:       Gamma, 
-    priorW:       Wishart, 
+    priorW:       InverseWishart, 
     initParams:   Parameters, 
     observations: Array[Data]) = {
 

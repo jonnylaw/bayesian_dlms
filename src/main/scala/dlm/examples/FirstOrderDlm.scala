@@ -2,12 +2,11 @@ package dlm.examples
 
 import dlm.model._
 import Dlm._
-import MetropolisHastings._
 import GibbsSampling._
 import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.distributions.Gamma
 import java.nio.file.Paths
-import java.io.{File, PrintWriter}
+import java.io.File
 import cats.implicits._
 import kantan.csv._
 import kantan.csv.ops._
@@ -60,13 +59,12 @@ object FilterDlm extends App with FirstOrderDlm with SimulatedData {
 
   val out = new java.io.File("data/FirstOrderDlmFiltered.csv")
 
-  def formatFiltered(f: KalmanFilter.KfState) = {
-    (f.time, f.statePosterior.mean(0), f.statePosterior.covariance.data(0), 
-      f.y.map(_(0)), f.cov.map(_.data(0)))
+  def formatFiltered(f: KalmanFilter.State) = {
+    (f.time, f.mt(0), f.ct.data(0), f.y.map(_(0)), f.cov.map(_.data(0)))
   }
+  val headers = rfc.withHeader("time", "state_mean", "state_variance", "one_step_forecast", "one_step_variance")
 
-  out.writeCsv(filtered.map(formatFiltered), 
-    rfc.withHeader("time", "state_mean", "state_variance", "one_step_forecast", "one_step_variance"))
+  out.writeCsv(filtered.map(formatFiltered), headers)
 }
 
 object SmoothDlm extends App with FirstOrderDlm with SimulatedData {
@@ -76,7 +74,7 @@ object SmoothDlm extends App with FirstOrderDlm with SimulatedData {
   val out = new java.io.File("data/FirstOrderDlmSmoothed.csv")
 
   def formatSmoothed(s: Smoothing.SmoothingState) = 
-    (s.time, s.state.mean(0), s.state.covariance.data(0))
+    (s.time, s.mean(0), s.covariance.data(0))
 
   out.writeCsv(smoothed.map(formatSmoothed),
     rfc.withHeader("time", "smoothed_mean", "smoothed_variance"))

@@ -54,38 +54,58 @@ object JsonFormats extends DefaultJsonProtocol {
       }
     }
   }
-
   implicit def stateFormat = jsonFormat2(MultivariateGaussian.apply)
 
-  implicit object KalmanStateFormat extends RootJsonFormat[KfState] {
-    def write(d: KfState) = d.y match {
+  implicit object KalmanStateFormat extends RootJsonFormat[KalmanFilter.State] {
+    def write(d: KalmanFilter.State) = d.y match {
       case Some(y) =>
         JsArray(
-          JsNumber(d.time), d.statePosterior.toJson,
-          d.statePrior.toJson, y.toJson, d.cov.get.toJson, JsNumber(d.ll)
+          JsNumber(d.time), 
+          d.mt.toJson,
+          d.ct.toJson, 
+          d.at.toJson,
+          d.rt.toJson,
+          y.toJson, 
+          d.cov.get.toJson, 
+          JsNumber(d.ll)
         )
       case None => 
         JsArray(
-          JsNumber(d.time), d.statePosterior.toJson, 
-          d.statePrior.toJson, JsString("NA"), JsString("NA"), JsNumber(d.ll)
+          JsNumber(d.time), 
+          d.mt.toJson,
+          d.ct.toJson, 
+          d.at.toJson,
+          d.rt.toJson,
+          JsString("NA"), 
+          JsString("NA"), 
+          JsNumber(d.ll)
         )
     }
 
     def read(value: JsValue) = value match {
-      case JsArray(Vector(JsNumber(t), statePost, statePrior, JsString("NA"), JsString("NA"), JsNumber(ll))) => 
-        KfState(
-          t.toInt, statePost.convertTo[State],
-          statePrior.convertTo[State], None, None, ll.toDouble
+      case JsArray(Vector(JsNumber(t), mt, ct, at, rt, JsString("NA"), JsString("NA"), JsNumber(ll))) => 
+        KalmanFilter.State(
+          t.toInt, 
+          mt.convertTo[DenseVector[Double]],
+          ct.convertTo[DenseMatrix[Double]],
+          at.convertTo[DenseVector[Double]],
+          rt.convertTo[DenseMatrix[Double]],
+          None, 
+          None, 
+          ll.toDouble
         )
-      case JsArray(Vector(JsNumber(t), statePost, statePrior, observation, cov, JsNumber(ll))) => 
-        KfState(
-          t.toInt, statePost.convertTo[State],
-          statePrior.convertTo[State],
+      case JsArray(Vector(JsNumber(t), mt, ct, at, rt, observation, cov, JsNumber(ll))) => 
+        KalmanFilter.State(
+          t.toInt,
+          mt.convertTo[DenseVector[Double]],
+          ct.convertTo[DenseMatrix[Double]],
+          at.convertTo[DenseVector[Double]],
+          rt.convertTo[DenseMatrix[Double]],
           Some(observation.convertTo[DenseVector[Double]]),
           Some(cov.convertTo[DenseMatrix[Double]]), 
           ll.toDouble)
       case _ => 
-        deserializationError("KfState expected")
+        deserializationError("KalmanFilter.State expected")
     }
   }
 }

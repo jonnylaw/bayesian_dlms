@@ -49,7 +49,7 @@ object GibbsSampling extends App {
       sampleGamma(priorV, y, f).draw
     }
 
-    diag(DenseVector(res))
+    diag(DenseVector(res.map(pv => 1/pv)))
   }
 
   def sampleGammaState(
@@ -113,13 +113,13 @@ object GibbsSampling extends App {
 
     val state = sampleState(mod, observations, gibbsState.p)
 
-    val prec_obs = sampleObservationMatrix(priorV, mod, state, observations)
+    val obs = sampleObservationMatrix(priorV, mod, state, observations)
     val prec_system = sampleSystemMatrix(priorW, mod, state, observations)
     
     Rand.always(
       State(
         Parameters(
-          prec_obs map (pv => 1/pv),
+          obs,
           prec_system map (pw => 1/pw),
           gibbsState.p.m0,
           gibbsState.p.c0),

@@ -1,0 +1,85 @@
+---
+title: "Correlated Environmental Sensor Data"
+author: "Jonathan Law"
+date: "28 September 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+# Urban Observatory Environment Data
+
+```{r make-request}
+start_date = "20160901"
+end_date = "20170901"
+api_key = "t5dhdds7hiyv1qc0v91g9v1hvq7kftb6vgueemtibx15iic9maiv9ha5003sbvx805v9ppd36t7damx37r7q1otjpw"
+query = paste0("http://uoweb1.ncl.ac.uk/api/v1/sensor/data/raw.csv?", 
+               "sensor_name=new_new_emote_1114",
+               "&start_time=", start_date,
+               "&end_time=", end_date,
+               "&variable=Humidity-and-Temperature",
+               "&api_key=", api_key)
+
+r = httr::GET(query)
+```
+
+```{r parse_data}
+(data = read_csv(httr::content(r, "text")))
+```
+
+```{r plot_timeseries}
+ggplot(data, aes(x = Timestamp, y = Value, colour = Variable)) +
+  geom_line() +
+  labs(title = "Humidity and Temperature Recordings", subtitle = "Humidity and Temperature recorded at sensor new_new_emote_1114")
+```
+
+```{r Bivariate-Distribution}
+data %>%
+  spread(key = Variable, value = Value) %>%
+  ggplot(aes(x = Temperature, y = Humidity)) +
+  geom_point()
+```
+
+```{r histograms}
+data %>% 
+  ggplot(aes(x = value)) +
+  geom_histogram() +
+  facet_wrap(~Variable)
+```
+
+
+
+# A Regression DLM
+
+Regress the values of Humidity against Temperature using a regression DLM:
+
+$$\begin{align*}
+Y_t &= F_t x_t + v_t, \qquad v \sim \mathcal{N}(0, V), \\
+x_t &= x_{t-1} + w_t, \qquad w \sim \textrm{MVN}(0, W),
+x_0 \sim \textrm{MVN}(m_0, C_0).
+\end{align*}$$
+
+$Y_t$ is a univariate observation of the temperature at time $t$, $F_t$ contains the humidity at time $t$ and the regression intercept term:
+
+$$F_t = \begin{pmatrix} 1 & h_t\end{pmatrix}.$$
+
+$x_t$ is the latent state and can be thought of as the time varying regression coefficients.
+
+# A Gaussian Joint-DLM
+
+In order to forecast processes which are highly correlated, we can model the correlation between the series exploiting the information from both time series to give a more accurate forecast. We first specify a model for the Temperature and humidity seperately and then combine the two DLMs using an outer sum. 
+
+## Temperature Model
+
+The model we consider for the temperature is:
+
+$$\begin{align*}
+
+\end{align*}$$
+
+# A Non-Gaussian Joint-Model
+
+# A Continuous Time Non-Gaussian Joint Model
