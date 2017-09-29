@@ -12,9 +12,10 @@ library(tidyverse)
 
 # Urban Observatory Environment Data
 
-```{r make-request}
-start_date = "20160901"
-end_date = "20170901"
+```{r make-request, eval=FALSE}
+# This should not be used to query long intervals
+start_date = "20170901"
+end_date = "20170907"
 api_key = "t5dhdds7hiyv1qc0v91g9v1hvq7kftb6vgueemtibx15iic9maiv9ha5003sbvx805v9ppd36t7damx37r7q1otjpw"
 query = paste0("http://uoweb1.ncl.ac.uk/api/v1/sensor/data/raw.csv?", 
                "sensor_name=new_new_emote_1114",
@@ -24,20 +25,40 @@ query = paste0("http://uoweb1.ncl.ac.uk/api/v1/sensor/data/raw.csv?",
                "&api_key=", api_key)
 
 r = httr::GET(query)
-```
-
-```{r parse_data}
 (data = read_csv(httr::content(r, "text")))
 ```
 
+```{r import_data}
+data = read_csv("../data/new_new_emote_1114.csv")
+```
+
+```{r}
+library(magrittr)
+data %<>%
+  filter(Variable %in% c("Humidity", "Temperature"))
+```
+
 ```{r plot_timeseries}
-ggplot(data, aes(x = Timestamp, y = Value, colour = Variable)) +
+stats = data %>%
+  group_by(Variable) %>%
+  summarise(mean = mean(Value), sd = sd(Value))
+
+data %>%
+  filter(Timestamp > "2017-09-01") %>%
+  inner_join(stats) %>%
+  rowwise() %>%
+  mutate(norm_value = (Value - mean) / sd) %>%
+  ggplot(aes(x = Timestamp, y = norm_value, colour = Variable)) +
   geom_line() +
-  labs(title = "Humidity and Temperature Recordings", subtitle = "Humidity and Temperature recorded at sensor new_new_emote_1114")
+  labs(title = "Humidity and Temperature Recordings", 
+       subtitle = "Normalised Humidity and Temperature recorded at sensor new_new_emote_1114")
 ```
 
 ```{r Bivariate-Distribution}
 data %>%
+  filter(Timestamp > "2017-09-01") %>%
+  distinct() %>%
+  select(Timestamp, Variable, Value) %>%
   spread(key = Variable, value = Value) %>%
   ggplot(aes(x = Temperature, y = Humidity)) +
   geom_point()
@@ -45,12 +66,51 @@ data %>%
 
 ```{r histograms}
 data %>% 
-  ggplot(aes(x = value)) +
-  geom_histogram() +
-  facet_wrap(~Variable)
+  inner_join(stats) %>%
+  mutate(norm_value = (Value - mean) / sd) %>%
+  filter(Timestamp > "2017-09-01") %>%
+  ggplot(aes(x = norm_value)) +
+  geom_histogram(bins = 100) +
+  facet_wrap(~Variable, ncol = 1) +
+  labs(title = "Histograms of normalised values")
+```
+
+In order to apply a DLM model to this data, it needs to be observed on a regular grid.
+
+```{r}
+humid_temp = data[-c(96405, 589192),] %>%
+  select(Timestamp, Value, Variable) %>%
+  spread(key = Variable, value = Value)
+```
+
+The data is observed once per minute. In order to fit the DLM models we must ensure any missing data has an associated timestamp. To do this, left join onto a contiguous sequence of times:
+
+```{r}
+start_time = lubridate::round_date(min(humid_temp$Timestamp), "hour")
+end_time = start_time + lubridate::dweeks(8)
+dates = seq(from = start_time, to = end_time, by = "1 hour")
+
+humid_temp = tibble(Hour = dates) %>%
+  left_join(humid_temp %>% mutate(Hour = lubridate::round_date(Timestamp, "hour")), by = "Hour") %>%
+  group_by(Hour) %>%
+  summarise_at(c("Humidity", "Temperature"), function(x) mean(x, na.rm = T))
+```
+
+```{r}
+humid_temp %>%
+  gather(key, value, -Hour) %>%
+  ggplot(aes(x = Hour, y = value)) +
+  geom_line() +
+  facet_wrap(~key, ncol = 1, scales = "free_y")
 ```
 
 
+```{r}
+humid_temp %>%
+  mutate(relative_time = as.integer(difftime(Hour, start_time, units = "hour"))) %>%
+  select(relative_time, Humidity, Temperature) %>% View()
+  write_csv(., path = "../data/humidity_temperature_1114.csv")
+```
 
 # A Regression DLM
 
@@ -74,12 +134,35 @@ In order to forecast processes which are highly correlated, we can model the cor
 
 ## Temperature Model
 
-The model we consider for the temperature is:
+The temperature model is a composition of a linear trend model and a daily seasonal model. The Observation and system evolution matrices are give as follows:
 
-$$\begin{align*}
+$$
+\begin{align*}
+F_t &= \begin{pmatrix} 1 \\ 1 \\0 \\1 \\0 \\ \vdots \\ 0 \end{pmatrix}, \\
+G_t &= \begin{pmatrix} 
+  1 & 0 & \dots & \dots & \dots &\dots & 0 \\ 
+  0 & \cos(\omega) & -\sin(\omega) & 0 & \dots &\dots & 0 \\
+  0 & \sin(\omega) & \cos(\omega) & 0 & \dots &\dots & 0 \\
+  0 & 0 & 0 & \ddots & \ddots & \dots & 0 \\
+  \vdots & \dots & \dots & \dots & \dots & \cos(h\omega) & -\sin(h\omega) \\
+  0 & \dots & \dots & \dots & \dots & \sin(h\omega) & \cos(h\omega)
+\end{pmatrix}
+\end{align*}
+$$
 
-\end{align*}$$
+Where here $\omega = 2 \Pi / T$, where $T$ is the period of the of the seasonality. In this case $T = 60 * 24$ Since the observations are recorded every minute. $h$ represents the number of harmonics in the seasonal model.
+
+### Fitting the temperature model
+
+```{r}
+temp_iters = read_csv("../data/temperature_model_parameters.csv")
+```
 
 # A Non-Gaussian Joint-Model
 
+* Humidity is between 0 and 100, scaled Beta?
+* Use Particle Filter for Beta Observation
+
 # A Continuous Time Non-Gaussian Joint Model
+
+* Use SDEs for state space

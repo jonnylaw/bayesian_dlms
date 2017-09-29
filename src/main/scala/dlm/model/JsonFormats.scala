@@ -20,23 +20,7 @@ object JsonFormats extends DefaultJsonProtocol {
     }
   }
 
-  implicit object DataJsonFormat extends RootJsonFormat[Data] {
-    def write(d: Data) = d.observation match {
-      case Some(y: DenseVector[Double]) =>
-        JsArray(JsNumber(d.time), JsArray(Vector(y.toJson)))
-      case None => 
-        JsArray(JsNumber(d.time), JsString("NA"))
-    }
-
-    def read(value: JsValue) = value match {
-      case JsArray(Vector(JsNumber(t), JsString("NA"))) => 
-        Data(t.toInt, None)
-      case JsArray(Vector(JsNumber(t), y)) =>
-        Data(t.toInt, Some(y.convertTo[DenseVector[Double]]))
-      case _ => 
-        deserializationError("Data expected")
-    }
-  }
+  implicit val dataJson = jsonFormat2(Data.apply)
 
   implicit def denseMatrixFormat = new RootJsonFormat[DenseMatrix[Double]] {
     def write(mat: DenseMatrix[Double]) = JsObject(

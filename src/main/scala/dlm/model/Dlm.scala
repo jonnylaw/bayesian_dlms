@@ -32,12 +32,7 @@ object Dlm {
   /**
     * A single observation of a DLM
     */
-  case class Data(time: Time, observation: Option[Observation]) {
-    override def toString = observation match {
-      case Some(y) => s"$time, ${y.data.mkString(", ")}"
-      case None => s"$time, NA"
-    }
-  }
+  case class Data(time: Time, observation: Option[Observation])
 
   def polynomial(order: Int): Model = {
     Model(
@@ -101,7 +96,7 @@ object Dlm {
     val matrices = (1 to harmonics) map (h => rotationMatrix(freq * h))
 
     Model(
-      (t: Time) => DenseMatrix.tabulate(harmonics * 2, 1){ case (i, h) => h % 2 },
+      (t: Time) => DenseMatrix.tabulate(harmonics * 2, 1){ case (h, i) => if (h % 2 == 0) 1 else 0 },
       (t: Time) => matrices.reduce(blockDiagonal)
     )
   }
