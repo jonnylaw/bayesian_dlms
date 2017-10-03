@@ -4,7 +4,6 @@ import breeze.linalg.{DenseMatrix, diag, DenseVector, inv}
 import breeze.stats.distributions._
 import scala.math.{exp, log}
 import cats.Monad
-import KalmanFilter._
 import Dlm._
 import cats.implicits._
 
@@ -18,13 +17,6 @@ object MetropolisHastings {
 
   def symmetricProposal(delta: Double)(p: Parameters): Rand[Parameters] = ???
 
-  //   val p_logged = Parameters(p.v map log, p.w map log, p.m0, p.c0 map log)
-
-  //   p_logged.
-  //     traverse(x => Gaussian(x, delta): Rand[Double]).
-  //     map(p => Parameters(p.v map exp, p.w map exp, p.m0 map exp, p.c0 map exp))
-  // }
-
   def metropolisHastingsDlm(
     mod: Model,
     observations: Array[Data],
@@ -32,7 +24,7 @@ object MetropolisHastings {
     initState: MhState
   ) = {
 
-    MarkovChain(initState)(mhStep(proposal, kfLogLikelihood(mod, observations)))
+    MarkovChain(initState)(mhStep(proposal, KalmanFilter.logLikelihood(mod, observations)))
   }
 
   def mhStep(

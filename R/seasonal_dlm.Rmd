@@ -1,0 +1,92 @@
+---
+title: "Seasonal DLM"
+author: "Jonathan Law"
+date: "3 October 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+theme_set(theme_minimal())
+```
+
+# Simulate From a Seasonal DLM
+
+```{r}
+sims = read_csv("../data/seasonal_dlm.csv")
+
+sims %>%
+  ggplot(aes(x = time, y = observation)) +
+  geom_line()
+```
+
+Plot the states
+
+```{r}
+sims %>%
+  select(time, contains("state")) %>%
+  gather(key, value, -time) %>%
+  ggplot(aes(x = time, y = value)) +
+  geom_line() +
+  facet_wrap(~key, scales = "free_y", strip.position = "right", ncol = 1)
+```
+
+
+
+## Example: Parameter Learning in a simulated Model
+
+```{r}
+iters = read_csv("../data/seasonal_dlm_gibbs.csv")
+
+actual_values = tibble(
+  parameter = c("V", paste0("W", 1:7)),
+  actual_value = c(1.906964895e-18, 1.183656514e-01, 4.074187352e-13, 4.162722546e-01, 
+      7.306081843e-14, 2.193511341e-03, 1.669158400e-08, 3.555685730e-03)
+)
+
+params = iters %>%
+  mutate(iteration = 1:nrow(iters)) %>%
+  gather(key = parameter, value, -iteration) %>%
+  inner_join(actual_values, by = "parameter") %>%
+  filter(parameter == "V")
+
+p1 = params %>%
+  ggplot(aes(x = iteration, y = value)) +
+  geom_line() +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~parameter, scales = "free_y")
+
+p2 = params %>%
+  group_by(parameter) %>%
+  mutate(running_mean = dlm::ergMean(value)) %>%
+  ggplot(aes(x = iteration, y = running_mean)) +
+  geom_line() +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~parameter, nrow = 1, scales = "free_y")
+
+gridExtra::grid.arrange(p1, p2, ncol = 1)
+```
+
+```{r, fig.cap="Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated seasonal model"}
+params = iters %>%
+  mutate(iteration = 1:nrow(iters)) %>%
+  gather(key = parameter, value, -iteration) %>%
+  inner_join(actual_values, by = "parameter") %>%
+  filter(parameter %in% paste0("W", 1:4))
+
+p1 = params %>%
+  ggplot(aes(x = iteration, y = value)) +
+  geom_line() +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~parameter, scales = "free_y")
+
+p2 = params %>%
+  group_by(parameter) %>%
+  mutate(running_mean = dlm::ergMean(value)) %>%
+  ggplot(aes(x = iteration, y = running_mean)) +
+  geom_line() +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~parameter, nrow = 1, scales = "free_y")
+
+gridExtra::grid.arrange(p1, p2, ncol = 1)
+```

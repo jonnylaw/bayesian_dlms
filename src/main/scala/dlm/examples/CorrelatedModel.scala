@@ -80,9 +80,9 @@ object FilterCorrelatedDlm extends App with CorrelatedModel with CorrelatedData 
 
 object GibbsCorrelated extends App with CorrelatedModel with CorrelatedData {
 
-  val iters = GibbsWishart.gibbsSamples(model, Gamma(1.0, 1.0), InverseWishart(1, DenseMatrix.eye[Double](2)), p, data).
+  val iters = GibbsWishart.gibbsSamples(model, Gamma(1.0, 1.0), InverseWishart(3, DenseMatrix.eye[Double](2)), p, data).
     steps.
-    take(100000)
+    take(10000)
 
   val out = new java.io.File("data/correlated_dlm_gibbs.csv")
   val headers = rfc.withHeader("V1", "V2", "V3", "V4", "W1", "W2", "W3", "W4")

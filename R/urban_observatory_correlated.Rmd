@@ -8,6 +8,10 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(dlm)
+library(magrittr)
+
+theme_set(theme_minimal())
 ```
 
 # Urban Observatory Environment Data
@@ -105,10 +109,10 @@ humid_temp %>%
 ```
 
 
-```{r}
+```{r, eval=FALSE}
 humid_temp %>%
   mutate(relative_time = as.integer(difftime(Hour, start_time, units = "hour"))) %>%
-  select(relative_time, Humidity, Temperature) %>% View()
+  select(relative_time, Humidity, Temperature) %>% 
   write_csv(., path = "../data/humidity_temperature_1114.csv")
 ```
 
@@ -154,9 +158,86 @@ Where here $\omega = 2 \Pi / T$, where $T$ is the period of the of the seasonali
 
 ### Fitting the temperature model
 
+* Plot temperature data
+
 ```{r}
+humid_temp %>%
+  ggplot(aes(x = Hour, y = Temperature)) +
+  geom_line()
+```
+
+* Simulate the data, this looks like a fairly reasonable model
+
+```{r}
+sims = read_csv("../data/simulated_temperature_data.csv")
+
+sims %>%
+  gather(key, value, -time) %>%
+  ggplot(aes(x = time, y = value)) +
+  geom_line() +
+  facet_wrap(~key)
+```
+
+* plot simulated data 
+
+* Kalman Filter Temperature Data
+
+```{r}
+filtered = read_csv("../data/temperature_filtered.csv")
+
+humid_temp %>%
+  mutate(time = as.integer(difftime(Hour, start_time, units = "hour"))) %>%
+  select(time, Temperature) %>%
+  inner_join(filtered, by = "time") %>%
+  select(-contains("state")) %>%
+  mutate(upper = qnorm(p = 0.975, mean = one_step_forecast, sd = sqrt(one_step_variance))) %>%
+  mutate(lower = qnorm(p = 0.025, mean = one_step_forecast, sd = sqrt(one_step_variance))) %>%
+  gather(key, value, -time, -one_step_variance, -lower, -upper) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  geom_line(aes(x = time, y = lower), linetype = 2, colour = "#999999") +
+  geom_line(aes(x = time, y = upper), linetype = 2, colour = "#999999")
+```
+
+* Fit the model using optim
+
+```{r}
+model = function(theta) {
+  dlmModPoly(1, dV = exp(theta[1]), dW = exp(theta[2])) + dlmModTrig(s = 24, q = 3, dW = exp(theta[3:8]))
+}
+fit = dlmMLE(y = humid_temp[1:150,] %$% Temperature, parm = rep(1, 8), build = model)
+exp(fit$par)
+```
+
+```{r}
+plot(humid_temp[1:150,] %$% Temperature, type = "l")
+```
+
+
+```{r read-chain}
 temp_iters = read_csv("../data/temperature_model_parameters.csv")
 ```
+
+```{r autocorrelation}
+library(coda)
+library(ggmcmc)
+
+chain = mcmc(temp_iters) %>%
+  ggmcmc::ggs()
+
+ggmcmc(chain)
+```
+
+```{r traceplot}
+ggs_traceplot(chain)
+```
+
+```{r ergmean}
+ggs_running(chain)
+```
+
+
+
 
 # A Non-Gaussian Joint-Model
 

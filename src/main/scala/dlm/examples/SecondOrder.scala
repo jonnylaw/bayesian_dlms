@@ -9,6 +9,9 @@ import breeze.stats.distributions.{Gamma, Gaussian, Rand}
 import java.io.{File, PrintWriter}
 import math.{log, exp}
 import cats.implicits._
+import kantan.csv._
+import kantan.csv.ops._
+import kantan.csv.generic._
 
 trait DlmModel {
   val mod = polynomial(2)
@@ -110,9 +113,6 @@ object GibbsInvestParameters extends App with DlmModel {
   val priorV = Gamma(alphaV, 1.0/betaV)
   val priorW = Gamma(alphaW, 1.0/betaW)
 
-  println(priorV)
-  println(priorW)
-
   val initP = Parameters(
     v = DenseMatrix(1.0 / priorV.draw),
     w = diag(DenseVector(1.0 / priorW.draw, 1.0 / priorW.draw)),
@@ -120,16 +120,21 @@ object GibbsInvestParameters extends App with DlmModel {
     c0 = p.c0
   )
 
-  println(initP)
-
   val iters = gibbsSamples(mod, priorV, priorW, initP, data).
     steps.
     take(24000)
 
-  // write iters to file
-  val pw = new PrintWriter(new File("data/GibbsInvestData.csv"))
-  while (iters.hasNext) {
-    pw.write(iters.next.toString + "\n")
+  val out = new java.io.File("data/gibbs_spain_investment.csv")
+  val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2"))
+
+  def formatParameters(p: Parameters) = {
+    DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
   }
-  pw.close()
+
+  // write iters to file
+  while (iters.hasNext) {
+    writer.write(formatParameters(iters.next.p))
+  }
+
+  writer.close()
 }

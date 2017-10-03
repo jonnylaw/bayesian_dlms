@@ -76,7 +76,7 @@ object Dlm {
     */
   def blockDiagonal(
     a: DenseMatrix[Double],
-    b: DenseMatrix[Double]) = {
+    b: DenseMatrix[Double]): DenseMatrix[Double] = {
 
     val right = DenseMatrix.zeros[Double](a.rows, b.cols)
 
@@ -148,9 +148,18 @@ object Dlm {
     * multiple similar times series in a vectorised way
     */
   def outerSumModel(x: Model, y: Model) = {
-      Model(
-        (t: Time) => blockDiagonal(x.f(t), y.f(t)),
-        (t: Time) => blockDiagonal(x.g(t), y.g(t))
-      )
+    Model(
+      (t: Time) => blockDiagonal(x.f(t), y.f(t)),
+      (t: Time) => blockDiagonal(x.g(t), y.g(t))
+    )
+  }
+
+  def outerSumParameters(x: Parameters, y: Parameters): Parameters = {
+    Parameters(
+      v = blockDiagonal(x.v, y.v),
+      w = blockDiagonal(x.w, y.w),
+      m0 = DenseVector.vertcat(x.m0, y.m0),
+      c0 = blockDiagonal(x.c0, y.c0)
+    )
   }
 }

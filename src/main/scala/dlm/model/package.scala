@@ -1,6 +1,7 @@
 package dlm
 
-import breeze.linalg._
+import breeze.linalg.{DenseVector, DenseMatrix}
+import breeze.stats.mean
 import breeze.stats.distributions._
 import cats.{Eq, Monad}
 import dlm.model.Dlm._
@@ -12,24 +13,38 @@ package object model {
   type ObservationMatrix = Time => DenseMatrix[Double]
   type SystemMatrix = Time => DenseMatrix[Double]
 
+  val tolerance = 1e-1
+
+  implicit def doubleEq = new Eq[Double] {
+    def eqv(x: Double, y: Double) = {
+      math.abs(x - y) < tolerance
+    }
+  }
+
   implicit def vectoreq = new Eq[DenseVector[Double]] {
     def eqv(x: DenseVector[Double], y: DenseVector[Double]) = {
-      val tol = 1e-6
       x.data.zip(y.data).
-        forall { case (a, b) => math.abs(a - b) < tol }
+        forall { case (a, b) => implicitly[Eq[Double]].eqv(a, b) }
     }
   }
 
   implicit def dataeq = new Eq[Data] {
     def eqv(x: Data, y: Data) = (x.observation, y.observation) match {
       case (Some(a), Some(b)) =>
-        math.abs(x.time - y.time) < 1e-6 & implicitly[Eq[DenseVector[Double]]].eqv(a, b)
+        x.time == y.time & implicitly[Eq[DenseVector[Double]]].eqv(a, b)
       case (None, None) =>
-        math.abs(x.time - y.time) < 1e-6
+        x.time == y.time
       case _ => false
     }
   }
 
+  implicit def matrixeq = new Eq[DenseMatrix[Double]] {
+    def eqv(x: DenseMatrix[Double], y: DenseMatrix[Double]) = {
+      val tol = 1e-6
+      x.data.zip(y.data).
+        forall { case (a, b) => implicitly[Eq[Double]].eqv(a, b) }
+    }
+  }
 
   implicit val randMonad = new Monad[Rand] {
     def pure[A](x: A): Rand[A] = Rand.always(x)

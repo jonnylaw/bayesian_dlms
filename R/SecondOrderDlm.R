@@ -1,9 +1,3 @@
-# Reproduce Gibbs Sampling for investing data
-
-chain = read_csv("data/secon")
-
-dlmModPoly(3)
-
 ###############
 # Second Order
 ###############
