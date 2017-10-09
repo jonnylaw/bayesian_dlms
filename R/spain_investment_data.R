@@ -1,4 +1,4 @@
-library()
+library(tidyverse)
 
 # Reproduce Gibbs Sampling for investing data
 

@@ -39,10 +39,6 @@ object KalmanFilter {
     val at = mod.g(time) * mt
     val rt = mod.g(time) * ct * mod.g(time).t + p.w
 
-    // println(s"Time: $time")
-    // println(s"Advanced state mean: $at")
-    // println(s"Advanced state variance: $rt")
-
     (at, rt)
   }
 
@@ -55,9 +51,6 @@ object KalmanFilter {
 
     val ft = mod.f(time).t * at
     val qt = mod.f(time).t * rt * mod.f(time) + p.v
-
-    // println(s"One step prediction: $ft")
-    // println(s"One step prediction variance: $qt")
 
     (ft, qt)
   }
@@ -99,7 +92,7 @@ object KalmanFilter {
     qt: DenseMatrix[Double], 
     data: Option[Observation]) = data match {
     case Some(y) if (y.size == 1) =>
-      Gaussian(ft(0), qt(0,0)).logPdf(y(0))
+      Gaussian(ft(0), math.sqrt(qt(0,0))).logPdf(y(0))
     case Some(y) =>
       MultivariateGaussian(ft, qt).logPdf(y)
     case None => 0.0
@@ -111,9 +104,6 @@ object KalmanFilter {
     val (at, rt) = advanceState(mod, state.mt, state.ct, y.time, p)
     val (ft, qt) = oneStepPrediction(mod, at, rt, y.time, p)
     val (mt, ct) = updateState(mod, at, rt, ft, qt, y, p)
-
-    // println(s"posterior mean: $mt")
-    // println(s"posterior covariance: $ct")
 
     val ll = state.ll + conditionalLikelihood(ft, qt, y.observation)
 
@@ -127,7 +117,7 @@ object KalmanFilter {
     val (at, rt) = advanceState(mod, p.m0, p.c0, 0, p)
     val init = State(observations.head.time, p.m0, p.c0, at, rt, None, None, 0.0)
 
-    observations.scanLeft(init)(stepKalmanFilter(mod, p)).drop(1)
+    observations.scanLeft(init)(stepKalmanFilter(mod, p))
   }
 
   /**

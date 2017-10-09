@@ -17,7 +17,9 @@ sims = read_csv("../data/seasonal_dlm.csv")
 
 sims %>%
   ggplot(aes(x = time, y = observation)) +
-  geom_line()
+  geom_line() +
+  labs(title = "Simulated observations from a seasonal DLM",
+       subtitle = "With V = 1.0, W = diag(0.01, 0.2, 0.4, 0.5, 0.2, 0.1, 0.4)")
 ```
 
 Plot the states
@@ -28,21 +30,100 @@ sims %>%
   gather(key, value, -time) %>%
   ggplot(aes(x = time, y = value)) +
   geom_line() +
-  facet_wrap(~key, scales = "free_y", strip.position = "right", ncol = 1)
+  facet_wrap(~key, scales = "free_y", strip.position = "right", ncol = 1) +
+  labs(title = "Simulated States of the Seasonal DLM",
+       subtitle = "Each dimension of the 7D state plotted against time")
 ```
 
+# Filtering
 
+```{r}
+filtered = read_csv("../data/seasonal_filtered.csv")
+
+filtered %>%
+  inner_join(sims, by = "time") %>%
+  filter(time > 9000) %>%
+  filter(time < 9500) %>%
+  mutate(upper = qnorm(p = 0.95, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
+  mutate(lower = qnorm(p = 0.05, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
+  gather(key, value, state_mean_2, state2) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  geom_line(aes(x = time, y = lower), linetype = 3, colour = "#000000") +
+  geom_line(aes(x = time, y = upper), linetype = 3, colour = "#000000") +
+  theme(legend.position = "bottom") +
+  labs(title = "Kalman Filtering the Seasonal Model", 
+       subtitle = "Mean of the Filtering Distribution overlayed with the actual simulated state with 90% probability intervals")
+```
+
+# Smoothing
+
+
+```{r}
+smoothed = read_csv("../data/seasonal_smoothed.csv")
+
+smoothed %>%
+  filter(time < 500) %>%
+  inner_join(sims, by = "time") %>%
+  mutate(upper_smoothed = qnorm(p = 0.975, mean = state_mean_1, sd = sqrt(state_variance_1))) %>%
+  mutate(lower_smoothed = qnorm(p = 0.025, mean = state_mean_1, sd = sqrt(state_variance_1))) %>%
+  gather(key, value, state1, state_mean_1) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  geom_line(aes(x = time, y = lower_smoothed), linetype = 2, colour = "#000000") +
+  geom_line(aes(x = time, y = upper_smoothed), linetype = 2, colour = "#000000") +
+  theme(legend.position = "bottom") +
+  labs(title = "Smoothed State Estimate",
+       subtitle = "Actual state and smoothed state, with associated 95% intervals")
+```
+
+```{r, eval=FALSE, echo=FALSE}
+library(dlm)
+model = function(theta) {
+  dlmModPoly(1, dV = exp(theta[1]), dW = exp(theta[2])) + dlmModTrig(s = 24, q = 3, dW = exp(theta[3:8]))
+}
+fit = dlmMLE(y = sims$observation, parm = rep(1, 8), build = model)
+```
 
 ## Example: Parameter Learning in a simulated Model
 
-```{r}
-iters = read_csv("../data/seasonal_dlm_gibbs.csv")
-
+```{r parameter_values}
 actual_values = tibble(
   parameter = c("V", paste0("W", 1:7)),
-  actual_value = c(1.906964895e-18, 1.183656514e-01, 4.074187352e-13, 4.162722546e-01, 
-      7.306081843e-14, 2.193511341e-03, 1.669158400e-08, 3.555685730e-03)
+  actual_value = c(1.0, 0.01, 0.2, 0.4, 0.5, 0.2, 0.1, 0.4)
 )
+```
+
+
+```{r MetropolisHastings, eval=FALSE,echo=FALSE}
+iters = read_csv("../data/seasonal_dlm_metropolis.csv")
+
+params = iters %>%
+  mutate(iteration = 1:nrow(iters)) %>%
+  gather(key = parameter, value, -iteration) %>%
+  inner_join(actual_values, by = "parameter")
+  # filter(parameter %in% c("V", "W1"))
+
+p1 = params %>%
+  ggplot(aes(x = iteration, y = value)) +
+  geom_line() +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~parameter, scales = "free_y")
+
+p2 = params %>%
+  group_by(parameter) %>%
+  mutate(running_mean = dlm::ergMean(value)) %>%
+  ggplot(aes(x = iteration, y = running_mean)) +
+  geom_line() +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~parameter, scales = "free_y")
+
+gridExtra::grid.arrange(p1, p2, ncol = 1)
+```
+
+
+```{r GibbsSampling}
+iters = read_csv("../data/seasonal_dlm_gibbs.csv")
 
 params = iters %>%
   mutate(iteration = 1:nrow(iters)) %>%
@@ -67,9 +148,9 @@ p2 = params %>%
 gridExtra::grid.arrange(p1, p2, ncol = 1)
 ```
 
-```{r, fig.cap="Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated seasonal model"}
+```{r, eval=FALSE, echo=FALSE, fig.cap="Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated seasonal model"}
 params = iters %>%
-  mutate(iteration = 1:nrow(iters)) %>%
+  mutate(iteration = 1:nrow(iters)l) %>%
   gather(key = parameter, value, -iteration) %>%
   inner_join(actual_values, by = "parameter") %>%
   filter(parameter %in% paste0("W", 1:4))
@@ -90,3 +171,24 @@ p2 = params %>%
 
 gridExtra::grid.arrange(p1, p2, ncol = 1)
 ```
+
+# Sample States
+
+Testing the gibbs sampler FFBS algorithm by keeping the observation and system noise matrices constant and sampling the state using the FFBS algorithm. This is then compared to the actual state.
+
+```{r sample_state_one}
+state_2 = read_csv("../data/seasonal_dlm_state_2_samples.csv", col_names = FALSE)
+
+mean_state = state_2 %>%
+  summarise_all(mean) %>%
+  t() %>% as_data_frame() %>%
+  add_column(time = 0:1000) %>%
+  rename(sampled_state = V1)
+
+mean_state %>%
+  inner_join(sims %>% select(time, state2), by = "time") %>%
+  gather(key, value, -time) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line()
+```
+

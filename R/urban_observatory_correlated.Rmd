@@ -116,6 +116,15 @@ humid_temp %>%
   write_csv(., path = "../data/humidity_temperature_1114.csv")
 ```
 
+# Joint DLM
+
+First order joint DLM for humidity and temperature:
+
+```{r gibbs-first-order-joint}
+iters = read_csv("../data/")
+```
+
+
 # A Regression DLM
 
 Regress the values of Humidity against Temperature using a regression DLM:
@@ -175,7 +184,7 @@ sims %>%
   gather(key, value, -time) %>%
   ggplot(aes(x = time, y = value)) +
   geom_line() +
-  facet_wrap(~key)
+  facet_wrap(~key, ncol = 1)
 ```
 
 * plot simulated data 

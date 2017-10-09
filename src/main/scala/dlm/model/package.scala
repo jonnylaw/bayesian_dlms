@@ -13,18 +13,18 @@ package object model {
   type ObservationMatrix = Time => DenseMatrix[Double]
   type SystemMatrix = Time => DenseMatrix[Double]
 
-  val tolerance = 1e-1
+  val tolerance = 0.5
 
-  implicit def doubleEq = new Eq[Double] {
-    def eqv(x: Double, y: Double) = {
-      math.abs(x - y) < tolerance
-    }
-  }
+  // implicit def doubleEq = new Eq[Double] {
+  //   def eqv(x: Double, y: Double) = {
+  //  
+  //   }
+  // }
 
   implicit def vectoreq = new Eq[DenseVector[Double]] {
     def eqv(x: DenseVector[Double], y: DenseVector[Double]) = {
       x.data.zip(y.data).
-        forall { case (a, b) => implicitly[Eq[Double]].eqv(a, b) }
+        forall { case (a, b) => math.abs(a - b) < tolerance }
     }
   }
 
@@ -40,9 +40,8 @@ package object model {
 
   implicit def matrixeq = new Eq[DenseMatrix[Double]] {
     def eqv(x: DenseMatrix[Double], y: DenseMatrix[Double]) = {
-      val tol = 1e-6
       x.data.zip(y.data).
-        forall { case (a, b) => implicitly[Eq[Double]].eqv(a, b) }
+        forall { case (a, b) => math.abs(a - b) < 1 }
     }
   }
 

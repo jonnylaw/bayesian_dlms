@@ -4,7 +4,9 @@ import dlm.model._
 import Dlm._
 import GibbsSampling._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
-import breeze.stats.distributions.Gamma
+import breeze.stats.distributions.{Gamma, Gaussian, Rand}
+import breeze.numerics.exp
+import cats.Applicative
 import cats.implicits._
 import java.nio.file.Paths
 import kantan.csv._
@@ -15,15 +17,8 @@ trait SeasonalModel {
   val mod = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
 
   val p = Dlm.Parameters(
-    v = DenseMatrix((1.906964895e-18)),
-    w = diag(DenseVector(
-      1.183656514e-01,
-      4.074187352e-13,
-      4.162722546e-01, 
-      7.306081843e-14, 
-      2.193511341e-03, 
-      1.669158400e-08, 
-      3.555685730e-03)),
+    v = DenseMatrix((1.0)),
+    w = diag(DenseVector(0.01, 0.2, 0.4, 0.5, 0.2, 0.1, 0.4)),
     m0 = DenseVector.fill(7)(0.0),
     c0 = diag(DenseVector.fill(7)(1.0))
   )
@@ -68,8 +63,10 @@ object FilterSeasonalDlm extends App with SeasonalModel with SeasonalData {
   def formatFiltered(f: KalmanFilter.State) = {
     (f.time, DenseVector.vertcat(f.mt, diag(f.ct)).data.toList)
   }
-  val headers = rfc.withHeader("time", "state_mean_1", "state_mean_2", "state_mean_3", "state_mean_4", "state_mean_5", "state_mean_6", "state_mean_7", 
-    "state_variance_1", "state_variance_2", "state_variance_3", "state_variance_4", "state_variance_5", "state_variance_6", "state_variance_7")
+  val headers = rfc.withHeader("time", "state_mean_1", "state_mean_2", "state_mean_3", "state_mean_4", 
+    "state_mean_5", "state_mean_6", "state_mean_7",
+    "state_variance_1", "state_variance_2", "state_variance_3", 
+    "state_variance_4", "state_variance_5", "state_variance_6", "state_variance_7")
 
   out.writeCsv(filtered.map(formatFiltered), headers)
 }
@@ -83,14 +80,16 @@ object SmoothSeasonalDlm extends App with SeasonalModel with SeasonalData {
   def formatSmoothed(s: Smoothing.SmoothingState) = 
     (s.time, DenseVector.vertcat(s.mean, diag(s.covariance)).data.toList)
 
-  val headers = rfc.withHeader("time", "state_mean_1", "state_mean_2", "state_mean_3", "state_mean_4", "state_mean_5", "state_mean_6", "state_mean_7", 
-    "state_variance_1", "state_variance_2", "state_variance_3", "state_variance_4", "state_variance_5", "state_variance_6", "state_variance_7")
+  val headers = rfc.withHeader("time", "state_mean_1", "state_mean_2", 
+    "state_mean_3", "state_mean_4", "state_mean_5", "state_mean_6", "state_mean_7",
+    "state_variance_1", "state_variance_2", "state_variance_3", "state_variance_4", 
+    "state_variance_5", "state_variance_6", "state_variance_7")
 
   out.writeCsv(smoothed.map(formatSmoothed), headers)
 }
 
 object SeasonalGibbsSampling extends App with SeasonalModel with SeasonalData {
-  val iters = gibbsSamples(mod, Gamma(1.0, 10.0), Gamma(1.0, 10.0), p, data).
+  val iters = GibbsSampling.gibbsSamples(mod, Gamma(1.0, 1.0), Gamma(1.0, 1.0), p, data).
     steps.
     take(10000)
 
@@ -98,7 +97,65 @@ object SeasonalGibbsSampling extends App with SeasonalModel with SeasonalData {
   val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7"))
 
   def formatParameters(p: Parameters) = {
-    (p.v.data ++ p.w.data).toList
+    DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
+  }
+
+  // write iters to file
+  while (iters.hasNext) {
+    writer.write(formatParameters(iters.next.p))
+  }
+
+  writer.close()
+}
+
+object SampleStates extends App with SeasonalModel with SeasonalData {
+  val iters = Iterator.fill(10000)(GibbsSampling.sampleState(mod, data, p))
+
+  val out = new java.io.File("data/seasonal_dlm_state_2_samples.csv")
+  val writer = out.asCsvWriter[List[Double]](rfc.withoutHeader)
+
+  /**
+    * Select only the nth state
+    */
+  def formatState(n: Int)(s: Array[(Time, DenseVector[Double])]) = {
+    val state: List[List[Double]] = s.map(_._2.data.toList).toList.transpose
+    state(n)
+  }
+
+  val headers = rfc.withHeader(false)
+
+  // write iters to file
+  while (iters.hasNext) {
+    writer.write(formatState(1)(iters.next))
+  }
+
+  writer.close()
+}
+
+object SeasonalMetropolisHastings extends App with SeasonalModel with SeasonalData {
+  def proposal(delta: Double) = { p: Parameters =>
+    for {
+      m <- p.m0.data.toVector traverse (x => Gaussian(x, delta): Rand[Double])
+      innovc <- Applicative[Rand].replicateA(7, Gaussian(0, delta))
+      c = diag(p.c0) *:* DenseVector(exp(innovc.toArray))
+      innovw <- Applicative[Rand].replicateA(7, Gaussian(0, delta))
+      w = diag(p.w) *:* DenseVector(exp(innovw.toArray))
+      innovv <- Gaussian(0, delta)
+      v = diag(p.v) *:* DenseVector(exp(innovv))
+    } yield Parameters(diag(v), diag(w), DenseVector(m.toArray), diag(c))
+  }
+
+  val initState = MetropolisHastings.MhState(p, -1e99, 0)
+
+  val iters = MetropolisHastings.metropolisHastingsDlm(mod, data, proposal(1e-2), initState).
+    steps.
+    take(100000)
+
+  val out = new java.io.File("data/seasonal_dlm_metropolis.csv")
+  val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7"))
+
+  def formatParameters(p: Parameters) = {
+    DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
   }
 
   // write iters to file

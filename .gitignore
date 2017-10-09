@@ -5,3 +5,4 @@ target/*
 *.csv
 src/main/scala/target/*
 .ensime_cache/
+*.qsub

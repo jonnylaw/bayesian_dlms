@@ -85,7 +85,7 @@ object FitHumidityModel extends App with Models with ObservedData {
     for {
       m <- p.m0.data.toVector traverse (x => Gaussian(x, delta): Rand[Double])
       innov <- Applicative[Rand].replicateA(7, Gaussian(0, delta))
-      c = diag(p.c0) + DenseVector(exp(innov.toArray))
+      c = diag(p.c0) *:* DenseVector(exp(innov.toArray))
     } yield Parameters(p.v, p.w, DenseVector(m.toArray), diag(c))
   }
 

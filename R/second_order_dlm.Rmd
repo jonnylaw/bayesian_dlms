@@ -1,0 +1,109 @@
+---
+title: "Second Order DLM"
+author: "Jonathan Law"
+date: "9 October 2017"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+```
+
+# Simulate Data
+
+The data is simulated from a second order DLM:
+
+$$\begin{align}
+Y_t &= F \textbf{x}_t + \textbf{v}_t, \quad v_t \sim \mathcal{N}(0, V), \\
+\textbf{X}_t &= G \textbf{x}_{t-1} + w_t, \quad w_t \sim \textrm{MVN}(0, W), \\
+\textbf{X}_0 &\sim \textrm{MVN}(m_0, C_0).
+\end{align}$$
+
+The state is two dimensional, as such the system noise matrix $W$ is a $2 \times 2$ matrix. The observation and system evolution matrices do not depend on time, the observation matrix is $F = (1 \quad 0)$ and the system evolution matrix is:
+
+$$G = \begin{pmatrix} 
+1 & 1 \\
+0 & 1
+\end{pmatrix}.$$
+
+
+```{r, message=FALSE}
+data = read_csv("../data/second_order_dlm.csv")
+
+data %>%
+  filter(time < 100) %>%
+  gather(key, value, -time) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  theme(legend.position = "bottom")
+```
+
+# Filtered
+
+```{r filtering, message=FALSE}
+filtered = read_csv("../data/second_order_dlm_filtered.csv")
+
+filtered %>%
+  inner_join(data, by = "time") %>%
+  filter(time < 100) %>%
+  mutate(upper = qnorm(p = 0.95, mean = state_mean_1, sd = sqrt(state_variance_1))) %>%
+  mutate(lower = qnorm(p = 0.05, mean = state_mean_1, sd = sqrt(state_variance_1))) %>%
+  gather(key, value, state_mean_1, state_1) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  geom_line(aes(x = time, y = lower), linetype = 3, colour = "#000000") +
+  geom_line(aes(x = time, y = upper), linetype = 3, colour = "#000000") +
+  theme(legend.position = "bottom") +
+  ggtitle("Kalman Filtered")
+```
+
+# Learn Parameters
+
+```{r gibbs_sampling, message=FALSE}
+gibbs_iters = read_csv("../data/second_order_dlm_gibbs.csv")
+
+actual_values = tibble(
+  parameter = c("V", "W1", "W2"),
+  actual_value = c(3.0, 2.0, 1.0)
+)
+
+summary(gibbs_iters)
+```
+
+```{r helper_functions}
+thin = function(df, n) {
+  df[seq(from = 1, to = nrow(df), by = n)]
+}
+
+drop = function(df, n) {
+  df[-(1:nrow(df))]
+}
+```
+
+```{r}
+params = gibbs_iters %>%
+  mutate(iteration = 1:nrow(gibbs_iters)) %>%
+  thin(2) %>%
+  drop(2000) %>%
+  gather(key = parameter, value, -iteration) %>%
+  inner_join(actual_values, by = "parameter")
+
+p1 = params %>%
+  ggplot(aes(x = iteration, y = value)) +
+  geom_line() +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~parameter, scales = "free_y")
+
+p2 = params %>%
+  group_by(parameter) %>%
+  mutate(running_mean = dlm::ergMean(value)) %>%
+  ggplot(aes(x = iteration, y = running_mean)) +
+  geom_line() +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~parameter, nrow = 1, scales = "free_y")
+
+gridExtra::grid.arrange(p1, p2, ncol = 1)
+```
+

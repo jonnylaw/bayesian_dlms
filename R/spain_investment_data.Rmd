@@ -1,0 +1,86 @@
+---
+title: "Spain Investment Data"
+author: "Jonathan Law"
+date: "9 October 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+theme_set(theme_minimal())
+```
+
+## R Markdown
+
+This example is reproduced from DLMs in R
+
+```{r, message=FALSE}
+data = read_csv("../data/invest2.dat", col_names = c("country1", "spain"))
+
+data %>%
+  mutate(time = 1:nrow(data)) %>%
+  ggplot(aes(x = time, y = spain)) +
+  geom_line()
+```
+# Proposed Model
+
+The proposed model is the second order DLM representing a linear growth.
+
+$$\begin{align}
+Y_t &= F \textbf{x}_t + \textbf{v}_t, \quad v_t \sim \mathcal{N}(0, V), \\
+\textbf{X}_t &= G \textbf{x}_{t-1} + w_t, \quad w_t \sim \textrm{MVN}(0, W), \\
+\textbf{X}_0 &\sim \textrm{MVN}(m_0, C_0).
+\end{align}$$
+
+The state is two dimensional, as such the system noise matrix $W$ is a $2 \times 2$ matrix. The observation and system evolution matrices do not depend on time, the observation matrix is $F = (1 \quad 0)$ and the system evolution matrix is:
+
+$$G = \begin{pmatrix} 
+1 & 1 \\
+0 & 1
+\end{pmatrix}.$$
+
+# Gibbs Sampling
+
+Gibbs sampling is performed using d-inverse Gamma sampling. Since the Inveres-Gamma distribution is conjugate to the Normal distribution with unknown variance. We assume the system evolution matrix is diagonal and hence there are three parameters to determine. Write $\phi_v = 1/V$ and $\phi_{w_i} = 1/w_i$ and the prior distributions of the observation and system noise precisions are written as:
+
+$$\phi_v \sim \textrm{Gamma}(\alpha, \beta), \qquad \phi_{w_i} \sim \textrm{Gamma}(\alpha, \beta).$$
+
+The mean of the gamma distribution parameterised with shape, $\alpha$ and rate $\beta$ is $\alpha/\beta$ and the variance is $\alpha/\beta^2$. the values are chosen to be:
+
+$$\begin{align*}
+\phi_v \sim \textrm{Gamma}(0.1, 0.1), \\ 
+\phi_{w_i} \sim \textrm{Gamma}(0.1, 0.01).
+\end{align*}$$
+
+Giving a prior mean for the observation precision $\mathbb{E}(\phi_V) = 1$, and variance $\textrm{Var}(\phi_V) = 10$, the prior mean and variance for the diagonal elements of the system noise precision is $\mathbb{E}(\phi_{w_i}) = 10$ and the variance is 1,000.
+
+```{r, message=FALSE}
+gibbs_iters = read_csv("../data/gibbs_spain_investment.csv")
+summary(gibbs_iters)
+```
+
+
+```{r plot_gibbs}
+drop = function(df, n) {
+  df[-c(1:n),]
+}
+
+params = gibbs_iters %>%
+  mutate(iteration = 1:nrow(gibbs_iters)) %>%
+  drop(12000) %>%
+  gather(key = parameter, value, -iteration)
+
+p1 = params %>%
+  ggplot(aes(x = iteration, y = value)) +
+  geom_line() +
+  facet_wrap(~parameter, scales = "free_y")
+
+p2 = params %>%
+  group_by(parameter) %>%
+  mutate(running_mean = dlm::ergMean(value)) %>%
+  ggplot(aes(x = iteration, y = running_mean)) +
+  geom_line() +
+  facet_wrap(~parameter, nrow = 1, scales = "free_y")
+
+gridExtra::grid.arrange(p1, p2, ncol = 1)
+```

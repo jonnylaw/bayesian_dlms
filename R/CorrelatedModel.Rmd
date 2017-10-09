@@ -2,7 +2,8 @@
 title: "Correlated DLM"
 author: "Jonathan Law"
 date: "27 September 2017"
-output: html_document
+output:
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -66,7 +67,7 @@ $$G = \begin{pmatrix}
 
 The figure below shows a simulation from this composed model:
 
-```{r, eval=FALSE}
+```{r, eval=FALSE, echo=FALSE}
 first_order_and_linear_trend = read_csv("../data/first_order_and_linear_trend.csv")
 
 data %>%

@@ -21,14 +21,9 @@ trait CorrelatedModel {
   // specify the parameters for the joint model
   val v = diag(DenseVector(1.0, 2.0))
   val w = DenseMatrix((0.75, 0.5), (0.5, 1.25))
-  val c0 = diag(DenseVector(1.0, 1.0))
+  val c0 = DenseMatrix.eye[Double](2)
 
-  val p = Parameters(
-    v,
-    w,
-    DenseVector.zeros[Double](2),
-    c0
-  )
+  val p = Parameters(v, w, DenseVector.zeros[Double](2), c0)
 }
 
 trait CorrelatedData {
@@ -46,13 +41,13 @@ object SimulateCorrelated extends App with CorrelatedModel {
     steps.
     take(1000)
 
-  val out = new java.io.File("data/CorrelatedDlm.csv")
-  val headers = rfc.withHeader("time", "observation_1", "observation_2", "state_1", "state_2")
-  val writer = out.asCsvWriter[(Time, Option[Double], Option[Double], Double, Double)](headers)
+  val out = new java.io.File("data/first_order_and_linear_trend.csv")
+  val headers = rfc.withHeader("time", "observation_1", "observation_2", "state_1", "state_2", "state_3")
+  val writer = out.asCsvWriter[(Time, List[Double])](headers)
 
   def formatData(d: (Data, DenseVector[Double])) = d match {
     case (Data(t, y), x) =>
-      (t, y.map(x => x(0)), y.map(x => x(1)), x(0), x(1))
+      (t, (y.map(_.data).get ++ x.data).toList)
   }
 
   while (sims.hasNext) {

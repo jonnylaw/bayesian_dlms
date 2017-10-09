@@ -6,8 +6,8 @@ import MetropolisHastings._
 import GibbsSampling._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions.{Gamma, Gaussian, Rand}
-import java.io.{File, PrintWriter}
 import math.{log, exp}
+import java.nio.file.Paths
 import cats.implicits._
 import kantan.csv._
 import kantan.csv.ops._
@@ -24,57 +24,63 @@ trait DlmModel {
   )
 }
 
-object SimulateSecondOrderDlm extends App with DlmModel {
-  val data = simulate(0, mod, p).
-    steps.
-    take(300).
+trait SimulatedSecondOrderData {
+  val rawData = Paths.get("data/second_order_dlm.csv")
+  val reader = rawData.asCsvReader[(Time, Double, Double, Double)](rfc.withHeader)
+  val data = reader.
+    collect { 
+      case Success(a) => Data(a._1, Some(a._2).map(DenseVector(_)))
+    }.
     toArray
-
-  val pw = new PrintWriter(new File("data/SecondOrderDlm.csv"))
-  val strings = data.
-    map { case (d, x) => s"${d.toString}, ${x.data.mkString(", ")}" }
-
-  pw.write(strings.mkString("\n"))
-  pw.close()
-  
 }
 
-object FilterSecondOrderDlm extends App with DlmModel {
-  val data = scala.io.Source.fromFile("data/SecondOrderDlm.csv").
-    getLines.
-    map(_.split(",")).
-    map(x => Data(x(0).toInt, Some(DenseVector(x(1).toDouble)))).
-    toArray
+object SimulateSecondOrderDlm extends App with DlmModel {
+  val sims = simulate(0, mod, p).
+    steps.
+    take(1000)
 
+  val out = new java.io.File("data/second_order_dlm.csv")
+  val writer = out.asCsvWriter[(Time, Option[Double], Double, Double)](rfc.withHeader("time", "observation", "state_1", "state_2"))
+
+  def formatData(d: (Data, DenseVector[Double])) = d match {
+    case (Data(t, y), x) =>
+      (t, y.map(a => a(0)), x(0), x(1))
+  }
+
+  while (sims.hasNext) {
+    writer.write(formatData(sims.next))
+  }
+
+  writer.close()
+}
+
+object FilterSecondOrderDlm extends App with DlmModel with SimulatedSecondOrderData {
   val filtered = KalmanFilter.kalmanFilter(mod, data, p)
 
-  val pw = new PrintWriter(new File("data/SecondOrderDlmFiltered.csv"))
-  pw.write(filtered.mkString("\n"))
-  pw.close()
+  val out = new java.io.File("data/second_order_dlm_filtered.csv")
+
+  def formatFiltered(f: KalmanFilter.State) = {
+    (f.time, DenseVector.vertcat(f.mt, diag(f.ct)).data.toList)
+  }
+  val headers = rfc.withHeader("time", "state_mean_1", "state_mean_2", "state_variance_1", "state_variance_2")
+
+  out.writeCsv(filtered.map(formatFiltered), headers)
 }
 
-object SmoothSecondOrderDlm extends App with DlmModel {
-  val data = scala.io.Source.fromFile("data/SecondOrderDlm.csv").
-    getLines.
-    map(_.split(",")).
-    map(x => Data(x(0).toInt, Some(DenseVector(x(1).toDouble)))).
-    toArray
-
+object SmoothSecondOrderDlm extends App with DlmModel with SimulatedSecondOrderData {
   val filtered = KalmanFilter.kalmanFilter(mod, data, p)
   val smoothed = Smoothing.backwardsSmoother(mod, p)(filtered)
 
-  val pw = new PrintWriter(new File("data/SecondOrderDlmSmoothed.csv"))
-  pw.write(smoothed.mkString("\n"))
-  pw.close()
+  val out = new java.io.File("data/second_order_dlm_smoothed.csv")
+
+  def formatSmoothed(s: Smoothing.SmoothingState) = 
+    (s.time, s.mean(0), s.covariance.data(0))
+
+  out.writeCsv(smoothed.map(formatSmoothed),
+    rfc.withHeader("time", "smoothed_mean", "smoothed_variance"))
 }
 
-object SecondOrderGibbsParameters extends App with DlmModel {
-  val data: Array[Data] = scala.io.Source.fromFile("data/SecondOrderDlm.csv").
-    getLines.
-    map(_.split(",")).
-    map(x => Data(x(0).toInt, Some(DenseVector(x(1).toDouble)))).
-    toArray
-
+object GibbsSecondOrder extends App with DlmModel with SimulatedSecondOrderData {
   val alphaV = 1.0/10.0
   val betaV = 1.0/10.0
 
@@ -86,14 +92,22 @@ object SecondOrderGibbsParameters extends App with DlmModel {
 
   val iters = gibbsSamples(mod, priorV, priorW, p, data).
     steps.
-    take(24000)
+    take(10000)
 
   // write iters to file
-  val pw = new PrintWriter(new File("data/SecondOrderDlmGibbs.csv"))
-  while (iters.hasNext) {
-    pw.write(iters.next.toString + "\n")
+  val out = new java.io.File("data/second_order_dlm_gibbs.csv")
+  val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2"))
+
+  def formatParameters(p: Parameters) = {
+    DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
   }
-  pw.close()
+
+  // write iters to file
+  while (iters.hasNext) {
+    writer.write(formatParameters(iters.next.p))
+  }
+
+  writer.close()
 }
 
 object GibbsInvestParameters extends App with DlmModel {
@@ -101,7 +115,7 @@ object GibbsInvestParameters extends App with DlmModel {
     getLines.
     map(_.split(",")).
     zipWithIndex.
-    map { case (x, i) => Data(i + 1960, Some(DenseVector(x(1).toDouble))) }.
+    map { case (x, i) => Data(i + 1960, Some(DenseVector(x(1).toDouble / 1000.0))) }.
     toArray
 
   val alphaV = 1.0/10.0
@@ -120,7 +134,7 @@ object GibbsInvestParameters extends App with DlmModel {
     c0 = p.c0
   )
 
-  val iters = gibbsSamples(mod, priorV, priorW, initP, data).
+  val iters = GibbsSampling.gibbsSamples(mod, priorV, priorW, initP, data).
     steps.
     take(24000)
 

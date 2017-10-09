@@ -22,20 +22,32 @@ case class Wishart(
     logdet(x)._2 * (n - d - 1) * 0.5 - 0.5 * trace(scale \ x)
   }
 
+  private val l = cholesky(scale)
+
+  def draw(): DenseMatrix[Double] = drawBartlett()
+
   // Bartlett Decomposition
   // https://en.wikipedia.org/wiki/Wishart_distribution#Bartlett_decomposition
-  def draw(): DenseMatrix[Double] = {
-    val a: DenseMatrix[Double] = DenseMatrix.tabulate(d, d){ case (i, j) =>
+  def bartlettDecomp() = {
+    DenseMatrix.tabulate(d, d){ case (i, j) =>
       (for {
         c <- ChiSquared(n - i + 1)
         n <- Gaussian(0, 1)
         x = if (i == j) sqrt(c) else if (i > j) n else 0
       } yield x).draw
     }
+  }
 
-   val l = cholesky(scale)
+  def drawBartlett() = {
+    val a = bartlettDecomp()
 
-   l * a * a.t * l.t
+    l * a * a.t * l.t
+  }
+
+  // Draw from the wishart using the definition of the Wishart distribution
+  def drawNaive(): DenseMatrix[Double] = {
+    val xi = Vector.fill(n.toInt)(l * DenseVector.rand(scale.cols, rand.gaussian(0, 1)))
+    xi.map(x => x * x.t).reduce(_ + _)
   }
 
   def entropy: Double = ???

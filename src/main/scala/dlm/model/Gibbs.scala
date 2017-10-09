@@ -4,11 +4,8 @@ import Dlm._
 import Smoothing._
 import KalmanFilter._
 import cats.implicits._
-import breeze.linalg.{DenseVector, diag}
+import breeze.linalg.{DenseVector, diag, DenseMatrix}
 import breeze.stats.distributions.{Rand, Gamma, MarkovChain}
-import kantan.csv._
-import kantan.csv.ops._
-import kantan.csv.generic._
 
 object GibbsSampling extends App {
   case class State(
@@ -16,100 +13,53 @@ object GibbsSampling extends App {
     state: Array[(Time, DenseVector[Double])]
   )
 
-  def sampleGamma(
-    prior:        Gamma, 
-    observations: Array[Double], 
-    forecasts:    Array[Double]) = {
-
-    val n = observations.size
-
-    val difference = observations.zip(forecasts).
-      map { case (y,f) => (y - f) * (y - f) }
-
-    // println(s"sum difference forecast ${difference.sum}")
-
-    val shape = prior.shape + n * 0.5
-    val rate = (1 / prior.scale) + difference.sum * 0.5
-    val scale = 1 / rate
-
-    // println(s"shape observation $shape")
-    // println(s"rate observation $rate")
-
-    Gamma(shape, scale): Rand[Double]
-  }
-
   /**
     * Sample the (diagonal) observation noise covariance matrix from an inverse Gamma distribution
+    * This doesn't take into account missing observations
     */
   def sampleObservationMatrix(
-    priorV:       Gamma,
+    prior:        Gamma,
     mod:          Model, 
     state:        Array[(Time, DenseVector[Double])],
     observations: Array[Data]) = {
 
-    val forecasts = state.map { case (time, x) => mod.f(time).t * x }
+    val forecast = state.tail.
+      map { case (time, x) => mod.f(time).t * x }
 
-    val oneStepForecasts = forecasts.map(_.data).transpose
-    val obs = observations.map(_.observation).flatten.map(_.data).transpose
-    
-    val res = oneStepForecasts.zip(obs).map { case (y, f) =>
-      sampleGamma(priorV, y, f).draw
-    }
+    val SSy = (observations.map(_.observation).flatten, forecast).zipped.
+      map { case (y, f) => (y - f) *:* (y - f) }.
+      reduce(_ + _)
 
-    diag(DenseVector(res.map(pv => 1/pv)))
-  }
+    val shape = prior.shape + observations.size * 0.5
+    val rate = SSy.map(ss => (1.0 / prior.scale) + ss * 0.5)
 
-  def sampleGammaState(
-    n:         Int, 
-    prior:     Gamma, 
-    state:     Array[Double], 
-    prevState: Array[Double]) = {
+    val res = rate.map(r =>
+      Gamma(shape, 1.0 / r).draw
+    )
 
-    // println("difference state")
-
-    val difference = state.zip(prevState).
-      map { case (mt, at) => 
-        // println(s"current state $mt")
-        // println(s"advanced previous state $at")
-        // println(s"difference ${mt - at}")
-        // println(s"difference squared ${(mt - at) * (mt - at)}")
-        (mt - at) * (mt - at) }
-
-    // println(s"difference state sum ${difference.sum}")
-
-    val shape = prior.shape + n * 0.5
-    val rate = (1 / prior.scale) + difference.sum * 0.5
-    val scale = 1 / rate
-
-    // println(s"shape system $shape")
-    // println(s"rate system $rate")
-
-    Gamma(shape, scale): Rand[Double]
+    diag(res.map(1.0/_))
   }
 
   /**
     * Sample the (diagonal) system noise covariance matrix from an inverse gamma 
     */
   def sampleSystemMatrix(
-    priorW:       Gamma,
+    prior:        Gamma,
     mod:          Model,
-    state:        Array[(Time, DenseVector[Double])], 
-    observations: Array[Data]) = {
+    state:        Array[(Time, DenseVector[Double])]) = {
 
-    val n = observations.size
+    val advanceState = state.init.
+      map { case (time, x) => mod.g(time) * x }
+    val SStheta = (state.map(_._2).tail, advanceState).zipped.
+      map { case (mt, at) => (mt - at) *:* (mt - at) }.
+      reduce(_ + _)
 
-    val prevState = state.
-      map { case (time, x) => mod.g(time) * x }.
-      map(_.data).transpose
-    val stateMean = state.
-      map { case (time, x) => x.data }.
-      tail.transpose
+    val shape = prior.shape + (state.size - 1) * 0.5
+    val rate = SStheta map (s => (1.0 / prior.scale) + s * 0.5)
 
-    val res = (prevState.zip(stateMean)).map { case (at, mt) =>
-      sampleGammaState(n, priorW, mt, at).draw
-    }
+    val res = rate map (r => Gamma(shape, 1.0 / r).draw)
 
-    diag(DenseVector(res.map(pw => 1/pw)))
+    diag(res.map(1.0/_))
   }
 
   /**
@@ -134,9 +84,8 @@ object GibbsSampling extends App {
     observations: Array[Data])(gibbsState: State) = {
 
     val state = sampleState(mod, observations, gibbsState.p)
-
     val obs = sampleObservationMatrix(priorV, mod, state, observations)
-    val system = sampleSystemMatrix(priorW, mod, state, observations)
+    val system = sampleSystemMatrix(priorW, mod, state)
 
     Rand.always(
       State(Parameters(obs, system, gibbsState.p.m0, gibbsState.p.c0), state)
@@ -177,7 +126,7 @@ object GibbsSampling extends App {
     val state = sampleState(mod, observations, gibbsState.p)
 
     val obs = sampleObservationMatrix(priorV, mod, state, observations)
-    val system = sampleSystemMatrix(priorW, mod, state, observations)
+    val system = sampleSystemMatrix(priorW, mod, state)
     val p = Parameters(obs, system, gibbsState.p.m0, gibbsState.p.c0)
     val newP = metropStep(mod, observations, proposal)(p)
 

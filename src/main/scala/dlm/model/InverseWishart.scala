@@ -14,23 +14,18 @@ case class InverseWishart(
 
   def unnormalizedLogPdf(x: DenseMatrix[Double]): Double = ???
 
-  def draw(): DenseMatrix[Double] = {
-        val a: DenseMatrix[Double] = DenseMatrix.tabulate(d, d){ case (i, j) =>
-      (for {
-        c <- ChiSquared(nu - i + 1)
-        n <- Gaussian(0, 1)
-        x = if (i == j) sqrt(c) else if (i > j) n else 0
-      } yield x).draw
-    }
+  private val l = cholesky(inv(psi))
 
-    val l = cholesky(inv(psi))
+  def draw(): DenseMatrix[Double] = {
+    val a = Wishart(nu, psi).bartlettDecomp()
+
     val invl = inv(l)
     val inva = inv(a)
     invl.t * inva.t * inva * invl
   }
 
   def entropy: Double = ???
-  def mean: breeze.linalg.DenseMatrix[Double] = ???
-  def mode: breeze.linalg.DenseMatrix[Double] = ???
+  def mean: breeze.linalg.DenseMatrix[Double] = psi / (nu - d - 1)
+  def mode: breeze.linalg.DenseMatrix[Double] = psi / (nu - d - 1)
   def variance: breeze.linalg.DenseMatrix[Double] = ???
 }
