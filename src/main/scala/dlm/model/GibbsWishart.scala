@@ -26,10 +26,9 @@ object GibbsWishart {
   def sampleSystemMatrix(
     priorW:       InverseWishart,
     mod:          Model, 
-    state:        Array[(Time, DenseVector[Double])], 
-    observations: Array[Data]): Rand[DenseMatrix[Double]] = {
+    state:        Array[(Time, DenseVector[Double])]): Rand[DenseMatrix[Double]] = {
 
-    val n = observations.size
+    val n = state.size - 1
     val prevState = state.map { case (time, x) => mod.g(time) * x }
     val stateMean = state.map { case (t, x) => x }.tail
     val difference = stateMean.zip(prevState).
@@ -51,7 +50,7 @@ object GibbsWishart {
     val latentState = GibbsSampling.sampleState(mod, observations, state.p)
 
     for {
-      system <- sampleSystemMatrix(priorW, mod, latentState, observations)
+      system <- sampleSystemMatrix(priorW, mod, latentState)
       obs = sampleObservationMatrix(priorV, mod, latentState, observations)
       p = Parameters(obs, system, state.p.m0, state.p.c0)
     } yield GibbsSampling.State(p, latentState)

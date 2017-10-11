@@ -11,7 +11,6 @@ import cats.implicits._
 import java.nio.file.Paths
 import kantan.csv._
 import kantan.csv.ops._
-import kantan.csv.generic._
 
 trait SeasonalModel {
   val mod = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
@@ -61,8 +60,9 @@ object FilterSeasonalDlm extends App with SeasonalModel with SeasonalData {
   val out = new java.io.File("data/seasonal_filtered.csv")
 
   def formatFiltered(f: KalmanFilter.State) = {
-    (f.time, DenseVector.vertcat(f.mt, diag(f.ct)).data.toList)
+    f.time.toDouble +: DenseVector.vertcat(f.mt, diag(f.ct)).data.toList
   }
+
   val headers = rfc.withHeader("time", "state_mean_1", "state_mean_2", "state_mean_3", "state_mean_4", 
     "state_mean_5", "state_mean_6", "state_mean_7",
     "state_variance_1", "state_variance_2", "state_variance_3", 
@@ -78,7 +78,7 @@ object SmoothSeasonalDlm extends App with SeasonalModel with SeasonalData {
   val out = new java.io.File("data/seasonal_smoothed.csv")
 
   def formatSmoothed(s: Smoothing.SmoothingState) = 
-    (s.time, DenseVector.vertcat(s.mean, diag(s.covariance)).data.toList)
+    s.time.toDouble +: DenseVector.vertcat(s.mean, diag(s.covariance)).data.toList
 
   val headers = rfc.withHeader("time", "state_mean_1", "state_mean_2", 
     "state_mean_3", "state_mean_4", "state_mean_5", "state_mean_6", "state_mean_7",
@@ -145,9 +145,7 @@ object SeasonalMetropolisHastings extends App with SeasonalModel with SeasonalDa
     } yield Parameters(diag(v), diag(w), DenseVector(m.toArray), diag(c))
   }
 
-  val initState = MetropolisHastings.MhState(p, -1e99, 0)
-
-  val iters = MetropolisHastings.metropolisHastingsDlm(mod, data, proposal(1e-2), initState).
+  val iters = MetropolisHastings.metropolisHastingsDlm(mod, data, proposal(1e-2), p).
     steps.
     take(100000)
 

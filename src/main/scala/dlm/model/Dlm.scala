@@ -56,10 +56,10 @@ object Dlm {
 
     Model(
       (t: Time) => {
-        val m = 1 + x(t).size
-        new DenseMatrix(1, m, 1.0 +: x(t).data)
+          val m = 1 + x(t).size
+          new DenseMatrix(m, 1, 1.0 +: x(t).data)
       },
-      (t: Time) => DenseMatrix.eye[Double](x.head.size)
+      (t: Time) => DenseMatrix.eye[Double](2)
     )
   }
 
@@ -102,19 +102,6 @@ object Dlm {
   }
 
   /**
-    * Dynamic Linear Models can be combined in order to model different
-    * time dependent phenomena, for instance seasonal with trend
-    */
-  implicit def addModel = new Semigroup[Model] {
-    def combine(x: Model, y: Model): Model = {
-      Model(
-        (t: Time) => DenseMatrix.vertcat(x.f(t), y.f(t)), 
-        (t: Time) => blockDiagonal(x.g(t), y.g(t))
-      )
-    }
-  }
-
-  /**
     * Simulate a single step from a DLM
     */
   def simStep(
@@ -141,6 +128,19 @@ object Dlm {
 
     val init = (Data(startTime, None), p.m0)
     MarkovChain(init){ case (y, x) => simStep(mod, x, y.time + 1, p) }
+  }
+
+  /**
+    * Dynamic Linear Models can be combined in order to model different
+    * time dependent phenomena, for instance seasonal with trend
+    */
+  implicit def addModel = new Semigroup[Model] {
+    def combine(x: Model, y: Model): Model = {
+      Model(
+        (t: Time) => DenseMatrix.vertcat(x.f(t), y.f(t)), 
+        (t: Time) => blockDiagonal(x.g(t), y.g(t))
+      )
+    }
   }
 
   /**

@@ -21,9 +21,9 @@ object MetropolisHastings {
     mod: Model,
     observations: Array[Data],
     proposal: Parameters => Rand[Parameters],
-    initState: MhState
+    initP: Parameters
   ) = {
-
+    val initState: MhState = MhState(initP, -1e99, 0)
     MarkovChain(initState)(mhStep(proposal, KalmanFilter.logLikelihood(mod, observations)))
   }
 

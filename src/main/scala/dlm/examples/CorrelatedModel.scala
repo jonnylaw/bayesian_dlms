@@ -8,7 +8,6 @@ import breeze.stats.distributions._
 import java.nio.file.Paths
 import kantan.csv._
 import kantan.csv.ops._
-import kantan.csv.generic._
 
 trait CorrelatedModel {
   // first define two models, one for each time series
@@ -43,11 +42,11 @@ object SimulateCorrelated extends App with CorrelatedModel {
 
   val out = new java.io.File("data/first_order_and_linear_trend.csv")
   val headers = rfc.withHeader("time", "observation_1", "observation_2", "state_1", "state_2", "state_3")
-  val writer = out.asCsvWriter[(Time, List[Double])](headers)
+  val writer = out.asCsvWriter[List[Double]](headers)
 
   def formatData(d: (Data, DenseVector[Double])) = d match {
     case (Data(t, y), x) =>
-      (t, (y.map(_.data).get ++ x.data).toList)
+      List(t.toDouble) ++ y.map(_.data).get ++ x.data
   }
 
   while (sims.hasNext) {

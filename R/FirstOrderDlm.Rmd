@@ -99,5 +99,5 @@ gibbs_chain %>%
   ggplot(aes(x = iteration, y = value)) +
   geom_line() +
   geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~parameter, scales = "free_y")
+  facet_wrap(~parameter)
 ```

@@ -6,3 +6,8 @@ target/*
 src/main/scala/target/*
 .ensime_cache/
 *.qsub
+*.jar
+*.zip
+*.pdf
+*.html
+*_files/

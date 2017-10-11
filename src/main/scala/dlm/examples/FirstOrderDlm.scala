@@ -10,7 +10,6 @@ import java.io.File
 import cats.implicits._
 import kantan.csv._
 import kantan.csv.ops._
-import kantan.csv.generic._
 
 trait FirstOrderDlm {
   val mod = Model(

@@ -42,8 +42,7 @@ filtered = read_csv("../data/seasonal_filtered.csv")
 
 filtered %>%
   inner_join(sims, by = "time") %>%
-  filter(time > 9000) %>%
-  filter(time < 9500) %>%
+  filter(time > 900) %>%
   mutate(upper = qnorm(p = 0.95, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
   mutate(lower = qnorm(p = 0.05, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
   gather(key, value, state_mean_2, state2) %>%

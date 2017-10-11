@@ -11,7 +11,6 @@ import java.nio.file.Paths
 import cats.implicits._
 import kantan.csv._
 import kantan.csv.ops._
-import kantan.csv.generic._
 
 trait DlmModel {
   val mod = polynomial(2)
@@ -40,7 +39,8 @@ object SimulateSecondOrderDlm extends App with DlmModel {
     take(1000)
 
   val out = new java.io.File("data/second_order_dlm.csv")
-  val writer = out.asCsvWriter[(Time, Option[Double], Double, Double)](rfc.withHeader("time", "observation", "state_1", "state_2"))
+  val headers = rfc.withHeader("time", "observation", "state_1", "state_2")
+  val writer = out.asCsvWriter[(Time, Option[Double], Double, Double)](headers)
 
   def formatData(d: (Data, DenseVector[Double])) = d match {
     case (Data(t, y), x) =>
@@ -60,8 +60,9 @@ object FilterSecondOrderDlm extends App with DlmModel with SimulatedSecondOrderD
   val out = new java.io.File("data/second_order_dlm_filtered.csv")
 
   def formatFiltered(f: KalmanFilter.State) = {
-    (f.time, DenseVector.vertcat(f.mt, diag(f.ct)).data.toList)
+    f.time.toDouble +: DenseVector.vertcat(f.mt, diag(f.ct)).data.toList
   }
+
   val headers = rfc.withHeader("time", "state_mean_1", "state_mean_2", "state_variance_1", "state_variance_2")
 
   out.writeCsv(filtered.map(formatFiltered), headers)
@@ -128,27 +129,29 @@ object GibbsInvestParameters extends App with DlmModel {
   val priorW = Gamma(alphaW, 1.0/betaW)
 
   val initP = Parameters(
-    v = DenseMatrix(1.0 / priorV.draw),
-    w = diag(DenseVector(1.0 / priorW.draw, 1.0 / priorW.draw)),
+    v = DenseMatrix(1.0),
+    w = diag(DenseVector(0.05, 0.5)),
     m0 = p.m0,
     c0 = p.c0
   )
 
   val iters = GibbsSampling.gibbsSamples(mod, priorV, priorW, initP, data).
     steps.
-    take(24000)
+    take(100)
 
-  val out = new java.io.File("data/gibbs_spain_investment.csv")
-  val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2"))
+  iters.foreach(println)
 
-  def formatParameters(p: Parameters) = {
-    DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
-  }
+  // val out = new java.io.File("data/gibbs_spain_investment.csv")
+  // val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2"))
 
-  // write iters to file
-  while (iters.hasNext) {
-    writer.write(formatParameters(iters.next.p))
-  }
+  // def formatParameters(p: Parameters) = {
+  //   DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
+  // }
 
-  writer.close()
+  // // write iters to file
+  // while (iters.hasNext) {
+  //   writer.write(formatParameters(iters.next.p))
+  // }
+
+  // writer.close()
 }

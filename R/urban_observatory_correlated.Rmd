@@ -6,17 +6,18 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(dlm)
 library(magrittr)
+library(coda)
+library(ggmcmc)
 
 theme_set(theme_minimal())
 ```
 
 # Urban Observatory Environment Data
 
-```{r make-request, eval=FALSE}
+```{r make-request, eval=FALSE, echo=FALSE}
 # This should not be used to query long intervals
 start_date = "20170901"
 end_date = "20170907"
@@ -32,7 +33,7 @@ r = httr::GET(query)
 (data = read_csv(httr::content(r, "text")))
 ```
 
-```{r import_data}
+```{r import_data, message=FALSE}
 data = read_csv("../data/new_new_emote_1114.csv")
 ```
 
@@ -65,7 +66,9 @@ data %>%
   select(Timestamp, Variable, Value) %>%
   spread(key = Variable, value = Value) %>%
   ggplot(aes(x = Temperature, y = Humidity)) +
-  geom_point()
+  geom_point() +
+  labs(title = "Bivariate Plot of Humidity and Temperature",
+       subtitle = "Measurements of Humidity and Temperature at emote 1114, showing strong negative correlation")
 ```
 
 ```{r histograms}
@@ -76,10 +79,11 @@ data %>%
   ggplot(aes(x = norm_value)) +
   geom_histogram(bins = 100) +
   facet_wrap(~Variable, ncol = 1) +
-  labs(title = "Histograms of normalised values")
+  labs(title = "Histograms of normalised values",
+       subtitle = "Humididity is skewed left whereas temperature is symmetric but platykurtic compared to the Normal distribution")
 ```
 
-In order to apply a DLM model to this data, it needs to be observed on a regular grid.
+In order to apply a DLM model to this data, the data must be measured on a regular grid.
 
 ```{r}
 humid_temp = data[-c(96405, 589192),] %>%
@@ -87,7 +91,7 @@ humid_temp = data[-c(96405, 589192),] %>%
   spread(key = Variable, value = Value)
 ```
 
-The data is observed once per minute. In order to fit the DLM models we must ensure any missing data has an associated timestamp. To do this, left join onto a contiguous sequence of times:
+The data is observed once per minute. In order to fit the DLM models we must ensure any missing data has an associated timestamp. To do this, left join onto a contiguous sequence of times. We choose to only use one observation each hour. This would be more difficult in an online streaming setting.
 
 ```{r}
 start_time = lubridate::round_date(min(humid_temp$Timestamp), "hour")
@@ -109,21 +113,12 @@ humid_temp %>%
 ```
 
 
-```{r, eval=FALSE}
+```{r, eval=FALSE, echo=FALSE}
 humid_temp %>%
   mutate(relative_time = as.integer(difftime(Hour, start_time, units = "hour"))) %>%
   select(relative_time, Humidity, Temperature) %>% 
   write_csv(., path = "../data/humidity_temperature_1114.csv")
 ```
-
-# Joint DLM
-
-First order joint DLM for humidity and temperature:
-
-```{r gibbs-first-order-joint}
-iters = read_csv("../data/")
-```
-
 
 # A Regression DLM
 
@@ -131,8 +126,8 @@ Regress the values of Humidity against Temperature using a regression DLM:
 
 $$\begin{align*}
 Y_t &= F_t x_t + v_t, \qquad v \sim \mathcal{N}(0, V), \\
-x_t &= x_{t-1} + w_t, \qquad w \sim \textrm{MVN}(0, W),
-x_0 \sim \textrm{MVN}(m_0, C_0).
+x_t &= x_{t-1} + w_t, \qquad w \sim \textrm{MVN}(0, W), \\
+x_0 &\sim \textrm{MVN}(m_0, C_0).
 \end{align*}$$
 
 $Y_t$ is a univariate observation of the temperature at time $t$, $F_t$ contains the humidity at time $t$ and the regression intercept term:
@@ -141,9 +136,116 @@ $$F_t = \begin{pmatrix} 1 & h_t\end{pmatrix}.$$
 
 $x_t$ is the latent state and can be thought of as the time varying regression coefficients.
 
+```{r read_mcmc_chain}
+iters = read_csv("../data/humidity_temperature_regression_model_parameters.csv")
+
+drop = function(df, n) {
+  df[-(1:n),]
+}
+
+chain = iters %>%
+  drop(99000) %>%
+  mcmc() %>%
+  ggs()
+```
+
+```{r}
+chain %>%
+  filter(Parameter %in% c("V", "W1", "W4")) %>%
+  ggs_traceplot()
+```
+
+
 # A Gaussian Joint-DLM
 
 In order to forecast processes which are highly correlated, we can model the correlation between the series exploiting the information from both time series to give a more accurate forecast. We first specify a model for the Temperature and humidity seperately and then combine the two DLMs using an outer sum. 
+
+## First Order Joint DLM
+
+First order joint DLM for humidity and temperature:
+
+$$\begin{align*}
+Y_t &= \begin{pmatrix} 1 & 0 \\ 0 & 1 \end{pmatrix} x_t + v_t, \qquad v \sim \textrm{MVN}(0, V), \\
+x_t &= \begin{pmatrix} 1 & 0 \\ 0 & 1 \end{pmatrix} x_{t-1} + w_t, \qquad w \sim \textrm{MVN}(0, W), \\
+x_0 &\sim \textrm{MVN}(m_0, C_0).
+\end{align*}$$
+
+(Darrens suggestion to fit a simple first order Joint DLM to the temperature and humidity data)
+
+Use Gibbs Sampling to fit this model, with d-inverse Gamma for the diagonal observation noise $V$ and system variance $W$.
+
+```{r gibbs-first-order-joint}
+iters = read_csv("../data/joint_first_order_temperature_humidity_parameters.csv")
+observation = mcmc(iters) %>% ggs() %>% filter(Parameter %in% c("V1", "V4"))
+```
+
+```{r traceplot-joint}
+ggs_traceplot(observation)
+```
+
+```{r autocor}
+ggs_autocorrelation(observation)
+```
+
+```{r running}
+ggs_running(observation)
+```
+
+```{r}
+ggs_density(observation)
+```
+
+The mean of the measurement variance of the humidity is `r observation %>% filter(Parameter == "V1") %>% summarise(mean = mean(value)) %$% mean` and the mean of the measurement variance of the temperature is `r observation %>% filter(Parameter == "V4") %>% summarise(mean = mean(value)) %$% mean`.
+
+
+The values of the system variances are:
+
+```{r}
+system = mcmc(iters) %>% ggs() %>% filter(Parameter %in% paste0("W", c(1,4)))
+```
+
+```{r traceplot-joint}
+ggs_traceplot(system)
+```
+
+```{r autocor}
+ggs_autocorrelation(system)
+```
+
+```{r running}
+ggs_running(system)
+```
+
+```{r}
+ggs_density(system)
+```
+
+Now let's actually correlate the DLMs and use the Inverse Wishart Prior for the 2 x 2 system noise matrix $W$.
+
+The values of the system variances are:
+
+```{r}
+iters = read_csv("../data/joint_first_order_temperature_humidity_parameters_wishart.csv")
+system = mcmc(iters) %>% 
+  ggs() %>%
+  filter(Parameter %in% paste0("W", 1:4))
+```
+
+```{r traceplot-joint}
+ggs_traceplot(system)
+```
+
+```{r autocor}
+ggs_autocorrelation(system)
+```
+
+```{r running}
+ggs_running(system)
+```
+
+```{r}
+ggs_density(system)
+```
 
 ## Temperature Model
 
@@ -175,9 +277,9 @@ humid_temp %>%
   geom_line()
 ```
 
-* Simulate the data, this looks like a fairly reasonable model
+<!-- * Simulate the data, this looks like a fairly reasonable model -->
 
-```{r}
+```{r, echo=FALSE, eval=FALSE}
 sims = read_csv("../data/simulated_temperature_data.csv")
 
 sims %>%
@@ -187,11 +289,9 @@ sims %>%
   facet_wrap(~key, ncol = 1)
 ```
 
-* plot simulated data 
+<!-- * Kalman Filter Temperature Data -->
 
-* Kalman Filter Temperature Data
-
-```{r}
+```{r filter-temperature-data, echo=FALSE, eval=FALSE}
 filtered = read_csv("../data/temperature_filtered.csv")
 
 humid_temp %>%
@@ -208,9 +308,9 @@ humid_temp %>%
   geom_line(aes(x = time, y = upper), linetype = 2, colour = "#999999")
 ```
 
-* Fit the model using optim
+<!-- * Fit the model using optim -->
 
-```{r}
+```{r, eval=FALSE, echo=FALSE}
 model = function(theta) {
   dlmModPoly(1, dV = exp(theta[1]), dW = exp(theta[2])) + dlmModTrig(s = 24, q = 3, dW = exp(theta[3:8]))
 }
@@ -218,23 +318,18 @@ fit = dlmMLE(y = humid_temp[1:150,] %$% Temperature, parm = rep(1, 8), build = m
 exp(fit$par)
 ```
 
-```{r}
-plot(humid_temp[1:150,] %$% Temperature, type = "l")
-```
-
+* Fit the temperature model using Gibbs Sampling
 
 ```{r read-chain}
-temp_iters = read_csv("../data/temperature_model_parameters.csv")
+temp_iters = read_csv("../data/temperature_model_parameters_gibbs.csv")
 ```
 
 ```{r autocorrelation}
-library(coda)
-library(ggmcmc)
-
 chain = mcmc(temp_iters) %>%
-  ggmcmc::ggs()
+  ggmcmc::ggs() %>%
+  filter(Parameter %in% c("V", "W1"))
 
-ggmcmc(chain)
+ggs_autocorrelation(chain)
 ```
 
 ```{r traceplot}
@@ -245,8 +340,56 @@ ggs_traceplot(chain)
 ggs_running(chain)
 ```
 
+## Humidity Model
+
+The humidity model is the chosen to be the same as the temperature model.
+
+## Joint Model
+
+In order to combine the temperature and humidity models, we combine the system evolution matrices, $G$ using matrix block concatenation:
+
+$$G = \begin{pmatrix} G_{\textrm{temp}} & 0 \\ 0 & G_{\textrm{humid}} \end{pmatrix}.$$
+
+The observation matrices are combined in the same way:
+
+$$F = \begin{pmatrix} F_{\textrm{temp}} & 0 \\ 0 & F_{\textrm{humid}} \end{pmatrix}.$$
+
+The observation, $Y_t$ is two-dimensional containing one observation of the temperature and one observation of the humidity for each timestep $t$. The system noise matrix is 14 x 14, this contains 196 components. We don't try to learn all the entries of the matrix as this is unfeasible. In order to model the correlation between the time series, we model with correlation between the drift components of the two models. One way to do this is to use a Gibbs step to propose from an inverse Wishart distribution for the block representing the two linear models for the drift. Then update the diagonal elements of the noise matrix using indendent Inverse Gamma Gibbs steps. To Illustrate this clearly, let's rewrite the system evolution matrix, $G$, with the drift models first and the seasonal models second:
+
+$$G = \begin{pmatrix}
+1 & 0 & 0 & 0 \\ 
+0 & 1 & 0 & 0 \\
+0 & 0 & R_{\textrm{temp}} & 0 \\
+0 & 0 & 0 & R_{\textrm{humid}}
+\end{pmatrix}$$
+
+Where $R_{\textrm{temp}}$ contains the fourier components for the temperature model and $R_{\textrm{humid}}$ contains the fourier components for the humidity model. Then we must re-write the observation matrix appropriately:
+
+$$F = \begin{pmatrix}
+1 \\
+1 \\
+1 \\
+0 \\
+1 \\
+0 \\
+\vdots \\
+0
+\end{pmatrix}$$
 
 
+Then the system noise matrix can be written as a sparse matrix as follows:
+
+$$W = \begin{pmatrix}
+W_1 & 0 & \dots & \dots & 0  \\
+0 & w_2 & 0 & \dots & \vdots \\
+\vdots & 0 & \ddots & \dots & \vdots \\
+0 & \dots & \dots & \ddots & 0 \\
+0 & \dots & \dots & \dots & w_{12}
+\end{pmatrix}.$$
+
+The first element, $W_1$ is a $2 \times 2$ matrix representing the covariance between the linear models in the composition. The terms remaining in the diagonal, $w_1 ,\dots, w_{12}$ correspond to the system variance of the fourier terms in the two seasonal models. 
+
+Remaining is the observation matrix $V$, a $2 \times 2$ diagonal matrix which can also be updated using a Gibbs step and Inverse Gamma priors on each diagonal element.
 
 # A Non-Gaussian Joint-Model
 
