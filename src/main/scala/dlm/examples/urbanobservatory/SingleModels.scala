@@ -103,22 +103,46 @@ object FitHumidityModel extends App with Models with ObservedData {
   val humidityData = data.
     map(d => Data(d.time, d.observation.map(x => DenseVector(x(0)))))
 
-  val iters = GibbsSampling.gibbsSamples(humidityModel, Gamma(1.0, 1.0), Gamma(1.0, 1.0), initP, humidityData).
-    steps.
-    take(1000000)
-
-  val out = new java.io.File("data/humidity_model_parameters.csv")
-  val headers = rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7")
-  val writer = out.asCsvWriter[List[Double]](headers)
+  def proposal(delta: Double) = { p: Parameters =>
+    for {
+      innov_w <- Applicative[Rand].replicateA(7, Gaussian(0, delta))
+      w = diag(p.w) *:* DenseVector(exp(innov_w.toArray))
+      innov_v <- Gaussian(0, delta)
+      v = diag(p.v) *:* DenseVector(exp(innov_v))
+    } yield Parameters(diag(v), diag(w), p.m0, p.c0)
+  }
 
   def formatParameters(p: Parameters) = {
     DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
   }
 
-  // write iters to file
-  while (iters.hasNext) {
-    writer.write(formatParameters(iters.next.p))
-  }
+  val iters: Iterator[Parameters] = MetropolisHastings.metropolisHastingsDlm(
+      humidityModel, humidityData, proposal(0.05), initP).
+      steps.
+      map(_.p).
+      take(1000000)
 
-  writer.close()
+  Streaming.writeChain(
+    formatParameters, "data/humidity_model_parameters_metrop.csv",
+    rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7"))(iters)
+
+
+  // val iters = GibbsSampling.gibbsSamples(humidityModel, Gamma(1.0, 1.0), Gamma(1.0, 1.0), initP, humidityData).
+  //   steps.
+  //   take(1000000)
+
+  // val out = new java.io.File("data/humidity_model_parameters.csv")
+  // val headers = rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7")
+  // val writer = out.asCsvWriter[List[Double]](headers)
+
+  // def formatParameters(p: Parameters) = {
+  //   DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
+  // }
+
+  // // write iters to file
+  // while (iters.hasNext) {
+  //   writer.write(formatParameters(iters.next.p))
+  // }
+
+  // writer.close()
 }

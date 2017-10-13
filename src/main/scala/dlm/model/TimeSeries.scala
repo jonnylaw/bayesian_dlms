@@ -17,7 +17,7 @@ object TimeSeries {
     }
     prevs.tail.zip(nexts).zipWithIndex.map {
       case ((Some((prev, i)), Some((next, j))), k) =>
-        if (i == j) prev else prev + (next - prev) * fromInt(k - i) / fromInt(j - i)
+        if (i == j) prev else prev + (next - prev) * (k - i).toDouble / (j - i).toDouble
       case ((Some((prev, _)), _), _) => prev
       case ((_, Some((next, _))), _) => next
     }

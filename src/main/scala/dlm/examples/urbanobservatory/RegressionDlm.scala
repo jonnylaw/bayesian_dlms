@@ -10,13 +10,13 @@ import kantan.csv._
 import kantan.csv.ops._
 
 object RegressionDlm extends App with ObservedData {
-  val humidity = for {
-    d <- data
-    y = d.observation
-    h = y.map(a => DenseVector(a(0)))
-  } yield Data(d.time, h)
+  // interpolate missing Humidity values
+  val humidity = {
+    val y = data.map(_.observation.map(a => a(0)))
+    TimeSeries.interpolate(y).map(DenseVector(_))
+  }
 
-  val model = Dlm.regression(TimeSeries.interpolate(humidity.map(_.observation)))
+  val model = Dlm.regression(humidity)
 
   val p = Parameters(
     DenseMatrix.eye[Double](1) * 50.0,

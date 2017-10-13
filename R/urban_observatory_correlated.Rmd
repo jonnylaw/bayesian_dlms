@@ -112,7 +112,6 @@ humid_temp %>%
   facet_wrap(~key, ncol = 1, scales = "free_y")
 ```
 
-
 ```{r, eval=FALSE, echo=FALSE}
 humid_temp %>%
   mutate(relative_time = as.integer(difftime(Hour, start_time, units = "hour"))) %>%
@@ -170,81 +169,42 @@ x_t &= \begin{pmatrix} 1 & 0 \\ 0 & 1 \end{pmatrix} x_{t-1} + w_t, \qquad w \sim
 x_0 &\sim \textrm{MVN}(m_0, C_0).
 \end{align*}$$
 
-(Darrens suggestion to fit a simple first order Joint DLM to the temperature and humidity data)
+Now let's actually correlate the DLMs and use the Inverse Wishart Prior for the 2 x 2 system noise matrix $W$.
 
-Use Gibbs Sampling to fit this model, with d-inverse Gamma for the diagonal observation noise $V$ and system variance $W$.
-
-```{r gibbs-first-order-joint}
-iters = read_csv("../data/joint_first_order_temperature_humidity_parameters.csv")
-observation = mcmc(iters) %>% ggs() %>% filter(Parameter %in% c("V1", "V4"))
-```
-
-```{r traceplot-joint}
-ggs_traceplot(observation)
-```
-
-```{r autocor}
-ggs_autocorrelation(observation)
-```
-
-```{r running}
-ggs_running(observation)
-```
+The values of the observation variances are:
 
 ```{r}
-ggs_density(observation)
+iters = read_csv("../data/joint_first_order_temperature_humidity_parameters_wishart.csv")
+
+observation = mcmc(iters) %>% ggs() %>% filter(Parameter %in% paste0("V", c(1, 4)))
+```
+
+```{r plot-observation-diagnostics}
+p1 = ggs_traceplot(observation)
+p2 = ggs_autocorrelation(observation)
+gridExtra::grid.arrange(p1, p2, ncol = 2)
 ```
 
 The mean of the measurement variance of the humidity is `r observation %>% filter(Parameter == "V1") %>% summarise(mean = mean(value)) %$% mean` and the mean of the measurement variance of the temperature is `r observation %>% filter(Parameter == "V4") %>% summarise(mean = mean(value)) %$% mean`.
 
-
 The values of the system variances are:
 
 ```{r}
-system = mcmc(iters) %>% ggs() %>% filter(Parameter %in% paste0("W", c(1,4)))
-```
-
-```{r traceplot-joint}
-ggs_traceplot(system)
-```
-
-```{r autocor}
-ggs_autocorrelation(system)
-```
-
-```{r running}
-ggs_running(system)
-```
-
-```{r}
-ggs_density(system)
-```
-
-Now let's actually correlate the DLMs and use the Inverse Wishart Prior for the 2 x 2 system noise matrix $W$.
-
-The values of the system variances are:
-
-```{r}
-iters = read_csv("../data/joint_first_order_temperature_humidity_parameters_wishart.csv")
 system = mcmc(iters) %>% 
   ggs() %>%
   filter(Parameter %in% paste0("W", 1:4))
 ```
 
-```{r traceplot-joint}
-ggs_traceplot(system)
+```{r traceplot-joint-system}
+p1 = ggs_traceplot(system)
+p2 = ggs_autocorrelation(system)
+gridExtra::grid.arrange(p1, p2, ncol = 2)
 ```
 
-```{r autocor}
-ggs_autocorrelation(system)
-```
-
-```{r running}
-ggs_running(system)
-```
-
-```{r}
-ggs_density(system)
+```{r running-mean-system}
+p1 = ggs_running(system)
+p2 = ggs_density(system)
+gridExtra::grid.arrange(p1, p2, ncol = 2)
 ```
 
 ## Temperature Model
@@ -320,29 +280,47 @@ exp(fit$par)
 
 * Fit the temperature model using Gibbs Sampling
 
-```{r read-chain}
+```{r read-chain, echo=FALSE, eval=FALSE}
 temp_iters = read_csv("../data/temperature_model_parameters_gibbs.csv")
 ```
 
-```{r autocorrelation}
+```{r autocorrelation, echo=FALSE, eval=FALSE}
 chain = mcmc(temp_iters) %>%
   ggmcmc::ggs() %>%
   filter(Parameter %in% c("V", "W1"))
 
-ggs_autocorrelation(chain)
+p1 = ggs_traceplot(chain)
+p2 = ggs_autocorrelation(chain)
+gridExtra::grid.arrange(p1, p2, ncol = 2)
 ```
 
-```{r traceplot}
-ggs_traceplot(chain)
-```
-
-```{r ergmean}
-ggs_running(chain)
+```{r ergmean, echo=FALSE, eval=FALSE}
+p1 = ggs_running(chain)
+p2 = ggs_density(chain)
+gridExtra::grid.arrange(p1, p2, ncol = 2)
 ```
 
 ## Humidity Model
 
 The humidity model is the chosen to be the same as the temperature model.
+
+Plot the humidity data
+
+```{r humidity_plot}
+p1 = humid_temp %>%
+  ggplot(aes(x = Hour, y = Humidity)) +
+  geom_line()
+
+p2 = humid_temp %>%
+  mutate(week = as.factor(lubridate::week(Hour)), day = lubridate::wday(Hour, label = T)) %>%
+  ggplot(aes(y = Humidity, x = day)) +
+  geom_boxplot() +
+  labs(title = "Humidity by weekday")
+
+gridExtra::grid.arrange(p1, p2, ncol = 1)
+```
+
+Determine parameters for the humidity model using metropolis hastings!
 
 ## Joint Model
 
@@ -363,19 +341,24 @@ $$G = \begin{pmatrix}
 0 & 0 & 0 & R_{\textrm{humid}}
 \end{pmatrix}$$
 
-Where $R_{\textrm{temp}}$ contains the fourier components for the temperature model and $R_{\textrm{humid}}$ contains the fourier components for the humidity model. Then we must re-write the observation matrix appropriately:
+Where $R_{\textrm{temp}}$ and $R_{\textrm{humid}}$ contain the fourier components for the temperature and humidity models respectively. Then the observation matrix must re-written as follows:
 
 $$F = \begin{pmatrix}
-1 \\
-1 \\
-1 \\
-0 \\
-1 \\
-0 \\
-\vdots \\
-0
+1 & 0 \\
+0 & 1 \\
+1 & 0\\
+0 & 0\\
+1 & 0\\
+0 & 0\\
+1 & 0\\
+0 & 0\\
+0 & 1 \\
+0 & 0 \\
+0 & 1 \\
+0 & 0 \\
+0 & 1 \\
+0 & 0
 \end{pmatrix}$$
-
 
 Then the system noise matrix can be written as a sparse matrix as follows:
 
@@ -391,6 +374,26 @@ The first element, $W_1$ is a $2 \times 2$ matrix representing the covariance be
 
 Remaining is the observation matrix $V$, a $2 \times 2$ diagonal matrix which can also be updated using a Gibbs step and Inverse Gamma priors on each diagonal element.
 
+Test to see if this model is appropriate, simulate from this model:
+
+```{r simulated plot}
+correlated_sims = read_csv("../data/simulated_humid_temp.csv")
+
+correlated_sims %>%
+  gather(key, value, -time) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  facet_wrap(~key, scales = "free_y") +
+  theme(legend.position = "none")
+```
+
+Parameters:
+
+```{r}
+iters = read_csv("../data/joint_seasonal_temperature_humidity_parameters.csv")
+```
+
+
 # A Non-Gaussian Joint-Model
 
 * Humidity is between 0 and 100, scaled Beta?
@@ -398,4 +401,4 @@ Remaining is the observation matrix $V$, a $2 \times 2$ diagonal matrix which ca
 
 # A Continuous Time Non-Gaussian Joint Model
 
-* Use SDEs for state space
+* Use SDEs for state space, gaussian

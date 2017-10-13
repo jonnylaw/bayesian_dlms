@@ -131,8 +131,6 @@ object Smoothing {
     val lastTime = kfState.last.time
     val lastState = MultivariateGaussianSvd(kfState.last.mt, kfState.last.ct).draw
     val init = SamplingState(lastTime, lastState, kfState.last.at, kfState.last.rt)
-    // println(s"last time $lastTime")
-    // println(s"last state $lastState")
 
     kfState.init.reverse.scanLeft(init)(backSampleStepJoseph(mod, p)).
       reverse.map(a => (a.time, a.sample))

@@ -51,7 +51,7 @@ object GibbsWishart {
 
     for {
       system <- sampleSystemMatrix(priorW, mod, latentState)
-      obs = sampleObservationMatrix(priorV, mod, latentState, observations)
+      obs <- sampleObservationMatrix(priorV, mod, latentState, observations)
       p = Parameters(obs, system, state.p.m0, state.p.c0)
     } yield GibbsSampling.State(p, latentState)
   }

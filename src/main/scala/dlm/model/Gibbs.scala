@@ -14,14 +14,14 @@ object GibbsSampling extends App {
   )
 
   /**
-    * Sample the (diagonal) observation noise covariance matrix from an inverse Gamma distribution
+    * Sample the (diagonal) observation noise covariance matrix from a Gamma distribution
     * This doesn't take into account missing observations
     */
   def sampleObservationMatrix(
     prior:        Gamma,
     mod:          Model, 
     state:        Array[(Time, DenseVector[Double])],
-    observations: Array[Data]) = {
+    observations: Array[Data]): Rand[DenseMatrix[Double]] = {
 
     val forecast = state.tail.
       map { case (time, x) => mod.f(time).t * x }
@@ -34,10 +34,10 @@ object GibbsSampling extends App {
     val rate = SSy.map(ss => (1.0 / prior.scale) + ss * 0.5)
 
     val res = rate.map(r =>
-      Gamma(shape, 1.0 / r).draw
+      InverseGamma(shape, r).draw
     )
 
-    diag(res.map(1.0/_))
+    Rand.always(diag(res))
   }
 
   /**
@@ -46,7 +46,7 @@ object GibbsSampling extends App {
   def sampleSystemMatrix(
     prior:        Gamma,
     mod:          Model,
-    state:        Array[(Time, DenseVector[Double])]) = {
+    state:        Array[(Time, DenseVector[Double])]): Rand[DenseMatrix[Double]] = {
 
     val advanceState = state.init.
       map { case (time, x) => mod.g(time) * x }
@@ -55,11 +55,13 @@ object GibbsSampling extends App {
       reduce(_ + _)
 
     val shape = prior.shape + (state.size - 1) * 0.5
-    val rate = SStheta map (s => (1.0 / prior.scale) + s * 0.5)
+    val rate = SStheta map (s => (prior.scale) + s * 0.5)
 
-    val res = rate map (r => Gamma(shape, 1.0 / r).draw)
+    val res = rate.map(r =>
+      InverseGamma(shape, r).draw
+    )
 
-    diag(res.map(1.0/_))
+    Rand.always(diag(res))
   }
 
   /**
@@ -83,13 +85,11 @@ object GibbsSampling extends App {
     priorW:       Gamma, 
     observations: Array[Data])(gibbsState: State) = {
 
-    val state = sampleState(mod, observations, gibbsState.p)
-    val obs = sampleObservationMatrix(priorV, mod, state, observations)
-    val system = sampleSystemMatrix(priorW, mod, state)
-
-    Rand.always(
-      State(Parameters(obs, system, gibbsState.p.m0, gibbsState.p.c0), state)
-    )
+    for {
+      obs <- sampleObservationMatrix(priorV, mod, gibbsState.state, observations)
+      state = sampleState(mod, observations, Parameters(obs, gibbsState.p.w, gibbsState.p.m0, gibbsState.p.c0))
+      system <- sampleSystemMatrix(priorW, mod, state)
+    } yield State(Parameters(obs, system, gibbsState.p.m0, gibbsState.p.c0), state)
   }
 
   /**
@@ -123,14 +123,13 @@ object GibbsSampling extends App {
     priorW:       Gamma, 
     observations: Array[Data])(gibbsState: State) = {
 
-    val state = sampleState(mod, observations, gibbsState.p)
-
-    val obs = sampleObservationMatrix(priorV, mod, state, observations)
-    val system = sampleSystemMatrix(priorW, mod, state)
-    val p = Parameters(obs, system, gibbsState.p.m0, gibbsState.p.c0)
-    val newP = metropStep(mod, observations, proposal)(p)
-
-    newP.map(State(_, state))
+    for {
+      obs <- sampleObservationMatrix(priorV, mod, gibbsState.state, observations)
+      state = sampleState(mod, observations, Parameters(obs, gibbsState.p.w, gibbsState.p.m0, gibbsState.p.c0))
+      system <- sampleSystemMatrix(priorW, mod, state)
+      p = Parameters(obs, system, gibbsState.p.m0, gibbsState.p.c0)
+      newP <- metropStep(mod, observations, proposal)(p)
+    } yield State(newP, state)
   }
 
   def gibbsMetropSamples(
