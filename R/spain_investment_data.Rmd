@@ -61,13 +61,8 @@ summary(gibbs_iters)
 
 
 ```{r plot_gibbs}
-drop = function(df, n) {
-  df[-c(1:n),]
-}
-
 params = gibbs_iters %>%
   mutate(iteration = 1:nrow(gibbs_iters)) %>%
-  drop(12000) %>%
   gather(key = parameter, value, -iteration)
 
 p1 = params %>%

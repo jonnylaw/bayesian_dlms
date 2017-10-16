@@ -5,7 +5,7 @@ import Smoothing._
 import KalmanFilter._
 import cats.implicits._
 import breeze.linalg.{DenseVector, diag, DenseMatrix}
-import breeze.stats.distributions.{Rand, Gamma, MarkovChain}
+import breeze.stats.distributions.{Rand, MarkovChain}
 
 object GibbsSampling extends App {
   case class State(
@@ -18,7 +18,7 @@ object GibbsSampling extends App {
     * This doesn't take into account missing observations
     */
   def sampleObservationMatrix(
-    prior:        Gamma,
+    prior:        InverseGamma,
     mod:          Model, 
     state:        Array[(Time, DenseVector[Double])],
     observations: Array[Data]): Rand[DenseMatrix[Double]] = {
@@ -44,12 +44,14 @@ object GibbsSampling extends App {
     * Sample the (diagonal) system noise covariance matrix from an inverse gamma 
     */
   def sampleSystemMatrix(
-    prior:        Gamma,
+    prior:        InverseGamma,
     mod:          Model,
     state:        Array[(Time, DenseVector[Double])]): Rand[DenseMatrix[Double]] = {
 
     val advanceState = state.init.
       map { case (time, x) => mod.g(time) * x }
+
+    // this bit is wrong
     val SStheta = (state.map(_._2).tail, advanceState).zipped.
       map { case (mt, at) => (mt - at) *:* (mt - at) }.
       reduce(_ + _)
@@ -81,24 +83,31 @@ object GibbsSampling extends App {
     */
   def dinvGammaStep(
     mod:          Model, 
-    priorV:       Gamma,
-    priorW:       Gamma, 
+    priorV:       InverseGamma,
+    priorW:       InverseGamma, 
     observations: Array[Data])(gibbsState: State) = {
 
     for {
       obs <- sampleObservationMatrix(priorV, mod, gibbsState.state, observations)
       state = sampleState(mod, observations, Parameters(obs, gibbsState.p.w, gibbsState.p.m0, gibbsState.p.c0))
       system <- sampleSystemMatrix(priorW, mod, state)
-    } yield State(Parameters(obs, system, gibbsState.p.m0, gibbsState.p.c0), state)
+    } yield State(Parameters(gibbsState.p.v, system, gibbsState.p.m0, gibbsState.p.c0), state)
   }
 
   /**
-    * Do some gibbs samples
+    * Return a Markov chain using Gibbs Sampling to determine the values of the system and 
+    * observation noise covariance matrices, W and V
+    * @param mod the model containing the definition of the observation matrix F_t and system evolution matrix G_t
+    * @param priorV the prior distribution on the observation noise matrix, V
+    * @param priorW the prior distribution on the system noise matrix, W
+    * @param initParams the initial parameters of the Markov Chain
+    * @param observations an array of Data containing the observed time series
+    * @return a Process 
     */
   def gibbsSamples(
     mod:          Model, 
-    priorV:       Gamma, 
-    priorW:       Gamma, 
+    priorV:       InverseGamma, 
+    priorW:       InverseGamma, 
     initParams:   Parameters, 
     observations: Array[Data]) = {
 
@@ -119,8 +128,8 @@ object GibbsSampling extends App {
   def gibbsMetropStep(
     proposal:     Parameters => Rand[Parameters],
     mod:          Model, 
-    priorV:       Gamma,
-    priorW:       Gamma, 
+    priorV:       InverseGamma,
+    priorW:       InverseGamma, 
     observations: Array[Data])(gibbsState: State) = {
 
     for {
@@ -135,8 +144,8 @@ object GibbsSampling extends App {
   def gibbsMetropSamples(
     proposal:     Parameters => Rand[Parameters],
     mod:          Model, 
-    priorV:       Gamma, 
-    priorW:       Gamma, 
+    priorV:       InverseGamma, 
+    priorW:       InverseGamma, 
     initParams:   Parameters, 
     observations: Array[Data]) = {
 

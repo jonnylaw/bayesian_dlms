@@ -5,7 +5,7 @@ import Dlm._
 import MetropolisHastings._
 import GibbsSampling._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
-import breeze.stats.distributions.{Gamma, Gaussian, Rand}
+import breeze.stats.distributions.{Gaussian, Rand}
 import math.{log, exp}
 import java.nio.file.Paths
 import cats.implicits._
@@ -83,13 +83,13 @@ object SmoothSecondOrderDlm extends App with DlmModel with SimulatedSecondOrderD
 
 object GibbsSecondOrder extends App with DlmModel with SimulatedSecondOrderData {
   val alphaV = 1.0/10.0
-  val betaV = 1.0/10.0
+  val betaV = 10.0
 
   val alphaW = 100.0/1000.0
-  val betaW = 10.0/1000.0
+  val betaW = 100.0
 
-  val priorV = Gamma(alphaV, 1.0/betaV)
-  val priorW = Gamma(alphaW, 1.0/betaW)
+  val priorV = InverseGamma(alphaV, betaV)
+  val priorW = InverseGamma(alphaW, betaW)
 
   val iters = gibbsSamples(mod, priorV, priorW, p, data).
     steps.
@@ -119,14 +119,16 @@ object GibbsInvestParameters extends App with DlmModel {
     map { case (x, i) => Data(i + 1960, Some(DenseVector(x(1).toDouble / 1000.0))) }.
     toArray
 
+  data.foreach(println)
+
   val alphaV = 1.0/10.0
-  val betaV = 1.0/10.0
+  val betaV = 10.0
 
   val alphaW = 100.0/1000.0
-  val betaW = 10.0/1000.0
+  val betaW = 100.0
 
-  val priorV = Gamma(alphaV, 1.0/betaV)
-  val priorW = Gamma(alphaW, 1.0/betaW)
+  val priorV = InverseGamma(alphaV, betaV)
+  val priorW = InverseGamma(alphaW, betaW)
 
   val initP = Parameters(
     v = DenseMatrix(1.0),
@@ -137,21 +139,20 @@ object GibbsInvestParameters extends App with DlmModel {
 
   val iters = GibbsSampling.gibbsSamples(mod, priorV, priorW, initP, data).
     steps.
-    take(100)
+    drop(12000).
+    take(12000)
 
-  iters.foreach(println)
+  val out = new java.io.File("data/gibbs_spain_investment.csv")
+  val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2"))
 
-  // val out = new java.io.File("data/gibbs_spain_investment.csv")
-  // val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2"))
+  def formatParameters(p: Parameters) = {
+    DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
+  }
 
-  // def formatParameters(p: Parameters) = {
-  //   DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
-  // }
+  // write iters to file
+  while (iters.hasNext) {
+    writer.write(formatParameters(iters.next.p))
+  }
 
-  // // write iters to file
-  // while (iters.hasNext) {
-  //   writer.write(formatParameters(iters.next.p))
-  // }
-
-  // writer.close()
+  writer.close()
 }

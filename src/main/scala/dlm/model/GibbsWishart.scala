@@ -12,7 +12,7 @@ object GibbsWishart {
     * Sample a diagonal observation covariance matrix from the d-inverse Gamma Prior
     */
   def sampleObservationMatrix(
-    priorV:       Gamma, 
+    priorV:       InverseGamma, 
     mod:          Model, 
     state:        Array[(Time, DenseVector[Double])], 
     observations: Array[Data]) = {
@@ -38,14 +38,12 @@ object GibbsWishart {
     val dof = priorW.nu + n
     val scale = priorW.psi + difference
 
-    println(s"Scale condition number ${cond(scale)}")
-
     InverseWishart(dof, scale)
   }
 
   def wishartStep(
     mod:          Model, 
-    priorV:       Gamma,
+    priorV:       InverseGamma,
     priorW:       InverseWishart, 
     observations: Array[Data])(state: GibbsSampling.State) = {
 
@@ -63,7 +61,7 @@ object GibbsWishart {
     */
   def gibbsSamples(
     mod:          Model, 
-    priorV:       Gamma, 
+    priorV:       InverseGamma, 
     priorW:       InverseWishart, 
     initParams:   Parameters, 
     observations: Array[Data]) = {

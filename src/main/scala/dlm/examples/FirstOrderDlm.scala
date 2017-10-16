@@ -4,7 +4,6 @@ import dlm.model._
 import Dlm._
 import GibbsSampling._
 import breeze.linalg.{DenseMatrix, DenseVector}
-import breeze.stats.distributions.Gamma
 import java.nio.file.Paths
 import java.io.File
 import cats.implicits._
@@ -80,7 +79,7 @@ object SmoothDlm extends App with FirstOrderDlm with SimulatedData {
 }
  
 object GibbsParameters extends App with FirstOrderDlm with SimulatedData {
-  val iters = gibbsSamples(mod, Gamma(1.0, 10.0), Gamma(1.0, 10.0), p, data).
+  val iters = gibbsSamples(mod, InverseGamma(1.0, 10.0), InverseGamma(1.0, 10.0), p, data).
     steps.
     take(10000)
 

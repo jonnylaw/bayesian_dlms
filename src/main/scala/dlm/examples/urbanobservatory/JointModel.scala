@@ -22,7 +22,7 @@ object JointFirstOrder extends App with ObservedData {
     DenseMatrix.eye[Double](2)
   )
 
-  val iters = GibbsWishart.gibbsSamples(model, Gamma(1.0, 10.0), InverseWishart(1.0, DenseMatrix.eye[Double](2)), initP, data).
+  val iters = GibbsWishart.gibbsSamples(model, InverseGamma(1.0, 10.0), InverseWishart(1.0, DenseMatrix.eye[Double](2)), initP, data).
     steps.
     take(1000000)
 
@@ -131,12 +131,11 @@ object FitJointModel extends App with JointModel with ObservedData {
 
     // update W in two stages
     wCorr <- GibbsWishart.sampleSystemMatrix(InverseWishart(5.0, DenseMatrix.eye[Double](2)), linearModel, linearState)
-    wIndep <- GibbsSampling.sampleSystemMatrix(Gamma(1.0, 1.0), seasonalModel, seasonalState)
+    wIndep <- GibbsSampling.sampleSystemMatrix(InverseGamma(1.0, 1.0), seasonalModel, seasonalState)
     w = blockDiagonal(wCorr, wIndep)
-    _ = println(s"correlated matrix $wCorr")
-    // update the observation variance using metropolis hastings
-    filter = (v: DenseMatrix[Double]) => KalmanFilter.logLikelihood(mod, normalisedData)(Parameters(v, w, p.m0, p.c0))
-    v <- MarkovChain.Kernels.metropolis(proposeDiagonalMatrix(0.05))(filter)(Rand)(p.v)
+
+    // update the observation variance
+    v <- GibbsSampling.sampleObservationMatrix(InverseGamma(1.0, 1.0), mod, state, data)
 
   } yield Parameters(v, w, p.m0, p.c0)
 

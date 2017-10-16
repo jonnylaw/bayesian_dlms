@@ -3,7 +3,7 @@ package dlm.examples.urbanobservatory
 import dlm.model._
 import Dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
-import breeze.stats.distributions.{Gamma, Gaussian, Rand}
+import breeze.stats.distributions.{Gaussian, Rand}
 import java.nio.file.Paths
 import breeze.numerics.exp
 import kantan.csv._
@@ -31,7 +31,7 @@ object RegressionDlm extends App with ObservedData {
     t = y.map(a => DenseVector(a(1)))
   } yield Data(d.time, t)
 
-  val iters = GibbsSampling.gibbsSamples(model, Gamma(1.0, 1.0), Gamma(1.0, 1.0), p, temperature).
+  val iters = GibbsSampling.gibbsSamples(model, InverseGamma(1.0, 1.0), InverseGamma(1.0, 1.0), p, temperature).
     steps.
     take(1000000)
 

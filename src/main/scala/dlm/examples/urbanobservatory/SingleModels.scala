@@ -51,7 +51,7 @@ object FitTemperatureModel extends App with Models with ObservedData {
   val temperatureData = data.
     map(d => Data(d.time, d.observation.map(x => DenseVector(x(1)))))
 
-  val iters = GibbsSampling.gibbsSamples(temperatureModel, Gamma(1.0, 1.0), Gamma(1.0, 1.0), initP, temperatureData).
+  val iters = GibbsSampling.gibbsSamples(temperatureModel, InverseGamma(1.0, 1.0), InverseGamma(1.0, 1.0), initP, temperatureData).
     steps.
     take(1000000)
 
@@ -126,7 +126,7 @@ object FitHumidityModel extends App with Models with ObservedData {
     formatParameters, "data/humidity_model_parameters_metrop.csv",
     rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7"))(iters)
 
-  // val iters = GibbsSampling.gibbsSamples(humidityModel, Gamma(1.0, 1.0), Gamma(1.0, 1.0), initP, humidityData).
+  // val iters = GibbsSampling.gibbsSamples(humidityModel, InverseGamma(1.0, 1.0), InverseGamma(1.0, 1.0), initP, humidityData).
   //   steps.
   //   take(1000000)
 
