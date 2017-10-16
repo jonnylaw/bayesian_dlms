@@ -21,22 +21,24 @@ object GibbsWishart {
   }
 
   /**
-    * Sample the system covariance matrix using a Wishart prior on the system precision matrix
+    * Sample the system covariance matrix using an Inverse Wishart prior on the system covariance matrix
     */
   def sampleSystemMatrix(
     priorW:       InverseWishart,
     mod:          Model, 
-    state:        Array[(Time, DenseVector[Double])]): Rand[DenseMatrix[Double]] = {
+    state:        Array[(Time, DenseVector[Double])]) = {
 
     val n = state.size - 1
-    val prevState = state.map { case (time, x) => mod.g(time) * x }
-    val stateMean = state.map { case (t, x) => x }.tail
+    val prevState = state.init.map { case (time, x) => mod.g(time) * x }
+    val stateMean = state.tail.map { case (t, x) => x }
     val difference = stateMean.zip(prevState).
       map { case (mt, mt1) => (mt - mt1) * (mt - mt1).t }.
       reduce(_ + _)
 
     val dof = priorW.nu + n
     val scale = priorW.psi + difference
+
+    println(s"Scale condition number ${cond(scale)}")
 
     InverseWishart(dof, scale)
   }

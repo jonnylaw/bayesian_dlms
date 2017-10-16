@@ -3,6 +3,7 @@ package dlm.examples.urbanobservatory
 import dlm.model._
 import Dlm._
 import dlm.examples._
+import MetropolisHastings._
 import cats.implicits._
 import cats.Applicative
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
@@ -100,14 +101,43 @@ object FitJointModel extends App with JointModel with ObservedData {
     Dlm.seasonal(24, 3)
   )
 
+  /**
+    * Normalise the observed Data
+    */
+  def normalise(xs: Array[Option[Double]]) = {
+    val mv = breeze.stats.meanAndVariance(xs.flatten)
+    for {
+      x <- xs
+      mean = mv.mean
+      sd = breeze.numerics.sqrt(mv.variance)
+    } yield x.map(a => (a - mean) / sd)
+  }
+
+  val humidity = normalise(data.map { case Data(_, y) => y.map(a => a(0)) })
+  val temperature = normalise(data.map { case Data(_, y) => y.map(a => a(1)) })
+
+  val normalisedData = (humidity zip temperature).zipWithIndex.
+    map { case ((humid, temp), time) => Data(time, for {
+      h <- humid
+      t <- temp
+    } yield DenseVector(h, t)) }
+
   val iter = (p: Parameters) => for {
-    state <- Rand.always(GibbsSampling.sampleState(mod, data, p))
+    state <- Rand.always(GibbsSampling.sampleState(mod, normalisedData, p))
+
+    // seperate the states
     linearState = state.map { case (t, d) => (t, DenseVector(d(0), d(1))) }
     seasonalState = state.map { case (t, d) => (t, DenseVector.vertcat(d(2 to -1))) }
+
+    // update W in two stages
     wCorr <- GibbsWishart.sampleSystemMatrix(InverseWishart(5.0, DenseMatrix.eye[Double](2)), linearModel, linearState)
     wIndep <- GibbsSampling.sampleSystemMatrix(Gamma(1.0, 1.0), seasonalModel, seasonalState)
-    v <- GibbsSampling.sampleObservationMatrix(Gamma(1.0, 1.0), mod, state, data)
     w = blockDiagonal(wCorr, wIndep)
+    _ = println(s"correlated matrix $wCorr")
+    // update the observation variance using metropolis hastings
+    filter = (v: DenseMatrix[Double]) => KalmanFilter.logLikelihood(mod, normalisedData)(Parameters(v, w, p.m0, p.c0))
+    v <- MarkovChain.Kernels.metropolis(proposeDiagonalMatrix(0.05))(filter)(Rand)(p.v)
+
   } yield Parameters(v, w, p.m0, p.c0)
 
   val iters = MarkovChain(combinedParameters)(iter).steps.take(1000000)

@@ -1,4 +1,4 @@
-scalaVersion := "2.11.11"
+scalaVersion in ThisBuild := "2.11.11"
 
 libraryDependencies ++= Seq(
   "org.scalanlp"   %% "breeze"             % "0.13.2",
@@ -12,4 +12,12 @@ libraryDependencies ++= Seq(
 
 //testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oD")
 
-testOptions in Test += Tests.Argument(TestFrameworks.ScalaCheck, "-v")
+// testOptions in Test += Tests.Argument(TestFrameworks.ScalaCheck, "-v")
+
+libraryDependencies += "com.lihaoyi" % "ammonite" % "1.0.2" % "test" cross CrossVersion.full
+
+sourceGenerators in Test += Def.task {
+  val file = (sourceManaged in Test).value / "amm.scala"
+  IO.write(file, """object amm extends App { ammonite.Main().run() }""")
+  Seq(file)
+}.taskValue

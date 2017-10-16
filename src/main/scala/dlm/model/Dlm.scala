@@ -27,7 +27,10 @@ object Dlm {
     w:  DenseMatrix[Double], 
     m0: DenseVector[Double],
     c0: DenseMatrix[Double]
-  )
+  ) {
+    def map(f: Double => Double) = 
+      Parameters(v.map(f), w.map(f), m0.map(f), c0.map(f))
+  }
 
   /**
     * A single observation of a DLM

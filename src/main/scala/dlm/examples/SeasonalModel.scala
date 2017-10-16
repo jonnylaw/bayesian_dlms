@@ -158,7 +158,7 @@ object SeasonalMetropolisHastings extends App with SeasonalModel with SeasonalDa
 
   // write iters to file
   while (iters.hasNext) {
-    writer.write(formatParameters(iters.next.p))
+    writer.write(formatParameters(iters.next.parameters))
   }
 
   writer.close()

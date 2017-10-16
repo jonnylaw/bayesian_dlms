@@ -91,7 +91,7 @@ object FitTemperatureModelMetrop extends App with Models with ObservedData {
   val iters: Iterator[Parameters] = MetropolisHastings.metropolisHastingsDlm(
       temperatureModel, temperatureData, proposal(0.05), initP).
       steps.
-      map(_.p).
+      map(_.parameters).
       take(1000000)
 
   Streaming.writeChain(
@@ -119,13 +119,12 @@ object FitHumidityModel extends App with Models with ObservedData {
   val iters: Iterator[Parameters] = MetropolisHastings.metropolisHastingsDlm(
       humidityModel, humidityData, proposal(0.05), initP).
       steps.
-      map(_.p).
+      map(_.parameters).
       take(1000000)
 
   Streaming.writeChain(
     formatParameters, "data/humidity_model_parameters_metrop.csv",
     rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7"))(iters)
-
 
   // val iters = GibbsSampling.gibbsSamples(humidityModel, Gamma(1.0, 1.0), Gamma(1.0, 1.0), initP, humidityData).
   //   steps.
