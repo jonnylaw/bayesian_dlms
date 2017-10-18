@@ -115,7 +115,7 @@ object KalmanFilter {
     */
   def kalmanFilter(mod: Model, observations: Array[Data], p: Parameters) = {
     val (at, rt) = advanceState(mod, p.m0, p.c0, 0, p)
-    val init = State(observations.head.time, p.m0, p.c0, at, rt, None, None, 0.0)
+    val init = State(observations.map(_.time).min, p.m0, p.c0, at, rt, None, None, 0.0)
 
     observations.scanLeft(init)(stepKalmanFilter(mod, p))
   }

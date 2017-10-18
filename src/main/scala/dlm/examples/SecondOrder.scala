@@ -119,8 +119,6 @@ object GibbsInvestParameters extends App with DlmModel {
     map { case (x, i) => Data(i + 1960, Some(DenseVector(x(1).toDouble / 1000.0))) }.
     toArray
 
-  data.foreach(println)
-
   val alphaV = 1.0/10.0
   val betaV = 10.0
 

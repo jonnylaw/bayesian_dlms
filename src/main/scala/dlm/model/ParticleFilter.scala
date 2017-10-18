@@ -95,4 +95,17 @@ object ParticleFilter {
 
     observations.scanLeft(init)(filterStep(mod, p, condLl))
   }
+
+  def likelihood(
+    mod:          Model, 
+    observations: Array[Data], 
+    p:            Parameters, 
+    n:            Int, 
+    condLl:       CondLikelihood) = {
+
+    val initState = MultivariateGaussian(p.m0, p.c0).sample(n).toVector
+    val init = State(observations.head.time, initState, 0.0)
+
+    observations.foldLeft(init)(filterStep(mod, p, condLl)).ll
+  }
 }

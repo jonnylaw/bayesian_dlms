@@ -139,7 +139,8 @@ object FitJointModel extends App with JointModel with ObservedData {
 
   } yield Parameters(v, w, p.m0, p.c0)
 
-  val iters = MarkovChain(combinedParameters)(iter).steps.take(1000000)
+  val iters = MarkovChain(combinedParameters)(iter).steps.
+    take(10000)
 
   val out = new java.io.File("data/joint_seasonal_temperature_humidity_parameters.csv")
   val headers = rfc.withHeader(false)

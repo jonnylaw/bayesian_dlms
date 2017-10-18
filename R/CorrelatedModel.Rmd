@@ -2,12 +2,11 @@
 title: "Correlated DLM"
 author: "Jonathan Law"
 date: "27 September 2017"
-output:
-  html_document: default
 ---
 
 ```{r setup, include=FALSE}
 library(tidyverse)
+knitr::opts_chunk$set(cache=TRUE)
 theme_set(theme_minimal())
 ```
 
@@ -21,8 +20,6 @@ X_t &= G_t x_{t-1} + w_t, \quad w_t \sim \textrm{MVN}(0, W).
 \end{align}$$
 
 The observation at each time point consists of $n$ related time series, $\textbf{Y}_t = (y_{1,t},\dots,y_{n,t})$.
-
-TODO: Describe composition of models
 
 ## Example
 
@@ -65,12 +62,40 @@ $$G = \begin{pmatrix}
 0 & 0 & 1
 \end{pmatrix}.$$
 
+In order to compose these two models in the Scala package, we first define the two models:
+
+```scala
+val mod1 = Dlm.polynomial(1)
+val mod2 = Dlm.polynomial(2)
+```
+
+The models can now be composed using the outer sum function:
+
+```scala
+val composedModel = Dlm.outerSum(mod1, mod2)
+
+val p = Parameters(
+  v = diag(DenseVector(1.0, 2.0)), 
+  w = diag(DenseVector(2.0, 3.0, 1.0)),
+  m0 = DenseVector.zeros[Double](2), 
+  c0 = DenseMatrix.eye[Double](2)
+)
+```
+
+Then we can simulate observations from the `composedModel`:
+
+```scala
+Dlm.simulate(0, composedModel, p).
+  steps.
+  take(1000)
+```
+
 The figure below shows a simulation from this composed model:
 
-```{r, eval=FALSE, echo=FALSE}
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
 first_order_and_linear_trend = read_csv("../data/first_order_and_linear_trend.csv")
 
-data %>%
+first_order_and_linear_trend %>%
   gather(key, value, observation_1, observation_2) %>%
   ggplot(aes(x = time, y = value)) +
   geom_line() +
@@ -89,7 +114,7 @@ $$\begin{align*}
 
 A simulation from this model is presented in the figure below:
 
-```{r}
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
 data = read_csv("../data/CorrelatedDlm.csv")
 
 data %>%
@@ -103,7 +128,7 @@ data %>%
 
 Given that we have simulated the model, we can perform the Kalman filter to determine the filtering distribution of the latent state using the true value of the parameters. The figure below shows the filtering distribution with 90% probability intervals for time $t = 200, \dots , 300$.
 
-```{r}
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
 filtered = read_csv("../data/correlated_dlm_filtered.csv")
 
 filtered %>%
@@ -133,17 +158,25 @@ This factorisation of the random variables makes it clear to see how a gibbs sam
 
 ## Observation Noise Matrix: d-Inverse Gamma
 
-First consider the observation variance matrix, this matrix is diagonal, so the following argument is simplified by considering only one time series in the observation vector. The prior distribution of the observation precision, $\tau_v$ (the inverse fo the variance) is the gamma distribution:
+First consider the observation variance matrix, this matrix is diagonal and hence we only need to learn the variances. The following steps are simplified by considering only one time series in the observation vector. The prior distribution of the observation variance, $V$, is the Inverse Gamma distribution:
 
-$$p(\tau_v) \sim \textrm{Gamma}(\alpha, \beta)$$
+$$p(V) = \textrm{InverseGamma}(\alpha, \beta)$$
 
-The likelihood of $y_t$ is Gaussian, with mean $F^T \textbf{x}_t$ and precision $\tau_v$. The Gamma distribution is conjugate to the Normal distribution with known mean and unknown precision, hence the posterior distribution of the observation precision is:
+The likelihood of $y_t$ is Gaussian, with mean $F^T \textbf{x}_t$ and variance $V$. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. The posterior distribution of the observation precision is:
 
-$$p(\tau_v | y_{1:T}, \textbf{x}_{1:T}) = \textrm{Gamma}\left(\alpha + \frac{n}{2}, \beta + \frac{1}{2}\sum_{i=1}^T(y_t - F^T\textbf{x}_t)^2\right).$$
+$$\begin{align*}
+p(V | y_{1:T}, \textbf{x}_{0:T}) &\propto  p(x_0) p(V) \prod_{t=1}^Tp(y_t | V, x_t) p(x_t|x_{t-1}) \\
+&= V^{-\alpha-1}\exp\left( -\frac{\beta}{V} \right)(2\pi V)^{-T/2} \exp \left\{ -V^{-1} \sum_{t=1}^T(y_t - F_t \textbf{x}_t)^2 \right\} \\
+&= V^{-(\alpha + T/2) - 1} \exp \left\{ -\frac{1}{V}\left(\beta + \frac{1}{2}\sum_{t=1}^T(y_t - F_t \textbf{x}_t)^2\right) \right\}
+\end{align*}$$
+
+The the posterior distribution of the observation variance is the Inverse Gamma distribution:
+
+$$p(V | y_{1:T}, \textbf{x}_{1:T}) = \textrm{InverseGamma}\left(\alpha + \frac{T}{2}, \beta + \frac{1}{2}\sum_{i=1}^T(y_t - F_t\textbf{x}_t)^2\right).$$
 
 ## System Noise Matrix: Inverse Wishart Prior
 
-For the system noise matrix, the Inverse Wishart distribution can be used as the conjugate prior for the Gaussian likelihood for $\textbf{x}_t$ with unknown covariance, $W$ and known mean $G_t\textbf{x}_{t-1}$. The prior on W is written as:
+For the system noise matrix, the Inverse Wishart distribution can be used as the conjugate prior for the Multivariate Normal likelihood for $\textbf{x}_t$ with unknown covariance, $W$ and known mean $G_t\textbf{x}_{t-1}$. The prior on W is written as:
 
 $$p(W) \sim \mathcal{W}^{-1}(\mathbf{psi}, \nu)$$
 
@@ -178,7 +211,7 @@ Now in order to perform gibbs sampling, we alternate between drawing values of $
 
 ## Example: Parameter Learning in a simulated Model
 
-```{r}
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
 iters = read_csv("../data/correlated_dlm_gibbs.csv")
 
 actual_values = tibble(
@@ -209,7 +242,7 @@ p2 = params %>%
 gridExtra::grid.arrange(p1, p2, ncol = 1)
 ```
 
-```{r, fig.cap="Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated correlated model"}
+```{r, fig.cap="Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated correlated model", message=FALSE, warning=FALSE, echo=FALSE}
 params = iters %>%
   mutate(iteration = 1:nrow(iters)) %>%
   gather(key = parameter, value, -iteration) %>%

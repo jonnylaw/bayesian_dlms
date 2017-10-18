@@ -125,23 +125,28 @@ object FitHumidityModel extends App with Models with ObservedData {
   Streaming.writeChain(
     formatParameters, "data/humidity_model_parameters_metrop.csv",
     rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7"))(iters)
+}
 
-  // val iters = GibbsSampling.gibbsSamples(humidityModel, InverseGamma(1.0, 1.0), InverseGamma(1.0, 1.0), initP, humidityData).
-  //   steps.
-  //   take(1000000)
+object FitHumidityModelGibbs extends App with Models with ObservedData {
+  val humidityData = data.
+    map(d => Data(d.time, d.observation.map(x => DenseVector(x(0)))))
 
-  // val out = new java.io.File("data/humidity_model_parameters.csv")
-  // val headers = rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7")
-  // val writer = out.asCsvWriter[List[Double]](headers)
+  val iters = GibbsSampling.gibbsSamples(humidityModel, InverseGamma(1.0, 1.0), InverseGamma(1.0, 1.0), initP, humidityData).
+    steps.
+    take(1000000)
 
-  // def formatParameters(p: Parameters) = {
-  //   DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
-  // }
+  val out = new java.io.File("data/humidity_model_parameters.csv")
+  val headers = rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7")
+  val writer = out.asCsvWriter[List[Double]](headers)
 
-  // // write iters to file
-  // while (iters.hasNext) {
-  //   writer.write(formatParameters(iters.next.p))
-  // }
+  def formatParameters(p: Parameters) = {
+    DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
+  }
 
-  // writer.close()
+  // write iters to file
+  while (iters.hasNext) {
+    writer.write(formatParameters(iters.next.p))
+  }
+
+  writer.close()
 }

@@ -61,77 +61,77 @@ trait BreezeGenerators {
   }
 }
 
-class InverseGammaDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
-  property("Inverse Gamma Distribution") {
-    forAll(smallDouble, smallDouble) { (shape: Double, scale: Double) =>
-      whenever (shape > 2.0 && scale > 1.0) {
-        val n = 10000000
-        val g = InverseGamma(shape, scale)
-        val samples = g.sample(n)
+// class InverseGammaDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
+//   property("Inverse Gamma Distribution") {
+//     forAll(smallDouble, smallDouble) { (shape: Double, scale: Double) =>
+//       whenever (shape > 2.0 && scale > 1.0) {
+//         val n = 10000000
+//         val g = InverseGamma(shape, scale)
+//         val samples = g.sample(n)
 
-        assert(g.mean === mean(samples) +- (0.1 * g.mean) ) // relative
-        assert(g.variance === variance(samples) +- (0.1 * g.variance))
-      }
-    }
-  }
-}
+//         assert(g.mean === mean(samples) +- (0.1 * g.mean) ) // relative
+//         assert(g.variance === variance(samples) +- (0.1 * g.variance))
+//       }
+//     }
+//   }
+// }
 
-class InverseWishartDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators { 
-  property("Inverse Wishart Distribution") {
-    forAll(symmetricPosDefMatrix(2, 100)) { (psi: DenseMatrix[Double]) =>
-      val n = 100000
-      val w = InverseWishart(5.0, psi)
-      val samples = w.sample(n)
+// class InverseWishartDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators { 
+//   property("Inverse Wishart Distribution") {
+//     forAll(symmetricPosDefMatrix(2, 100)) { (psi: DenseMatrix[Double]) =>
+//       val n = 100000
+//       val w = InverseWishart(5.0, psi)
+//       val samples = w.sample(n)
 
-      assert(w.mean === (samples.reduce(_ + _) / samples.length.toDouble))
-    }
-  }
-}
+//       assert(w.mean === (samples.reduce(_ + _) / samples.length.toDouble))
+//     }
+//   }
+// }
 
-class WishartDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
-  property("Wishart Distribution") {
-    forAll(symmetricPosDefMatrix(2, 100)) { scale =>
-      val n = 1000000
-      val nu = 5.0
-      val w = Wishart(nu, scale)
+// class WishartDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
+//   property("Wishart Distribution") {
+//     forAll(symmetricPosDefMatrix(2, 100)) { scale =>
+//       val n = 1000000
+//       val nu = 5.0
+//       val w = Wishart(nu, scale)
 
-      //    val samples = Vector.fill(n)(w.drawNaive())
-      val samples = w.sample(n)
-      val sampleMean = samples.reduce(_ + _) / n.toDouble
-      val varianceOne = variance(samples.map(w => w(0,0)))
-      val chiSqMean = ChiSquared(nu).mean * scale(0,0)
-      val chiSqVar = ChiSquared(nu).variance * scale(0,0) * scale(0,0)
+//       //    val samples = Vector.fill(n)(w.drawNaive())
+//       val samples = w.sample(n)
+//       val sampleMean = samples.reduce(_ + _) / n.toDouble
+//       val varianceOne = variance(samples.map(w => w(0,0)))
+//       val chiSqMean = ChiSquared(nu).mean * scale(0,0)
+//       val chiSqVar = ChiSquared(nu).variance * scale(0,0) * scale(0,0)
 
-      assert(w.mean === sampleMean)
-      assert(sampleMean(0, 0) === chiSqMean +- (0.1 * chiSqMean))
-      assert(varianceOne === chiSqVar +- (0.1 * chiSqVar))
-    }
-  }
-}
+//       assert(w.mean === sampleMean)
+//       assert(sampleMean(0, 0) === chiSqMean +- (0.1 * chiSqMean))
+//       assert(varianceOne === chiSqVar +- (0.1 * chiSqVar))
+//     }
+//   }
+// }
 
-class MvnDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
- /**
-    * Calculate the mean and covariance of a sequence of DenseVectors
-    */
-  def meanCovSamples(samples: Seq[DenseVector[Double]]) = {
-    val n = samples.size
-    val m = new DenseMatrix(n, samples.head.size, samples.map(_.data).toArray.transpose.flatten)
-    val sampleMean = samples.reduce(_ + _).map(_ * 1.0/n)
-    val sampleCovariance = covmat.matrixCovariance(m)
+// class MvnDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
+//  /**
+//     * Calculate the mean and covariance of a sequence of DenseVectors
+//     */
+//   def meanCovSamples(samples: Seq[DenseVector[Double]]) = {
+//     val n = samples.size
+//     val m = new DenseMatrix(n, samples.head.size, samples.map(_.data).toArray.transpose.flatten)
+//     val sampleMean = samples.reduce(_ + _).map(_ * 1.0/n)
+//     val sampleCovariance = covmat.matrixCovariance(m)
 
-    (sampleMean, sampleCovariance)
-  }
+//     (sampleMean, sampleCovariance)
+//   }
   
-  property("MVN distribution") {
-    forAll(symmetricPosDefMatrix(2, 1000)) { cov =>
-      val n = 100000
-      val mvn = MultivariateGaussianSvd(DenseVector.zeros[Double](2), cov)
-      val samples = mvn.sample(n)
+//   property("MVN distribution") {
+//     forAll(symmetricPosDefMatrix(2, 1000)) { cov =>
+//       val n = 100000
+//       val mvn = MultivariateGaussianSvd(DenseVector.zeros[Double](2), cov)
+//       val samples = mvn.sample(n)
       
-      val (sampleMean, sampleCovariance)  = meanCovSamples(samples)
+//       val (sampleMean, sampleCovariance)  = meanCovSamples(samples)
 
-      assert(mvn.mean === sampleMean)
-      assert(mvn.variance === sampleCovariance)
-    }
-  }
-}
+//       assert(mvn.mean === sampleMean)
+//       assert(mvn.variance === sampleCovariance)
+//     }
+//   }
+// }

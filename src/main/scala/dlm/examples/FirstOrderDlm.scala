@@ -23,7 +23,7 @@ trait FirstOrderDlm {
 }
 
 trait SimulatedData {
-  val rawData = Paths.get("data/FirstOrderDlm.csv")
+  val rawData = Paths.get("data/first_order_dlm.csv")
   val reader = rawData.asCsvReader[(Time, Double, Double)](rfc.withHeader)
   val data = reader.
     collect { 
@@ -35,9 +35,9 @@ trait SimulatedData {
 object SimulateDlm extends App with FirstOrderDlm {
   val sims = simulate(0, mod, p).
     steps.
-    take(1000)
+    take(100)
 
-  val out = new java.io.File("data/FirstOrderDlm.csv")
+  val out = new java.io.File("data/first_order_dlm.csv")
   val writer = out.asCsvWriter[(Time, Option[Double], Double)](rfc.withHeader("time", "observation", "state"))
 
   def formatData(d: (Data, DenseVector[Double])) = d match {
@@ -55,7 +55,7 @@ object SimulateDlm extends App with FirstOrderDlm {
 object FilterDlm extends App with FirstOrderDlm with SimulatedData {
   val filtered = KalmanFilter.kalmanFilter(mod, data, p)
 
-  val out = new java.io.File("data/FirstOrderDlmFiltered.csv")
+  val out = new java.io.File("data/first_order_dlm_filtered.csv")
 
   def formatFiltered(f: KalmanFilter.State) = {
     (f.time, f.mt(0), f.ct.data(0), f.y.map(_(0)), f.cov.map(_.data(0)))
@@ -69,7 +69,7 @@ object SmoothDlm extends App with FirstOrderDlm with SimulatedData {
   val filtered = KalmanFilter.kalmanFilter(mod, data, p)
   val smoothed = Smoothing.backwardsSmoother(mod, p)(filtered)
 
-  val out = new java.io.File("data/FirstOrderDlmSmoothed.csv")
+  val out = new java.io.File("data/first_order_dlm_smoothed.csv")
 
   def formatSmoothed(s: Smoothing.SmoothingState) = 
     (s.time, s.mean(0), s.covariance.data(0))
@@ -83,7 +83,7 @@ object GibbsParameters extends App with FirstOrderDlm with SimulatedData {
     steps.
     take(10000)
 
-  val out = new java.io.File("data/FirstOrderDlmGibbs.csv")
+  val out = new java.io.File("data/first_order_dlm_gibbs.csv")
   val writer = out.asCsvWriter[(Double, Double, Double, Double)](rfc.withHeader("V", "W", "m0", "c0"))
 
   def formatParameters(p: Parameters) = {

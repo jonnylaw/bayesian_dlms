@@ -14,8 +14,12 @@ object GibbsSampling extends App {
   )
 
   /**
-    * Sample the (diagonal) observation noise covariance matrix from a Gamma distribution
-    * This doesn't take into account missing observations
+    * Sample the (diagonal) observation noise covariance matrix from an Inverse Gamma distribution
+    * @param prior an Inverse Gamma prior distribution for each variance element of the observation matrix
+    * @param mod the DLM specification
+    * @param state a sample of the DLM state
+    * @param observations the observed values of the time series
+    * @return the posterior distribution over the diagonal observation matrix  
     */
   def sampleObservationMatrix(
     prior:        InverseGamma,
@@ -23,15 +27,18 @@ object GibbsSampling extends App {
     state:        Array[(Time, DenseVector[Double])],
     observations: Array[Data]): Rand[DenseMatrix[Double]] = {
 
-    val forecast = state.tail.
+    val forecast = state.sortBy(_._1).
       map { case (time, x) => mod.f(time).t * x }
 
-    val SSy = (observations.map(_.observation).flatten, forecast).zipped.
-      map { case (y, f) => (y - f) *:* (y - f) }.
+    val SSy = (observations.sortBy(_.time).map(_.observation), forecast).zipped.
+      map { 
+        case (Some(y), f) => (y - f) *:* (y - f)
+        case (None, f) => DenseVector.zeros[Double](f.size)
+      }.
       reduce(_ + _)
 
     val shape = prior.shape + observations.size * 0.5
-    val rate = SSy.map(ss => (1.0 / prior.scale) + ss * 0.5)
+    val rate = SSy.map(ss => prior.scale + ss * 0.5)
 
     val res = rate.map(r =>
       InverseGamma(shape, r).draw
@@ -42,22 +49,26 @@ object GibbsSampling extends App {
 
   /**
     * Sample the (diagonal) system noise covariance matrix from an inverse gamma 
+    * @param prior 
+    * @param model
+    * @param state
     */
   def sampleSystemMatrix(
     prior:        InverseGamma,
     mod:          Model,
     state:        Array[(Time, DenseVector[Double])]): Rand[DenseMatrix[Double]] = {
 
-    val advanceState = state.init.
+    val sortState = state.sortBy(_._1)
+
+    val advanceState = sortState.
       map { case (time, x) => mod.g(time) * x }
 
-    // this bit is wrong
-    val SStheta = (state.map(_._2).tail, advanceState).zipped.
+    val SStheta = (sortState.map(_._2), advanceState).zipped.
       map { case (mt, at) => (mt - at) *:* (mt - at) }.
       reduce(_ + _)
 
     val shape = prior.shape + (state.size - 1) * 0.5
-    val rate = SStheta map (s => (prior.scale) + s * 0.5)
+    val rate = SStheta map (s => prior.scale + s * 0.5)
 
     val res = rate.map(r =>
       InverseGamma(shape, r).draw
@@ -91,7 +102,7 @@ object GibbsSampling extends App {
       obs <- sampleObservationMatrix(priorV, mod, gibbsState.state, observations)
       state = sampleState(mod, observations, Parameters(obs, gibbsState.p.w, gibbsState.p.m0, gibbsState.p.c0))
       system <- sampleSystemMatrix(priorW, mod, state)
-    } yield State(Parameters(gibbsState.p.v, system, gibbsState.p.m0, gibbsState.p.c0), state)
+    } yield State(Parameters(obs, system, gibbsState.p.m0, gibbsState.p.c0), state)
   }
 
   /**

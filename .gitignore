@@ -11,3 +11,4 @@ src/main/scala/target/*
 *.pdf
 *.html
 *_files/
+.Rproj.user

@@ -24,9 +24,9 @@ object GibbsWishart {
     * Sample the system covariance matrix using an Inverse Wishart prior on the system covariance matrix
     */
   def sampleSystemMatrix(
-    priorW:       InverseWishart,
-    mod:          Model, 
-    state:        Array[(Time, DenseVector[Double])]) = {
+    priorW: InverseWishart,
+    mod:    Model, 
+    state:  Array[(Time, DenseVector[Double])]) = {
 
     val n = state.size - 1
     val prevState = state.init.map { case (time, x) => mod.g(time) * x }
@@ -47,10 +47,9 @@ object GibbsWishart {
     priorW:       InverseWishart, 
     observations: Array[Data])(state: GibbsSampling.State) = {
 
-    val latentState = GibbsSampling.sampleState(mod, observations, state.p)
-
     for {
-      system <- sampleSystemMatrix(priorW, mod, latentState)
+      system <- sampleSystemMatrix(priorW, mod, state.state)
+      latentState = GibbsSampling.sampleState(mod, observations, Parameters(state.p.v, system, state.p.m0, state.p.c0))
       obs <- sampleObservationMatrix(priorV, mod, latentState, observations)
       p = Parameters(obs, system, state.p.m0, state.p.c0)
     } yield GibbsSampling.State(p, latentState)

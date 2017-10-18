@@ -2,19 +2,57 @@
 title: "First Order DLM"
 author: "Jonathan Law"
 date: "27 September 2017"
-output: html_document
 ---
 
 ```{r setup, include=FALSE}
 library(tidyverse)
+library(coda)
+library(ggmcmc)
 
 theme_set(theme_minimal())
 ```
 
 # Simulation
 
-```{r}
-data = read_csv("../data/FirstOrderDlm.csv")
+The first order model has a 1-dimensional observation at time $t$, $Y_t$ and a one dimensional latent state, $X_t$. The system evolution ($G_t$) and observation ($F_t$) matrices are scalars and take the value 1, as such they are omitted from the model specification below for simplicity. The system and observation noise variances are scalars and are constant in time.
+
+$$\begin{align}
+Y_t &= x_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
+X_t &= x_{t-1} + w_t, \quad w_t \sim \mathcal{N}(0, W), \\
+X_0 &\sim \mathcal{N}(m_0, C_0).
+\end{align}$$
+
+The code required to simulate from this model is given below:
+
+```scala
+import dlm.model._
+
+val mod = Dlm.polynomial(1)
+val p = Dlm.Parameters(
+  v = DenseMatrix(3.0),
+  w = DenseMatrix(1.0),
+  m0 = DenseMatrix(0.0),
+  c0 = DenseMatrix(1.0)
+)
+
+val data = Dlm.simulate(0, mod, p).
+  steps.
+  take(1000)
+```
+
+The value `mod` is the `case class` called `Model` containing the definition of the observation and system matrices. These matrices are actually functions from `(t: Time) => DenseMatrix[Double]`. The funciton `Dlm.polynomial` provides a shorthand for writing:
+
+```scala
+val mod = Model(
+    f = (t: Time) => DenseMatrix((1.0)), 
+    g = (t: Time) => DenseMatrix((1.0))
+  )
+```
+
+The figure below shows a plot of 100 simulations 
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+data = read_csv("../data/first_order_dlm.csv")
 
 data %>%
   gather(key, value, -time) %>%
@@ -23,10 +61,24 @@ data %>%
   theme(legend.position = "bottom")
 ```
 
-# Filtering 
+# Kalman Filtering
 
-```{r}
-filtered = read_csv("../data/FirstOrderDlmFiltered.csv")
+We can perform recursive filtering using the Kalman Filter to learn about the values of the latent state, $x_{0:T}$ given the observed values, $y_{1:T}$. Assume we know the mean and variance of the posterior distribution of the state at time $t$, then:
+
+1) Prior at time $t + 1$ is $\mathcal{N}(a_t, R_t)$ where $a_t = G_t m_t$ and $R_t = G_t C_t G_t^T + W_t$
+2) One step prediction for time $t + 1$ is $\mathcal{N}(f_t, Q_t)$ where $f_t = F_t a_t$ and $Q_t = F_t R_t F_t^T + V_t$
+3) State update given the new observation, $y_{t+1}$ is $\mathcal{N}(m_{t+1}, C_{t+1})$ where $m_{t+1} = a_t + K_t e_t$, $C_t = (I - K_t * F_t)R_t(I - K_t * F_t) + K_tV_tK_t$ and $K_t = R_t * F_t^T * Q^{-1}$, $e_t = y_t - f_t$
+
+The result of filtering the simulated observations is plotted below, with 90% probability intervals. The system and observation variances, $W_t$ and $V_t$ are assumed to be constant in time and known.
+
+To perform Kalman Filtering on an `Array` of `Data`, we simply discard the state from the simulated data and pass it into the `kalmanFilter` function:
+
+```scala
+val filtered = KalmanFilter.kalmanFilter(mod, data.map(_._1), p)
+```
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+filtered = read_csv("../data/first_order_dlm_filtered.csv")
 
 filtered %>%
   inner_join(data, by = "time") %>%
@@ -45,8 +97,10 @@ filtered %>%
 
 # Smoothing 
 
-```{r}
-smoothed = read_csv("../data/FirstOrderDlmSmoothed.csv")
+Kalman Filtering can be performed online, however if we know the values of all the observations of interest ahead of time, we can perform smoothing.
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+smoothed = read_csv("../data/first_order_dlm_smoothed.csv")
 
 smoothed %>%
   filter(time < 100) %>%
@@ -63,41 +117,30 @@ smoothed %>%
        subtitle = "Actual state and smoothed state, with associated 95% intervals")
 ```
 
-```{r, eval=FALSE, echo=FALSE}
-# Metropolis Hastings 
-
-iters = read_csv("data/FirstOrderDlmIters.csv", col_names = c("V", "W", "m0", "C0", "accepted"))
-
-iters %>%
-  select(V, W) %>%
-  mutate(iteration = 1:nrow(chain)) %>%
-  gather(key = parameter, value, -iteration) %>%
-  inner_join(actual_values, by = "parameter") %>%
-  ggplot(aes(x = iteration, y = value)) +
-  geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~parameter, scales = "free_y")
-```
-
 # Gibbs Sampling
 
-```{r}
-gibbs_iters = read_csv("../data/FirstOrderDlmGibbs.csv")
+Inverse gamma priors on the system and observation variances, $p(V) = \textrm{InverseGamma}(1.0, 10.0)$, meaning the prior mean of the observation variance is $\mathbb{E}(V) = 10 / 11$.
 
-gibbs_chain = gibbs_iters %>%
-  select(V, W)
+To perform gibbs sampling with inverse gamma priors:
 
-actual_values = tibble(
-  parameter = c("V", "W", "m0", "C0"),
-  actual_value = c(3.0, 1.0, 0.0, 1.0)
-)
+```scala
+val iters = gibbsSamples(mod, InverseGamma(1.0, 10.0), InverseGamma(1.0, 10.0), p, data.map(_._1))
+```
 
-gibbs_chain %>%
-  mutate(iteration = 1:nrow(gibbs_chain)) %>%
-  gather(key = parameter, value, -iteration) %>%
-  inner_join(actual_values, by = "parameter") %>%
-  ggplot(aes(x = iteration, y = value)) +
-  geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~parameter)
+`iters` are a Process[Parameters], which represents a Markov Chain. This can be converted into an iterator by calling `steps` then the appropriate amount of iterations can be taken from the MCMC. The Figure below shows diagnostic plots for the MCMC chain.
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+gibbs_iters = read_csv("../data/first_order_dlm_gibbs.csv")
+
+chain = mcmc(gibbs_iters) %>%
+  ggs() %>%
+  filter(Parameter %in% c("V", "W"))
+
+p1 = ggs_traceplot(chain)
+
+p2 = ggs_running(chain)
+
+p3 = ggs_autocorrelation(chain)
+
+gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
 ```

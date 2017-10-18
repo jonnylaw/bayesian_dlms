@@ -18,7 +18,7 @@ trait CorrelatedModel {
   val model = Dlm.outerSumModel(mod1, mod2)
 
   // specify the parameters for the joint model
-  val v = diag(DenseVector(1.0, 2.0))
+  val v = diag(DenseVector(1.0, 4.0))
   val w = DenseMatrix((0.75, 0.5), (0.5, 1.25))
   val c0 = DenseMatrix.eye[Double](2)
 
@@ -26,11 +26,11 @@ trait CorrelatedModel {
 }
 
 trait CorrelatedData {
-  val rawData = Paths.get("data/CorrelatedDlm.csv")
-  val reader = rawData.asCsvReader[(Time, Double, Double, Double, Double)](rfc.withHeader)
+  val rawData = Paths.get("data/correlated_dlm.csv")
+  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.
     collect { 
-      case Success(a) => Data(a._1, DenseVector(a._2, a._3).some)
+      case Success(a) => Data(a.head.toInt, DenseVector(a(1), a(2)).some)
     }.
     toArray
 }
@@ -40,8 +40,8 @@ object SimulateCorrelated extends App with CorrelatedModel {
     steps.
     take(1000)
 
-  val out = new java.io.File("data/first_order_and_linear_trend.csv")
-  val headers = rfc.withHeader("time", "observation_1", "observation_2", "state_1", "state_2", "state_3")
+  val out = new java.io.File("data/correlated_dlm.csv")
+  val headers = rfc.withHeader("time", "observation_1", "observation_2", "state_1", "state_2")
   val writer = out.asCsvWriter[List[Double]](headers)
 
   def formatData(d: (Data, DenseVector[Double])) = d match {
@@ -89,6 +89,39 @@ object GibbsCorrelated extends App with CorrelatedModel with CorrelatedData {
   // write iters to file
   while (iters.hasNext) {
     writer.write(formatParameters(iters.next.p))
+  }
+
+  writer.close()
+}
+
+object FirstOrderLinearTrendDlm extends App {
+  val mod1 = polynomial(1)
+  val mod2 = polynomial(2)
+
+  val composedModel = Dlm.outerSumModel(mod1, mod2)
+
+  val p = Parameters(
+    v = diag(DenseVector(1.0, 2.0)),
+    w = diag(DenseVector(2.0, 3.0, 1.0)),
+    m0 = DenseVector.zeros[Double](3),
+    c0 = DenseMatrix.eye[Double](3)
+  )
+
+  val sims = Dlm.simulate(0, composedModel, p).
+    steps.
+    take(1000)
+
+  val out = new java.io.File("data/first_order_and_linear_trend.csv")
+  val headers = rfc.withHeader("time", "observation_1", "observation_2", "state_1", "state_2", "state_3")
+  val writer = out.asCsvWriter[List[Double]](headers)
+
+  def formatData(d: (Data, DenseVector[Double])) = d match {
+    case (Data(t, y), x) =>
+      List(t.toDouble) ++ y.map(_.data).get ++ x.data
+  }
+
+  while (sims.hasNext) {
+    writer.write(formatData(sims.next))
   }
 
   writer.close()

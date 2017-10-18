@@ -2,7 +2,6 @@
 title: "Seasonal DLM"
 author: "Jonathan Law"
 date: "3 October 2017"
-output: html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -94,8 +93,8 @@ actual_values = tibble(
 ```
 
 
-```{r MetropolisHastings, eval=FALSE,echo=FALSE}
-iters = read_csv("../data/seasonal_dlm_metropolis.csv")
+```{r MetropolisHastings, echo=FALSE, message=FALSE}
+iters = read_csv("../data/seasonal_dlm_metropolis.csv") %>% select(V, W1, W2)
 
 params = iters %>%
   mutate(iteration = 1:nrow(iters)) %>%
@@ -121,7 +120,7 @@ gridExtra::grid.arrange(p1, p2, ncol = 1)
 ```
 
 
-```{r GibbsSampling}
+```{r GibbsSampling, echo=FALSE, eval=FALSE}
 iters = read_csv("../data/seasonal_dlm_gibbs.csv")
 
 params = iters %>%
@@ -171,14 +170,12 @@ p2 = params %>%
 gridExtra::grid.arrange(p1, p2, ncol = 1)
 ```
 
-# Sample States
+<!-- # Sample States -->
 
-Testing the gibbs sampler FFBS algorithm by keeping the observation and system noise matrices constant and sampling the state using the FFBS algorithm. This is then compared to the actual state.
+<!-- Testing the gibbs sampler FFBS algorithm by keeping the observation and system noise matrices constant and sampling the state using the FFBS algorithm. This is then compared to the actual state. -->
 
-```{r sample_state_one}
-state_2 = read_csv("../data/seasonal_dlm_state_2_samples.csv", col_names = FALSE)
-
-mean_state = state_2 %>%
+```{r sample_state_one, eval=FALSE, echo=FALSE}
+mean_state = read_csv("../data/seasonal_dlm_state_2_samples.csv", col_names = FALSE) %>%
   summarise_all(mean) %>%
   t() %>% as_data_frame() %>%
   add_column(time = 0:1000) %>%

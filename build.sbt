@@ -1,5 +1,9 @@
 scalaVersion in ThisBuild := "2.11.11"
 
+name := "Bayesian DLM"
+
+organization := "com.github.jonnylaw"
+
 libraryDependencies ++= Seq(
   "org.scalanlp"   %% "breeze"             % "0.13.2",
   "org.scalanlp"   %% "breeze-natives"     % "0.13.2",
@@ -9,10 +13,6 @@ libraryDependencies ++= Seq(
   "com.github.fommil.netlib" % "all" % "1.1.2",
   "org.scalatest" %% "scalatest" % "3.0.4" % "test"
 )
-
-//testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oD")
-
-// testOptions in Test += Tests.Argument(TestFrameworks.ScalaCheck, "-v")
 
 libraryDependencies += "com.lihaoyi" % "ammonite" % "1.0.2" % "test" cross CrossVersion.full
 

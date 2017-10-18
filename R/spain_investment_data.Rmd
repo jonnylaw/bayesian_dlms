@@ -2,7 +2,6 @@
 title: "Spain Investment Data"
 author: "Jonathan Law"
 date: "9 October 2017"
-output: html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -12,7 +11,7 @@ theme_set(theme_minimal())
 
 ## R Markdown
 
-This example is reproduced from DLMs in R
+This example is reproduced from [DLMs with R](https://www.springer.com/us/book/9780387772370), Section 4.5.1.
 
 ```{r, message=FALSE}
 data = read_csv("../data/invest2.dat", col_names = c("country1", "spain"))
@@ -22,6 +21,7 @@ data %>%
   ggplot(aes(x = time, y = spain)) +
   geom_line()
 ```
+
 # Proposed Model
 
 The proposed model is the second order DLM representing a linear growth.
