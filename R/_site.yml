@@ -1,0 +1,22 @@
+name: "bayesian_dlms"
+navbar:
+  title: "Bayesian Inference for DLMs"
+  left:
+    - text: "Home"
+      href: index.html
+    - text: "Examples"
+      menu:
+      - text: "A Simple DLM"
+        href: FirstOrderDlm.html
+      - text: "Linear Growth DLM"
+        href: second_order_dlm.html
+      - text: "Seasonal Composed DLM"
+        href: seasonal_dlm.html
+      - text: "Correlated Models"
+        href: CorrelatedModel.html
+      - text: "Spain Investment Data"
+        href: spain_investment_data.html
+output:
+  html_document:
+    theme: readable
+    highlight: tango

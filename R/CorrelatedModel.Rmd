@@ -1,7 +1,5 @@
 ---
 title: "Correlated DLM"
-author: "Jonathan Law"
-date: "27 September 2017"
 ---
 
 ```{r setup, include=FALSE}

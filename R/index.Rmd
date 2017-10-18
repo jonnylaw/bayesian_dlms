@@ -1,8 +1,5 @@
 ---
 title: "Bayesian Inference for DLMs"
-author: "Jonathan Law"
-date: "18 October 2017"
-output: html_document
 ---
 
 ## Getting Started

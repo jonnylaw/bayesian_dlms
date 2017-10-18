@@ -1,7 +1,5 @@
 ---
 title: "Seasonal DLM"
-author: "Jonathan Law"
-date: "3 October 2017"
 ---
 
 ```{r setup, include=FALSE}
