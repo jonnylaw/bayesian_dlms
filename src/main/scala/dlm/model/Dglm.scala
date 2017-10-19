@@ -14,7 +14,13 @@ object Dglm {
     * @return a number between 0 and upper
     */
   def logisticFunction(upper: Double)(number: Double) = {
-    upper / (1 + math.exp(-number))
+    if (number < -5) {
+      0.0
+    } else if (number > 5) {
+      upper
+    } else {
+      upper / (1 + math.exp(-number))
+    }
   }
 
   /**
@@ -22,8 +28,11 @@ object Dglm {
     */
   def beta(variance: Double)(y: Observation, state: DenseVector[Double]) = {
     val mean = logisticFunction(100.0)(state(0))
-    val alpha = mean * ((mean * (1 - mean)) / variance - 1)
-    val beta = (1 - mean) * ((mean * (1 - mean)) / variance - 1)
+    println(s"mean is $mean")
+    println(s"variance is $variance")
+    val a = (mean * (1 - mean)) / variance
+    val alpha = mean * (a - 1)
+    val beta = (1 - mean) * (a - 1)
     println(s"alpha = $alpha")
     println(s"beta = $beta")
     new Beta(alpha, beta).logPdf(y(0))
