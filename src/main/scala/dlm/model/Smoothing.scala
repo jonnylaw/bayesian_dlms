@@ -50,8 +50,13 @@ object Smoothing {
     * @return
     */
   def backwardsSmoother(mod: Model, p: Parameters)(kfState: Array[KalmanFilter.State]) = {
-    val init = SmoothingState(kfState.last.time, kfState.last.mt, kfState.last.ct, kfState.last.at, kfState.last.rt)
-    kfState.init.reverse.scanLeft(init)(smoothStep(mod, p)).reverse
+
+    val sortedState = kfState.sortWith(_.time > _.time)
+    val last = sortedState.head
+    val lastTime = last.time
+
+    sortedState.tail.scanLeft(SmoothingState(lastTime, last.mt, last.ct, last.at, last.rt))(smoothStep(mod, p)).
+      sortBy(_.time)
   }
 
   case class SamplingState(
@@ -128,11 +133,15 @@ object Smoothing {
     kfState: Array[KalmanFilter.State], 
     p: Parameters) = {
 
-    val lastTime = kfState.last.time
-    val lastState = MultivariateGaussianSvd(kfState.last.mt, kfState.last.ct).draw
-    val init = SamplingState(lastTime, lastState, kfState.last.at, kfState.last.rt)
+    // sort the state in reverse order
+    val sortedState = kfState.sortWith(_.time > _.time)
 
-    kfState.init.reverse.scanLeft(init)(backSampleStepJoseph(mod, p)).
-      reverse.map(a => (a.time, a.sample))
+    // extract the final state
+    val last = sortedState.head
+    val lastTime = last.time
+    val lastState = MultivariateGaussianSvd(last.mt, last.ct).draw
+
+    sortedState.tail.scanLeft(SamplingState(lastTime, lastState, last.at, last.rt))(backSampleStepJoseph(mod, p)).
+      sortBy(_.time).map(a => (a.time, a.sample))
   }
 }

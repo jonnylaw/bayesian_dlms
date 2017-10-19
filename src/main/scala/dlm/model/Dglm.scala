@@ -24,6 +24,8 @@ object Dglm {
     val mean = logisticFunction(100.0)(state(0))
     val alpha = mean * ((mean * (1 - mean)) / variance - 1)
     val beta = (1 - mean) * ((mean * (1 - mean)) / variance - 1)
+    println(s"alpha = $alpha")
+    println(s"beta = $beta")
     new Beta(alpha, beta).logPdf(y(0))
   }
 

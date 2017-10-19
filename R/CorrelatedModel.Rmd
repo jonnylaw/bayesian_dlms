@@ -113,7 +113,7 @@ $$\begin{align*}
 A simulation from this model is presented in the figure below:
 
 ```{r, message=FALSE, warning=FALSE, echo=FALSE}
-data = read_csv("../data/CorrelatedDlm.csv")
+data = read_csv("../data/correlated_dlm.csv")
 
 data %>%
   gather(key, value, observation_1, observation_2) %>%

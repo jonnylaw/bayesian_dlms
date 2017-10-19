@@ -91,7 +91,7 @@ actual_values = tibble(
 ```
 
 
-```{r MetropolisHastings, echo=FALSE, message=FALSE}
+```{r MetropolisHastings, echo=FALSE, message=FALSE, eval=FALSE}
 iters = read_csv("../data/seasonal_dlm_metropolis.csv") %>% select(V, W1, W2)
 
 params = iters %>%
@@ -168,11 +168,11 @@ p2 = params %>%
 gridExtra::grid.arrange(p1, p2, ncol = 1)
 ```
 
-<!-- # Sample States -->
+# Sample States
 
-<!-- Testing the gibbs sampler FFBS algorithm by keeping the observation and system noise matrices constant and sampling the state using the FFBS algorithm. This is then compared to the actual state. -->
+Testing the gibbs sampler FFBS algorithm by keeping the observation and system noise matrices constant and sampling the state using the FFBS algorithm. This is then compared to the actual state.
 
-```{r sample_state_one, eval=FALSE, echo=FALSE}
+```{r sample_state_one, echo=FALSE, message=FALSE}
 mean_state = read_csv("../data/seasonal_dlm_state_2_samples.csv", col_names = FALSE) %>%
   summarise_all(mean) %>%
   t() %>% as_data_frame() %>%
@@ -185,4 +185,3 @@ mean_state %>%
   ggplot(aes(x = time, y = value, colour = key)) +
   geom_line()
 ```
-

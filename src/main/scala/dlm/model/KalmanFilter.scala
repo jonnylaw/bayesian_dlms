@@ -75,8 +75,6 @@ object KalmanFilter {
       val mt1 = at + kalman_gain * residual
       val n = p.w.cols
 
-      // println(s"Observation: $obs")
-
       val identity = DenseMatrix.eye[Double](n)
 
       val diff = (identity - kalman_gain * mod.f(time).t)
@@ -115,7 +113,7 @@ object KalmanFilter {
     */
   def kalmanFilter(mod: Model, observations: Array[Data], p: Parameters) = {
     val (at, rt) = advanceState(mod, p.m0, p.c0, 0, p)
-    val init = State(observations.map(_.time).min, p.m0, p.c0, at, rt, None, None, 0.0)
+    val init = State(observations.map(_.time).min - 1, p.m0, p.c0, at, rt, None, None, 0.0)
 
     observations.scanLeft(init)(stepKalmanFilter(mod, p))
   }

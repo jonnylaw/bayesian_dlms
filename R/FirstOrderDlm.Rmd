@@ -82,8 +82,6 @@ filtered = read_csv("../data/first_order_dlm_filtered.csv")
 
 filtered %>%
   inner_join(data, by = "time") %>%
-  filter(time > 200) %>%
-  filter(time < 300) %>%
   mutate(upper = qnorm(p = 0.95, mean = state_mean, sd = sqrt(state_variance))) %>%
   mutate(lower = qnorm(p = 0.05, mean = state_mean, sd = sqrt(state_variance))) %>%
   gather(key, value, state_mean, state) %>%
@@ -103,7 +101,6 @@ Kalman Filtering can be performed online, however if we know the values of all t
 smoothed = read_csv("../data/first_order_dlm_smoothed.csv")
 
 smoothed %>%
-  filter(time < 100) %>%
   inner_join(data, by = "time") %>%
   mutate(upper_smoothed = qnorm(p = 0.975, mean = smoothed_mean, sd = sqrt(smoothed_variance))) %>%
   mutate(lower_smoothed = qnorm(p = 0.025, mean = smoothed_mean, sd = sqrt(smoothed_variance))) %>%
@@ -119,7 +116,7 @@ smoothed %>%
 
 # Gibbs Sampling
 
-Inverse gamma priors on the system and observation variances, $p(V) = \textrm{InverseGamma}(1.0, 10.0)$, meaning the prior mean of the observation variance is $\mathbb{E}(V) = 10 / 11$.
+Inverse gamma priors on the system and observation variances, $p(V) = \textrm{InverseGamma}(4.0, 9.0)$, meaning the prior mean of the observation variance is $\mathbb{E}(V) = 9 / 3 = 3$ and the variance is $\textrm{Var}(V) = $.
 
 To perform gibbs sampling with inverse gamma priors:
 

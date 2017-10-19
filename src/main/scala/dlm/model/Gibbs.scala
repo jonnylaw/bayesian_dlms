@@ -14,6 +14,30 @@ object GibbsSampling extends App {
   )
 
   /**
+    * Calculate the sum of squared differences between the one step forecast and the actual observation for each time
+    * sum((y_t - f_t)^2)
+    * @param mod a model specifying the observation and system evolution matrices
+    * @param state an array containing the state sampled from the backward sampling algorithm
+    * @param observations an array containing the actual observations of the data
+    * @return the sum of squared differences between the one step forecast and the actual observation for each time
+    */
+  def observationSquaredDifference(
+    mod:          Model,
+    state:        Array[(Time, DenseVector[Double])],
+    observations: Array[Data]) = {
+
+    val forecast = state.sortBy(_._1).tail.
+      map { case (time, x) => mod.f(time).t * x }
+
+    (observations.sortBy(_.time).map(_.observation), forecast).zipped.
+      map { 
+        case (Some(y), f) => (y - f) *:* (y - f)
+        case (None, f) => DenseVector.zeros[Double](f.size)
+      }.
+      reduce(_ + _)
+  }
+
+  /**
     * Sample the (diagonal) observation noise covariance matrix from an Inverse Gamma distribution
     * @param prior an Inverse Gamma prior distribution for each variance element of the observation matrix
     * @param mod the DLM specification
@@ -27,24 +51,38 @@ object GibbsSampling extends App {
     state:        Array[(Time, DenseVector[Double])],
     observations: Array[Data]): Rand[DenseMatrix[Double]] = {
 
-    val forecast = state.sortBy(_._1).
-      map { case (time, x) => mod.f(time).t * x }
-
-    val SSy = (observations.sortBy(_.time).map(_.observation), forecast).zipped.
-      map { 
-        case (Some(y), f) => (y - f) *:* (y - f)
-        case (None, f) => DenseVector.zeros[Double](f.size)
-      }.
-      reduce(_ + _)
+    val ssy = observationSquaredDifference(mod, state, observations)
 
     val shape = prior.shape + observations.size * 0.5
-    val rate = SSy.map(ss => prior.scale + ss * 0.5)
+    val rate = ssy.map(ss => prior.scale + ss * 0.5)
 
     val res = rate.map(r =>
       InverseGamma(shape, r).draw
     )
 
     Rand.always(diag(res))
+  }
+
+  def stateSquaredDifference(
+    mod:          Model,
+    state:        Array[(Time, DenseVector[Double])]) = {
+
+    // sort the state by time
+    val sortState = state.sortBy(_._1)
+
+    // take every element of the state but the last, x_0,...,x_{t-1}
+    // and advance them according to the model
+    val advanceState = sortState.init.
+      map { case (time, x) => mod.g(time) * x }
+    
+    // take every element by the first, x_1,...,x_t
+    val stateMean = sortState.map(_._2).tail
+
+    // take the squared difference of x_t - g * x_{t-1} for t = 1 ... 0
+    // add them all up
+    (stateMean, advanceState).zipped.
+      map { case (mt, at) => (mt - at) *:* (mt - at) }.
+      reduce(_ + _)
   }
 
   /**
@@ -58,17 +96,9 @@ object GibbsSampling extends App {
     mod:          Model,
     state:        Array[(Time, DenseVector[Double])]): Rand[DenseMatrix[Double]] = {
 
-    val sortState = state.sortBy(_._1)
-
-    val advanceState = sortState.
-      map { case (time, x) => mod.g(time) * x }
-
-    val SStheta = (sortState.map(_._2), advanceState).zipped.
-      map { case (mt, at) => (mt - at) *:* (mt - at) }.
-      reduce(_ + _)
-
+    val sstheta = stateSquaredDifference(mod, state)
     val shape = prior.shape + (state.size - 1) * 0.5
-    val rate = SStheta map (s => prior.scale + s * 0.5)
+    val rate = sstheta map (s => prior.scale + s * 0.5)
 
     val res = rate.map(r =>
       InverseGamma(shape, r).draw

@@ -61,20 +61,20 @@ trait BreezeGenerators {
   }
 }
 
-// class InverseGammaDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
-//   property("Inverse Gamma Distribution") {
-//     forAll(smallDouble, smallDouble) { (shape: Double, scale: Double) =>
-//       whenever (shape > 2.0 && scale > 1.0) {
-//         val n = 10000000
-//         val g = InverseGamma(shape, scale)
-//         val samples = g.sample(n)
+class InverseGammaDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
+  property("Inverse Gamma Distribution") {
+    forAll(smallDouble, smallDouble) { (shape: Double, scale: Double) =>
+      whenever (shape > 2.0 && scale > 1.0) {
+        val n = 10000000
+        val g = InverseGamma(shape, scale)
+        val samples = g.sample(n)
 
-//         assert(g.mean === mean(samples) +- (0.1 * g.mean) ) // relative
-//         assert(g.variance === variance(samples) +- (0.1 * g.variance))
-//       }
-//     }
-//   }
-// }
+        assert(g.mean === mean(samples) +- (0.1 * g.mean) ) // relative
+        assert(g.variance === variance(samples) +- (0.1 * g.variance))
+      }
+    }
+  }
+}
 
 // class InverseWishartDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators { 
 //   property("Inverse Wishart Distribution") {

@@ -133,6 +133,14 @@ object Dlm {
     MarkovChain(init){ case (y, x) => simStep(mod, x, y.time + 1, p) }
   }
 
+  def simulateState(
+    mod: Model,
+    w: DenseMatrix[Double]): Process[(Time, DenseVector[Double])] = {
+    MarkovChain((1, DenseVector.zeros[Double](w.cols))){ case (time, x) => 
+      MultivariateGaussianSvd(mod.g(time + 1) * x, w).map((time + 1, _))
+    }
+  }
+
   /**
     * Dynamic Linear Models can be combined in order to model different
     * time dependent phenomena, for instance seasonal with trend
