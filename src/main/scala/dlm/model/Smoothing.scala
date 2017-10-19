@@ -28,7 +28,6 @@ object Smoothing {
     val at = state.at1
     val rt = state.rt1
 
-    // inverse rt
     val invrt = inv(rt)
 
     // calculate the updated mean 
@@ -80,7 +79,6 @@ object Smoothing {
     val at1 = state.at1
     val rt1 = state.rt1
 
-    // inverse rt
     val invrt = inv(rt1)
 
     // calculate the updated mean
@@ -109,9 +107,8 @@ object Smoothing {
     val at1 = state.at1
     val rt1 = state.rt1
 
-    // val cgrinv = ct * mod.g(time + 1).t * inv(rt1)
-    // more efficient than inverting rt
-    val cgrinv = rt1 \ (mod.g(time + 1) * ct)
+    // more efficient than inverting rt, equivalent to C * G * inv(R)
+    val cgrinv = rt1.t \ (mod.g(time + 1).t * ct.t)
 
     // calculate the updated mean
     // the difference between the backwards sampler and smoother is here

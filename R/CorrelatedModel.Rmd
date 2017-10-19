@@ -209,12 +209,12 @@ Now in order to perform gibbs sampling, we alternate between drawing values of $
 
 ## Example: Parameter Learning in a simulated Model
 
-```{r, message=FALSE, warning=FALSE, echo=FALSE}
+```{r, fig.cap="Diagnostic plots for the MCMC draws from the posterior distribution of the non-zero diagonal elements of the Observation noise covariance matrix for the simulated correlated model", message=FALSE, warning=FALSE, echo=FALSE}
 iters = read_csv("../data/correlated_dlm_gibbs.csv")
 
 actual_values = tibble(
   parameter = c("V1", "V4", paste0("W", 1:4)),
-  actual_value = c(1.0, 2.0, 0.75, 0.5, 0.5, 1.25)
+  actual_value = c(1.0, 4.0, 0.75, 0.5, 0.5, 1.25)
 )
 
 params = iters %>%
@@ -240,7 +240,7 @@ p2 = params %>%
 gridExtra::grid.arrange(p1, p2, ncol = 1)
 ```
 
-```{r, fig.cap="Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated correlated model", message=FALSE, warning=FALSE, echo=FALSE}
+```{r, fig.cap="Diagnostic plots for the MCMC draws from the posterior distribution of the System noise covariance matrix for the simulated correlated model", message=FALSE, warning=FALSE, echo=FALSE}
 params = iters %>%
   mutate(iteration = 1:nrow(iters)) %>%
   gather(key = parameter, value, -iteration) %>%
