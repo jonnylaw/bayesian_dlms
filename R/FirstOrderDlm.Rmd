@@ -93,9 +93,33 @@ filtered %>%
   ggtitle("Kalman Filtered")
 ```
 
+## Implementation Details 
+
+The Kalman Filter implemented in a Naive way, by simply transforming the equations into code is numerically unstable. There are several tricks to use, such as the above form for the covariance update called Joseph Form. The covariance update can be simplified to, $C_{t+1} = (I - K_tF_t)R_t$, but taking the difference of two covariance matrices $R_t - K_tF_tR_t$ can result in rounding errors which makes the matrix non-positive definite.
+
+Another reduction in the computation time, is avoiding calculating the inverse of $Q_t$. If the observation is univariate, as in this example we simply compute the inverse of $Q_t = 1/Q_t$, however inverting matrices in general is hard. To avoid this, we can use breezes building linear solver. See that the Kalman gain is written as:
+
+$$\begin{align*}
+K_t &= R_tF_tQ_t^{-1} \\
+K_t^T &= (R_tF_t^TQ_t^{-1})^T \\
+K_t^T &= Q_t^{-T}F_tR_t^T \\
+\end{align*}$$
+
+The linear equation, $Ax = b$ is solved by multiplying on the left by $A^{-1}$ to get a value for $x$. This is equivalent to `A\b = x`, hence we can re-write the Kalman gain in Scala as:
+
+```scala
+val K = (Q.t \ (F * R.t)).t
+```
+
 # Smoothing 
 
-Kalman Filtering can be performed online, however if we know the values of all the observations of interest ahead of time, we can perform smoothing.
+Kalman Filtering can be performed online, however if we know the values of all the observations of interest ahead of time, we can perform smoothing. Given we have observations of a time series, $Y_{1:T}$ and the filtering distribution $p(X_{0:T}|Y_{1:T}, \theta)$, where $\theta$ contains the parameters of the DLM. Then we set $s_T, s_T$ to be the mean and variance of posterior at time $T$, $m_T$ and $C_T$ and proceed backwards as:
+
+$$\begin{align*}
+h_t &= m_t+ C_t G^T_{t + 1} R_{t+1}^{-1} (h_{t+1} - a_{t+1}) \\
+H_t &= C_t - C_t G^T_{t + 1} R_{t+1}^{-1} (R_{t+1} - S_{t+1})R_{t+1}^{-1} G_{t + 1}  C_t 
+\end{align*}
+$$
 
 ```{r, message=FALSE, warning=FALSE, echo=FALSE}
 smoothed = read_csv("../data/first_order_dlm_smoothed.csv")
@@ -116,7 +140,9 @@ smoothed %>%
 
 # Gibbs Sampling
 
-Inverse gamma priors on the system and observation variances, $p(V) = \textrm{InverseGamma}(4.0, 9.0)$, meaning the prior mean of the observation variance is $\mathbb{E}(V) = 9 / 3 = 3$ and the variance is $\textrm{Var}(V) = $.
+In order to perform Gibbs Sampling, we must have access to full conditional distributions for sampling from.
+
+Inverse gamma priors on the system and observation variances, $p(V) = \textrm{InverseGamma}(4.0, 9.0)$, meaning the prior mean of the observation variance is $\mathbb{E}(V) = 9 / 3 = 3$ and the variance is $\textrm{Var}(V) = $. 
 
 To perform gibbs sampling with inverse gamma priors:
 

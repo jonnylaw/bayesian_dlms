@@ -60,7 +60,7 @@ summary(gibbs_iters)
 ```
 
 
-```{r plot_gibbs, eval=FALSE}
+```{r plot_gibbs}
 params = gibbs_iters %>%
   mutate(iteration = 1:nrow(gibbs_iters)) %>%
   gather(key = parameter, value, -iteration)
