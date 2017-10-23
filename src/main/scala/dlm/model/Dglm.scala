@@ -2,6 +2,8 @@ package dlm.model
 
 import breeze.stats.distributions._
 import breeze.linalg._
+import Dlm._
+import cats.implicits._
 
 /**
   *  Univariate DGLM
@@ -39,4 +41,23 @@ object Dglm {
     */
   def poisson(y: Observation, state: DenseVector[Double]) = 
     Poisson(state(0)).logProbabilityOf(y(0).toInt)
+
+  case class Model(
+    observation: (DenseVector[Double], DenseMatrix[Double]) => Rand[DenseVector[Double]],
+    f: Time => DenseMatrix[Double],
+    g: Time => DenseMatrix[Double])
+
+  def simStep(
+    mod: Model, 
+    p: Parameters) = (time: Time, x: DenseVector[Double]) => {
+    for {
+      x1 <- MultivariateGaussianSvd(mod.g(time) * DenseVector.zeros[Double](x.size), p.w)
+      y <- mod.observation(mod.f(time).t * x1, p.v)
+    } yield (Dlm.Data(time, y.some), x1)
+  }
+
+  def simulate(mod: Model, p: Parameters) = {
+    val initState = (Data(0, None), MultivariateGaussianSvd(p.m0, p.c0).draw)
+    MarkovChain(initState){ case (d, x) => simStep(mod, p)(d.time, x) }
+  }
 }
