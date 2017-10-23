@@ -1,4 +1,4 @@
-all: correlated first_order second_order seasonal simulate_linear_trend
+all: correlated first_order second_order seasonal simulate_linear_trend gibbs_investment
 
 correlated: simulate_correlated filter_correlated gibbs_correlated
 
@@ -55,6 +55,15 @@ filter_seasonal: ../data/seasonal_dlm.csv
 
 smooth_seasonal: ../data/seasonal_dlm.csv
 	cd .. && sbt "runMain dlm.examples.SmoothSeasonalDlm"
+
+seasonal_gibbs:	../data/seasonal_dlm.csv
+	cd .. && sbt assembly
+	cp ../target/scala-2.11/bayesian_dlm-assembly-0.1-SNAPSHOT.jar seasonal_dlm.jar
+	ssh topsy -t mkdir -p /share/nobackup/a9169110/seasonal_dlm/data
+	scp seasonal_dlm.jar seasonal_dlm.qsub topsy:/share/nobackup/a9169110/seasonal_dlm/.
+	scp ../data/seasonal_dlm.csv topsy:/share/nobackup/a9169110/seasonal_dlm/data/.
+	ssh topsy -f "cd /share/nobackup/a9169110 && qsub temperature_model.qsub"
+	ssh topsy -t qstat
 
 clean:
 	rm ../data/*.csv

@@ -17,16 +17,16 @@ class KfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matchers w
     rt <- symmetricPosDefMatrix(dim, 100)
   } yield (rt, qt)
 
-  property("Solution to linear system") {
-    forAll (matrices(2)) { case (rt, qt) =>
-      val mod = Dlm.polynomial(2)
-      val time = 1
-      val kalmanGainNaive = rt * (mod.f(time) * inv(qt))
-      val kalmanGainBetter = (qt.t \ (mod.f(time).t * rt.t)).t
+  // property("Solution to linear system") {
+  //   forAll (matrices(2)) { case (rt, qt) =>
+  //     val mod = Dlm.polynomial(2)
+  //     val time = 1
+  //     val kalmanGainNaive = rt * (mod.f(time) * inv(qt))
+  //     val kalmanGainBetter = (qt.t \ (mod.f(time).t * rt.t)).t
 
-      assert(kalmanGainBetter === kalmanGainNaive)
-    }
-  }
+  //     assert(kalmanGainBetter === kalmanGainNaive)
+  //   }
+  // }
 
   val params = for {
     v <- smallDouble

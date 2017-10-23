@@ -1,6 +1,6 @@
 scalaVersion in ThisBuild := "2.11.11"
 
-name := "Bayesian DLM"
+name := "bayesian_dlm"
 
 organization := "com.github.jonnylaw"
 
