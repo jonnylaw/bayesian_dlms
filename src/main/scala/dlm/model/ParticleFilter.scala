@@ -29,7 +29,7 @@ object ParticleFilter {
     state: Vector[DenseVector[Double]], 
     p:     Parameters) = {
 
-    state traverse (x => MultivariateGaussian(mod.g(time) * x , p.w): Rand[DenseVector[Double]])
+    state traverse (x => MultivariateGaussianSvd(mod.g(time) * x , p.w): Rand[DenseVector[Double]])
   }
 
   def calcWeights(
@@ -40,7 +40,7 @@ object ParticleFilter {
     y:      Observation,
     condLl: CondLikelihood
   ) = {
-    state.map(x => condLl(y, mod.f(time) * x))
+    state.map(x => condLl(y, mod.f(time).t * x))
   }
 
   /**

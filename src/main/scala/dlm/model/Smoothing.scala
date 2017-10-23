@@ -28,7 +28,6 @@ object Smoothing {
     val at = state.at1
     val rt = state.rt1
 
-    // inverse rt
     val invrt = inv(rt)
 
     // calculate the updated mean 
@@ -50,8 +49,13 @@ object Smoothing {
     * @return
     */
   def backwardsSmoother(mod: Model, p: Parameters)(kfState: Array[KalmanFilter.State]) = {
-    val init = SmoothingState(kfState.last.time, kfState.last.mt, kfState.last.ct, kfState.last.at, kfState.last.rt)
-    kfState.init.reverse.scanLeft(init)(smoothStep(mod, p)).reverse
+
+    val sortedState = kfState.sortWith(_.time > _.time)
+    val last = sortedState.head
+    val lastTime = last.time
+
+    sortedState.tail.scanLeft(SmoothingState(lastTime, last.mt, last.ct, last.at, last.rt))(smoothStep(mod, p)).
+      sortBy(_.time)
   }
 
   case class SamplingState(
@@ -75,7 +79,6 @@ object Smoothing {
     val at1 = state.at1
     val rt1 = state.rt1
 
-    // inverse rt
     val invrt = inv(rt1)
 
     // calculate the updated mean
@@ -104,9 +107,8 @@ object Smoothing {
     val at1 = state.at1
     val rt1 = state.rt1
 
-    // val cgrinv = ct * mod.g(time + 1).t * inv(rt1)
-    // more efficient than inverting rt
-    val cgrinv = rt1 \ (mod.g(time + 1) * ct)
+    // more efficient than inverting rt, equivalent to C * G * inv(R)
+    val cgrinv = (rt1.t \ (mod.g(time + 1) * ct.t)).t
 
     // calculate the updated mean
     // the difference between the backwards sampler and smoother is here
@@ -117,8 +119,11 @@ object Smoothing {
     // calculate the updated covariance
     val n = p.w.cols
     val identity = DenseMatrix.eye[Double](n)
-    val diff = (identity - cgrinv * mod.g(time + 1).t)
+    val diff = (identity - cgrinv * mod.g(time + 1))
     val covariance = diff * ct * diff.t + cgrinv * p.w * cgrinv.t
+
+    // calculate the updated covariance
+    // val covariance = ct - cgrinv * mod.g(time + 1) * ct
 
     SamplingState(kfState.time, MultivariateGaussianSvd(mean, covariance).draw, kfState.at, kfState.rt)
   }
@@ -128,11 +133,15 @@ object Smoothing {
     kfState: Array[KalmanFilter.State], 
     p: Parameters) = {
 
-    val lastTime = kfState.last.time
-    val lastState = MultivariateGaussianSvd(kfState.last.mt, kfState.last.ct).draw
-    val init = SamplingState(lastTime, lastState, kfState.last.at, kfState.last.rt)
+    // sort the state in reverse order
+    val sortedState = kfState.sortWith(_.time > _.time)
 
-    kfState.init.reverse.scanLeft(init)(backSampleStepJoseph(mod, p)).
-      reverse.map(a => (a.time, a.sample))
+    // extract the final state
+    val last = sortedState.head
+    val lastTime = last.time
+    val lastState = MultivariateGaussianSvd(last.mt, last.ct).draw
+
+    sortedState.tail.scanLeft(SamplingState(lastTime, lastState, last.at, last.rt))(backSampleStepJoseph(mod, p)).
+      sortBy(_.time).map(a => (a.time, a.sample))
   }
 }

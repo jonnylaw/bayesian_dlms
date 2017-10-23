@@ -79,7 +79,7 @@ object SmoothDlm extends App with FirstOrderDlm with SimulatedData {
 }
  
 object GibbsParameters extends App with FirstOrderDlm with SimulatedData {
-  val iters = gibbsSamples(mod, InverseGamma(1.0, 10.0), InverseGamma(1.0, 10.0), p, data).
+  val iters = gibbsSamples(mod, InverseGamma(4.0, 9.0), InverseGamma(6.0, 5.0), p, data).
     steps.
     take(10000)
 

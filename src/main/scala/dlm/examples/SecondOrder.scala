@@ -82,14 +82,8 @@ object SmoothSecondOrderDlm extends App with DlmModel with SimulatedSecondOrderD
 }
 
 object GibbsSecondOrder extends App with DlmModel with SimulatedSecondOrderData {
-  val alphaV = 1.0/10.0
-  val betaV = 10.0
-
-  val alphaW = 100.0/1000.0
-  val betaW = 100.0
-
-  val priorV = InverseGamma(alphaV, betaV)
-  val priorW = InverseGamma(alphaW, betaW)
+  val priorV = InverseGamma(4.0, 9.0)
+  val priorW = InverseGamma(3.0, 8.0)
 
   val iters = gibbsSamples(mod, priorV, priorW, p, data).
     steps.
@@ -119,21 +113,17 @@ object GibbsInvestParameters extends App with DlmModel {
     map { case (x, i) => Data(i + 1960, Some(DenseVector(x(1).toDouble / 1000.0))) }.
     toArray
 
-  val alphaV = 1.0/10.0
-  val betaV = 10.0
-
-  val alphaW = 100.0/1000.0
-  val betaW = 100.0
-
-  val priorV = InverseGamma(alphaV, betaV)
-  val priorW = InverseGamma(alphaW, betaW)
+  val priorV = InverseGamma(4.0, 10.0)
+  val priorW = InverseGamma(4.0, 10.0)
 
   val initP = Parameters(
-    v = DenseMatrix(1.0),
-    w = diag(DenseVector(0.05, 0.5)),
+    v = DenseMatrix(priorV.draw),
+    w = diag(DenseVector.fill(2)(priorW.draw)),
     m0 = p.m0,
     c0 = p.c0
   )
+
+  println(s"Initial parameters: $initP")
 
   val iters = GibbsSampling.gibbsSamples(mod, priorV, priorW, initP, data).
     steps.

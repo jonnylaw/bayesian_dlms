@@ -11,8 +11,8 @@ library(tidyverse)
 The data is simulated from a second order DLM:
 
 $$\begin{align}
-Y_t &= F \textbf{x}_t + \textbf{v}_t, \quad v_t \sim \mathcal{N}(0, V), \\
-\textbf{X}_t &= G \textbf{x}_{t-1} + w_t, \quad w_t \sim \textrm{MVN}(0, W), \\
+Y_t &= F \textbf{x}_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
+\textbf{X}_t &= G \textbf{x}_{t-1} + \textbf{w}_t, \quad w_t \sim \textrm{MVN}(0, W), \\
 \textbf{X}_0 &\sim \textrm{MVN}(m_0, C_0).
 \end{align}$$
 
@@ -43,9 +43,9 @@ filtered = read_csv("../data/second_order_dlm_filtered.csv")
 filtered %>%
   inner_join(data, by = "time") %>%
   filter(time < 100) %>%
-  mutate(upper = qnorm(p = 0.95, mean = state_mean_1, sd = sqrt(state_variance_1))) %>%
-  mutate(lower = qnorm(p = 0.05, mean = state_mean_1, sd = sqrt(state_variance_1))) %>%
-  gather(key, value, state_mean_1, state_1) %>%
+  mutate(upper = qnorm(p = 0.95, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
+  mutate(lower = qnorm(p = 0.05, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
+  gather(key, value, state_mean_2, state_2) %>%
   ggplot(aes(x = time, y = value, colour = key)) +
   geom_line() +
   geom_line(aes(x = time, y = lower), linetype = 3, colour = "#000000") +
@@ -77,8 +77,13 @@ drop = function(df, n) {
 }
 ```
 
+<<<<<<< HEAD
 ```{r}
 Nparams = gibbs_iters %>%
+=======
+```{r, echo=FALSE}
+params = gibbs_iters %>%
+>>>>>>> 3c195a76a7b3730cc31d4466119b4afbb6ed281c
   mutate(iteration = 1:nrow(gibbs_iters)) %>%
   thin(2) %>%
   drop(2000) %>%
