@@ -4,6 +4,8 @@ name := "bayesian_dlm"
 
 organization := "com.github.jonnylaw"
 
+version := "0.1"
+
 libraryDependencies ++= Seq(
   "org.scalanlp"   %% "breeze"             % "0.13.2",
   "org.scalanlp"   %% "breeze-natives"     % "0.13.2",

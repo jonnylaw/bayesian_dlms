@@ -24,17 +24,13 @@ object Dglm {
   }
 
   /**
-    * Conditional Likelihood for Beta distributed observations 
+    * Conditional Likelihood for Beta distributed observations with variance < mean (1 - mean)
     */
   def beta(variance: Double)(y: Observation, state: DenseVector[Double]) = {
-    val mean = logisticFunction(100.0)(state(0))
-    println(s"mean is $mean")
-    println(s"variance is $variance")
+    val mean = logisticFunction(1.0)(state(0))
     val a = (mean * (1 - mean)) / variance
     val alpha = mean * (a - 1)
     val beta = (1 - mean) * (a - 1)
-    println(s"alpha = $alpha")
-    println(s"beta = $beta")
     new Beta(alpha, beta).logPdf(y(0))
   }
 

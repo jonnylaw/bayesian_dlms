@@ -83,87 +83,55 @@ fit = dlmMLE(y = sims$observation, parm = rep(1, 8), build = model)
 
 ## Example: Parameter Learning in a simulated Model
 
-```{r parameter_values}
+```{r parameter_values, echo=FALSE}
 actual_values = tibble(
-  parameter = c("V", paste0("W", 1:7)),
+  Parameter = c("V", paste0("W", 1:7)),
   actual_value = c(1.0, 0.01, 0.2, 0.4, 0.5, 0.2, 0.1, 0.4)
 )
 ```
 
-
-```{r MetropolisHastings, echo=FALSE, message=FALSE, eval=FALSE}
-iters = read_csv("../data/seasonal_dlm_metropolis.csv") %>% select(V, W1, W2)
-
-params = iters %>%
-  mutate(iteration = 1:nrow(iters)) %>%
-  gather(key = parameter, value, -iteration) %>%
-  inner_join(actual_values, by = "parameter")
-  # filter(parameter %in% c("V", "W1"))
-
-p1 = params %>%
-  ggplot(aes(x = iteration, y = value)) +
-  geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~parameter, scales = "free_y")
-
-p2 = params %>%
-  group_by(parameter) %>%
-  mutate(running_mean = dlm::ergMean(value)) %>%
-  ggplot(aes(x = iteration, y = running_mean)) +
-  geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~parameter, scales = "free_y")
-
-gridExtra::grid.arrange(p1, p2, ncol = 1)
-```
-
-
-```{r GibbsSampling, echo=FALSE, eval=FALSE}
+```{r GibbsSampling, echo=FALSE}
 iters = read_csv("../data/seasonal_dlm_gibbs.csv")
 
-params = iters %>%
-  mutate(iteration = 1:nrow(iters)) %>%
-  gather(key = parameter, value, -iteration) %>%
-  inner_join(actual_values, by = "parameter") %>%
-  filter(parameter == "V")
+params = mcmc(iters) %>%
+  ggs() %>%
+  inner_join(actual_values, by = "Parameter")
 
 p1 = params %>%
-  ggplot(aes(x = iteration, y = value)) +
+  filter(Parameter == "V") %>%
+  ggplot(aes(x = Iteration, y = value)) +
   geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~parameter, scales = "free_y")
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000")
 
 p2 = params %>%
-  group_by(parameter) %>%
+  filter(Parameter == "V") %>%
   mutate(running_mean = dlm::ergMean(value)) %>%
-  ggplot(aes(x = iteration, y = running_mean)) +
+  ggplot(aes(x = Iteration, y = running_mean)) +
   geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~parameter, nrow = 1, scales = "free_y")
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000")
+
+# p3 = ggs_autocorrelation(params %>% filter(Parameter == "V"))
 
 gridExtra::grid.arrange(p1, p2, ncol = 1)
 ```
 
-```{r, eval=FALSE, echo=FALSE, fig.cap="Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated seasonal model"}
-params = iters %>%
-  mutate(iteration = 1:nrow(iters)l) %>%
-  gather(key = parameter, value, -iteration) %>%
-  inner_join(actual_values, by = "parameter") %>%
-  filter(parameter %in% paste0("W", 1:4))
+```{r, echo=FALSE, fig.cap="Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated seasonal model"}
 
 p1 = params %>%
-  ggplot(aes(x = iteration, y = value)) +
+  filter(Parameter %in% paste0("W", 1:7)) %>%
+  ggplot(aes(x = Iteration, y = value)) +
   geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~parameter, scales = "free_y")
+  # geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~Parameter, scales = "free_y")
 
 p2 = params %>%
-  group_by(parameter) %>%
+  group_by(Parameter) %>%
+  filter(Parameter %in% paste0("W", 1:7)) %>%
   mutate(running_mean = dlm::ergMean(value)) %>%
-  ggplot(aes(x = iteration, y = running_mean)) +
+  ggplot(aes(x = Iteration, y = running_mean)) +
   geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~parameter, nrow = 1, scales = "free_y")
+  # geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~Parameter, nrow = 1, scales = "free_y")
 
 gridExtra::grid.arrange(p1, p2, ncol = 1)
 ```

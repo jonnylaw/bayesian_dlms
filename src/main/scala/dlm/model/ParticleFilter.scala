@@ -6,6 +6,7 @@ import breeze.numerics.{exp, log}
 import breeze.stats.mean
 import Dlm._
 import cats.implicits._
+import cats.Traverse
 
 /**
   * The particle filter can be used for inference of DGLMs
@@ -18,24 +19,25 @@ object ParticleFilter {
     * State of the Particle Filter
     */
   case class State(
-    time:  Time,
-    state: Vector[DenseVector[Double]],
-    ll:    Double
+    time:    Time,
+    state:   Vector[DenseVector[Double]],
+    weights: Vector[Double],
+    ll:      Double
   )
 
-  def advanceState(
+  def advanceState[F[_]: Traverse](
     mod:   Model, 
     time:  Time, 
-    state: Vector[DenseVector[Double]], 
+    state: F[DenseVector[Double]], 
     p:     Parameters) = {
 
     state traverse (x => MultivariateGaussianSvd(mod.g(time) * x , p.w): Rand[DenseVector[Double]])
   }
 
-  def calcWeights(
+  def calcWeights[F[_]: Traverse](
     mod:    Model, 
     time:   Time, 
-    state:  Vector[DenseVector[Double]], 
+    state:  F[DenseVector[Double]], 
     p:      Parameters, 
     y:      Observation,
     condLl: CondLikelihood
@@ -60,18 +62,19 @@ object ParticleFilter {
     p:      Parameters,
     condLl: CondLikelihood)(state: State, d: Data): State = d.observation match {
     case Some(y) =>
-      val x1 = advanceState(mod, d.time, state.state, p).draw
+      val resampledX = resample(state.state, state.weights)
+      val x1 = advanceState(mod, d.time, resampledX, p).draw
       val w = calcWeights(mod, d.time, x1, p, y, condLl)
       val max = w.max
       val w1 = w map (a => exp(a - max))
-      val resampledX = resample(x1, w1)
       val ll = state.ll + max + log(mean(w1))
       val x = resample(x1, w)
 
-      State(d.time, x, ll)
+      State(d.time, x, w1, ll)
     case None =>
       val x = advanceState(mod, d.time, state.state, p).draw
-      State(d.time, x, state.ll)
+      val n = state.state.size
+      State(d.time, x, Vector.fill(n)(1.0 / n), state.ll)
   }
 
   /**
@@ -91,7 +94,7 @@ object ParticleFilter {
     condLl:       CondLikelihood) = {
 
     val initState = MultivariateGaussian(p.m0, p.c0).sample(n).toVector
-    val init = State(observations.head.time, initState, 0.0)
+    val init = State(observations.head.time, initState, Vector.fill(n)(1.0 / n), 0.0)
 
     observations.scanLeft(init)(filterStep(mod, p, condLl))
   }
@@ -104,7 +107,7 @@ object ParticleFilter {
     condLl:       CondLikelihood) = {
 
     val initState = MultivariateGaussian(p.m0, p.c0).sample(n).toVector
-    val init = State(observations.head.time, initState, 0.0)
+    val init = State(observations.head.time, initState, Vector.fill(n)(1.0 / n), 0.0)
 
     observations.foldLeft(init)(filterStep(mod, p, condLl)).ll
   }

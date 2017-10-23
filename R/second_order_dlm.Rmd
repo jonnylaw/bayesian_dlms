@@ -77,13 +77,8 @@ drop = function(df, n) {
 }
 ```
 
-<<<<<<< HEAD
 ```{r}
-Nparams = gibbs_iters %>%
-=======
-```{r, echo=FALSE}
 params = gibbs_iters %>%
->>>>>>> 3c195a76a7b3730cc31d4466119b4afbb6ed281c
   mutate(iteration = 1:nrow(gibbs_iters)) %>%
   thin(2) %>%
   drop(2000) %>%
