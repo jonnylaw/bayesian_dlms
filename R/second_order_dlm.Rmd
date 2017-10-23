@@ -69,16 +69,16 @@ summary(gibbs_iters)
 
 ```{r helper_functions}
 thin = function(df, n) {
-  df[seq(from = 1, to = nrow(df), by = n)]
+  df[seq(from = 1, to = nrow(df), by = n),]
 }
 
 drop = function(df, n) {
-  df[-(1:nrow(df))]
+  df[-(1:n),]
 }
 ```
 
 ```{r}
-params = gibbs_iters %>%
+Nparams = gibbs_iters %>%
   mutate(iteration = 1:nrow(gibbs_iters)) %>%
   thin(2) %>%
   drop(2000) %>%
