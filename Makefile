@@ -1,12 +1,23 @@
 # Fit a seasonal model using Newcastles HPC, Topsy
 seasonal_model_simulated:
 	sbt assembly
-	cp target/scala-2.11/bayesiandlm-assembly-0.1-SNAPSHOT.jar seasonal_dlm.jar
+	cp target/scala-2.11/bayesiandlm-assembly-0.1.jar seasonal_dlm.jar
 	ssh topsy -t mkdir -p /share/nobackup/a9169110/seasonal_dlm/data
 	scp data/seasonal_dlm.csv topsy:/share/nobackup/a9169110/seasonal_dlm/data/.
 	scp seasonal_dlm.jar seasonal_dlm.qsub topsy:/share/nobackup/a9169110/seasonal_dlm/.
 	ssh topsy -t "cd /share/nobackup/a9169110/seasonal_dlm && dos2unix seasonal_dlm.qsub"
 	ssh topsy -f "cd /share/nobackup/a9169110/seasonal_dlm && qsub seasonal_dlm.qsub"
+	ssh topsy -t qstat
+
+# Fit a Poisson DGLM using Particle Gibbs using Newcastles HPC, Topsy
+poisson_dglm_gibbs:
+# sbt assembly
+	cp target/scala-2.12/bayesian_dlm-assembly-0.1.jar poisson_dglm.jar
+	ssh topsy -t mkdir -p /share/nobackup/a9169110/poisson_dglm/data
+	scp data/poisson_dglm.csv topsy:/share/nobackup/a9169110/poisson_dglm/data/.
+	scp poisson_dglm.jar poisson_dglm.qsub topsy:/share/nobackup/a9169110/poisson_dglm/.
+	ssh topsy -t "cd /share/nobackup/a9169110/poisson_dglm && dos2unix poisson_dglm.qsub"
+	ssh topsy -f "cd /share/nobackup/a9169110/poisson_dglm && qsub poisson_dglm.qsub"
 	ssh topsy -t qstat
 
 site: correlated second_order first_order seasonal

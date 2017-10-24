@@ -160,7 +160,7 @@ First consider the observation variance matrix, this matrix is diagonal and henc
 
 $$p(V) = \textrm{InverseGamma}(\alpha, \beta)$$
 
-The likelihood of $y_t$ is Gaussian, with mean $F^T \textbf{x}_t$ and variance $V$. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. The posterior distribution of the observation precision is:
+The likelihood of $y_t$ is Gaussian, with mean $F^T \textbf{x}_t$ and variance $V$. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. The posterior distribution of the observation variance is:
 
 $$\begin{align*}
 p(V | y_{1:T}, \textbf{x}_{0:T}) &\propto  p(x_0) p(V) \prod_{t=1}^Tp(y_t | V, x_t) p(x_t|x_{t-1}) \\

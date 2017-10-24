@@ -45,9 +45,6 @@ object ParticleFilter {
     state.map(x => condLl(y, mod.f(time).t * x))
   }
 
-  /**
-    * Multinomial Resampling
-    */
   def resample[A](
     particles: Vector[A], 
     weights:   Vector[Double]): Vector[A] = {
@@ -68,9 +65,8 @@ object ParticleFilter {
       val max = w.max
       val w1 = w map (a => exp(a - max))
       val ll = state.ll + max + log(mean(w1))
-      val x = resample(x1, w)
 
-      State(d.time, x, w1, ll)
+      State(d.time, x1, w1, ll)
     case None =>
       val x = advanceState(mod, d.time, state.state, p).draw
       val n = state.state.size

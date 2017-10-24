@@ -4,6 +4,7 @@ import breeze.stats.distributions._
 import breeze.linalg._
 import Dlm._
 import cats.implicits._
+import math.exp
 
 /**
   *  Univariate DGLM
@@ -40,7 +41,7 @@ object Dglm {
     * Conditional Likelihood for Poisson distributed observations
     */
   def poisson(y: Observation, state: DenseVector[Double]) = 
-    Poisson(state(0)).logProbabilityOf(y(0).toInt)
+    Poisson(exp(state(0))).logProbabilityOf(y(0).toInt)
 
   case class Model(
     observation: (DenseVector[Double], DenseMatrix[Double]) => Rand[DenseVector[Double]],
@@ -51,9 +52,9 @@ object Dglm {
     mod: Model, 
     p: Parameters) = (time: Time, x: DenseVector[Double]) => {
     for {
-      x1 <- MultivariateGaussianSvd(mod.g(time) * DenseVector.zeros[Double](x.size), p.w)
+      x1 <- MultivariateGaussianSvd(mod.g(time) * x, p.w)
       y <- mod.observation(mod.f(time).t * x1, p.v)
-    } yield (Dlm.Data(time, y.some), x1)
+    } yield (Dlm.Data(time + 1, y.some), x1)
   }
 
   def simulate(mod: Model, p: Parameters) = {

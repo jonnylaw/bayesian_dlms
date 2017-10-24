@@ -1,0 +1,107 @@
+---
+title: "Particle Gibbs"
+author: "Jonathan Law"
+date: "24 October 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## Particle Filter
+
+The particle filter can be used for non-linear and non-Gaussian state space models, such as DGLMs. A general DGLM is given by:
+
+$$\begin{align*}
+Y_t &\sim p(y_t | F_tx_t, \theta) \\
+X_t &= G_tX_{t-1} + w_t, \qquad w_t \sim \mathcal{N}(0, W), \\
+X_0 &\sim \mathcal{N}(m_0, C_0).
+\end{align*}$$
+
+Where $p(y_t | F_tx_t, \theta)$ is a Exponential Family distribution, with optional static parameter $\theta$.
+
+## Particle Gibbs
+
+In a DGLM, the latent-state is Gaussian and thus permits a Gibbs Sampling scheme to determine the value of the system noise covariance matrix. 
+
+In order to construct a Gibbs Sampler, a value of the state must be sampled conditional on the values of the parameters. This is what the Particle Gibbs algorithm does. This is the non-linear, non-Gaussian equivalent of Forward-Filtering, backward sampling.
+
+## Particle Gibbs with Ancestor Resampling
+
+Particle Gibbs is sticky, so we use ancestor resampling. At the end of the filter there is a collection of paths with ancestory, we sample the $k^th$ path where $k$ is drawn from $\textrm{Pr}(k = i) \propto w^i_T$. Here, $w^i_T$ is the weight of the $i^th$ particle at the final time, $T$.
+
+### First Order DLM
+
+For a simple example of Particle Gibbs with Ancestor Resampling, we use the motivating example from Lindsten 2014.
+
+$$\begin{align*}
+y_t &= x_t + v_t, \qquad v_t \sim \mathcal{N}(0, V), \\
+x_t &= x_{t-1} + w_t, \quad w_t \sim \mathcal{N}(0, W), \\
+x_0 &\sim \mathcal{N}(m_0, C_0).
+\end{align*}$$
+
+```{r}
+data = read_csv("../data/first_order_dlm.csv")
+
+data %>%
+  gather(key, value, -time) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line()
+```
+
+
+```{r}
+state = read_csv("../data/particle_gibbs_ancestor.csv", col_names = FALSE)
+
+state %>%
+  t() %>%
+  as.data.frame() %>%
+  add_column(time = 100:0) %>%
+  gather(key = cond_state, value, -time) %>%
+  inner_join(data, by = "time") %>%
+  ggplot(aes(x = time, y = value, alpha = cond_state)) +
+  geom_line() +
+  geom_line(aes(x = time, y = state), colour = "#ff0000") +
+  theme(legend.position = "none") +
+  labs(title = "Actual state overlayed with ")
+```
+
+## Particle Gibbs with Parameter Learning
+
+### Example: Poisson DGLM
+
+$$\begin{align*}
+Y_t|x_t &\sim \textrm{Poisson}(\exp(F_tx_t)), \\
+X_t &= G_tX_{t-1} + w_t, \qquad w_t \sim \mathcal{N}(0, W), \\
+X_0 &\sim \mathcal{N}(m_0, C_0).
+\end{align*}$$
+
+Figure \@ref(fig:poisson-sims) shows a simulation from the Poisson DGLM.
+
+```{r poisson-sims, fig.cap="Simulation from the poisson DGLM with $(W, m_0, C_0) = (1.0, 0.0, 1.0)"}
+data = read_csv("../data/poisson_dglm.csv")
+
+data %>%
+  gather(key, value, -time) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line()
+```
+
+
+We first sample a path using the Particle Filter, then conditional on that path, we sample a value of the system noise covariance matrix, $W$, by exploiting the conjugate structure of the model. The state is one-dimensional hence we need to determine the variance, $W$. The Inverse Gamma distribution is conjugate to the Normal distribution with unknown variance:
+
+$$p(V) = \textrm{InverseGamma}(\alpha, \beta)$$
+
+The likelihood of $x_t$ is Gaussian, with mean $G_t \textbf{x}_{t-1}$ and variance $W$. The posterior distribution of the system noise variance is:
+
+$$\begin{align*}
+p(W | y_{1:T}, \textbf{x}_{0:T}) &\propto  p(x_0) p(W) \prod_{t=1}^Tp(y_t | x_t) p(x_t|x_{t-1}, W) \\
+&= W^{-\alpha-1}\exp\left( -\frac{\beta}{W} \right)(2\pi V)^{-T/2} \exp \left\{ -W^{-1} \sum_{t=1}^T(x_t - G_t \textbf{x}_{t-1})^2 \right\} \\
+&= W^{-(\alpha + T/2) - 1} \exp \left\{ -\frac{1}{V}\left(\beta + \frac{1}{2}\sum_{t=1}^T(x_t - G_t \textbf{x}_{t-1})^2\right) \right\}
+\end{align*}$$
+
+The the posterior distribution of the observation variance is the Inverse Gamma distribution:
+
+$$p(V | y_{1:T}, \textbf{x}_{1:T}) = \textrm{InverseGamma}\left(\alpha + \frac{T}{2}, \beta + \frac{1}{2}\sum_{i=1}^T(x_{t-1} - G_t\textbf{x}_{t-1})^2\right).$$

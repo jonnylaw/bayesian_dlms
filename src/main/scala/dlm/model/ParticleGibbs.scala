@@ -2,18 +2,22 @@ package dlm.model
 
 import Dlm._
 import breeze.linalg.DenseVector
+import breeze.stats.distributions.{Multinomial, Rand}
 import cats.implicits._
+import cats.data.Reader
 import math.{exp, log}
 import breeze.stats.mean
+import ParticleFilter._
 
 /**
   * Particle Gibbs Sampler for A Dynamic Generalised Linear Model
   */
 object ParticleGibbs {
   type ConditionalLl = (Observation, DenseVector[Double]) => Double
+  type LatentState = List[(Time, DenseVector[Double])]
 
   case class State(
-    states: List[List[(Time, DenseVector[Double])]],
+    states: List[LatentState],
     weights: List[Double],
     ll: Double)
 
@@ -28,30 +32,30 @@ object ParticleGibbs {
 
     case (Data(t, Some(y)), conditionedState) =>
       // resample using the previous weights
-      val resampled = ParticleFilter.resample(s.states.head.toVector, s.weights.toVector).toList
+      val resampled = resample(s.states.head.toVector, s.weights.toVector).toList
 
       // advance n-1 resampled states from time t
-      val x1 = ParticleFilter.advanceState(mod, t, resampled.map(_._2), p).draw
+      val x1 = advanceState(mod, t, resampled.map(_._2), p).draw
 
       // concat conditioned state and advanced state
       val x: List[DenseVector[Double]] = (conditionedState :: x1)
 
       // calculate weights of all n states at time t
-      val w = ParticleFilter.calcWeights(mod, t, x, p, y, conditionalLikelihood)
+      val w = calcWeights(mod, t, x, p, y, conditionalLikelihood)
 
       // log-sum-exp and calculate log-likelihood
       val max = w.max
       val w1 = w map (a => exp(a - max))
       val ll = s.ll + max + log(mean(w1))
 
-      State(x1.map(x => (t, x)) :: s.states, w1, ll)
+      State(x1.map(x => (t, x)) :: s.states, w1.tail, ll)
 
     case (Data(t, None), conditionedState) =>
       // resample using the previous weights
-      val resampledX = ParticleFilter.resample(s.states.head.toVector, s.weights.toVector)
+      val resampledX = resample(s.states.head.toVector, s.weights.toVector)
 
       // advance n-1 states from time t, located at the head of the list
-      val x1 = ParticleFilter.advanceState(mod, t, s.states.head.map(_._2), p).draw
+      val x1 = advanceState(mod, t, s.states.head.map(_._2), p).draw
 
       State(x1.map(x => (t, x)) :: s.states, List.fill(x1.size - 1)(1.0 / x1.size), s.ll)
   }
@@ -59,12 +63,17 @@ object ParticleGibbs {
   /**
     * Using the weights at time T (the end of all observations) sample a path from the collection
     * of paths
-    * @param states a collection of paths with ancestory
+    * @param states a collection of paths with ancestory, the outer list is of length T, inner length N
     * @param weights particle weights at time T
     * @return a single path
     */
-  def sampleState(states: List[List[(Time, DenseVector[Double])]], weights: List[Double]) = {
-    ParticleFilter.resample(states.transpose.toVector, weights.toVector).toList.head
+  def ancestorResampling(
+    states:  List[LatentState], 
+    weights: List[Double]): Rand[LatentState]  = {
+    for {
+      k <- Multinomial(DenseVector(weights.toArray))
+      x = states.transpose
+    } yield x(k)
   }
 
   /**
@@ -76,29 +85,29 @@ object ParticleGibbs {
     * @param mod the specification of the system evolution matrix, G and observation matrix F
     * @param obs a list of observations
     * @return a tuple containing the log-likelihood of the parameters given the observations and 
-    * a single sample of the latent state
+    * a single state path deterministically chosen to be the final path
     */
   def filter(
     n:             Int, 
     p:             Parameters, 
     conditionalLl: ConditionalLl, 
-    state:         List[(Time, DenseVector[Double])], 
     mod:           Model, 
-    obs:           List[Data]): (Double, List[(Time, DenseVector[Double])]) = {
+    obs:           List[Data])(state: LatentState): State = {
 
     val firstTime = obs.map(d => d.time).min
     val x0 = initState(p).sample(n-1).toList.map(x => (firstTime - 1, x))
-    val init = State(List(x0), List.fill(n)(1.0 / n), 0.0)
+    val init = State(List(x0), List.fill(n - 1)(1.0 / n), 0.0)
 
-    val x = (obs, state.map(_._2)).zipped.foldLeft(init)(step(conditionalLl, mod, p))
-
-    (x.ll, sampleState(x.states, x.weights))
+    (obs, state.map(_._2)).zipped.foldLeft(init)(step(conditionalLl, mod, p))
   }
-}
 
-/**
-  * Particle Gibbs with Ancestor resampling
-  */
-object ParticleGibbsAncestor {
+  def pgas(s: State): Rand[LatentState] = {
+    ancestorResampling(s.states, s.weights)
+  }
 
+  def pg(s: State): Rand[LatentState] = {
+    val n = s.states.head.size
+    val x = s.states.transpose
+    Rand.always(x(n-1))
+  }
 }
