@@ -1,7 +1,6 @@
 package dlm.examples
 
 import dlm.model._
-import GibbsSampling._
 import ParticleGibbs._
 import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.distributions.{Poisson, MarkovChain}
@@ -38,7 +37,7 @@ trait PoissonData {
 object SimulatePoissonDglm extends App with PoissonDglm {
   val sims = Dglm.simulate(mod, params).
     steps.
-    take(100)
+    take(1000)
 
   val out = new java.io.File("data/poisson_dglm.csv")
   val writer = out.asCsvWriter[(Time, Option[Double], Double)](rfc.withHeader("time", "observation", "state"))
@@ -81,10 +80,10 @@ object PoissonDglmGibbs extends App with PoissonDglm with PoissonData {
     take(10000)
 
   val out = new java.io.File("data/poisson_dglm_gibbs.csv")
-  val writer = out.asCsvWriter[(Double, Double, Double)](rfc.withHeader("W", "m0", "c0"))
+  val writer = out.asCsvWriter[Double](rfc.withHeader("W"))
 
   def formatParameters(p: Dlm.Parameters) = {
-    (p.w.data(0), p.m0.data(0), p.c0.data(0))
+    (p.w.data(0))
   }
 
   // write iters to file

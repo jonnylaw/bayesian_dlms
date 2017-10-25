@@ -12,6 +12,9 @@ package object model {
   type Time = Int
   type ObservationMatrix = Time => DenseMatrix[Double]
   type SystemMatrix = Time => DenseMatrix[Double]
+  type ConditionalLl = (Observation, DenseVector[Double]) => Double
+  type LatentState = List[(Time, DenseVector[Double])]
+
 
   implicit val randMonad = new Monad[Rand] {
     def pure[A](x: A): Rand[A] = Rand.always(x)

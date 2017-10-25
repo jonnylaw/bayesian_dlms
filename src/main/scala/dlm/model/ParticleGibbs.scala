@@ -13,9 +13,6 @@ import ParticleFilter._
   * Particle Gibbs Sampler for A Dynamic Generalised Linear Model
   */
 object ParticleGibbs {
-  type ConditionalLl = (Observation, DenseVector[Double]) => Double
-  type LatentState = List[(Time, DenseVector[Double])]
-
   case class State(
     states: List[LatentState],
     weights: List[Double],

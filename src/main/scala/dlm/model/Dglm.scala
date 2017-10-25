@@ -10,6 +10,16 @@ import math.exp
   *  Univariate DGLM
   */
 object Dglm {
+
+  /**
+    * A class representing a DGLM, used for simulation
+    */
+  case class Model(
+    observation: (DenseVector[Double], DenseMatrix[Double]) => Rand[DenseVector[Double]],
+    f: ObservationMatrix,
+    g: SystemMatrix
+  )
+
   /**
     * Logistic function to transform the number onto a range between 0 and upper
     * @param upper the upper limit of the logistic function
@@ -42,11 +52,6 @@ object Dglm {
     */
   def poisson(y: Observation, state: DenseVector[Double]) = 
     Poisson(exp(state(0))).logProbabilityOf(y(0).toInt)
-
-  case class Model(
-    observation: (DenseVector[Double], DenseMatrix[Double]) => Rand[DenseVector[Double]],
-    f: Time => DenseMatrix[Double],
-    g: Time => DenseMatrix[Double])
 
   def simStep(
     mod: Model, 
