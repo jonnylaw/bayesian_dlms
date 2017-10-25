@@ -4,7 +4,7 @@ import breeze.linalg.DenseVector
 import breeze.stats.distributions._
 import breeze.numerics.{exp, log}
 import breeze.stats.mean
-import Dlm._
+import Dglm._
 import cats.implicits._
 import cats.{Traverse, Functor}
 import scala.language.higherKinds
@@ -39,7 +39,7 @@ object ParticleFilter {
     mod:   Model, 
     time:  Time, 
     state: F[DenseVector[Double]], 
-    p:     Parameters) = {
+    p:     Dlm.Parameters) = {
 
     state traverse (x => MultivariateGaussianSvd(mod.g(time) * x , p.w): Rand[DenseVector[Double]])
   }
@@ -53,7 +53,6 @@ object ParticleFilter {
     * @param state a collection of particles representing time emprical prior 
     * distribution of the state at this time
     * @param y the observation 
-    * @param condLl a function to calculate the conditional log-likelihood of an 
     * observation given a value of the state, p(y_t | F_t x_t)
     * @return a collection of weights corresponding to each particle
     */
@@ -62,9 +61,9 @@ object ParticleFilter {
     time:   Time, 
     state:  F[DenseVector[Double]], 
     y:      Observation,
-    condLl: ConditionalLl
+    p:      Dlm.Parameters
   ) = {
-    state.map(x => condLl(y, mod.f(time).t * x))
+    state.map(x => mod.conditionalLikelihood(p)(mod.f(time).t * x, y))
   }
 
   def resample[A](
@@ -80,12 +79,11 @@ object ParticleFilter {
 
   def filterStep(
     mod:    Model, 
-    p:      Parameters,
-    condLl: ConditionalLl)(state: State, d: Data): State = d.observation match {
+    p:      Dlm.Parameters)(state: State, d: Data): State = d.observation match {
     case Some(y) =>
       val resampledX = resample(state.state, state.weights)
       val x1 = advanceState(mod, d.time, resampledX, p).draw
-      val w = calcWeights(mod, d.time, x1, y, condLl)
+      val w = calcWeights(mod, d.time, x1, y, p)
       val max = w.max
       val w1 = w map (a => exp(a - max))
       val ll = state.ll + max + log(mean(w1))
@@ -109,14 +107,13 @@ object ParticleFilter {
   def filter(
     mod:          Model, 
     observations: Seq[Data], 
-    p:            Parameters, 
-    n:            Int, 
-    condLl:       ConditionalLl) = {
+    p:            Dlm.Parameters, 
+    n:            Int) = {
 
     val initState = MultivariateGaussian(p.m0, p.c0).sample(n).toVector
     val init = State(observations.head.time, initState, Vector.fill(n)(1.0 / n), 0.0)
 
-    observations.scanLeft(init)(filterStep(mod, p, condLl))
+    observations.scanLeft(init)(filterStep(mod, p))
   }
 
   /**
@@ -125,13 +122,12 @@ object ParticleFilter {
   def likelihood(
     mod:          Model, 
     observations: Array[Data], 
-    p:            Parameters, 
-    n:            Int, 
-    condLl:       ConditionalLl) = {
+    p:            Dlm.Parameters, 
+    n:            Int) = {
 
     val initState = MultivariateGaussian(p.m0, p.c0).sample(n).toVector
     val init = State(observations.head.time, initState, Vector.fill(n)(1.0 / n), 0.0)
 
-    observations.foldLeft(init)(filterStep(mod, p, condLl)).ll
+    observations.foldLeft(init)(filterStep(mod, p)).ll
   }
 }

@@ -40,7 +40,8 @@ object SimulateDlm extends App with FirstOrderDlm {
     take(100)
 
   val out = new java.io.File("data/first_order_dlm.csv")
-  val writer = out.asCsvWriter[(Time, Option[Double], Double)](rfc.withHeader("time", "observation", "state"))
+  val headers = rfc.withHeader("time", "observation", "state")
+  val writer = out.asCsvWriter[(Time, Option[Double], Double)](headers)
 
   def formatData(d: (Data, DenseVector[Double])) = d match {
     case (Data(t, y), x) =>
@@ -101,6 +102,7 @@ object GibbsParameters extends App with FirstOrderDlm with SimulatedData {
 }
 
 /**
+  * Run Particle Gibbs Sampling on the first order DLM
   * Recreate Figure 2 from Lindsten 14
   */
 object ParticleGibbsFo extends App with FirstOrderDlm with SimulatedData {
@@ -111,15 +113,14 @@ object ParticleGibbsFo extends App with FirstOrderDlm with SimulatedData {
 
   // choose number of particles and sample an initial state
   val n = 1000
-  val initFilter = ParticleFilter.filter(mod, data, p, n, condLl(p.v(0,0)))
-  val conditionedState = ParticleGibbs.ancestorResampling(
+  val initFilter = ParticleFilter.filter(mod, data, p, n)
+  val conditionedState = ParticleGibbs.sampleState(
     initFilter.map(d => d.state.map((d.time, _)).toList).toList, 
     initFilter.last.weights.toList
   ).draw
 
-  val filter = ParticleGibbs.filter(1000, p, condLl(p.v(0,0)), mod, data.toList) _
- // val particleGibbs = MarkovChain(conditionedState)(filter andThen ParticleGibbs.pg)
-  val ancestorFilter = MarkovChain(conditionedState)(filter andThen ParticleGibbs.pgas).
+  val filter = ParticleGibbs.filter(1000, p, mod, data.toList) _
+  val ancestorFilter = MarkovChain(conditionedState)(x => filter(x).map(_._2)).
     steps.
     take(100)
 
@@ -138,6 +139,5 @@ object ParticleGibbsFo extends App with FirstOrderDlm with SimulatedData {
     s.map(x => x._2.data.head)
   }
 
-//  writeFiltering("data/particle_gibbs.csv", formatState(particleGibbs))
   writeFiltering("data/particle_gibbs_ancestor.csv", ancestorFilter.map(formatState))
 }

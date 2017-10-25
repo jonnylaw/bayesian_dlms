@@ -32,11 +32,6 @@ object Dlm {
       Parameters(v.map(f), w.map(f), m0.map(f), c0.map(f))
   }
 
-  /**
-    * A single observation of a DLM
-    */
-  case class Data(time: Time, observation: Option[Observation])
-
   def polynomial(order: Int): Model = {
     Model(
       (t: Time) => {

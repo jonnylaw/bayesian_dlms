@@ -7,13 +7,30 @@ import cats._
 import dlm.model.Dlm._
 
 package object model {
-  type State = MultivariateGaussian
   type Observation = DenseVector[Double]
   type Time = Int
   type ObservationMatrix = Time => DenseMatrix[Double]
   type SystemMatrix = Time => DenseMatrix[Double]
   type ConditionalLl = (Observation, DenseVector[Double]) => Double
   type LatentState = List[(Time, DenseVector[Double])]
+
+  /**
+    * A Gaussian DLM can be implicitly converted to a DGLM
+    * Then particle filtering methods can be used on Gaussian Models
+    */
+  implicit def dlm2dglm(dlmModel: Dlm.Model): Dglm.Model = {
+    Dglm.Model(
+      (x: DenseVector[Double], v: DenseMatrix[Double]) => MultivariateGaussianSvd(x, v),
+      dlmModel.f,
+      dlmModel.g,
+      (p: Dlm.Parameters) => (x: DenseVector[Double], y: DenseVector[Double]) => MultivariateGaussianSvd(x, p.v).logPdf(y)
+    )
+  }
+
+  /**
+    * A single observation of a model
+    */
+  case class Data(time: Time, observation: Option[Observation])
 
 
   implicit val randMonad = new Monad[Rand] {
