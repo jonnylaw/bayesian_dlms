@@ -111,13 +111,13 @@ object ParticleFilter {
     n:            Int) = {
 
     val initState = MultivariateGaussian(p.m0, p.c0).sample(n).toVector
-    val init = State(observations.head.time, initState, Vector.fill(n)(1.0 / n), 0.0)
+    val init = State(observations.head.time - 1, initState, Vector.fill(n)(1.0 / n), 0.0)
 
     observations.scanLeft(init)(filterStep(mod, p))
   }
 
   /**
-    * Run a Bootstrap Particle Filter over a DGLM to calculate the 
+    * Run a Bootstrap Particle Filter over a DGLM to calculate the log-likelihood
     */
   def likelihood(
     mod:          Model, 
@@ -126,7 +126,7 @@ object ParticleFilter {
     n:            Int) = {
 
     val initState = MultivariateGaussian(p.m0, p.c0).sample(n).toVector
-    val init = State(observations.head.time, initState, Vector.fill(n)(1.0 / n), 0.0)
+    val init = State(observations.head.time - 1, initState, Vector.fill(n)(1.0 / n), 0.0)
 
     observations.foldLeft(init)(filterStep(mod, p)).ll
   }
