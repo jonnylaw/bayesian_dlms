@@ -1,4 +1,4 @@
-scalaVersion in ThisBuild := "2.12.1"
+scalaVersion in ThisBuild := "2.11.11"
 
 name := "bayesian_dlm"
 

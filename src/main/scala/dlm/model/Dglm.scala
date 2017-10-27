@@ -2,14 +2,23 @@ package dlm.model
 
 import breeze.stats.distributions._
 import breeze.linalg._
-import Dlm._
 import cats.implicits._
 import math.exp
 
 /**
-  *  Univariate DGLM
+  * DGLM
   */
 object Dglm {
+  /**
+    * A class representing a DGLM
+    */
+  case class Model(
+    observation: (DenseVector[Double], DenseMatrix[Double]) => Rand[DenseVector[Double]],
+    f: ObservationMatrix,
+    g: SystemMatrix,
+    conditionalLikelihood: (Dlm.Parameters) => ConditionalLl
+  )
+
   /**
     * Logistic function to transform the number onto a range between 0 and upper
     * @param upper the upper limit of the logistic function
@@ -27,37 +36,55 @@ object Dglm {
   }
 
   /**
-    * Conditional Likelihood for Beta distributed observations with variance < mean (1 - mean)
+    * Construct a DGLM with Beta distributed observations, 
+    * with variance < mean (1 - mean)
     */
-  def beta(variance: Double)(y: Observation, state: DenseVector[Double]) = {
-    val mean = logisticFunction(1.0)(state(0))
-    val a = (mean * (1 - mean)) / variance
-    val alpha = mean * (a - 1)
-    val beta = (1 - mean) * (a - 1)
-    new Beta(alpha, beta).logPdf(y(0))
+  def beta(mod: Dlm.Model): Dglm.Model = {
+
+    Dglm.Model(
+      observation = (x, v) => {
+        val mean = logisticFunction(1.0)(x(0))
+        val a = (mean * (1 - mean)) / v(0,0)
+        val alpha = mean * (a - 1)
+        val beta = (1 - mean) * (a - 1)
+        
+        new Beta(alpha, beta).map(DenseVector(_))
+      },
+      f = mod.f,
+      g = mod.g,
+      conditionalLikelihood = p => (x, y) => {
+        val mean = logisticFunction(1.0)(x(0))
+        val a = (mean * (1 - mean)) / p.v(0,0)
+        val alpha = mean * (a - 1)
+        val beta = (1 - mean) * (a - 1)
+
+        new Beta(alpha, beta).logPdf(y(0))
+      })
   }
 
   /**
-    * Conditional Likelihood for Poisson distributed observations
+    * Construct a DGLM with Poisson distributed observations
     */
-  def poisson(y: Observation, state: DenseVector[Double]) = 
-    Poisson(exp(state(0))).logProbabilityOf(y(0).toInt)
-
-  case class Model(
-    observation: (DenseVector[Double], DenseMatrix[Double]) => Rand[DenseVector[Double]],
-    f: Time => DenseMatrix[Double],
-    g: Time => DenseMatrix[Double])
+  def poisson(mod: Dlm.Model): Dglm.Model = {
+    Dglm.Model(
+      observation = (x, v) => Poisson(exp(x(0))).map(DenseVector(_)),
+      f = mod.f,
+      g = mod.g,
+      conditionalLikelihood = p => (x, y) =>
+      Poisson(exp(x(0))).logProbabilityOf(y(0).toInt)
+    )
+  }
 
   def simStep(
     mod: Model, 
-    p: Parameters) = (time: Time, x: DenseVector[Double]) => {
+    p: Dlm.Parameters) = (time: Time, x: DenseVector[Double]) => {
     for {
       x1 <- MultivariateGaussianSvd(mod.g(time) * x, p.w)
       y <- mod.observation(mod.f(time).t * x1, p.v)
-    } yield (Dlm.Data(time + 1, y.some), x1)
+    } yield (Data(time + 1, y.some), x1)
   }
 
-  def simulate(mod: Model, p: Parameters) = {
+  def simulate(mod: Model, p: Dlm.Parameters) = {
     val initState = (Data(0, None), MultivariateGaussianSvd(p.m0, p.c0).draw)
     MarkovChain(initState){ case (d, x) => simStep(mod, p)(d.time, x) }
   }

@@ -12,21 +12,19 @@ import Arbitrary.arbitrary
 import org.scalactic.Equality
 
 class KfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
-  def matrices(dim: Int) = for {
-    qt <- symmetricPosDefMatrix(1, 100)
-    rt <- symmetricPosDefMatrix(dim, 100)
-  } yield (rt, qt)
+  def linearSystem(dim: Int) = for {
+    qt <- symmetricPosDefMatrix(dim, 100)
+    rt <- denseVector(2)
+  } yield (rt.t, qt)
 
-  // property("Solution to linear system") {
-  //   forAll (matrices(2)) { case (rt, qt) =>
-  //     val mod = Dlm.polynomial(2)
-  //     val time = 1
-  //     val kalmanGainNaive = rt * (mod.f(time) * inv(qt))
-  //     val kalmanGainBetter = (qt.t \ (mod.f(time).t * rt.t)).t
+  property("Solution to linear system") {
+    forAll (linearSystem(2)) { case (rt, qt) =>
+      val naive = rt * inv(qt)
+      val better = (qt.t \ rt.t).t
 
-  //     assert(kalmanGainBetter === kalmanGainNaive)
-  //   }
-  // }
+      assert(better.t === naive.t)
+    }
+  }
 
   val params = for {
     v <- smallDouble

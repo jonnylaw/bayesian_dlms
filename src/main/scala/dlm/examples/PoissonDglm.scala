@@ -1,7 +1,6 @@
 package dlm.examples
 
 import dlm.model._
-import GibbsSampling._
 import ParticleGibbs._
 import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.distributions.{Poisson, MarkovChain}
@@ -13,11 +12,7 @@ import kantan.csv._
 import kantan.csv.ops._
 
 trait PoissonDglm {
-  val mod = Dglm.Model(
-    observation = (x, v) => Poisson(exp(x(0))).map(DenseVector(_)),
-    f = (t: Time) => DenseMatrix((1.0)), 
-    g = (t: Time) => DenseMatrix((1.0))
-  )
+  val mod = Dglm.poisson(Dlm.polynomial(1))
   val params = Dlm.Parameters(
     DenseMatrix(2.0), 
     DenseMatrix(0.01), 
@@ -30,7 +25,7 @@ trait PoissonData {
   val reader = rawData.asCsvReader[(Time, Double, Double)](rfc.withHeader)
   val data = reader.
     collect { 
-      case Success(a) => Dlm.Data(a._1, Some(a._2).map(DenseVector(_)))
+      case Success(a) => Data(a._1, Some(a._2).map(DenseVector(_)))
     }.
     toArray
 }
@@ -38,13 +33,14 @@ trait PoissonData {
 object SimulatePoissonDglm extends App with PoissonDglm {
   val sims = Dglm.simulate(mod, params).
     steps.
-    take(100)
+    take(1000)
 
   val out = new java.io.File("data/poisson_dglm.csv")
-  val writer = out.asCsvWriter[(Time, Option[Double], Double)](rfc.withHeader("time", "observation", "state"))
+  val header = rfc.withHeader("time", "observation", "state")
+  val writer = out.asCsvWriter[(Time, Option[Double], Double)](header)
 
-  def formatData(d: (Dlm.Data, DenseVector[Double])) = d match {
-    case (Dlm.Data(t, y), x) =>
+  def formatData(d: (Data, DenseVector[Double])) = d match {
+    case (Data(t, y), x) =>
       (t, y.map(x => x(0)), x(0))
   }
 
@@ -61,18 +57,17 @@ object SimulatePoissonDglm extends App with PoissonDglm {
 object PoissonDglmGibbs extends App with PoissonDglm with PoissonData {
   val n = 200
   val model = Dlm.Model(mod.f, mod.g)
-  val initFilter = ParticleFilter.filter(model, data, params, n, Dglm.poisson)
-  val conditionedState = ParticleGibbs.ancestorResampling(
+  val initFilter = ParticleFilter.filter(model, data, params, n)
+  val conditionedState = ParticleGibbs.sampleState(
     initFilter.map(d => d.state.map((d.time, _)).toList).toList, 
     initFilter.last.weights.toList
   ).draw
 
-  val filter = ParticleGibbs.filter(1000, params, Dglm.poisson, model, data.toList) _
-  val priorW = InverseGamma(5.0, 4.0)
+  val priorW = InverseGamma(11.0, 1.0)
 
   val mcmcStep = (s: LatentState, p: Dlm.Parameters) => for {
-    state <- ParticleGibbs.pgas(filter(s))
-    w <- GibbsSampling.sampleSystemMatrix(priorW, model, state.toArray)
+    w <- GibbsSampling.sampleSystemMatrix(priorW, model, s.toArray)
+    (ll, state) <- ParticleGibbs.filter(n, params, model, data.toList)(s)
   } yield (state, Dlm.Parameters(p.v, w, p.m0, p.c0))
 
   val iters = MarkovChain((conditionedState, params)){ case (x, p) => mcmcStep(x, p) }.
@@ -81,10 +76,46 @@ object PoissonDglmGibbs extends App with PoissonDglm with PoissonData {
     take(10000)
 
   val out = new java.io.File("data/poisson_dglm_gibbs.csv")
-  val writer = out.asCsvWriter[(Double, Double, Double)](rfc.withHeader("W", "m0", "c0"))
+  val writer = out.asCsvWriter[Double](rfc.withHeader("W"))
 
   def formatParameters(p: Dlm.Parameters) = {
-    (p.w.data(0), p.m0.data(0), p.c0.data(0))
+    (p.w.data(0))
+  }
+
+  // write iters to file
+  while (iters.hasNext) {
+    writer.write(formatParameters(iters.next))
+  }
+
+  writer.close()
+}
+
+object PoissonDglmGibbsAncestor extends App with PoissonDglm with PoissonData {
+  val n = 200
+  val model = Dlm.Model(mod.f, mod.g)
+  val initFilter = ParticleFilter.filter(model, data, params, n)
+  val conditionedState = ParticleGibbs.sampleState(
+    initFilter.map(d => d.state.map((d.time, _)).toList).toList, 
+    initFilter.last.weights.toList
+  ).draw
+
+  val priorW = InverseGamma(11.0, 1.0)
+
+  val mcmcStep = (s: LatentState, p: Dlm.Parameters) => for {
+    w <- GibbsSampling.sampleSystemMatrix(priorW, model, s.toArray)
+    (ll, state) <- ParticleGibbsAncestor.filter(n, params, model, data.toList)(s)
+  } yield (state, Dlm.Parameters(p.v, w, p.m0, p.c0))
+
+  val iters = MarkovChain((conditionedState, params)){ case (x, p) => mcmcStep(x, p) }.
+    steps.
+    map(_._2).
+    take(10000)
+
+  val out = new java.io.File("data/poisson_dglm_gibbs_ancestor.csv")
+  val writer = out.asCsvWriter[Double](rfc.withHeader("W"))
+
+  def formatParameters(p: Dlm.Parameters) = {
+    (p.w.data(0))
   }
 
   // write iters to file

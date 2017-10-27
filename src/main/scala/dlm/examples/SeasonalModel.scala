@@ -91,7 +91,7 @@ object SmoothSeasonalDlm extends App with SeasonalModel with SeasonalData {
 object SeasonalGibbsSampling extends App with SeasonalModel with SeasonalData {
   val iters = GibbsSampling.gibbsSamples(mod, InverseGamma(5.0, 4.0), InverseGamma(17.0, 4.0), p, data).
     steps.
-    take(100000)
+    take(10000)
 
   val out = new java.io.File("data/seasonal_dlm_gibbs.csv")
   val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7"))
