@@ -8,6 +8,8 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(coda)
+library(ggmcmc)
 ```
 
 ## Particle Filter
@@ -80,15 +82,16 @@ X_0 &\sim \mathcal{N}(m_0, C_0).
 
 Figure \@ref(fig:poisson-sims) shows a simulation from the Poisson DGLM.
 
-```{r poisson-sims, fig.cap="Simulation from the poisson DGLM with $(W, m_0, C_0) = (1.0, 0.0, 1.0)"}
+```{r poisson-sims, fig.cap="Simulation from the poisson DGLM with $(W, m_0, C_0) = (1.0, 0.0, 1.0)$"}
 data = read_csv("../data/poisson_dglm.csv")
 
 data %>%
   gather(key, value, -time) %>%
   ggplot(aes(x = time, y = value, colour = key)) +
-  geom_line()
+  geom_line() +
+  # facet_wrap(~key, scales = "free_y") +
+  theme(legend.position = "none")
 ```
-
 
 We first sample a path using the Particle Filter, then conditional on that path, we sample a value of the system noise covariance matrix, $W$, by exploiting the conjugate structure of the model. The state is one-dimensional hence we need to determine the variance, $W$. The Inverse Gamma distribution is conjugate to the Normal distribution with unknown variance:
 
@@ -105,3 +108,18 @@ p(W | y_{1:T}, \textbf{x}_{0:T}) &\propto  p(x_0) p(W) \prod_{t=1}^Tp(y_t | x_t)
 The the posterior distribution of the observation variance is the Inverse Gamma distribution:
 
 $$p(V | y_{1:T}, \textbf{x}_{1:T}) = \textrm{InverseGamma}\left(\alpha + \frac{T}{2}, \beta + \frac{1}{2}\sum_{i=1}^T(x_{t-1} - G_t\textbf{x}_{t-1})^2\right).$$
+
+Figure \@ref(mcmc-output) shows the MCMC diagnostics for the simulated Poisson example.
+
+```{r mcmc-output}
+iters = read_csv("../data/poisson_dglm_gibbs.csv")
+
+chain = iters %>% mcmc() %>% ggs() %>% filter(Parameter == "V")
+
+p1 = ggs_traceplot(chain)
+p2 = ggs_autocorrelation(chain)
+p3 = ggs_running(chain)
+
+gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
+```
+
