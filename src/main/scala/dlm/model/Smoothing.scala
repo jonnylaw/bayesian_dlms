@@ -107,8 +107,8 @@ object Smoothing {
     val at1 = state.at1
     val rt1 = state.rt1
 
-    // more efficient than inverting rt, equivalent to C * G * inv(R)
-    val cgrinv = (rt1.t \ (mod.g(time + 1) * ct.t)).t
+    // more efficient than inverting rt, equivalent to C * G.t * inv(R)
+    val cgrinv = (rt1 \ (mod.g(time + 1) * ct)).t
 
     // calculate the updated mean
     // the difference between the backwards sampler and smoother is here
@@ -119,7 +119,7 @@ object Smoothing {
     // calculate the updated covariance
     val n = p.w.cols
     val identity = DenseMatrix.eye[Double](n)
-    val diff = (identity - cgrinv * mod.g(time + 1))
+    val diff = identity - cgrinv * mod.g(time + 1)
     val covariance = diff * ct * diff.t + cgrinv * p.w * cgrinv.t
 
     // calculate the updated covariance
@@ -141,7 +141,7 @@ object Smoothing {
     val lastTime = last.time
     val lastState = MultivariateGaussianSvd(last.mt, last.ct).draw
 
-    sortedState.tail.scanLeft(SamplingState(lastTime, lastState, last.at, last.rt))(backSampleStepJoseph(mod, p)).
+    sortedState.tail.scanLeft(SamplingState(lastTime, lastState, last.at, last.rt))(backSampleStep(mod, p)).
       sortBy(_.time).map(a => (a.time, a.sample))
   }
 }

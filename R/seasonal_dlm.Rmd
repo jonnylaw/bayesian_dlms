@@ -4,6 +4,8 @@ title: "Seasonal DLM"
 
 ```{r setup, include=FALSE}
 library(tidyverse)
+library(coda)
+library(ggmcmc)
 theme_set(theme_minimal())
 ```
 
@@ -116,12 +118,11 @@ gridExtra::grid.arrange(p1, p2, ncol = 1)
 ```
 
 ```{r, echo=FALSE, fig.cap="Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated seasonal model"}
-
 p1 = params %>%
   filter(Parameter %in% paste0("W", 1:7)) %>%
   ggplot(aes(x = Iteration, y = value)) +
   geom_line() +
-  # geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
   facet_wrap(~Parameter, scales = "free_y")
 
 p2 = params %>%
@@ -130,7 +131,7 @@ p2 = params %>%
   mutate(running_mean = dlm::ergMean(value)) %>%
   ggplot(aes(x = Iteration, y = running_mean)) +
   geom_line() +
-  # geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
   facet_wrap(~Parameter, nrow = 1, scales = "free_y")
 
 gridExtra::grid.arrange(p1, p2, ncol = 1)
