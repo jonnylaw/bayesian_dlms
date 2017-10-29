@@ -8,5 +8,4 @@ src/main/scala/target/*
 *.jar
 *.zip
 *.pdf
-*_files/
 .Rproj.user
