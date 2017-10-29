@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+
+
+
+<title>Correlated DLM</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/readable.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; background-color: #f8f8f8; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+pre, code { background-color: #f8f8f8; }
+code > span.kw { color: #204a87; font-weight: bold; } /* Keyword */
+code > span.dt { color: #204a87; } /* DataType */
+code > span.dv { color: #0000cf; } /* DecVal */
+code > span.bn { color: #0000cf; } /* BaseN */
+code > span.fl { color: #0000cf; } /* Float */
+code > span.ch { color: #4e9a06; } /* Char */
+code > span.st { color: #4e9a06; } /* String */
+code > span.co { color: #8f5902; font-style: italic; } /* Comment */
+code > span.ot { color: #8f5902; } /* Other */
+code > span.al { color: #ef2929; } /* Alert */
+code > span.fu { color: #000000; } /* Function */
+code > span.er { color: #a40000; font-weight: bold; } /* Error */
+code > span.wa { color: #8f5902; font-weight: bold; font-style: italic; } /* Warning */
+code > span.cn { color: #000000; } /* Constant */
+code > span.sc { color: #000000; } /* SpecialChar */
+code > span.vs { color: #4e9a06; } /* VerbatimString */
+code > span.ss { color: #4e9a06; } /* SpecialString */
+code > span.im { } /* Import */
+code > span.va { color: #000000; } /* Variable */
+code > span.cf { color: #204a87; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #ce5c00; font-weight: bold; } /* Operator */
+code > span.pp { color: #8f5902; font-style: italic; } /* Preprocessor */
+code > span.ex { } /* Extension */
+code > span.at { color: #c4a000; } /* Attribute */
+code > span.do { color: #8f5902; font-weight: bold; font-style: italic; } /* Documentation */
+code > span.an { color: #8f5902; font-weight: bold; font-style: italic; } /* Annotation */
+code > span.cv { color: #8f5902; font-weight: bold; font-style: italic; } /* CommentVar */
+code > span.in { color: #8f5902; font-weight: bold; font-style: italic; } /* Information */
+</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+  height: auto;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 66px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+
+.section h2 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+.section h3 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+.section h4 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+.section h5 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+.section h6 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+
+<div class="container-fluid main-container">
+
+<!-- tabsets -->
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+</script>
+
+<!-- code folding -->
+
+
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Bayesian Inference for DLMs</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Examples
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="FirstOrderDlm.html">A Simple DLM</a>
+    </li>
+    <li>
+      <a href="second_order_dlm.html">Linear Growth DLM</a>
+    </li>
+    <li>
+      <a href="seasonal_dlm.html">Seasonal Composed DLM</a>
+    </li>
+    <li>
+      <a href="CorrelatedModel.html">Correlated Models</a>
+    </li>
+  </ul>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">Correlated DLM</h1>
+
+</div>
+
+
+<div id="problem-description" class="section level1">
+<h1>Problem Description</h1>
+<p>In order to model many related time series and perform forecasting jointly we can formulate a Dynamic Linear Model with an observation <em>vector</em> containing values from the related time series at each timestep. To induce correlation in the model, the State evolution matrix, <span class="math inline">\(W\)</span>, is allowed to be full-rank. This can be learned from the data.</p>
+<p><span class="math display">\[\begin{align}
+\textbf{Y}_t &amp;= F_t x_t + \textbf{v}_t, \quad v_t \sim \textrm{MVN}(0, V), \\
+X_t &amp;= G_t x_{t-1} + w_t, \quad w_t \sim \textrm{MVN}(0, W).
+\end{align}\]</span></p>
+<p>The observation at each time point consists of <span class="math inline">\(n\)</span> related time series, <span class="math inline">\(\textbf{Y}_t = (y_{1,t},\dots,y_{n,t})\)</span>.</p>
+<div id="example" class="section level2">
+<h2>Example</h2>
+<p>To illustrate the combination of single models into a combined model, we consider the “outer sum” of two models. The first model is a first order polynomial model, the second model in the composition is a linear trend. The first model is given by:</p>
+<p><span class="math display">\[\begin{align}
+Y_t &amp;= x_t + v_t, \quad v_t \sim \textrm{MVN}(0, V), \\
+X_t &amp;= x_{t-1} + w_t, \quad w_t \sim \textrm{MVN}(0, W), \\
+X_0 &amp;\sim \textrm{MVN}(m_0, C_0).
+\end{align}\]</span></p>
+<p>Where the state, <span class="math inline">\(x_t\)</span> is univarate an evolves according to a random walk. The second model is given by:</p>
+<p><span class="math display">\[\begin{align}
+Y_t &amp;= F \textbf{x}_t + \textbf{v}_t, \quad v_t \sim \textrm{MVN}(0, V), \\
+\textbf{X}_t &amp;= G \textbf{x}_{t-1} + w_t, \quad w_t \sim \textrm{MVN}(0, W), \\
+\textbf{X}_0 &amp;\sim \textrm{MVN}(m_0, C_0).
+\end{align}\]</span></p>
+<p>The state is two dimensional, as such the system noise matrix <span class="math inline">\(W\)</span> is a <span class="math inline">\(2 \times 2\)</span> matrix. The observation matrix does not depend on time and is given by, <span class="math inline">\(F = (1 \quad 0)\)</span> and the system evolution matrix is:</p>
+<p><span class="math display">\[G = \begin{pmatrix} 
+1 &amp; 1 \\
+0 &amp; 1
+\end{pmatrix}.\]</span></p>
+<p>The two DLMs above can be composed using an outer sum to model two time series which are thought to be related. The observation matrices are block-concatenated so that the composed model has as the observation matrix:</p>
+<p><span class="math display">\[F = \begin{pmatrix} 
+1 &amp; 0 \\
+0 &amp; 1 \\
+0 &amp; 0
+\end{pmatrix}\]</span></p>
+<p>The system evolution matrices of each model in the composition are block-concatenated so that the system matrix of the composed model is:</p>
+<p><span class="math display">\[G = \begin{pmatrix} 
+1 &amp; 0 &amp; 0 \\
+0 &amp; 1 &amp; 1 \\
+0 &amp; 0 &amp; 1
+\end{pmatrix}.\]</span></p>
+<p>In order to compose these two models in the Scala package, we first define the two models:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> mod1 = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>)
+<span class="kw">val</span> mod2 = Dlm.<span class="fu">polynomial</span>(<span class="dv">2</span>)</code></pre></div>
+<p>The models can now be composed using the outer sum function:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> composedModel = Dlm.<span class="fu">outerSum</span>(mod1, mod2)
+
+<span class="kw">val</span> p = <span class="fu">Parameters</span>(
+  v = <span class="fu">diag</span>(<span class="fu">DenseVector</span>(<span class="fl">1.0</span>, <span class="fl">2.0</span>)), 
+  w = <span class="fu">diag</span>(<span class="fu">DenseVector</span>(<span class="fl">2.0</span>, <span class="fl">3.0</span>, <span class="fl">1.0</span>)),
+  m0 = DenseVector.<span class="fu">zeros</span>[Double](<span class="dv">2</span>), 
+  c0 = DenseMatrix.<span class="fu">eye</span>[Double](<span class="dv">2</span>)
+)</code></pre></div>
+<p>Then we can simulate observations from the <code>composedModel</code>:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">Dlm.<span class="fu">simulate</span>(<span class="dv">0</span>, composedModel, p).
+  steps.
+  <span class="fu">take</span>(<span class="dv">1000</span>)</code></pre></div>
+<p>The figure below shows a simulation from this composed model:</p>
+<p><img src="CorrelatedModel_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
+</div>
+</div>
+<div id="example-2" class="section level1">
+<h1>Example 2</h1>
+<p>For simplicity we consider the outer sum of two first order DLMs. given by the following equation:</p>
+<p><span class="math display">\[\begin{align*}
+\begin{pmatrix}y_{1,t} \\ y_{2,t}\end{pmatrix} &amp;= \begin{pmatrix}1 &amp; 0 \\ 0 &amp; 1\end{pmatrix}\begin{pmatrix}x_{1,t} \\ x_{2,t}\end{pmatrix} + \begin{pmatrix}v_{1,t} \\ v_{2,t} \end{pmatrix}, \qquad \textbf{v} \sim \textrm{MVN}\left(0, \begin{pmatrix}V_1 &amp; 0 \\ 0 &amp; V_2\end{pmatrix}\right), \\
+\begin{pmatrix}x_{1,t} \\ x_{2,t} \end{pmatrix} &amp;= \begin{pmatrix}1 &amp; 0 \\ 0 &amp; 1\end{pmatrix} \begin{pmatrix}x_{1,t-1} \\ x_{2,t-1} \end{pmatrix} + \begin{pmatrix} w_1 \\ w_2 \end{pmatrix}, \qquad \textbf{v} \sim \textrm{MVN}\left(0, \begin{pmatrix}W_1 &amp; W_2 \\ W_3 &amp; W_4\end{pmatrix}\right), \\
+\textbf{x}_0 &amp;\sim \textrm{MVN}(m_0, C_0).
+\end{align*}\]</span></p>
+<p>A simulation from this model is presented in the figure below:</p>
+<p><img src="CorrelatedModel_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+</div>
+<div id="kalman-filtering" class="section level1">
+<h1>Kalman Filtering</h1>
+<p>Given that we have simulated the model, we can perform the Kalman filter to determine the filtering distribution of the latent state using the true value of the parameters. The figure below shows the filtering distribution with 90% probability intervals for time <span class="math inline">\(t = 200, \dots , 300\)</span>.</p>
+<p><img src="CorrelatedModel_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+<div id="parameter-learning" class="section level2">
+<h2>Parameter Learning</h2>
+<p>The unkown parameters of the model are the system noise matrix, <span class="math inline">\(W\)</span> and the observation noise matrix, <span class="math inline">\(V\)</span>. The observation noise matrix is assumed to be diagonal, meaning the measurement noise of each process is considered to be independent. We can use Gibbs Sampling to determine the values of <span class="math inline">\(W\)</span> and <span class="math inline">\(V\)</span>, by utilising conjugate structure of the conditional distributions of the model. Assume initially that the parameters of the initial state are known, then the unknown parameters can be written as the vector, <span class="math inline">\(\theta = (v_1, v_2, w_1, \dots, w_9)\)</span>. The joint distribution of all the random variables in the model can be written as:</p>
+<p><span class="math display">\[p(\textbf{X}_{1:T}, \textbf{Y}_{1:T}, \theta) = p(\theta) p(\textbf{x}_0) \prod_{i=1}^T p(\textbf{y}_i| \textbf{x}_i, \theta) p(\textbf{x}_i | \textbf{x}_{i-1}, \theta)\]</span></p>
+<p>This factorisation of the random variables makes it clear to see how a gibbs sampling approach could be used. We observe values of the observations <span class="math inline">\(Y_{1:T}\)</span> from time <span class="math inline">\(t = \{1, \dots, T\}\)</span>, then given the value of the parameters we sample a value of the state using forward filtering - backward sampling (FFBS). Then given the values of the states, we can draw a value for both the observation and system noise covariances.</p>
+</div>
+<div id="observation-noise-matrix-d-inverse-gamma" class="section level2">
+<h2>Observation Noise Matrix: d-Inverse Gamma</h2>
+<p>First consider the observation variance matrix, this matrix is diagonal and hence we only need to learn the variances. The following steps are simplified by considering only one time series in the observation vector. The prior distribution of the observation variance, <span class="math inline">\(V\)</span>, is the Inverse Gamma distribution:</p>
+<p><span class="math display">\[p(V) = \textrm{InverseGamma}(\alpha, \beta)\]</span></p>
+<p>The likelihood of <span class="math inline">\(y_t\)</span> is Gaussian, with mean <span class="math inline">\(F^T \textbf{x}_t\)</span> and variance <span class="math inline">\(V\)</span>. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. The posterior distribution of the observation variance is:</p>
+<p><span class="math display">\[\begin{align*}
+p(V | y_{1:T}, \textbf{x}_{0:T}) &amp;\propto  p(x_0) p(V) \prod_{t=1}^Tp(y_t | V, x_t) p(x_t|x_{t-1}) \\
+&amp;= V^{-\alpha-1}\exp\left( -\frac{\beta}{V} \right)(2\pi V)^{-T/2} \exp \left\{ -V^{-1} \sum_{t=1}^T(y_t - F_t \textbf{x}_t)^2 \right\} \\
+&amp;= V^{-(\alpha + T/2) - 1} \exp \left\{ -\frac{1}{V}\left(\beta + \frac{1}{2}\sum_{t=1}^T(y_t - F_t \textbf{x}_t)^2\right) \right\}
+\end{align*}\]</span></p>
+<p>The the posterior distribution of the observation variance is the Inverse Gamma distribution:</p>
+<p><span class="math display">\[p(V | y_{1:T}, \textbf{x}_{1:T}) = \textrm{InverseGamma}\left(\alpha + \frac{T}{2}, \beta + \frac{1}{2}\sum_{i=1}^T(y_t - F_t\textbf{x}_t)^2\right).\]</span></p>
+</div>
+<div id="system-noise-matrix-inverse-wishart-prior" class="section level2">
+<h2>System Noise Matrix: Inverse Wishart Prior</h2>
+<p>For the system noise matrix, the Inverse Wishart distribution can be used as the conjugate prior for the Multivariate Normal likelihood for <span class="math inline">\(\textbf{x}_t\)</span> with unknown covariance, <span class="math inline">\(W\)</span> and known mean <span class="math inline">\(G_t\textbf{x}_{t-1}\)</span>. The prior on W is written as:</p>
+<p><span class="math display">\[p(W) \sim \mathcal{W}^{-1}(\mathbf{psi}, \nu)\]</span></p>
+<p>The PDF of the inverse wishart distribution is given as follows:</p>
+<p><span class="math display">\[p(W) = \frac{\left|{\mathbf\Psi}\right|^{\frac{\nu}{2}}}{2^{\frac{\nu p}{2}}\Gamma_p(\frac{\nu}{2})} \left|W\right|^{-\frac{\nu+p+1}{2}}\textrm{exp}\left\{-\frac{1}{2}\operatorname{tr}({\mathbf\Psi}W^{-1})\right\}.\]</span> Where <span class="math inline">\(p\)</span> is the dimension of the matrix <span class="math inline">\(W\)</span>, in this <span class="math inline">\(p = 2\)</span>. The posterior distribution for the parameter <span class="math inline">\(W\)</span> given the values of the state, <span class="math inline">\(x_{1:T}\)</span> can be written as:</p>
+<p><span class="math display">\[\begin{align*}p(W|x_{1:T}) &amp;\propto p(x_0)p(W)\prod_{i=1}^T p(x_i|x_{i-1}, W) \\
+&amp;= \left|W\right|^{-\frac{\nu+p+1}{2}}\textrm{exp}\left\{-\frac{1}{2}\operatorname{tr}({\mathbf\Psi}W^{-1})\right\} \\ &amp;\times\left|{W}\right|^{-\frac{T}{2}}\textrm{exp}\left\{ -\frac{1}{2}\sum_{i=1}^T(x_i - Gx_{i-1})^TW^{-1}(x_i-Gx_{i-1})\right\} \\
+&amp;= \left|W\right|^{\frac{\nu + T + 2 + 1}{2}}\textrm{exp}\left\{ -\frac{1}{2}\operatorname{tr}(\mathbf{\Psi}W^{-1}) - \operatorname{tr}\left(\frac{1}{2}\sum_{i=1}^T(x_i - Gx_{i-1})(x_i-Gx_{i-1})^TW^{-1}\right)\right\}
+\end{align*}\]</span></p>
+<p>The final line uses standard results from Multivariate statistics and the following rule for matrix traces:</p>
+<ul>
+<li>A Matrix trace is invariant under cyclic permutations, <span class="math inline">\(\operatorname{tr}(ABC) = \operatorname{tr}(CAB) = \operatorname{tr}(BCA)\)</span></li>
+</ul>
+<p>This can be futher simplified to:</p>
+<p><span class="math display">\[p(W|x_{1:T}) \propto \left|W\right|^{\frac{\nu + T + 2 + 1}{2}}\textrm{exp}\left\{ -\frac{1}{2}\operatorname{tr}((\mathbf{\Psi} + \sum_{i=1}^T(x_i - Gx_{i-1})(x_i-Gx_{i-1})^T) W^{-1}) \right\}.\]</span></p>
+<p>This final simplification uses another couple of facts about the matrix trace:</p>
+<ul>
+<li>The sum of the trace is equal to the trace of the sum, <span class="math inline">\(\operatorname{tr}(A + B) = \operatorname{tr}(A) + \operatorname{tr}(B)\)</span></li>
+<li><span class="math inline">\(\operatorname{tr}(cA) = c\operatorname{tr}(A)\)</span> for a constant “c”</li>
+</ul>
+<p>We recognise the posterior distribution for the system noise covariance as the Inverse Wishart distribution:</p>
+<p><span class="math display">\[p(W|x_{1:T}) = \mathcal{W}^{-1}(\nu + T, \mathbf{\Psi} + \sum_{i=1}^T(x_i - Gx_{i-1})(x_i-Gx_{i-1})^T)\]</span>.</p>
+<p>Now in order to perform gibbs sampling, we alternate between drawing values of <span class="math inline">\(V, W\)</span> from these posterior distributions and values of the state <span class="math inline">\(x_0,\dots,x_T\)</span> using forward filtering backward sampling.</p>
+</div>
+<div id="example-parameter-learning-in-a-simulated-model" class="section level2">
+<h2>Example: Parameter Learning in a simulated Model</h2>
+<div class="figure">
+<img src="CorrelatedModel_files/figure-html/unnamed-chunk-4-1.png" alt="Diagnostic plots for the MCMC draws from the posterior distribution of the non-zero diagonal elements of the Observation noise covariance matrix for the simulated correlated model" width="672" />
+<p class="caption">
+Diagnostic plots for the MCMC draws from the posterior distribution of the non-zero diagonal elements of the Observation noise covariance matrix for the simulated correlated model
+</p>
+</div>
+<div class="figure">
+<img src="CorrelatedModel_files/figure-html/unnamed-chunk-5-1.png" alt="Diagnostic plots for the MCMC draws from the posterior distribution of the System noise covariance matrix for the simulated correlated model" width="672" />
+<p class="caption">
+Diagnostic plots for the MCMC draws from the posterior distribution of the System noise covariance matrix for the simulated correlated model
+</p>
+</div>
+</div>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

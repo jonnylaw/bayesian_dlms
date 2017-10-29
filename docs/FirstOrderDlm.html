@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+
+<meta name="author" content="Jonathan Law" />
+
+<meta name="date" content="2017-09-27" />
+
+<title>First Order DLM</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/readable.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; background-color: #f8f8f8; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+pre, code { background-color: #f8f8f8; }
+code > span.kw { color: #204a87; font-weight: bold; } /* Keyword */
+code > span.dt { color: #204a87; } /* DataType */
+code > span.dv { color: #0000cf; } /* DecVal */
+code > span.bn { color: #0000cf; } /* BaseN */
+code > span.fl { color: #0000cf; } /* Float */
+code > span.ch { color: #4e9a06; } /* Char */
+code > span.st { color: #4e9a06; } /* String */
+code > span.co { color: #8f5902; font-style: italic; } /* Comment */
+code > span.ot { color: #8f5902; } /* Other */
+code > span.al { color: #ef2929; } /* Alert */
+code > span.fu { color: #000000; } /* Function */
+code > span.er { color: #a40000; font-weight: bold; } /* Error */
+code > span.wa { color: #8f5902; font-weight: bold; font-style: italic; } /* Warning */
+code > span.cn { color: #000000; } /* Constant */
+code > span.sc { color: #000000; } /* SpecialChar */
+code > span.vs { color: #4e9a06; } /* VerbatimString */
+code > span.ss { color: #4e9a06; } /* SpecialString */
+code > span.im { } /* Import */
+code > span.va { color: #000000; } /* Variable */
+code > span.cf { color: #204a87; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #ce5c00; font-weight: bold; } /* Operator */
+code > span.pp { color: #8f5902; font-style: italic; } /* Preprocessor */
+code > span.ex { } /* Extension */
+code > span.at { color: #c4a000; } /* Attribute */
+code > span.do { color: #8f5902; font-weight: bold; font-style: italic; } /* Documentation */
+code > span.an { color: #8f5902; font-weight: bold; font-style: italic; } /* Annotation */
+code > span.cv { color: #8f5902; font-weight: bold; font-style: italic; } /* CommentVar */
+code > span.in { color: #8f5902; font-weight: bold; font-style: italic; } /* Information */
+</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+  height: auto;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 66px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+
+.section h2 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+.section h3 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+.section h4 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+.section h5 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+.section h6 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+
+<div class="container-fluid main-container">
+
+<!-- tabsets -->
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+</script>
+
+<!-- code folding -->
+
+
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Bayesian Inference for DLMs</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Examples
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="FirstOrderDlm.html">A Simple DLM</a>
+    </li>
+    <li>
+      <a href="second_order_dlm.html">Linear Growth DLM</a>
+    </li>
+    <li>
+      <a href="seasonal_dlm.html">Seasonal Composed DLM</a>
+    </li>
+    <li>
+      <a href="CorrelatedModel.html">Correlated Models</a>
+    </li>
+  </ul>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">First Order DLM</h1>
+<h4 class="author"><em>Jonathan Law</em></h4>
+<h4 class="date"><em>27 September 2017</em></h4>
+
+</div>
+
+
+<div id="simulation" class="section level1">
+<h1>Simulation</h1>
+<p>The first order model has a 1-dimensional observation at time <span class="math inline">\(t\)</span>, <span class="math inline">\(Y_t\)</span> and a one dimensional latent state, <span class="math inline">\(X_t\)</span>. The system evolution (<span class="math inline">\(G_t\)</span>) and observation (<span class="math inline">\(F_t\)</span>) matrices are scalars and take the value 1, as such they are omitted from the model specification below for simplicity. The system and observation noise variances are scalars and are constant in time.</p>
+<p><span class="math display">\[\begin{align}
+Y_t &amp;= x_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
+X_t &amp;= x_{t-1} + w_t, \quad w_t \sim \mathcal{N}(0, W), \\
+X_0 &amp;\sim \mathcal{N}(m_0, C_0).
+\end{align}\]</span></p>
+<p>The code required to simulate from this model is given below:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> dlm.<span class="fu">model</span>._
+
+<span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>)
+<span class="kw">val</span> p = Dlm.<span class="fu">Parameters</span>(
+  v = <span class="fu">DenseMatrix</span>(<span class="fl">3.0</span>),
+  w = <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>),
+  m0 = <span class="fu">DenseMatrix</span>(<span class="fl">0.0</span>),
+  c0 = <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>)
+)
+
+<span class="kw">val</span> data = Dlm.<span class="fu">simulate</span>(<span class="dv">0</span>, mod, p).
+  steps.
+  <span class="fu">take</span>(<span class="dv">1000</span>)</code></pre></div>
+<p>The value <code>mod</code> is the <code>case class</code> called <code>Model</code> containing the definition of the observation and system matrices. These matrices are actually functions from <code>(t: Time) =&gt; DenseMatrix[Double]</code>. The funciton <code>Dlm.polynomial</code> provides a shorthand for writing:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> mod = <span class="fu">Model</span>(
+    f = (t: Time) =&gt; <span class="fu">DenseMatrix</span>((<span class="fl">1.0</span>)), 
+    g = (t: Time) =&gt; <span class="fu">DenseMatrix</span>((<span class="fl">1.0</span>))
+  )</code></pre></div>
+<p>The figure below shows a plot of 100 simulations</p>
+<p><img src="FirstOrderDlm_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
+</div>
+<div id="kalman-filtering" class="section level1">
+<h1>Kalman Filtering</h1>
+<p>We can perform recursive filtering using the Kalman Filter to learn about the values of the latent state, <span class="math inline">\(x_{0:T}\)</span> given the observed values, <span class="math inline">\(y_{1:T}\)</span>. Assume we know the mean and variance of the posterior distribution of the state at time <span class="math inline">\(t\)</span>, then:</p>
+<ol style="list-style-type: decimal">
+<li>Prior at time <span class="math inline">\(t + 1\)</span> is <span class="math inline">\(\mathcal{N}(a_t, R_t)\)</span> where <span class="math inline">\(a_t = G_t m_t\)</span> and <span class="math inline">\(R_t = G_t C_t G_t^T + W_t\)</span></li>
+<li>One step prediction for time <span class="math inline">\(t + 1\)</span> is <span class="math inline">\(\mathcal{N}(f_t, Q_t)\)</span> where <span class="math inline">\(f_t = F_t a_t\)</span> and <span class="math inline">\(Q_t = F_t R_t F_t^T + V_t\)</span></li>
+<li>State update given the new observation, <span class="math inline">\(y_{t+1}\)</span> is <span class="math inline">\(\mathcal{N}(m_{t+1}, C_{t+1})\)</span> where <span class="math inline">\(m_{t+1} = a_t + K_t e_t\)</span>, <span class="math inline">\(C_t = (I - K_t * F_t)R_t(I - K_t * F_t) + K_tV_tK_t\)</span> and <span class="math inline">\(K_t = R_t * F_t^T * Q^{-1}\)</span>, <span class="math inline">\(e_t = y_t - f_t\)</span></li>
+</ol>
+<p>The result of filtering the simulated observations is plotted below, with 90% probability intervals. The system and observation variances, <span class="math inline">\(W_t\)</span> and <span class="math inline">\(V_t\)</span> are assumed to be constant in time and known.</p>
+<p>To perform Kalman Filtering on an <code>Array</code> of <code>Data</code>, we simply discard the state from the simulated data and pass it into the <code>kalmanFilter</code> function:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> filtered = KalmanFilter.<span class="fu">kalmanFilter</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)</code></pre></div>
+<p><img src="FirstOrderDlm_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<div id="implementation-details" class="section level2">
+<h2>Implementation Details</h2>
+<p>The Kalman Filter implemented in a Naive way, by simply transforming the equations into code is numerically unstable. There are several tricks to use, such as the above form for the covariance update called Joseph Form. The covariance update can be simplified to, <span class="math inline">\(C_{t+1} = (I - K_tF_t)R_t\)</span>, but taking the difference of two covariance matrices <span class="math inline">\(R_t - K_tF_tR_t\)</span> can result in rounding errors which makes the matrix non-positive definite.</p>
+<p>Another reduction in the computation time, is avoiding calculating the inverse of <span class="math inline">\(Q_t\)</span>. If the observation is univariate, as in this example we simply compute the inverse of <span class="math inline">\(Q_t = 1/Q_t\)</span>, however inverting matrices in general is hard. To avoid this, we can use breezes building linear solver. See that the Kalman gain is written as:</p>
+<p><span class="math display">\[\begin{align*}
+K_t &amp;= R_tF_tQ_t^{-1} \\
+K_t^T &amp;= (R_tF_t^TQ_t^{-1})^T \\
+K_t^T &amp;= Q_t^{-T}F_tR_t^T \\
+\end{align*}\]</span></p>
+<p>The linear equation, <span class="math inline">\(Ax = b\)</span> is solved by multiplying on the left by <span class="math inline">\(A^{-1}\)</span> to get a value for <span class="math inline">\(x\)</span>. This is equivalent to <code>A\b = x</code>, hence we can re-write the Kalman gain in Scala as:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> K = (Q.<span class="fu">t</span> \ (F * R.<span class="fu">t</span>)).<span class="fu">t</span></code></pre></div>
+</div>
+</div>
+<div id="smoothing" class="section level1">
+<h1>Smoothing</h1>
+<p>Kalman Filtering can be performed online, however if we know the values of all the observations of interest ahead of time, we can perform smoothing. Given we have observations of a time series, <span class="math inline">\(Y_{1:T}\)</span> and the filtering distribution <span class="math inline">\(p(X_{0:T}|Y_{1:T}, \theta)\)</span>, where <span class="math inline">\(\theta\)</span> contains the parameters of the DLM. Then we set <span class="math inline">\(s_T, s_T\)</span> to be the mean and variance of posterior at time <span class="math inline">\(T\)</span>, <span class="math inline">\(m_T\)</span> and <span class="math inline">\(C_T\)</span> and proceed backwards as:</p>
+<p><span class="math display">\[\begin{align*}
+h_t &amp;= m_t+ C_t G^T_{t + 1} R_{t+1}^{-1} (h_{t+1} - a_{t+1}) \\
+H_t &amp;= C_t - C_t G^T_{t + 1} R_{t+1}^{-1} (R_{t+1} - S_{t+1})R_{t+1}^{-1} G_{t + 1}  C_t 
+\end{align*}
+\]</span></p>
+<p><img src="FirstOrderDlm_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+</div>
+<div id="gibbs-sampling" class="section level1">
+<h1>Gibbs Sampling</h1>
+<p>In order to perform Gibbs Sampling, we must have access to full conditional distributions for sampling from.</p>
+<p>Inverse gamma priors on the system and observation variances, <span class="math inline">\(p(V) = \textrm{InverseGamma}(4.0, 9.0)\)</span>, meaning the prior mean of the observation variance is <span class="math inline">\(\mathbb{E}(V) = 9 / 3 = 3\)</span> and the variance is $(V) = $.</p>
+<p>To perform gibbs sampling with inverse gamma priors:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = <span class="fu">gibbsSamples</span>(mod, <span class="fu">InverseGamma</span>(<span class="fl">1.0</span>, <span class="fl">10.0</span>), <span class="fu">InverseGamma</span>(<span class="fl">1.0</span>, <span class="fl">10.0</span>), p, data.<span class="fu">map</span>(_._<span class="dv">1</span>))</code></pre></div>
+<p><code>iters</code> are a Process[Parameters], which represents a Markov Chain. This can be converted into an iterator by calling <code>steps</code> then the appropriate amount of iterations can be taken from the MCMC. The Figure below shows diagnostic plots for the MCMC chain.</p>
+<p><img src="FirstOrderDlm_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
