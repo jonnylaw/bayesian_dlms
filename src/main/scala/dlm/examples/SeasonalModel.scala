@@ -33,6 +33,9 @@ trait SeasonalData {
     toArray
 }
 
+/**
+  * Simulate data from a Seasonal DLM
+  */
 object SimulateSeasonalDlm extends App with SeasonalModel {
   val sims = simulate(0, mod, p).
     steps.
@@ -54,6 +57,9 @@ object SimulateSeasonalDlm extends App with SeasonalModel {
   writer.close()
 }
 
+/**
+  * Filter the seasonal DLM
+  */
 object FilterSeasonalDlm extends App with SeasonalModel with SeasonalData {
   val filtered = KalmanFilter.kalmanFilter(mod, data, p)
 
@@ -71,6 +77,9 @@ object FilterSeasonalDlm extends App with SeasonalModel with SeasonalData {
   out.writeCsv(filtered.map(formatFiltered), headers)
 }
 
+/**
+  * Run backward smoothing on the seasonal DLM
+  */
 object SmoothSeasonalDlm extends App with SeasonalModel with SeasonalData {
   val filtered = KalmanFilter.kalmanFilter(mod, data, p)
   val smoothed = Smoothing.backwardsSmoother(mod, p)(filtered)
@@ -88,6 +97,9 @@ object SmoothSeasonalDlm extends App with SeasonalModel with SeasonalData {
   out.writeCsv(smoothed.map(formatSmoothed), headers)
 }
 
+/**
+  * Use Gibbs sampling with Inverse Gamma priors on the observation variance and diagonal system covariance
+  */
 object SeasonalGibbsSampling extends App with SeasonalModel with SeasonalData {
   val iters = GibbsSampling.gibbsSamples(mod, InverseGamma(5.0, 4.0), InverseGamma(17.0, 4.0), p, data).
     steps.
@@ -108,6 +120,9 @@ object SeasonalGibbsSampling extends App with SeasonalModel with SeasonalData {
   writer.close()
 }
 
+/**
+  * Sample the state, accurately using FFBS algorithm
+  */
 object SampleStates extends App with SeasonalModel with SeasonalData {
   val iters = Iterator.fill(10000)(GibbsSampling.sampleState(mod, data, p))
 
@@ -132,6 +147,9 @@ object SampleStates extends App with SeasonalModel with SeasonalData {
   writer.close()
 }
 
+/**
+  * Example of using Metropolis Hastings to determine the parameters of the simulated Seasonal Model
+  */
 object SeasonalMetropolisHastings extends App with SeasonalModel with SeasonalData {
   def proposal(delta: Double) = { p: Parameters =>
     for {

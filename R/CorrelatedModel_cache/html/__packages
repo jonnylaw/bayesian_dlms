@@ -1,0 +1,9 @@
+base
+tidyverse
+ggplot2
+tibble
+tidyr
+readr
+purrr
+dplyr
+bindrcpp
