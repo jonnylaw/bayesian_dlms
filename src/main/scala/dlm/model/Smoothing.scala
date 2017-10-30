@@ -93,6 +93,22 @@ object Smoothing {
   }
 
   /**
+    * Copies the lower triangular portion of a matrix to the upper triangle
+    */
+  def makeSymmetrix(m: DenseMatrix[Double]): DenseMatrix[Double] = {
+    val n = m.cols
+    DenseMatrix.tabulate(n, n){ case (i, j) =>
+      if (i > j) {
+        m(i, j)
+      } else if (i < j) {
+        m(j, i)
+      } else {
+        m(i, i)
+      }
+    }
+  }
+
+  /**
     * Backwards sample step from the distribution p(x_t | x_{t-1}, y_{1:t}), for use in the Gibbs Sampler
     * This uses the joseph form of the covariance update for stability 
     */
@@ -108,7 +124,7 @@ object Smoothing {
     val rt1 = state.rt1
 
     // more efficient than inverting rt, equivalent to C * G.t * inv(R)
-    val cgrinv = (rt1 \ (mod.g(time + 1) * ct)).t
+    val cgrinv = (rt1.t \ (mod.g(time + 1) * ct.t)).t
 
     // calculate the updated mean
     // the difference between the backwards sampler and smoother is here
@@ -122,10 +138,10 @@ object Smoothing {
     val diff = identity - cgrinv * mod.g(time + 1)
     val covariance = diff * ct * diff.t + cgrinv * p.w * cgrinv.t
 
-    // calculate the updated covariance
-    // val covariance = ct - cgrinv * mod.g(time + 1) * ct
-
-    SamplingState(kfState.time, MultivariateGaussianSvd(mean, covariance).draw, kfState.at, kfState.rt)
+    SamplingState(
+      kfState.time,
+      MultivariateGaussianSvd(mean, makeSymmetrix(covariance)).draw, 
+      kfState.at, kfState.rt)
   }
 
   def backwardSampling(
@@ -140,8 +156,10 @@ object Smoothing {
     val last = sortedState.head
     val lastTime = last.time
     val lastState = MultivariateGaussianSvd(last.mt, last.ct).draw
+    val initState = SamplingState(lastTime, lastState, last.at, last.rt)
 
-    sortedState.tail.scanLeft(SamplingState(lastTime, lastState, last.at, last.rt))(backSampleStep(mod, p)).
+    sortedState.tail.
+      scanLeft(initState)(backSampleStepJoseph(mod, p)).
       sortBy(_.time).map(a => (a.time, a.sample))
   }
 }

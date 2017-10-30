@@ -109,8 +109,8 @@ object Dlm {
     p: Parameters): Rand[(Data, DenseVector[Double])] = {
 
     for {
-      w <- MultivariateGaussian(DenseVector.zeros[Double](p.w.cols), p.w)
-      v <- MultivariateGaussian(DenseVector.zeros[Double](p.v.cols), p.v)
+      w <- MultivariateGaussianSvd(DenseVector.zeros[Double](p.w.cols), p.w)
+      v <- MultivariateGaussianSvd(DenseVector.zeros[Double](p.v.cols), p.v)
       x1 = mod.g(time) * x + w
       y = mod.f(time).t * x1 + v
     } yield (Data(time, Some(y)), x1)
@@ -128,6 +128,9 @@ object Dlm {
     MarkovChain(init){ case (y, x) => simStep(mod, x, y.time + 1, p) }
   }
 
+  /**
+    * 
+    */
   def simulateState(
     mod: Model,
     w: DenseMatrix[Double]): Process[(Time, DenseVector[Double])] = {

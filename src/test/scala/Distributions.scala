@@ -40,22 +40,22 @@ trait BreezeGenerators {
 
   val smallDouble = Gen.choose(2.0, 10.0)
 
-  implicit def matrixeq = new Equality[DenseMatrix[Double]] {
+  implicit def matrixeq(implicit tol: Double) = new Equality[DenseMatrix[Double]] {
     def areEqual(x: DenseMatrix[Double], b: Any) = b match {
       case y: DenseMatrix[Double] =>
         x.data.zip(y.data).
-          forall { case (a, b) => math.abs(a - b) < 1.0  } &&
+          forall { case (a, b) => math.abs(a - b) < tol  } &&
         y.cols == x.cols &&
         y.rows == x.rows
       case _ => false
     }
   }
 
-  implicit def vectoreq = new Equality[DenseVector[Double]] {
+  implicit def vectoreq(implicit tol: Double) = new Equality[DenseVector[Double]] {
     def areEqual(x: DenseVector[Double], b: Any) = b match {
       case y: DenseVector[Double] =>
         x.data.zip(y.data).
-          forall { case (a, b) => math.abs(a - b) < 0.001 }
+          forall { case (a, b) => math.abs(a - b) < tol }
       case _ => false
     }
   }
@@ -109,29 +109,30 @@ trait BreezeGenerators {
 //   }
 // }
 
-// class MvnDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
-//  /**
-//     * Calculate the mean and covariance of a sequence of DenseVectors
-//     */
-//   def meanCovSamples(samples: Seq[DenseVector[Double]]) = {
-//     val n = samples.size
-//     val m = new DenseMatrix(n, samples.head.size, samples.map(_.data).toArray.transpose.flatten)
-//     val sampleMean = samples.reduce(_ + _).map(_ * 1.0/n)
-//     val sampleCovariance = covmat.matrixCovariance(m)
+class MvnDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
+ /**
+    * Calculate the mean and covariance of a sequence of DenseVectors
+    */
+  def meanCovSamples(samples: Seq[DenseVector[Double]]) = {
+    val n = samples.size
+    val m = new DenseMatrix(n, samples.head.size, samples.map(_.data).toArray.transpose.flatten)
+    val sampleMean = samples.reduce(_ + _).map(_ * 1.0/n)
+    val sampleCovariance = covmat.matrixCovariance(m)
 
-//     (sampleMean, sampleCovariance)
-//   }
+    (sampleMean, sampleCovariance)
+  }
   
-//   property("MVN distribution") {
-//     forAll(symmetricPosDefMatrix(2, 1000)) { cov =>
-//       val n = 100000
-//       val mvn = MultivariateGaussianSvd(DenseVector.zeros[Double](2), cov)
-//       val samples = mvn.sample(n)
+  property("MVN distribution") {
+    forAll(symmetricPosDefMatrix(2, 1000)) { cov =>
+      implicit val tol = 1e-2
+      val n = 1000000
+      val mvn = MultivariateGaussianSvd(DenseVector.zeros[Double](2), cov)
+      val samples = mvn.sample(n)
       
-//       val (sampleMean, sampleCovariance)  = meanCovSamples(samples)
+      val (sampleMean, sampleCovariance)  = meanCovSamples(samples)
 
-//       assert(mvn.mean === sampleMean)
-//       assert(mvn.variance === sampleCovariance)
-//     }
-//   }
-// }
+      assert(mvn.mean === sampleMean)
+      assert(mvn.variance === sampleCovariance)
+    }
+  }
+}

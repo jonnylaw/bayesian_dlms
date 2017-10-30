@@ -16,7 +16,7 @@ case class MultivariateGaussianSvd(
     */
   def draw = {
     val x = DenseVector.rand(mu.length, rand.gaussian(0, 1))
-    mean + (root.eigenvectors * diag(root.eigenvalues.mapValues(sqrt)) * x)
+    mu + (root.eigenvectors * diag(root.eigenvalues.mapValues(sqrt)) * x)
   }
 
   def mean: DenseVector[Double] = mu

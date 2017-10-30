@@ -4,7 +4,7 @@ name := "bayesian_dlms"
 
 organization := "com.github.jonnylaw"
 
-version := "0.1"
+version := "0.2-SNAPSHOT"
 
 libraryDependencies ++= Seq(
   "org.scalanlp"        %% "breeze"             % "0.13.2",
@@ -15,8 +15,10 @@ libraryDependencies ++= Seq(
   "org.scalatest"       %% "scalatest"          % "3.0.4"  % "test"
 )
 
+publishMavenStyle := true
+
 publishTo := {
-  val nexus = "https://my.artifact.repo.net/"
+  val nexus = "https://oss.sonatype.org/"
   if (isSnapshot.value)
     Some("snapshots" at nexus + "content/repositories/snapshots") 
   else
@@ -25,16 +27,17 @@ publishTo := {
 
 credentials += Credentials(Path.userHome / ".sbt" / ".credentials")
 
-publishMavenStyle := true
-
 licenses := Seq("APL2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt"))
+
 homepage := Some(url("https://jonnylaw.github.io/bayesian_dlms"))
+
 scmInfo := Some(
   ScmInfo(
     url("https://github.com/jonnylaw/bayesian_dlms"),
     "scm:git@github.com:jonnylaw/bayesian_dlms.git"
   )
 )
+
 developers := List(
   Developer(id="1", name="Jonny Law", email="law.jonny@googlemail.com", url=url("https://jonnylaw.github.io/blog"))
 )

@@ -4,7 +4,7 @@ import dlm.model._
 import Dlm._
 import GibbsSampling._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
-import breeze.stats.distributions.{Gamma, Gaussian, Rand}
+import breeze.stats.distributions.{Gamma, Gaussian, Rand, RandBasis}
 import breeze.numerics.exp
 import cats.Applicative
 import cats.implicits._
@@ -101,23 +101,27 @@ object SmoothSeasonalDlm extends App with SeasonalModel with SeasonalData {
   * Use Gibbs sampling with Inverse Gamma priors on the observation variance and diagonal system covariance
   */
 object SeasonalGibbsSampling extends App with SeasonalModel with SeasonalData {
+  implicit val basis = RandBasis.withSeed(7)
+
   val iters = GibbsSampling.gibbsSamples(mod, InverseGamma(5.0, 4.0), InverseGamma(17.0, 4.0), p, data).
     steps.
-    take(10000)
+    take(100)
 
-  val out = new java.io.File("data/seasonal_dlm_gibbs.csv")
-  val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7"))
+  iters.map(_.p).map(formatParameters).map(_.mkString(", ")).foreach(println)
+
+  // val out = new java.io.File("data/seasonal_dlm_gibbs.csv")
+  // val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7"))
 
   def formatParameters(p: Parameters) = {
     DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
   }
 
-  // write iters to file
-  while (iters.hasNext) {
-    writer.write(formatParameters(iters.next.p))
-  }
+  // // write iters to file
+  // while (iters.hasNext) {
+  //   writer.write(formatParameters(iters.next.p))
+  // }
 
-  writer.close()
+  // writer.close()
 }
 
 /**
