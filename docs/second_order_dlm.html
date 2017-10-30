@@ -257,44 +257,43 @@ Y_t &amp;= F \textbf{x}_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
 1 &amp; 1 \\
 0 &amp; 1
 \end{pmatrix}.\]</span></p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">data =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../data/second_order_dlm.csv&quot;</span>)
+<p>In order to examine the properties of this model, first we can simulate a time series of values from it:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> dlm.<span class="fu">model</span>._
+<span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
 
-data <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">filter</span>(time <span class="op">&lt;</span><span class="st"> </span><span class="dv">100</span>) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">gather</span>(key, value, <span class="op">-</span>time) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">ggplot</span>(<span class="kw">aes</span>(<span class="dt">x =</span> time, <span class="dt">y =</span> value, <span class="dt">colour =</span> key)) <span class="op">+</span>
-<span class="st">  </span><span class="kw">geom_line</span>() <span class="op">+</span>
-<span class="st">  </span><span class="kw">theme</span>(<span class="dt">legend.position =</span> <span class="st">&quot;bottom&quot;</span>)</code></pre></div>
-<p><img src="second_order_dlm_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
+<span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">2</span>)
+  <span class="kw">val</span> p = <span class="fu">Parameters</span>(
+    <span class="fu">DenseMatrix</span>(<span class="fl">3.0</span>),
+    <span class="fu">diag</span>(<span class="fu">DenseVector</span>(<span class="fl">2.0</span>, <span class="fl">1.0</span>)),
+    <span class="fu">DenseVector</span>(<span class="fl">0.0</span>, <span class="fl">0.0</span>), 
+    <span class="fu">diag</span>(<span class="fu">DenseVector</span>(<span class="fl">100.0</span>, <span class="fl">100.0</span>))
+  )
+
+<span class="kw">val</span> data = Dlm.<span class="fu">simulate</span>(<span class="dv">0</span>, mod, p).
+  steps.
+  <span class="fu">take</span>(<span class="dv">1000</span>)</code></pre></div>
+<div class="figure">
+<img src="second_order_dlm_files/figure-html/second-order-simulated-1.png" alt="Simulated values from the Second Order DLM with parameters, $(V, W,     extbf{m}_0, C_0) = (3.0,    extrm{diag}(2.0, 1.0), (0.0, 0.0),  extrm{diag}(100.0, 100.0))" width="672" />
+<p class="caption">
+Simulated values from the Second Order DLM with parameters, $(V, W, extbf{m}_0, C_0) = (3.0, extrm{diag}(2.0, 1.0), (0.0, 0.0), extrm{diag}(100.0, 100.0))
+</p>
+</div>
 </div>
 <div id="filtered" class="section level1">
 <h1>Filtered</h1>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">filtered =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../data/second_order_dlm_filtered.csv&quot;</span>)
-
-filtered <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">inner_join</span>(data, <span class="dt">by =</span> <span class="st">&quot;time&quot;</span>) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">filter</span>(time <span class="op">&lt;</span><span class="st"> </span><span class="dv">100</span>) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">mutate</span>(<span class="dt">upper =</span> <span class="kw">qnorm</span>(<span class="dt">p =</span> <span class="fl">0.95</span>, <span class="dt">mean =</span> state_mean_<span class="dv">2</span>, <span class="dt">sd =</span> <span class="kw">sqrt</span>(state_variance_<span class="dv">2</span>))) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">mutate</span>(<span class="dt">lower =</span> <span class="kw">qnorm</span>(<span class="dt">p =</span> <span class="fl">0.05</span>, <span class="dt">mean =</span> state_mean_<span class="dv">2</span>, <span class="dt">sd =</span> <span class="kw">sqrt</span>(state_variance_<span class="dv">2</span>))) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">gather</span>(key, value, state_mean_<span class="dv">2</span>, state_<span class="dv">2</span>) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">ggplot</span>(<span class="kw">aes</span>(<span class="dt">x =</span> time, <span class="dt">y =</span> value, <span class="dt">colour =</span> key)) <span class="op">+</span>
-<span class="st">  </span><span class="kw">geom_line</span>() <span class="op">+</span>
-<span class="st">  </span><span class="kw">geom_line</span>(<span class="kw">aes</span>(<span class="dt">x =</span> time, <span class="dt">y =</span> lower), <span class="dt">linetype =</span> <span class="dv">3</span>, <span class="dt">colour =</span> <span class="st">&quot;#000000&quot;</span>) <span class="op">+</span>
-<span class="st">  </span><span class="kw">geom_line</span>(<span class="kw">aes</span>(<span class="dt">x =</span> time, <span class="dt">y =</span> upper), <span class="dt">linetype =</span> <span class="dv">3</span>, <span class="dt">colour =</span> <span class="st">&quot;#000000&quot;</span>) <span class="op">+</span>
-<span class="st">  </span><span class="kw">theme</span>(<span class="dt">legend.position =</span> <span class="st">&quot;bottom&quot;</span>) <span class="op">+</span>
-<span class="st">  </span><span class="kw">ggtitle</span>(<span class="st">&quot;Kalman Filtered&quot;</span>)</code></pre></div>
-<p><img src="second_order_dlm_files/figure-html/filtering-1.png" width="672" /></p>
+<p>Kalman Filtering can be performed to learn the posterior distribution of the states, given the observations:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> filtered = KalmanFilter.<span class="fu">kalmanFilter</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)</code></pre></div>
+<div class="figure">
+<img src="second_order_dlm_files/figure-html/filtering-1.png" alt="Filtered State of the second order model, with 90% probability intervals" width="672" />
+<p class="caption">
+Filtered State of the second order model, with 90% probability intervals
+</p>
+</div>
 </div>
 <div id="learn-parameters" class="section level1">
 <h1>Learn Parameters</h1>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">gibbs_iters =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../data/second_order_dlm_gibbs.csv&quot;</span>)
-
-actual_values =<span class="st"> </span><span class="kw">tibble</span>(
-  <span class="dt">parameter =</span> <span class="kw">c</span>(<span class="st">&quot;V&quot;</span>, <span class="st">&quot;W1&quot;</span>, <span class="st">&quot;W2&quot;</span>),
-  <span class="dt">actual_value =</span> <span class="kw">c</span>(<span class="fl">3.0</span>, <span class="fl">2.0</span>, <span class="fl">1.0</span>)
-)
-
-<span class="kw">summary</span>(gibbs_iters)</code></pre></div>
+<p>The parameters can be learned using Gibbs sampling. The state evolution distribution and the observation distribution are Gaussian with unknown variance <span class="math inline">\(W\)</span> and <span class="math inline">\(V\)</span> respectively. The state is assumed to have a diagonal, <span class="math inline">\(2 \times 2\)</span> covariance matrix and hence the unknown variances are chosen to have Inverse Gamma priors. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. To perform gibbs sampling using the Bayesian DLMs package:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = <span class="fu">gibbsSamples</span>(mod, <span class="fu">InverseGamma</span>(<span class="fl">4.0</span>, <span class="fl">9.0</span>), <span class="fu">InverseGamma</span>(<span class="fl">5.0</span>, <span class="fl">8.0</span>), p, data.<span class="fu">map</span>(_._<span class="dv">1</span>))</code></pre></div>
 <pre><code>##        V               W1               W2        
 ##  Min.   :1.850   Min.   :0.7802   Min.   :0.7099  
 ##  1st Qu.:2.792   1st Qu.:1.5999   1st Qu.:1.0273  
@@ -302,36 +301,7 @@ actual_values =<span class="st"> </span><span class="kw">tibble</span>(
 ##  Mean   :2.987   Mean   :1.9919   Mean   :1.1279  
 ##  3rd Qu.:3.186   3rd Qu.:2.3262   3rd Qu.:1.2179  
 ##  Max.   :4.153   Max.   :4.4945   Max.   :1.9773</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">thin =<span class="st"> </span><span class="cf">function</span>(df, n) {
-  df[<span class="kw">seq</span>(<span class="dt">from =</span> <span class="dv">1</span>, <span class="dt">to =</span> <span class="kw">nrow</span>(df), <span class="dt">by =</span> n),]
-}
-
-drop =<span class="st"> </span><span class="cf">function</span>(df, n) {
-  df[<span class="op">-</span>(<span class="dv">1</span><span class="op">:</span>n),]
-}</code></pre></div>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">params =<span class="st"> </span>gibbs_iters <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">mutate</span>(<span class="dt">iteration =</span> <span class="dv">1</span><span class="op">:</span><span class="kw">nrow</span>(gibbs_iters)) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">thin</span>(<span class="dv">2</span>) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">drop</span>(<span class="dv">2000</span>) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">gather</span>(<span class="dt">key =</span> parameter, value, <span class="op">-</span>iteration) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">inner_join</span>(actual_values, <span class="dt">by =</span> <span class="st">&quot;parameter&quot;</span>)
-
-p1 =<span class="st"> </span>params <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">ggplot</span>(<span class="kw">aes</span>(<span class="dt">x =</span> iteration, <span class="dt">y =</span> value)) <span class="op">+</span>
-<span class="st">  </span><span class="kw">geom_line</span>() <span class="op">+</span>
-<span class="st">  </span><span class="kw">geom_hline</span>(<span class="kw">aes</span>(<span class="dt">yintercept =</span> actual_value), <span class="dt">colour =</span> <span class="st">&quot;#ff0000&quot;</span>) <span class="op">+</span>
-<span class="st">  </span><span class="kw">facet_wrap</span>(<span class="op">~</span>parameter, <span class="dt">scales =</span> <span class="st">&quot;free_y&quot;</span>)
-
-p2 =<span class="st"> </span>params <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">group_by</span>(parameter) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">mutate</span>(<span class="dt">running_mean =</span> dlm<span class="op">::</span><span class="kw">ergMean</span>(value)) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">ggplot</span>(<span class="kw">aes</span>(<span class="dt">x =</span> iteration, <span class="dt">y =</span> running_mean)) <span class="op">+</span>
-<span class="st">  </span><span class="kw">geom_line</span>() <span class="op">+</span>
-<span class="st">  </span><span class="kw">geom_hline</span>(<span class="kw">aes</span>(<span class="dt">yintercept =</span> actual_value), <span class="dt">colour =</span> <span class="st">&quot;#ff0000&quot;</span>) <span class="op">+</span>
-<span class="st">  </span><span class="kw">facet_wrap</span>(<span class="op">~</span>parameter, <span class="dt">nrow =</span> <span class="dv">1</span>, <span class="dt">scales =</span> <span class="st">&quot;free_y&quot;</span>)
-
-gridExtra<span class="op">::</span><span class="kw">grid.arrange</span>(p1, p2, <span class="dt">ncol =</span> <span class="dv">1</span>)</code></pre></div>
-<p><img src="second_order_dlm_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<p><img src="second_order_dlm_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
 </div>
 
 

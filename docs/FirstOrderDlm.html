@@ -258,6 +258,7 @@ X_0 &amp;\sim \mathcal{N}(m_0, C_0).
 \end{align}\]</span></p>
 <p>The code required to simulate from this model is given below:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> dlm.<span class="fu">model</span>._
+<span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
 
 <span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>)
 <span class="kw">val</span> p = Dlm.<span class="fu">Parameters</span>(
@@ -276,7 +277,7 @@ X_0 &amp;\sim \mathcal{N}(m_0, C_0).
     g = (t: Time) =&gt; <span class="fu">DenseMatrix</span>((<span class="fl">1.0</span>))
   )</code></pre></div>
 <p>The figure below shows a plot of 100 simulations</p>
-<p><img src="FirstOrderDlm_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
+<p><img src="FirstOrderDlm_files/figure-html/first-order-simulated-1.png" width="672" /></p>
 </div>
 <div id="kalman-filtering" class="section level1">
 <h1>Kalman Filtering</h1>
@@ -289,7 +290,7 @@ X_0 &amp;\sim \mathcal{N}(m_0, C_0).
 <p>The result of filtering the simulated observations is plotted below, with 90% probability intervals. The system and observation variances, <span class="math inline">\(W_t\)</span> and <span class="math inline">\(V_t\)</span> are assumed to be constant in time and known.</p>
 <p>To perform Kalman Filtering on an <code>Array</code> of <code>Data</code>, we simply discard the state from the simulated data and pass it into the <code>kalmanFilter</code> function:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> filtered = KalmanFilter.<span class="fu">kalmanFilter</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)</code></pre></div>
-<p><img src="FirstOrderDlm_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<p><img src="FirstOrderDlm_files/figure-html/first-order-filtered-1.png" width="672" /></p>
 <div id="implementation-details" class="section level2">
 <h2>Implementation Details</h2>
 <p>The Kalman Filter implemented in a Naive way, by simply transforming the equations into code is numerically unstable. There are several tricks to use, such as the above form for the covariance update called Joseph Form. The covariance update can be simplified to, <span class="math inline">\(C_{t+1} = (I - K_tF_t)R_t\)</span>, but taking the difference of two covariance matrices <span class="math inline">\(R_t - K_tF_tR_t\)</span> can result in rounding errors which makes the matrix non-positive definite.</p>
@@ -311,16 +312,16 @@ h_t &amp;= m_t+ C_t G^T_{t + 1} R_{t+1}^{-1} (h_{t+1} - a_{t+1}) \\
 H_t &amp;= C_t - C_t G^T_{t + 1} R_{t+1}^{-1} (R_{t+1} - S_{t+1})R_{t+1}^{-1} G_{t + 1}  C_t 
 \end{align*}
 \]</span></p>
-<p><img src="FirstOrderDlm_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+<p><img src="FirstOrderDlm_files/figure-html/first-order-smoothed-1.png" width="672" /></p>
 </div>
 <div id="gibbs-sampling" class="section level1">
 <h1>Gibbs Sampling</h1>
 <p>In order to perform Gibbs Sampling, we must have access to full conditional distributions for sampling from.</p>
-<p>Inverse gamma priors on the system and observation variances, <span class="math inline">\(p(V) = \textrm{InverseGamma}(4.0, 9.0)\)</span>, meaning the prior mean of the observation variance is <span class="math inline">\(\mathbb{E}(V) = 9 / 3 = 3\)</span> and the variance is $(V) = $.</p>
+<p>Inverse gamma priors on the system and observation variances, <span class="math inline">\(p(V) = \textrm{InverseGamma}(4.0, 9.0)\)</span>, meaning the prior mean of the observation variance is <span class="math inline">\(\mathbb{E}(V) = 9 / 3 = 3\)</span>.</p>
 <p>To perform gibbs sampling with inverse gamma priors:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = <span class="fu">gibbsSamples</span>(mod, <span class="fu">InverseGamma</span>(<span class="fl">1.0</span>, <span class="fl">10.0</span>), <span class="fu">InverseGamma</span>(<span class="fl">1.0</span>, <span class="fl">10.0</span>), p, data.<span class="fu">map</span>(_._<span class="dv">1</span>))</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = <span class="fu">gibbsSamples</span>(mod, <span class="fu">InverseGamma</span>(<span class="fl">4.0</span>, <span class="fl">9.0</span>), <span class="fu">InverseGamma</span>(<span class="fl">3.0</span>, <span class="fl">3.0</span>), p, data.<span class="fu">map</span>(_._<span class="dv">1</span>))</code></pre></div>
 <p><code>iters</code> are a Process[Parameters], which represents a Markov Chain. This can be converted into an iterator by calling <code>steps</code> then the appropriate amount of iterations can be taken from the MCMC. The Figure below shows diagnostic plots for the MCMC chain.</p>
-<p><img src="FirstOrderDlm_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+<p><img src="FirstOrderDlm_files/figure-html/first-order-gibbs-1.png" width="672" /></p>
 </div>
 
 

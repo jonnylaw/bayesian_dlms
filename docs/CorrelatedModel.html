@@ -300,24 +300,24 @@ Y_t &amp;= F \textbf{x}_t + \textbf{v}_t, \quad v_t \sim \textrm{MVN}(0, V), \\
   steps.
   <span class="fu">take</span>(<span class="dv">1000</span>)</code></pre></div>
 <p>The figure below shows a simulation from this composed model:</p>
-<p><img src="CorrelatedModel_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
+<p><img src="CorrelatedModel_files/figure-html/correlated-simulated-1.png" width="672" /></p>
 </div>
 </div>
 <div id="example-2" class="section level1">
 <h1>Example 2</h1>
-<p>For simplicity we consider the outer sum of two first order DLMs. given by the following equation:</p>
+<p>For simplicity of exposition we consider the outer sum of two first order DLMs. given by the following equation:</p>
 <p><span class="math display">\[\begin{align*}
 \begin{pmatrix}y_{1,t} \\ y_{2,t}\end{pmatrix} &amp;= \begin{pmatrix}1 &amp; 0 \\ 0 &amp; 1\end{pmatrix}\begin{pmatrix}x_{1,t} \\ x_{2,t}\end{pmatrix} + \begin{pmatrix}v_{1,t} \\ v_{2,t} \end{pmatrix}, \qquad \textbf{v} \sim \textrm{MVN}\left(0, \begin{pmatrix}V_1 &amp; 0 \\ 0 &amp; V_2\end{pmatrix}\right), \\
 \begin{pmatrix}x_{1,t} \\ x_{2,t} \end{pmatrix} &amp;= \begin{pmatrix}1 &amp; 0 \\ 0 &amp; 1\end{pmatrix} \begin{pmatrix}x_{1,t-1} \\ x_{2,t-1} \end{pmatrix} + \begin{pmatrix} w_1 \\ w_2 \end{pmatrix}, \qquad \textbf{v} \sim \textrm{MVN}\left(0, \begin{pmatrix}W_1 &amp; W_2 \\ W_3 &amp; W_4\end{pmatrix}\right), \\
 \textbf{x}_0 &amp;\sim \textrm{MVN}(m_0, C_0).
 \end{align*}\]</span></p>
 <p>A simulation from this model is presented in the figure below:</p>
-<p><img src="CorrelatedModel_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<p><img src="CorrelatedModel_files/figure-html/simple-correlated-simulated-1.png" width="672" /></p>
 </div>
 <div id="kalman-filtering" class="section level1">
 <h1>Kalman Filtering</h1>
 <p>Given that we have simulated the model, we can perform the Kalman filter to determine the filtering distribution of the latent state using the true value of the parameters. The figure below shows the filtering distribution with 90% probability intervals for time <span class="math inline">\(t = 200, \dots , 300\)</span>.</p>
-<p><img src="CorrelatedModel_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+<p><img src="CorrelatedModel_files/figure-html/filter-correlated-1.png" width="672" /></p>
 <div id="parameter-learning" class="section level2">
 <h2>Parameter Learning</h2>
 <p>The unkown parameters of the model are the system noise matrix, <span class="math inline">\(W\)</span> and the observation noise matrix, <span class="math inline">\(V\)</span>. The observation noise matrix is assumed to be diagonal, meaning the measurement noise of each process is considered to be independent. We can use Gibbs Sampling to determine the values of <span class="math inline">\(W\)</span> and <span class="math inline">\(V\)</span>, by utilising conjugate structure of the conditional distributions of the model. Assume initially that the parameters of the initial state are known, then the unknown parameters can be written as the vector, <span class="math inline">\(\theta = (v_1, v_2, w_1, \dots, w_9)\)</span>. The joint distribution of all the random variables in the model can be written as:</p>
@@ -362,16 +362,16 @@ p(V | y_{1:T}, \textbf{x}_{0:T}) &amp;\propto  p(x_0) p(V) \prod_{t=1}^Tp(y_t | 
 <p><span class="math display">\[p(W|x_{1:T}) = \mathcal{W}^{-1}(\nu + T, \mathbf{\Psi} + \sum_{i=1}^T(x_i - Gx_{i-1})(x_i-Gx_{i-1})^T)\]</span>.</p>
 <p>Now in order to perform gibbs sampling, we alternate between drawing values of <span class="math inline">\(V, W\)</span> from these posterior distributions and values of the state <span class="math inline">\(x_0,\dots,x_T\)</span> using forward filtering backward sampling.</p>
 </div>
-<div id="example-parameter-learning-in-a-simulated-model" class="section level2">
-<h2>Example: Parameter Learning in a simulated Model</h2>
+<div id="gibbs-sampling-correlated-model" class="section level2">
+<h2>Gibbs Sampling Correlated Model</h2>
 <div class="figure">
-<img src="CorrelatedModel_files/figure-html/unnamed-chunk-4-1.png" alt="Diagnostic plots for the MCMC draws from the posterior distribution of the non-zero diagonal elements of the Observation noise covariance matrix for the simulated correlated model" width="672" />
+<img src="CorrelatedModel_files/figure-html/correlated-v-diagnostics-1.png" alt="Diagnostic plots for the MCMC draws from the posterior distribution of the non-zero diagonal elements of the Observation noise covariance matrix for the simulated correlated model" width="672" />
 <p class="caption">
 Diagnostic plots for the MCMC draws from the posterior distribution of the non-zero diagonal elements of the Observation noise covariance matrix for the simulated correlated model
 </p>
 </div>
 <div class="figure">
-<img src="CorrelatedModel_files/figure-html/unnamed-chunk-5-1.png" alt="Diagnostic plots for the MCMC draws from the posterior distribution of the System noise covariance matrix for the simulated correlated model" width="672" />
+<img src="CorrelatedModel_files/figure-html/correlated-w-diagnostics-1.png" alt="Diagnostic plots for the MCMC draws from the posterior distribution of the System noise covariance matrix for the simulated correlated model" width="672" />
 <p class="caption">
 Diagnostic plots for the MCMC draws from the posterior distribution of the System noise covariance matrix for the simulated correlated model
 </p>

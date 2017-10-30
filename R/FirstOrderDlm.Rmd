@@ -26,6 +26,7 @@ The code required to simulate from this model is given below:
 
 ```scala
 import dlm.model._
+import breeze.linalg.{DenseMatrix, DenseVector, diag}
 
 val mod = Dlm.polynomial(1)
 val p = Dlm.Parameters(
@@ -51,7 +52,7 @@ val mod = Model(
 
 The figure below shows a plot of 100 simulations 
 
-```{r, message=FALSE, warning=FALSE, echo=FALSE}
+```{r first-order-simulated, message=FALSE, warning=FALSE, echo=FALSE}
 data = read_csv("../data/first_order_dlm.csv")
 
 data %>%
@@ -77,7 +78,7 @@ To perform Kalman Filtering on an `Array` of `Data`, we simply discard the state
 val filtered = KalmanFilter.kalmanFilter(mod, data.map(_._1), p)
 ```
 
-```{r, message=FALSE, warning=FALSE, echo=FALSE}
+```{r first-order-filtered, message=FALSE, warning=FALSE, echo=FALSE}
 filtered = read_csv("../data/first_order_dlm_filtered.csv")
 
 filtered %>%
@@ -121,7 +122,7 @@ H_t &= C_t - C_t G^T_{t + 1} R_{t+1}^{-1} (R_{t+1} - S_{t+1})R_{t+1}^{-1} G_{t +
 \end{align*}
 $$
 
-```{r, message=FALSE, warning=FALSE, echo=FALSE}
+```{r first-order-smoothed, message=FALSE, warning=FALSE, echo=FALSE}
 smoothed = read_csv("../data/first_order_dlm_smoothed.csv")
 
 smoothed %>%
@@ -142,17 +143,17 @@ smoothed %>%
 
 In order to perform Gibbs Sampling, we must have access to full conditional distributions for sampling from.
 
-Inverse gamma priors on the system and observation variances, $p(V) = \textrm{InverseGamma}(4.0, 9.0)$, meaning the prior mean of the observation variance is $\mathbb{E}(V) = 9 / 3 = 3$ and the variance is $\textrm{Var}(V) = $. 
+Inverse gamma priors on the system and observation variances, $p(V) = \textrm{InverseGamma}(4.0, 9.0)$, meaning the prior mean of the observation variance is $\mathbb{E}(V) = 9 / 3 = 3$. 
 
 To perform gibbs sampling with inverse gamma priors:
 
 ```scala
-val iters = gibbsSamples(mod, InverseGamma(1.0, 10.0), InverseGamma(1.0, 10.0), p, data.map(_._1))
+val iters = gibbsSamples(mod, InverseGamma(4.0, 9.0), InverseGamma(3.0, 3.0), p, data.map(_._1))
 ```
 
 `iters` are a Process[Parameters], which represents a Markov Chain. This can be converted into an iterator by calling `steps` then the appropriate amount of iterations can be taken from the MCMC. The Figure below shows diagnostic plots for the MCMC chain.
 
-```{r, message=FALSE, warning=FALSE, echo=FALSE}
+```{r first-order-gibbs, message=FALSE, warning=FALSE, echo=FALSE}
 gibbs_iters = read_csv("../data/first_order_dlm_gibbs.csv")
 
 chain = mcmc(gibbs_iters) %>%

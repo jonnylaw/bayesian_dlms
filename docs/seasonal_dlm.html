@@ -246,26 +246,15 @@ $(document).ready(function () {
 
 <div id="simulate-from-a-seasonal-dlm" class="section level1">
 <h1>Simulate From a Seasonal DLM</h1>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">sims =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../data/seasonal_dlm.csv&quot;</span>)</code></pre></div>
-<pre><code>## Parsed with column specification:
-## cols(
-##   time = col_double(),
-##   observation = col_double(),
-##   state1 = col_double(),
-##   state2 = col_double(),
-##   state3 = col_double(),
-##   state4 = col_double(),
-##   state5 = col_double(),
-##   state6 = col_double(),
-##   state7 = col_double()
-## )</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">sims <span class="op">%&gt;%</span>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">sims =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../data/seasonal_dlm.csv&quot;</span>)
+
+sims <span class="op">%&gt;%</span>
 <span class="st">  </span><span class="kw">ggplot</span>(<span class="kw">aes</span>(<span class="dt">x =</span> time, <span class="dt">y =</span> observation)) <span class="op">+</span>
 <span class="st">  </span><span class="kw">geom_line</span>() <span class="op">+</span>
 <span class="st">  </span><span class="kw">labs</span>(<span class="dt">title =</span> <span class="st">&quot;Simulated observations from a seasonal DLM&quot;</span>,
        <span class="dt">subtitle =</span> <span class="st">&quot;With V = 1.0, W = diag(0.01, 0.2, 0.4, 0.5, 0.2, 0.1, 0.4)&quot;</span>)</code></pre></div>
-<p><img src="seasonal_dlm_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
-<p>Plot the states</p>
+<p><img src="seasonal_dlm_files/figure-html/simulated-seasonal-1.png" width="672" /></p>
+<p>Plot the states:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">sims <span class="op">%&gt;%</span>
 <span class="st">  </span><span class="kw">select</span>(time, <span class="kw">contains</span>(<span class="st">&quot;state&quot;</span>)) <span class="op">%&gt;%</span>
 <span class="st">  </span><span class="kw">gather</span>(key, value, <span class="op">-</span>time) <span class="op">%&gt;%</span>
@@ -274,30 +263,13 @@ $(document).ready(function () {
 <span class="st">  </span><span class="kw">facet_wrap</span>(<span class="op">~</span>key, <span class="dt">scales =</span> <span class="st">&quot;free_y&quot;</span>, <span class="dt">strip.position =</span> <span class="st">&quot;right&quot;</span>, <span class="dt">ncol =</span> <span class="dv">1</span>) <span class="op">+</span>
 <span class="st">  </span><span class="kw">labs</span>(<span class="dt">title =</span> <span class="st">&quot;Simulated States of the Seasonal DLM&quot;</span>,
        <span class="dt">subtitle =</span> <span class="st">&quot;Each dimension of the 7D state plotted against time&quot;</span>)</code></pre></div>
-<p><img src="seasonal_dlm_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<p><img src="seasonal_dlm_files/figure-html/seasonal-states-1.png" width="672" /></p>
 </div>
 <div id="filtering" class="section level1">
 <h1>Filtering</h1>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">filtered =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../data/seasonal_filtered.csv&quot;</span>)</code></pre></div>
-<pre><code>## Parsed with column specification:
-## cols(
-##   time = col_double(),
-##   state_mean_1 = col_double(),
-##   state_mean_2 = col_double(),
-##   state_mean_3 = col_double(),
-##   state_mean_4 = col_double(),
-##   state_mean_5 = col_double(),
-##   state_mean_6 = col_double(),
-##   state_mean_7 = col_double(),
-##   state_variance_1 = col_double(),
-##   state_variance_2 = col_double(),
-##   state_variance_3 = col_double(),
-##   state_variance_4 = col_double(),
-##   state_variance_5 = col_double(),
-##   state_variance_6 = col_double(),
-##   state_variance_7 = col_double()
-## )</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">filtered <span class="op">%&gt;%</span>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">filtered =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../data/seasonal_filtered.csv&quot;</span>)
+
+filtered <span class="op">%&gt;%</span>
 <span class="st">  </span><span class="kw">inner_join</span>(sims, <span class="dt">by =</span> <span class="st">&quot;time&quot;</span>) <span class="op">%&gt;%</span>
 <span class="st">  </span><span class="kw">filter</span>(time <span class="op">&gt;</span><span class="st"> </span><span class="dv">900</span>) <span class="op">%&gt;%</span>
 <span class="st">  </span><span class="kw">mutate</span>(<span class="dt">upper =</span> <span class="kw">qnorm</span>(<span class="dt">p =</span> <span class="fl">0.95</span>, <span class="dt">mean =</span> state_mean_<span class="dv">2</span>, <span class="dt">sd =</span> <span class="kw">sqrt</span>(state_variance_<span class="dv">2</span>))) <span class="op">%&gt;%</span>
@@ -310,30 +282,13 @@ $(document).ready(function () {
 <span class="st">  </span><span class="kw">theme</span>(<span class="dt">legend.position =</span> <span class="st">&quot;bottom&quot;</span>) <span class="op">+</span>
 <span class="st">  </span><span class="kw">labs</span>(<span class="dt">title =</span> <span class="st">&quot;Kalman Filtering the Seasonal Model&quot;</span>, 
        <span class="dt">subtitle =</span> <span class="st">&quot;Mean of the Filtering Distribution overlayed with the actual simulated state with 90% probability intervals&quot;</span>)</code></pre></div>
-<p><img src="seasonal_dlm_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+<p><img src="seasonal_dlm_files/figure-html/filtered-seasonal-1.png" width="672" /></p>
 </div>
 <div id="smoothing" class="section level1">
 <h1>Smoothing</h1>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">smoothed =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../data/seasonal_smoothed.csv&quot;</span>)</code></pre></div>
-<pre><code>## Parsed with column specification:
-## cols(
-##   time = col_double(),
-##   state_mean_1 = col_double(),
-##   state_mean_2 = col_double(),
-##   state_mean_3 = col_double(),
-##   state_mean_4 = col_double(),
-##   state_mean_5 = col_double(),
-##   state_mean_6 = col_double(),
-##   state_mean_7 = col_double(),
-##   state_variance_1 = col_double(),
-##   state_variance_2 = col_double(),
-##   state_variance_3 = col_double(),
-##   state_variance_4 = col_double(),
-##   state_variance_5 = col_double(),
-##   state_variance_6 = col_double(),
-##   state_variance_7 = col_double()
-## )</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">smoothed <span class="op">%&gt;%</span>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">smoothed =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../data/seasonal_smoothed.csv&quot;</span>)
+
+smoothed <span class="op">%&gt;%</span>
 <span class="st">  </span><span class="kw">filter</span>(time <span class="op">&lt;</span><span class="st"> </span><span class="dv">500</span>) <span class="op">%&gt;%</span>
 <span class="st">  </span><span class="kw">inner_join</span>(sims, <span class="dt">by =</span> <span class="st">&quot;time&quot;</span>) <span class="op">%&gt;%</span>
 <span class="st">  </span><span class="kw">mutate</span>(<span class="dt">upper_smoothed =</span> <span class="kw">qnorm</span>(<span class="dt">p =</span> <span class="fl">0.975</span>, <span class="dt">mean =</span> state_mean_<span class="dv">1</span>, <span class="dt">sd =</span> <span class="kw">sqrt</span>(state_variance_<span class="dv">1</span>))) <span class="op">%&gt;%</span>
@@ -346,25 +301,17 @@ $(document).ready(function () {
 <span class="st">  </span><span class="kw">theme</span>(<span class="dt">legend.position =</span> <span class="st">&quot;bottom&quot;</span>) <span class="op">+</span>
 <span class="st">  </span><span class="kw">labs</span>(<span class="dt">title =</span> <span class="st">&quot;Smoothed State Estimate&quot;</span>,
        <span class="dt">subtitle =</span> <span class="st">&quot;Actual state and smoothed state, with associated 95% intervals&quot;</span>)</code></pre></div>
-<p><img src="seasonal_dlm_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
-<div id="example-parameter-learning-in-a-simulated-model" class="section level2">
-<h2>Example: Parameter Learning in a simulated Model</h2>
-<pre><code>## Parsed with column specification:
-## cols(
-##   V = col_double(),
-##   W1 = col_double(),
-##   W2 = col_double(),
-##   W3 = col_double(),
-##   W4 = col_double(),
-##   W5 = col_double(),
-##   W6 = col_double(),
-##   W7 = col_double()
-## )</code></pre>
-<pre><code>## Warning: Column `Parameter` joining factor and character vector, coercing
-## into character vector</code></pre>
-<p><img src="seasonal_dlm_files/figure-html/GibbsSampling-1.png" width="672" /></p>
+<p><img src="seasonal_dlm_files/figure-html/smoothed-seasonal-1.png" width="672" /></p>
+<div id="parameter-learning-using-gibbs-sampling" class="section level2">
+<h2>Parameter Learning using Gibbs Sampling</h2>
 <div class="figure">
-<img src="seasonal_dlm_files/figure-html/unnamed-chunk-6-1.png" alt="Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated seasonal model" width="672" />
+<img src="seasonal_dlm_files/figure-html/seasonal-v-diagnostics-1.png" alt="Traceplot and running mean for posterior distribution of the observation variance parameter, $V$" width="672" />
+<p class="caption">
+Traceplot and running mean for posterior distribution of the observation variance parameter, <span class="math inline">\(V\)</span>
+</p>
+</div>
+<div class="figure">
+<img src="seasonal_dlm_files/figure-html/seasonal-w-diagnostics-1.png" alt="Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated seasonal model" width="672" />
 <p class="caption">
 Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated seasonal model
 </p>
@@ -374,9 +321,6 @@ Diagnostic plots for the MCMC chain representing draws from the posterior distri
 <div id="sample-states" class="section level1">
 <h1>Sample States</h1>
 <p>Testing the gibbs sampler FFBS algorithm by keeping the observation and system noise matrices constant and sampling the state using the FFBS algorithm. This is then compared to the actual state.</p>
-<pre><code>## Warning: 1 parsing failure.
-## row # A tibble: 1 x 5 col     row   col     expected      actual expected   &lt;int&gt; &lt;chr&gt;        &lt;chr&gt;       &lt;chr&gt; actual 1  2365  &lt;NA&gt; 1001 columns 830 columns file # ... with 1 more variables: file &lt;chr&gt;</code></pre>
-<pre><code>## Warning: Removed 171 rows containing missing values (geom_path).</code></pre>
 <p><img src="seasonal_dlm_files/figure-html/sample_state_one-1.png" width="672" /></p>
 </div>
 
