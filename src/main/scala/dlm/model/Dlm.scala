@@ -171,4 +171,44 @@ object Dlm {
       c0 = blockDiagonal(x.c0, y.c0)
     )
   }
+
+  /**
+    * Perform a single forecast step, equivalent to performing the Kalman Filter
+    * Without an observation of the process
+    * @param mod a DLM specification
+    * @param time the current time 
+    * @param mt the mean of the latent state at time t
+    * @param ct the variance of the latent state at time t
+    * @param p the parameters of the DLM
+    */
+  def stepForecast(
+    mod:  Model,
+    time: Time,
+    mt:   DenseVector[Double], 
+    ct:   DenseMatrix[Double],
+    p:    Parameters) = {
+
+    val (at, rt) = KalmanFilter.advanceState(mod, mt, ct, time, p)
+    val (ft, qt) = KalmanFilter.oneStepPrediction(mod, at, rt, time, p)
+
+    (time, at, rt, ft, qt)
+  }
+
+  /**
+    * Forecast a DLM from a state
+    */
+  def forecast(
+    mod:  Model, 
+    mt:   DenseVector[Double], 
+    ct:   DenseMatrix[Double],
+    time: Time,
+    p:    Parameters) = {
+
+    val (ft, qt) = KalmanFilter.oneStepPrediction(mod, mt, ct, time, p)
+
+    Stream.iterate((time, mt, ct, ft, qt)){ 
+      case (t, m, c, _, _) => stepForecast(mod, t + 1, m, c, p) }.
+      map(a => (a._1, a._4.data(0), a._5.data(0)))
+  }
+
 }

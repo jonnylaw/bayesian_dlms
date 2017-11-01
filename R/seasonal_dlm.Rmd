@@ -130,6 +130,29 @@ p2 = params %>%
 gridExtra::grid.arrange(p1, p2, ncol = 1)
 ```
 
+# Forecast DLM
+
+Forecasting a DLM is equivalent to running the Kalman Filter without any observations at the time of interest. We initialise the forecast by using the posterior distribution of the latent state at the time of the last observation, $x_T \sim \mathcal{N}(m_T, C_T)$ and use the values of the parameters identified using Gibbs sampling.
+
+```{r forecast_seasonal_dlm, echo=FALSE, message=FALSE, warning=FALSE}
+forecast = read_csv("../data/seasonal_model_forecast.csv")
+
+forecast %>%
+  rename(time = Time, forecast = Observation) %>%
+  mutate(upper = qnorm(p = 0.95, mean = forecast, sd = sqrt(Variance)),
+         lower = qnorm(p = 0.05, mean = forecast, sd = sqrt(Variance))) %>%
+  bind_rows(sims) %>%
+  filter(time > 900) %>%
+  gather(key, value, forecast, observation) %>%
+  ggplot() +
+  geom_line(aes(x = time, y = value, colour = key)) +
+  geom_line(aes(x = time, y = lower), linetype = 2) +
+  geom_line(aes(x = time, y = upper), linetype = 2) +
+  labs(title = "Forecast for 100 Time Points") +
+  theme(legend.position = "bottom")
+```
+
+
 # Sample States
 
 Testing the gibbs sampler FFBS algorithm by keeping the observation and system noise matrices constant and sampling the state using the FFBS algorithm. This is then compared to the actual state.

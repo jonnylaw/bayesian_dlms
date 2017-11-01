@@ -6,6 +6,7 @@ import GibbsSampling._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions.{Gamma, Gaussian, Rand, RandBasis}
 import breeze.numerics.exp
+import breeze.stats.mean
 import cats.Applicative
 import cats.implicits._
 import java.nio.file.Paths
@@ -103,29 +104,54 @@ object SmoothSeasonalDlm extends App with SeasonalModel with SeasonalData {
 object SeasonalGibbsSampling extends App with SeasonalModel with SeasonalData {
   implicit val basis = RandBasis.withSeed(7)
 
-  val iters = GibbsSampling.gibbsSamples(mod, InverseGamma(5.0, 4.0), InverseGamma(17.0, 4.0), p, data).
+  val iters = GibbsSampling.gibbsSamples(mod, InverseGamma(5.0, 4.0), 
+    InverseGamma(17.0, 4.0), p, data).
     steps.
-    take(100)
+    take(10000)
 
-  iters.map(_.p).map(formatParameters).map(_.mkString(", ")).foreach(println)
-
-  // val out = new java.io.File("data/seasonal_dlm_gibbs.csv")
-  // val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7"))
+  val headers = rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7")
 
   def formatParameters(p: Parameters) = {
     DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
   }
 
-  // // write iters to file
-  // while (iters.hasNext) {
-  //   writer.write(formatParameters(iters.next.p))
-  // }
+  Streaming.writeChain(formatParameters, 
+    "data/seasonal_dlm_gibbs.csv", headers)(iters.map(_.p))
+}
 
-  // writer.close()
+object ForecastSeasonal extends App with SeasonalModel with SeasonalData {
+  // read in the parameters from the MCMC chain and caculate the mean
+  val mcmcChain = Paths.get("data/seasonal_dlm_gibbs.csv")
+  val read = mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
+
+  val params: List[Double] = read.
+    collect { case Success(a) => a }.
+    toList.
+    transpose.
+    map(a => mean(a))
+
+  val meanParameters = Parameters(
+    DenseMatrix(params.head), 
+    diag(DenseVector(params.tail.toArray)), 
+    p.m0,
+    p.c0)
+
+  // get the posterior distribution of the final state
+  val filtered = KalmanFilter.kalmanFilter(mod, data, meanParameters)
+  val (mt, ct, initTime) = filtered.map(a => (a.mt, a.ct, a.time)).last
+  
+  val forecasted = Dlm.forecast(mod, mt, ct, initTime, meanParameters).
+    take(100).
+    toList
+
+  val out = new java.io.File("data/temperature_model_forecast.csv")
+  val headers = rfc.withHeader("Time", "Observation", "Variance")
+  val writer = out.writeCsv(forecasted, headers)
+
 }
 
 /**
-  * Sample the state, accurately using FFBS algorithm
+  * Sample the state using FFBS algorithm
   */
 object SampleStates extends App with SeasonalModel with SeasonalData {
   val iters = Iterator.fill(10000)(GibbsSampling.sampleState(mod, data, p))
