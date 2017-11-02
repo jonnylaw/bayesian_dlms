@@ -90,7 +90,7 @@ Dlm.simulate(0, composedModel, p).
 
 The figure below shows a simulation from this composed model:
 
-```{r, message=FALSE, warning=FALSE, echo=FALSE}
+```{r correlated-simulated, message=FALSE, warning=FALSE, echo=FALSE}
 first_order_and_linear_trend = read_csv("../data/first_order_and_linear_trend.csv")
 
 first_order_and_linear_trend %>%
@@ -102,7 +102,7 @@ first_order_and_linear_trend %>%
 
 # Example 2
 
-For simplicity we consider the outer sum of two first order DLMs. given by the following equation:
+For simplicity of exposition we consider the outer sum of two first order DLMs. given by the following equation:
 
 $$\begin{align*}
 \begin{pmatrix}y_{1,t} \\ y_{2,t}\end{pmatrix} &= \begin{pmatrix}1 & 0 \\ 0 & 1\end{pmatrix}\begin{pmatrix}x_{1,t} \\ x_{2,t}\end{pmatrix} + \begin{pmatrix}v_{1,t} \\ v_{2,t} \end{pmatrix}, \qquad \textbf{v} \sim \textrm{MVN}\left(0, \begin{pmatrix}V_1 & 0 \\ 0 & V_2\end{pmatrix}\right), \\
@@ -112,7 +112,7 @@ $$\begin{align*}
 
 A simulation from this model is presented in the figure below:
 
-```{r, message=FALSE, warning=FALSE, echo=FALSE}
+```{r simple-correlated-simulated, message=FALSE, warning=FALSE, echo=FALSE}
 data = read_csv("../data/correlated_dlm.csv")
 
 data %>%
@@ -126,7 +126,7 @@ data %>%
 
 Given that we have simulated the model, we can perform the Kalman filter to determine the filtering distribution of the latent state using the true value of the parameters. The figure below shows the filtering distribution with 90% probability intervals for time $t = 200, \dots , 300$.
 
-```{r, message=FALSE, warning=FALSE, echo=FALSE}
+```{r filter-correlated, message=FALSE, warning=FALSE, echo=FALSE}
 filtered = read_csv("../data/correlated_dlm_filtered.csv")
 
 filtered %>%
@@ -207,9 +207,9 @@ $$p(W|x_{1:T}) = \mathcal{W}^{-1}(\nu + T, \mathbf{\Psi} + \sum_{i=1}^T(x_i - Gx
 
 Now in order to perform gibbs sampling, we alternate between drawing values of $V, W$ from these posterior distributions and values of the state $x_0,\dots,x_T$ using forward filtering backward sampling. 
 
-## Example: Parameter Learning in a simulated Model
+## Gibbs Sampling Correlated Model
 
-```{r, fig.cap="Diagnostic plots for the MCMC draws from the posterior distribution of the non-zero diagonal elements of the Observation noise covariance matrix for the simulated correlated model", message=FALSE, warning=FALSE, echo=FALSE}
+```{r correlated-v-diagnostics, fig.cap="Diagnostic plots for the MCMC draws from the posterior distribution of the non-zero diagonal elements of the Observation noise covariance matrix for the simulated correlated model", message=FALSE, warning=FALSE, echo=FALSE}
 iters = read_csv("../data/correlated_dlm_gibbs.csv")
 
 actual_values = tibble(
@@ -240,7 +240,7 @@ p2 = params %>%
 gridExtra::grid.arrange(p1, p2, ncol = 1)
 ```
 
-```{r, fig.cap="Diagnostic plots for the MCMC draws from the posterior distribution of the System noise covariance matrix for the simulated correlated model", message=FALSE, warning=FALSE, echo=FALSE}
+```{r correlated-w-diagnostics, fig.cap="Diagnostic plots for the MCMC draws from the posterior distribution of the System noise covariance matrix for the simulated correlated model", message=FALSE, warning=FALSE, echo=FALSE}
 params = iters %>%
   mutate(iteration = 1:nrow(iters)) %>%
   gather(key = parameter, value, -iteration) %>%

@@ -4,8 +4,9 @@ import dlm.model._
 import Dlm._
 import GibbsSampling._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
-import breeze.stats.distributions.{Gamma, Gaussian, Rand}
+import breeze.stats.distributions.{Gamma, Gaussian, Rand, RandBasis}
 import breeze.numerics.exp
+import breeze.stats.mean
 import cats.Applicative
 import cats.implicits._
 import java.nio.file.Paths
@@ -33,6 +34,9 @@ trait SeasonalData {
     toArray
 }
 
+/**
+  * Simulate data from a Seasonal DLM
+  */
 object SimulateSeasonalDlm extends App with SeasonalModel {
   val sims = simulate(0, mod, p).
     steps.
@@ -54,6 +58,9 @@ object SimulateSeasonalDlm extends App with SeasonalModel {
   writer.close()
 }
 
+/**
+  * Filter the seasonal DLM
+  */
 object FilterSeasonalDlm extends App with SeasonalModel with SeasonalData {
   val filtered = KalmanFilter.kalmanFilter(mod, data, p)
 
@@ -71,6 +78,9 @@ object FilterSeasonalDlm extends App with SeasonalModel with SeasonalData {
   out.writeCsv(filtered.map(formatFiltered), headers)
 }
 
+/**
+  * Run backward smoothing on the seasonal DLM
+  */
 object SmoothSeasonalDlm extends App with SeasonalModel with SeasonalData {
   val filtered = KalmanFilter.kalmanFilter(mod, data, p)
   val smoothed = Smoothing.backwardsSmoother(mod, p)(filtered)
@@ -88,26 +98,61 @@ object SmoothSeasonalDlm extends App with SeasonalModel with SeasonalData {
   out.writeCsv(smoothed.map(formatSmoothed), headers)
 }
 
+/**
+  * Use Gibbs sampling with Inverse Gamma priors on the observation variance and diagonal system covariance
+  */
 object SeasonalGibbsSampling extends App with SeasonalModel with SeasonalData {
-  val iters = GibbsSampling.gibbsSamples(mod, InverseGamma(5.0, 4.0), InverseGamma(17.0, 4.0), p, data).
+  implicit val basis = RandBasis.withSeed(7)
+
+  val iters = GibbsSampling.gibbsSamples(mod, InverseGamma(5.0, 4.0), 
+    InverseGamma(17.0, 4.0), p, data).
     steps.
     take(10000)
 
-  val out = new java.io.File("data/seasonal_dlm_gibbs.csv")
-  val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7"))
+  val headers = rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7")
 
   def formatParameters(p: Parameters) = {
     DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
   }
 
-  // write iters to file
-  while (iters.hasNext) {
-    writer.write(formatParameters(iters.next.p))
-  }
-
-  writer.close()
+  Streaming.writeChain(formatParameters, 
+    "data/seasonal_dlm_gibbs.csv", headers)(iters.map(_.p))
 }
 
+object ForecastSeasonal extends App with SeasonalModel with SeasonalData {
+  // read in the parameters from the MCMC chain and caculate the mean
+  val mcmcChain = Paths.get("data/seasonal_dlm_gibbs.csv")
+  val read = mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
+
+  val params: List[Double] = read.
+    collect { case Success(a) => a }.
+    toList.
+    transpose.
+    map(a => mean(a))
+
+  val meanParameters = Parameters(
+    DenseMatrix(params.head), 
+    diag(DenseVector(params.tail.toArray)), 
+    p.m0,
+    p.c0)
+
+  // get the posterior distribution of the final state
+  val filtered = KalmanFilter.kalmanFilter(mod, data, meanParameters)
+  val (mt, ct, initTime) = filtered.map(a => (a.mt, a.ct, a.time)).last
+  
+  val forecasted = Dlm.forecast(mod, mt, ct, initTime, meanParameters).
+    take(100).
+    toList
+
+  val out = new java.io.File("data/temperature_model_forecast.csv")
+  val headers = rfc.withHeader("Time", "Observation", "Variance")
+  val writer = out.writeCsv(forecasted, headers)
+
+}
+
+/**
+  * Sample the state using FFBS algorithm
+  */
 object SampleStates extends App with SeasonalModel with SeasonalData {
   val iters = Iterator.fill(10000)(GibbsSampling.sampleState(mod, data, p))
 
@@ -132,6 +177,9 @@ object SampleStates extends App with SeasonalModel with SeasonalData {
   writer.close()
 }
 
+/**
+  * Example of using Metropolis Hastings to determine the parameters of the simulated Seasonal Model
+  */
 object SeasonalMetropolisHastings extends App with SeasonalModel with SeasonalData {
   def proposal(delta: Double) = { p: Parameters =>
     for {

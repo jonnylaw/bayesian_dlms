@@ -6,12 +6,13 @@ title: "Seasonal DLM"
 library(tidyverse)
 library(coda)
 library(ggmcmc)
+knitr::opts_chunk$set(cache=TRUE, message=FALSE, warning=FALSE)
 theme_set(theme_minimal())
 ```
 
 # Simulate From a Seasonal DLM
 
-```{r}
+```{r simulated-seasonal}
 sims = read_csv("../data/seasonal_dlm.csv")
 
 sims %>%
@@ -21,9 +22,9 @@ sims %>%
        subtitle = "With V = 1.0, W = diag(0.01, 0.2, 0.4, 0.5, 0.2, 0.1, 0.4)")
 ```
 
-Plot the states
+Plot the states:
 
-```{r}
+```{r seasonal-states}
 sims %>%
   select(time, contains("state")) %>%
   gather(key, value, -time) %>%
@@ -36,7 +37,7 @@ sims %>%
 
 # Filtering
 
-```{r}
+```{r filtered-seasonal}
 filtered = read_csv("../data/seasonal_filtered.csv")
 
 filtered %>%
@@ -57,7 +58,7 @@ filtered %>%
 # Smoothing
 
 
-```{r}
+```{r smoothed-seasonal}
 smoothed = read_csv("../data/seasonal_smoothed.csv")
 
 smoothed %>%
@@ -75,15 +76,7 @@ smoothed %>%
        subtitle = "Actual state and smoothed state, with associated 95% intervals")
 ```
 
-```{r, eval=FALSE, echo=FALSE}
-library(dlm)
-model = function(theta) {
-  dlmModPoly(1, dV = exp(theta[1]), dW = exp(theta[2])) + dlmModTrig(s = 24, q = 3, dW = exp(theta[3:8]))
-}
-fit = dlmMLE(y = sims$observation, parm = rep(1, 8), build = model)
-```
-
-## Example: Parameter Learning in a simulated Model
+## Parameter Learning using Gibbs Sampling
 
 ```{r parameter_values, echo=FALSE}
 actual_values = tibble(
@@ -92,7 +85,7 @@ actual_values = tibble(
 )
 ```
 
-```{r GibbsSampling, echo=FALSE}
+```{r seasonal-v-diagnostics, echo=FALSE, fig.cap="Traceplot and running mean for posterior distribution of the observation variance parameter, $V$"}
 iters = read_csv("../data/seasonal_dlm_gibbs.csv")
 
 params = mcmc(iters) %>%
@@ -117,13 +110,13 @@ p2 = params %>%
 gridExtra::grid.arrange(p1, p2, ncol = 1)
 ```
 
-```{r, echo=FALSE, fig.cap="Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated seasonal model"}
+```{r seasonal-w-diagnostics, echo=FALSE, fig.cap="Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated seasonal model"}
 p1 = params %>%
   filter(Parameter %in% paste0("W", 1:7)) %>%
   ggplot(aes(x = Iteration, y = value)) +
   geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~Parameter, scales = "free_y")
+  # geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~Parameter, strip.position = "right")
 
 p2 = params %>%
   group_by(Parameter) %>%
@@ -131,11 +124,34 @@ p2 = params %>%
   mutate(running_mean = dlm::ergMean(value)) %>%
   ggplot(aes(x = Iteration, y = running_mean)) +
   geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~Parameter, nrow = 1, scales = "free_y")
+  # geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~Parameter, scales = "free_y", strip.position = "right")
 
 gridExtra::grid.arrange(p1, p2, ncol = 1)
 ```
+
+# Forecast DLM
+
+Forecasting a DLM is equivalent to running the Kalman Filter without any observations at the time of interest. We initialise the forecast by using the posterior distribution of the latent state at the time of the last observation, $x_T \sim \mathcal{N}(m_T, C_T)$ and use the values of the parameters identified using Gibbs sampling.
+
+```{r forecast_seasonal_dlm, echo=FALSE, message=FALSE, warning=FALSE}
+forecast = read_csv("../data/seasonal_model_forecast.csv")
+
+forecast %>%
+  rename(time = Time, forecast = Observation) %>%
+  mutate(upper = qnorm(p = 0.95, mean = forecast, sd = sqrt(Variance)),
+         lower = qnorm(p = 0.05, mean = forecast, sd = sqrt(Variance))) %>%
+  bind_rows(sims) %>%
+  filter(time > 900) %>%
+  gather(key, value, forecast, observation) %>%
+  ggplot() +
+  geom_line(aes(x = time, y = value, colour = key)) +
+  geom_line(aes(x = time, y = lower), linetype = 2) +
+  geom_line(aes(x = time, y = upper), linetype = 2) +
+  labs(title = "Forecast for 100 Time Points") +
+  theme(legend.position = "bottom")
+```
+
 
 # Sample States
 

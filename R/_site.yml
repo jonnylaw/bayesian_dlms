@@ -14,8 +14,7 @@ navbar:
         href: seasonal_dlm.html
       - text: "Correlated Models"
         href: CorrelatedModel.html
-      - text: "Spain Investment Data"
-        href: spain_investment_data.html
+output_dir: ../docs
 output:
   html_document:
     theme: readable

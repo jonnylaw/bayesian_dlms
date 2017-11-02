@@ -42,7 +42,7 @@ filter_first_order: ../data/first_order_dlm.csv
 gibbs_first_order: ../data/first_order_dlm.csv
 	cd .. && sbt "runMain dlm.examples.GibbsParameters"
 
-seasonal: simulate_seasonal filter_seasonal sample_state_seasonal smooth_seasonal
+seasonal: simulate_seasonal filter_seasonal sample_state_seasonal smooth_seasonal seasonal_gibbs
 
 simulate_seasonal:
 	cd .. && sbt "runMain dlm.examples.SimulateSeasonalDlm"
@@ -57,13 +57,7 @@ smooth_seasonal: ../data/seasonal_dlm.csv
 	cd .. && sbt "runMain dlm.examples.SmoothSeasonalDlm"
 
 seasonal_gibbs:	../data/seasonal_dlm.csv
-	cd .. && sbt assembly
-	cp ../target/scala-2.11/bayesian_dlm-assembly-0.1-SNAPSHOT.jar seasonal_dlm.jar
-	ssh topsy -t mkdir -p /share/nobackup/a9169110/seasonal_dlm/data
-	scp seasonal_dlm.jar seasonal_dlm.qsub topsy:/share/nobackup/a9169110/seasonal_dlm/.
-	scp ../data/seasonal_dlm.csv topsy:/share/nobackup/a9169110/seasonal_dlm/data/.
-	ssh topsy -f "cd /share/nobackup/a9169110 && qsub temperature_model.qsub"
-	ssh topsy -t qstat
+	cd .. && sbt "runMain dlm.examples.SeasonalGibbsSampling"
 
 clean:
 	rm ../data/*.csv

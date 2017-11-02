@@ -72,7 +72,7 @@ object KalmanFilter {
       val time = y.time
       val residual = obs - predicted
     
-      val kalman_gain = (qt \ (mod.f(time).t * rt)).t
+      val kalman_gain = (qt.t \ (mod.f(time).t * rt.t)).t
       val mt1 = at + kalman_gain * residual
       val n = p.w.cols
 
