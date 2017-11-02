@@ -43,7 +43,7 @@ val data = Dlm.simulate(0, mod, p).
   take(1000)
 ```
 
-```{r second-order-simulated, message=FALSE, echo=FALSE, fig.cap="Simulated values from the Second Order DLM with parameters, $(V, W, \textbf{m}_0, C_0) = (3.0, \textrm{diag}(2.0, 1.0), (0.0, 0.0), \textrm{diag}(100.0, 100.0))"}
+```{r second-order-simulated, message=FALSE, echo=FALSE, fig.cap="Simulated values from the Second Order DLM with parameters, $(V, W, \textbf{m}_0, C_0) = (3.0, \textrm{diag}(2.0, 1.0), (0.0, 0.0), \textrm{diag}(100.0, 100.0))$"}
 data = read_csv("../data/second_order_dlm.csv")
 
 data %>%

@@ -6,11 +6,64 @@ title: "Seasonal DLM"
 library(tidyverse)
 library(coda)
 library(ggmcmc)
-knitr::opts_chunk$set(cache=TRUE, message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(cache=TRUE, message=FALSE, warning=FALSE, echo=FALSE)
 theme_set(theme_minimal())
 ```
 
 # Simulate From a Seasonal DLM
+
+A seasonal DLM is given by:
+
+$$\begin{align*}
+Y_t | \textbf{x}_t = F \textbf{x}_t + v_t, \quad v_t \sim \mathcal{N}(0, V) \\
+X_t | \textbf{x}_{t-1} = G \textbf{x}_t + w_t, \quad w_t \sim \mathcal{N}(0, W) \\
+X_y \sim \mathcal{N}(m_0, C_0)
+\end{align*}$$
+
+Where the system evolution matrix is block diagonal, containing rotation matrices. If we define $T$ to be the period of the seasonality then the frequency is, $\omega = 2\pi/T$, a rotation matrix for the $h^{\textrm{th}}$ harmonic in the system evolution matrix is given by:
+
+$$R(h, \omega) = \begin{pmatrix}\cos(h\omega) & -\sin(h\omega) \\
+\sin(h\omega) & \cos(h\omega) 
+\end{pmatrix}$$
+
+Then the system matrix is:
+
+$$G = \begin{pmatrix} 
+R(1, \omega) & 0 & \dots & \dots & 0 \\
+0 & R(2, \omega) & 0 & \dots & 0\\
+\vdots & 0 & \ddots & &\vdots \\
+0 & \dots & 0 & R(h, \omega)
+\end{pmatrix}.$$
+
+The observation matrix is $1 \times 2h$ dimensional:
+
+$$F = \begin{pmatrix}1 \\ 0 \\ 1 \\ \vdots \\ 1 \\ 0 \end{pmatrix}.$$
+
+We can specify a seasonal model with trend using:
+
+```scala
+import dlm.model._
+import cats.implicits._
+
+val mod = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
+```
+
+Then we can simlulate from the model by supplying parameters and use the provided simulate function:
+
+```scala
+import breeze.linalg.{DenseMatrix, DenseVector, diag}
+
+val p = Dlm.Parameters(
+  v = DenseMatrix((1.0)),
+  w = diag(DenseVector(0.01, 0.2, 0.4, 0.5, 0.2, 0.1, 0.4)),
+  m0 = DenseVector.fill(7)(0.0),
+  c0 = diag(DenseVector.fill(7)(1.0))
+)
+
+val sims = simulate(0, mod, p).
+  steps.
+  take(1000)
+```
 
 ```{r simulated-seasonal}
 sims = read_csv("../data/seasonal_dlm.csv")
@@ -37,6 +90,12 @@ sims %>%
 
 # Filtering
 
+We can perform Kalman Filtering, to learn the distribution of the latent state given the data we have simulated:
+
+```scala
+val filtered = KalmanFilter.kalmanFilter(mod, sims, p)
+```
+
 ```{r filtered-seasonal}
 filtered = read_csv("../data/seasonal_filtered.csv")
 
@@ -57,6 +116,11 @@ filtered %>%
 
 # Smoothing
 
+Kalman Smoothing can be performed:
+
+```scala
+val smoothed = Smoothing.backwardsSmoother(mod, p)(filtered)
+```
 
 ```{r smoothed-seasonal}
 smoothed = read_csv("../data/seasonal_smoothed.csv")
@@ -84,6 +148,17 @@ actual_values = tibble(
   actual_value = c(1.0, 0.01, 0.2, 0.4, 0.5, 0.2, 0.1, 0.4)
 )
 ```
+
+The system matrix $W$ is diagonal, hence the Inverse Gamma distribution can be used for the observation and system noise matrices in a Gibbs Sampler. The state is sampled using Forward Filtering Backward Sampling (FFBS), then conditional on the state, the system and observation noise matrices are sampled from Inverse Gamma distributions. 
+
+```scala
+val iters = GibbsSampling.gibbsSamples(mod, InverseGamma(5.0, 4.0), 
+  InverseGamma(17.0, 4.0), p, data).
+  steps.
+  take(10000)
+```
+
+The diagnostic plots are below:
 
 ```{r seasonal-v-diagnostics, echo=FALSE, fig.cap="Traceplot and running mean for posterior distribution of the observation variance parameter, $V$"}
 iters = read_csv("../data/seasonal_dlm_gibbs.csv")
@@ -134,6 +209,42 @@ gridExtra::grid.arrange(p1, p2, ncol = 1)
 
 Forecasting a DLM is equivalent to running the Kalman Filter without any observations at the time of interest. We initialise the forecast by using the posterior distribution of the latent state at the time of the last observation, $x_T \sim \mathcal{N}(m_T, C_T)$ and use the values of the parameters identified using Gibbs sampling.
 
+First we take the mean value of the MCMC parameters, assuming that the parameters have been written to a CSV called `seasonal_dlm_gibbs.csv` with eight columns, $V, W_1,\dots,W_7$:
+
+```scala
+  val mcmcChain = Paths.get("data/seasonal_dlm_gibbs.csv")
+  val read = mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
+
+  val params: List[Double] = read.
+    collect { case Success(a) => a }.
+    toList.
+    transpose.
+    map(a => mean(a))
+
+  val meanParameters = Parameters(
+    DenseMatrix(params.head), 
+    diag(DenseVector(params.tail.toArray)), 
+    p.m0,
+    p.c0)
+```
+
+When then use these parameters to get the posterior distribution of the final state:
+
+```scala
+  val filtered = KalmanFilter.kalmanFilter(mod, data, meanParameters)
+  val (mt, ct, initTime) = filtered.map(a => (a.mt, a.ct, a.time)).last
+```
+
+We then initialise the forecast function with state state posterior at the time of the last observation:
+
+```scala
+  val forecasted = Dlm.forecast(mod, mt, ct, initTime, meanParameters).
+    take(100).
+    toList
+```
+
+The results of the forecasting and 95% prediction intervals are below:
+
 ```{r forecast_seasonal_dlm, echo=FALSE, message=FALSE, warning=FALSE}
 forecast = read_csv("../data/seasonal_model_forecast.csv")
 
@@ -150,23 +261,4 @@ forecast %>%
   geom_line(aes(x = time, y = upper), linetype = 2) +
   labs(title = "Forecast for 100 Time Points") +
   theme(legend.position = "bottom")
-```
-
-
-# Sample States
-
-Testing the gibbs sampler FFBS algorithm by keeping the observation and system noise matrices constant and sampling the state using the FFBS algorithm. This is then compared to the actual state.
-
-```{r sample_state_one, echo=FALSE, message=FALSE}
-mean_state = read_csv("../data/seasonal_dlm_state_2_samples.csv", col_names = FALSE) %>%
-  summarise_all(mean) %>%
-  t() %>% as_data_frame() %>%
-  add_column(time = 0:1000) %>%
-  rename(sampled_state = V1)
-
-mean_state %>%
-  inner_join(sims %>% select(time, state2), by = "time") %>%
-  gather(key, value, -time) %>%
-  ggplot(aes(x = time, y = value, colour = key)) +
-  geom_line()
 ```

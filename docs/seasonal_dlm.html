@@ -246,64 +246,66 @@ $(document).ready(function () {
 
 <div id="simulate-from-a-seasonal-dlm" class="section level1">
 <h1>Simulate From a Seasonal DLM</h1>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">sims =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../data/seasonal_dlm.csv&quot;</span>)
+<p>A seasonal DLM is given by:</p>
+<p><span class="math display">\[\begin{align*}
+Y_t | \textbf{x}_t = F \textbf{x}_t + v_t, \quad v_t \sim \mathcal{N}(0, V) \\
+X_t | \textbf{x}_{t-1} = G \textbf{x}_t + w_t, \quad w_t \sim \mathcal{N}(0, W) \\
+X_y \sim \mathcal{N}(m_0, C_0)
+\end{align*}\]</span></p>
+<p>Where the system evolution matrix is block diagonal, containing rotation matrices. If we define <span class="math inline">\(T\)</span> to be the period of the seasonality then the frequency is, <span class="math inline">\(\omega = 2\pi/T\)</span>, a rotation matrix for the <span class="math inline">\(h^{\textrm{th}}\)</span> harmonic in the system evolution matrix is given by:</p>
+<p><span class="math display">\[R(h, \omega) = \begin{pmatrix}\cos(h\omega) &amp; -\sin(h\omega) \\
+\sin(h\omega) &amp; \cos(h\omega) 
+\end{pmatrix}\]</span></p>
+<p>Then the system matrix is:</p>
+<p><span class="math display">\[G = \begin{pmatrix} 
+R(1, \omega) &amp; 0 &amp; \dots &amp; \dots &amp; 0 \\
+0 &amp; R(2, \omega) &amp; 0 &amp; \dots &amp; 0\\
+\vdots &amp; 0 &amp; \ddots &amp; &amp;\vdots \\
+0 &amp; \dots &amp; 0 &amp; R(h, \omega)
+\end{pmatrix}.\]</span></p>
+<p>The observation matrix is <span class="math inline">\(1 \times 2h\)</span> dimensional:</p>
+<p><span class="math display">\[F = \begin{pmatrix}1 \\ 0 \\ 1 \\ \vdots \\ 1 \\ 0 \end{pmatrix}.\]</span></p>
+<p>We can specify a seasonal model with trend using:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> dlm.<span class="fu">model</span>._
+<span class="kw">import</span> cats.<span class="fu">implicits</span>._
 
-sims <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">ggplot</span>(<span class="kw">aes</span>(<span class="dt">x =</span> time, <span class="dt">y =</span> observation)) <span class="op">+</span>
-<span class="st">  </span><span class="kw">geom_line</span>() <span class="op">+</span>
-<span class="st">  </span><span class="kw">labs</span>(<span class="dt">title =</span> <span class="st">&quot;Simulated observations from a seasonal DLM&quot;</span>,
-       <span class="dt">subtitle =</span> <span class="st">&quot;With V = 1.0, W = diag(0.01, 0.2, 0.4, 0.5, 0.2, 0.1, 0.4)&quot;</span>)</code></pre></div>
+<span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>) |+| Dlm.<span class="fu">seasonal</span>(<span class="dv">24</span>, <span class="dv">3</span>)</code></pre></div>
+<p>Then we can simlulate from the model by supplying parameters and use the provided simulate function:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+
+<span class="kw">val</span> p = Dlm.<span class="fu">Parameters</span>(
+  v = <span class="fu">DenseMatrix</span>((<span class="fl">1.0</span>)),
+  w = <span class="fu">diag</span>(<span class="fu">DenseVector</span>(<span class="fl">0.01</span>, <span class="fl">0.2</span>, <span class="fl">0.4</span>, <span class="fl">0.5</span>, <span class="fl">0.2</span>, <span class="fl">0.1</span>, <span class="fl">0.4</span>)),
+  m0 = DenseVector.<span class="fu">fill</span>(<span class="dv">7</span>)(<span class="fl">0.0</span>),
+  c0 = <span class="fu">diag</span>(DenseVector.<span class="fu">fill</span>(<span class="dv">7</span>)(<span class="fl">1.0</span>))
+)
+
+<span class="kw">val</span> sims = <span class="fu">simulate</span>(<span class="dv">0</span>, mod, p).
+  steps.
+  <span class="fu">take</span>(<span class="dv">1000</span>)</code></pre></div>
 <p><img src="seasonal_dlm_files/figure-html/simulated-seasonal-1.png" width="672" /></p>
 <p>Plot the states:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">sims <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">select</span>(time, <span class="kw">contains</span>(<span class="st">&quot;state&quot;</span>)) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">gather</span>(key, value, <span class="op">-</span>time) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">ggplot</span>(<span class="kw">aes</span>(<span class="dt">x =</span> time, <span class="dt">y =</span> value)) <span class="op">+</span>
-<span class="st">  </span><span class="kw">geom_line</span>() <span class="op">+</span>
-<span class="st">  </span><span class="kw">facet_wrap</span>(<span class="op">~</span>key, <span class="dt">scales =</span> <span class="st">&quot;free_y&quot;</span>, <span class="dt">strip.position =</span> <span class="st">&quot;right&quot;</span>, <span class="dt">ncol =</span> <span class="dv">1</span>) <span class="op">+</span>
-<span class="st">  </span><span class="kw">labs</span>(<span class="dt">title =</span> <span class="st">&quot;Simulated States of the Seasonal DLM&quot;</span>,
-       <span class="dt">subtitle =</span> <span class="st">&quot;Each dimension of the 7D state plotted against time&quot;</span>)</code></pre></div>
 <p><img src="seasonal_dlm_files/figure-html/seasonal-states-1.png" width="672" /></p>
 </div>
 <div id="filtering" class="section level1">
 <h1>Filtering</h1>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">filtered =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../data/seasonal_filtered.csv&quot;</span>)
-
-filtered <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">inner_join</span>(sims, <span class="dt">by =</span> <span class="st">&quot;time&quot;</span>) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">filter</span>(time <span class="op">&gt;</span><span class="st"> </span><span class="dv">900</span>) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">mutate</span>(<span class="dt">upper =</span> <span class="kw">qnorm</span>(<span class="dt">p =</span> <span class="fl">0.95</span>, <span class="dt">mean =</span> state_mean_<span class="dv">2</span>, <span class="dt">sd =</span> <span class="kw">sqrt</span>(state_variance_<span class="dv">2</span>))) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">mutate</span>(<span class="dt">lower =</span> <span class="kw">qnorm</span>(<span class="dt">p =</span> <span class="fl">0.05</span>, <span class="dt">mean =</span> state_mean_<span class="dv">2</span>, <span class="dt">sd =</span> <span class="kw">sqrt</span>(state_variance_<span class="dv">2</span>))) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">gather</span>(key, value, state_mean_<span class="dv">2</span>, state2) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">ggplot</span>(<span class="kw">aes</span>(<span class="dt">x =</span> time, <span class="dt">y =</span> value, <span class="dt">colour =</span> key)) <span class="op">+</span>
-<span class="st">  </span><span class="kw">geom_line</span>() <span class="op">+</span>
-<span class="st">  </span><span class="kw">geom_line</span>(<span class="kw">aes</span>(<span class="dt">x =</span> time, <span class="dt">y =</span> lower), <span class="dt">linetype =</span> <span class="dv">3</span>, <span class="dt">colour =</span> <span class="st">&quot;#000000&quot;</span>) <span class="op">+</span>
-<span class="st">  </span><span class="kw">geom_line</span>(<span class="kw">aes</span>(<span class="dt">x =</span> time, <span class="dt">y =</span> upper), <span class="dt">linetype =</span> <span class="dv">3</span>, <span class="dt">colour =</span> <span class="st">&quot;#000000&quot;</span>) <span class="op">+</span>
-<span class="st">  </span><span class="kw">theme</span>(<span class="dt">legend.position =</span> <span class="st">&quot;bottom&quot;</span>) <span class="op">+</span>
-<span class="st">  </span><span class="kw">labs</span>(<span class="dt">title =</span> <span class="st">&quot;Kalman Filtering the Seasonal Model&quot;</span>, 
-       <span class="dt">subtitle =</span> <span class="st">&quot;Mean of the Filtering Distribution overlayed with the actual simulated state with 90% probability intervals&quot;</span>)</code></pre></div>
+<p>We can perform Kalman Filtering, to learn the distribution of the latent state given the data we have simulated:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> filtered = KalmanFilter.<span class="fu">kalmanFilter</span>(mod, sims, p)</code></pre></div>
 <p><img src="seasonal_dlm_files/figure-html/filtered-seasonal-1.png" width="672" /></p>
 </div>
 <div id="smoothing" class="section level1">
 <h1>Smoothing</h1>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">smoothed =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../data/seasonal_smoothed.csv&quot;</span>)
-
-smoothed <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">filter</span>(time <span class="op">&lt;</span><span class="st"> </span><span class="dv">500</span>) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">inner_join</span>(sims, <span class="dt">by =</span> <span class="st">&quot;time&quot;</span>) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">mutate</span>(<span class="dt">upper_smoothed =</span> <span class="kw">qnorm</span>(<span class="dt">p =</span> <span class="fl">0.975</span>, <span class="dt">mean =</span> state_mean_<span class="dv">1</span>, <span class="dt">sd =</span> <span class="kw">sqrt</span>(state_variance_<span class="dv">1</span>))) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">mutate</span>(<span class="dt">lower_smoothed =</span> <span class="kw">qnorm</span>(<span class="dt">p =</span> <span class="fl">0.025</span>, <span class="dt">mean =</span> state_mean_<span class="dv">1</span>, <span class="dt">sd =</span> <span class="kw">sqrt</span>(state_variance_<span class="dv">1</span>))) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">gather</span>(key, value, state1, state_mean_<span class="dv">1</span>) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">ggplot</span>(<span class="kw">aes</span>(<span class="dt">x =</span> time, <span class="dt">y =</span> value, <span class="dt">colour =</span> key)) <span class="op">+</span>
-<span class="st">  </span><span class="kw">geom_line</span>() <span class="op">+</span>
-<span class="st">  </span><span class="kw">geom_line</span>(<span class="kw">aes</span>(<span class="dt">x =</span> time, <span class="dt">y =</span> lower_smoothed), <span class="dt">linetype =</span> <span class="dv">2</span>, <span class="dt">colour =</span> <span class="st">&quot;#000000&quot;</span>) <span class="op">+</span>
-<span class="st">  </span><span class="kw">geom_line</span>(<span class="kw">aes</span>(<span class="dt">x =</span> time, <span class="dt">y =</span> upper_smoothed), <span class="dt">linetype =</span> <span class="dv">2</span>, <span class="dt">colour =</span> <span class="st">&quot;#000000&quot;</span>) <span class="op">+</span>
-<span class="st">  </span><span class="kw">theme</span>(<span class="dt">legend.position =</span> <span class="st">&quot;bottom&quot;</span>) <span class="op">+</span>
-<span class="st">  </span><span class="kw">labs</span>(<span class="dt">title =</span> <span class="st">&quot;Smoothed State Estimate&quot;</span>,
-       <span class="dt">subtitle =</span> <span class="st">&quot;Actual state and smoothed state, with associated 95% intervals&quot;</span>)</code></pre></div>
+<p>Kalman Smoothing can be performed:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> smoothed = Smoothing.<span class="fu">backwardsSmoother</span>(mod, p)(filtered)</code></pre></div>
 <p><img src="seasonal_dlm_files/figure-html/smoothed-seasonal-1.png" width="672" /></p>
 <div id="parameter-learning-using-gibbs-sampling" class="section level2">
 <h2>Parameter Learning using Gibbs Sampling</h2>
+<p>The system matrix <span class="math inline">\(W\)</span> is diagonal, hence the Inverse Gamma distribution can be used for the observation and system noise matrices in a Gibbs Sampler. The state is sampled using Forward Filtering Backward Sampling (FFBS), then conditional on the state, the system and observation noise matrices are sampled from Inverse Gamma distributions.</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = GibbsSampling.<span class="fu">gibbsSamples</span>(mod, <span class="fu">InverseGamma</span>(<span class="fl">5.0</span>, <span class="fl">4.0</span>), 
+  <span class="fu">InverseGamma</span>(<span class="fl">17.0</span>, <span class="fl">4.0</span>), p, data).
+  steps.
+  <span class="fu">take</span>(<span class="dv">10000</span>)</code></pre></div>
+<p>The diagnostic plots are below:</p>
 <div class="figure">
 <img src="seasonal_dlm_files/figure-html/seasonal-v-diagnostics-1.png" alt="Traceplot and running mean for posterior distribution of the observation variance parameter, $V$" width="672" />
 <p class="caption">
@@ -318,10 +320,33 @@ Diagnostic plots for the MCMC chain representing draws from the posterior distri
 </div>
 </div>
 </div>
-<div id="sample-states" class="section level1">
-<h1>Sample States</h1>
-<p>Testing the gibbs sampler FFBS algorithm by keeping the observation and system noise matrices constant and sampling the state using the FFBS algorithm. This is then compared to the actual state.</p>
-<p><img src="seasonal_dlm_files/figure-html/sample_state_one-1.png" width="672" /></p>
+<div id="forecast-dlm" class="section level1">
+<h1>Forecast DLM</h1>
+<p>Forecasting a DLM is equivalent to running the Kalman Filter without any observations at the time of interest. We initialise the forecast by using the posterior distribution of the latent state at the time of the last observation, <span class="math inline">\(x_T \sim \mathcal{N}(m_T, C_T)\)</span> and use the values of the parameters identified using Gibbs sampling.</p>
+<p>First we take the mean value of the MCMC parameters, assuming that the parameters have been written to a CSV called <code>seasonal_dlm_gibbs.csv</code> with eight columns, <span class="math inline">\(V, W_1,\dots,W_7\)</span>:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">  <span class="kw">val</span> mcmcChain = Paths.<span class="fu">get</span>(<span class="st">&quot;data/seasonal_dlm_gibbs.csv&quot;</span>)
+  <span class="kw">val</span> read = mcmcChain.<span class="fu">asCsvReader</span>[List[Double]](rfc.<span class="fu">withHeader</span>)
+
+  <span class="kw">val</span> params: List[Double] = read.
+    collect { <span class="kw">case</span> <span class="fu">Success</span>(a) =&gt; a }.
+    toList.
+    transpose.
+    <span class="fu">map</span>(a =&gt; <span class="fu">mean</span>(a))
+
+  <span class="kw">val</span> meanParameters = <span class="fu">Parameters</span>(
+    <span class="fu">DenseMatrix</span>(params.<span class="fu">head</span>), 
+    <span class="fu">diag</span>(<span class="fu">DenseVector</span>(params.<span class="fu">tail</span>.<span class="fu">toArray</span>)), 
+    p.<span class="fu">m0</span>,
+    p.<span class="fu">c0</span>)</code></pre></div>
+<p>When then use these parameters to get the posterior distribution of the final state:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">  <span class="kw">val</span> filtered = KalmanFilter.<span class="fu">kalmanFilter</span>(mod, data, meanParameters)
+  <span class="kw">val</span> (mt, ct, initTime) = filtered.<span class="fu">map</span>(a =&gt; (a.<span class="fu">mt</span>, a.<span class="fu">ct</span>, a.<span class="fu">time</span>)).<span class="fu">last</span></code></pre></div>
+<p>We then initialise the forecast function with state state posterior at the time of the last observation:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">  <span class="kw">val</span> forecasted = Dlm.<span class="fu">forecast</span>(mod, mt, ct, initTime, meanParameters).
+    <span class="fu">take</span>(<span class="dv">100</span>).
+    toList</code></pre></div>
+<p>The results of the forecasting and 95% prediction intervals are below:</p>
+<p><img src="seasonal_dlm_files/figure-html/forecast_seasonal_dlm-1.png" width="672" /></p>
 </div>
 
 
