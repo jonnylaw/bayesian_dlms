@@ -7,6 +7,7 @@ import breeze.linalg.DenseVector
 import breeze.stats.mean
 import math.{log, exp}
 import cats.implicits._
+
 /**
   * Particle Gibbs with Ancestor Sampling
   * Requires a Tractable state evolution kernel
@@ -66,7 +67,6 @@ object ParticleGibbsAncestor extends App {
     * Recalculate the weights such that the smallest weight is 1
     */
   def logSumExp(w: Vector[Double]) = {
-
     val largest = w.max
     w map (a => exp(a - largest))
   }
@@ -103,7 +103,7 @@ object ParticleGibbsAncestor extends App {
     // this is the state at time t
     val xt = (condState :: x1).map((time, _))
 
-    // return a list of length t 
+    // return a tuple containing a list describing the paths from 0:t-1, and the particles at time t
     ((xn :: x.transpose).transpose, xt)
   }
 

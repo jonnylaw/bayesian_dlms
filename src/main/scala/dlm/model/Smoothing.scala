@@ -141,7 +141,7 @@ object Smoothing {
     val lastTime = last.time
     val lastState = MultivariateGaussianSvd(last.mt, last.ct).draw
 
-    sortedState.tail.scanLeft(SamplingState(lastTime, lastState, last.at, last.rt))(backSampleStep(mod, p)).
+    sortedState.tail.scanLeft(SamplingState(lastTime, lastState, last.at, last.rt))(backSampleStepJoseph(mod, p)).
       sortBy(_.time).map(a => (a.time, a.sample))
   }
 }

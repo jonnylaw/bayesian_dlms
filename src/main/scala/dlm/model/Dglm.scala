@@ -35,6 +35,13 @@ object Dglm {
     }
   }
 
+  def beta(mean: Double, variance: Double): ContinuousDistr[Double] = {
+    val a = (mean * (1 - mean)) / variance
+    val alpha = mean * (a - 1)
+    val beta = (1 - mean) * (a - 1)
+    new Beta(alpha, beta)
+  }
+
   /**
     * Construct a DGLM with Beta distributed observations, 
     * with variance < mean (1 - mean)
@@ -44,21 +51,15 @@ object Dglm {
     Dglm.Model(
       observation = (x, v) => {
         val mean = logisticFunction(1.0)(x(0))
-        val a = (mean * (1 - mean)) / v(0,0)
-        val alpha = mean * (a - 1)
-        val beta = (1 - mean) * (a - 1)
         
-        new Beta(alpha, beta).map(DenseVector(_))
+        beta(mean, v(0,0)).map(DenseVector(_))
       },
       f = mod.f,
       g = mod.g,
       conditionalLikelihood = p => (x, y) => {
         val mean = logisticFunction(1.0)(x(0))
-        val a = (mean * (1 - mean)) / p.v(0,0)
-        val alpha = mean * (a - 1)
-        val beta = (1 - mean) * (a - 1)
 
-        new Beta(alpha, beta).logPdf(y(0))
+        beta(mean, v(0, 0)).logPdf(y(0))
       })
   }
 
