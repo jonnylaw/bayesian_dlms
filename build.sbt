@@ -11,7 +11,6 @@ libraryDependencies ++= Seq(
   "org.scalanlp"        %% "breeze-natives"     % "0.13.2",
   "org.typelevel"       %% "cats-core"          % "0.9.0",
   "com.nrinaudo"        %% "kantan.csv-cats"    % "0.2.1",
-  "io.spray"            %%  "spray-json"        % "1.3.3",
   "org.scalatest"       %% "scalatest"          % "3.0.4"  % "test"
 )
 

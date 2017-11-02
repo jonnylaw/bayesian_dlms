@@ -144,10 +144,9 @@ object ForecastSeasonal extends App with SeasonalModel with SeasonalData {
     take(100).
     toList
 
-  val out = new java.io.File("data/temperature_model_forecast.csv")
+  val out = new java.io.File("data/seasonal_model_forecast.csv")
   val headers = rfc.withHeader("Time", "Observation", "Variance")
   val writer = out.writeCsv(forecasted, headers)
-
 }
 
 /**
