@@ -35,6 +35,18 @@ object Dglm {
     }
   }
 
+  def studentT(df: Int, mod: Dlm.Model): Dglm.Model = {
+    Dglm.Model(
+      observation = (x: DenseVector[Double], v: DenseMatrix[Double]) =>
+        StudentsT(df).map(a => DenseVector(a * v(0,0) + x(0))),
+      mod.f,
+      mod.g,
+      conditionalLikelihood = (p: Dlm.Parameters) => 
+      (y: Observation, x: DenseVector[Double]) => 
+      1/p.v(0,0) * StudentsT(df).logPdf((y(0) - x(0)) / p.v(0,0))
+    )
+  }
+
   def beta(mean: Double, variance: Double): ContinuousDistr[Double] = {
     val a = (mean * (1 - mean)) / variance
     val alpha = mean * (a - 1)
@@ -59,7 +71,7 @@ object Dglm {
       conditionalLikelihood = p => (x, y) => {
         val mean = logisticFunction(1.0)(x(0))
 
-        beta(mean, v(0, 0)).logPdf(y(0))
+        beta(mean, p.v(0, 0)).logPdf(y(0))
       })
   }
 

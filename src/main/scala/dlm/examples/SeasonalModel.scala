@@ -177,27 +177,19 @@ object SampleStates extends App with SeasonalModel with SeasonalData {
 }
 
 /**
-  * Example of using Metropolis Hastings to determine the parameters of the simulated Seasonal Model
+  * Using the Metropolis alogrithm to determine the parameters of the simulated Seasonal Model
   */
-object SeasonalMetropolisHastings extends App with SeasonalModel with SeasonalData {
-  def proposal(delta: Double) = { p: Parameters =>
-    for {
-      m <- p.m0.data.toVector traverse (x => Gaussian(x, delta): Rand[Double])
-      innovc <- Applicative[Rand].replicateA(7, Gaussian(0, delta))
-      c = diag(p.c0) *:* DenseVector(exp(innovc.toArray))
-      innovw <- Applicative[Rand].replicateA(7, Gaussian(0, delta))
-      w = diag(p.w) *:* DenseVector(exp(innovw.toArray))
-      innovv <- Gaussian(0, delta)
-      v = diag(p.v) *:* DenseVector(exp(innovv))
-    } yield Parameters(diag(v), diag(w), DenseVector(m.toArray), diag(c))
-  }
+object SeasonalMetropolis extends App with SeasonalModel with SeasonalData {
+  val prior = (p: Parameters) => 0.0
 
-  val iters = MetropolisHastings.metropolisHastingsDlm(mod, data, proposal(1e-2), p).
+  val iters = Metropolis.dlm(mod, data, 
+    Metropolis.symmetricProposal(1e-2), prior, p).
     steps.
     take(100000)
 
   val out = new java.io.File("data/seasonal_dlm_metropolis.csv")
-  val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7"))
+  val headers = rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7")
+  val writer = out.asCsvWriter[List[Double]](headers)
 
   def formatParameters(p: Parameters) = {
     DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList

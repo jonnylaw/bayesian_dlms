@@ -122,8 +122,8 @@ object ParticleFilter {
   def likelihood(
     mod:          Model, 
     observations: Array[Data], 
-    p:            Dlm.Parameters, 
-    n:            Int) = {
+    n:            Int)(
+    p:            Dlm.Parameters) = {
 
     val initState = MultivariateGaussian(p.m0, p.c0).sample(n).toVector
     val init = State(observations.head.time - 1, initState, Vector.fill(n)(1.0 / n), 0.0)
