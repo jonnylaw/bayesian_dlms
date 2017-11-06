@@ -8,11 +8,16 @@ import dlm.model.Dlm._
 
 package object model {
   type Observation = DenseVector[Double]
-  type Time = Int
+  type Time = Double
   type ObservationMatrix = Time => DenseMatrix[Double]
   type SystemMatrix = Time => DenseMatrix[Double]
   type ConditionalLl = (Observation, DenseVector[Double]) => Double
   type LatentState = List[(Time, DenseVector[Double])]
+
+  /**
+    * A single observation of a model
+    */
+  case class Data(time: Time, observation: Option[Observation])
 
   /**
     * A Gaussian DLM can be implicitly converted to a DGLM
@@ -26,12 +31,6 @@ package object model {
       (p: Dlm.Parameters) => (x: DenseVector[Double], y: DenseVector[Double]) => MultivariateGaussianSvd(x, p.v).logPdf(y)
     )
   }
-
-  /**
-    * A single observation of a model
-    */
-  case class Data(time: Time, observation: Option[Observation])
-
 
   implicit val randMonad = new Monad[Rand] {
     def pure[A](x: A): Rand[A] = Rand.always(x)

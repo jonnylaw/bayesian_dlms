@@ -8,7 +8,6 @@ import breeze.stats.distributions.{Gaussian, MarkovChain, Rand}
 import java.nio.file.Paths
 import java.io.File
 import cats.implicits._
-import cats.data.Kleisli
 import kantan.csv._
 import kantan.csv.ops._
 

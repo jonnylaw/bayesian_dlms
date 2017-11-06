@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+
+<meta name="author" content="Jonathan Law" />
+
+<meta name="date" content="2017-06-11" />
+
+<title>Exact Inference for Continuous Time Dynamic Linear Models</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/readable.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+  height: auto;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 66px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+
+.section h2 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+.section h3 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+.section h4 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+.section h5 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+.section h6 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+
+<div class="container-fluid main-container">
+
+<!-- tabsets -->
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+</script>
+
+<!-- code folding -->
+
+
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Bayesian Inference for DLMs</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Examples
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="FirstOrderDlm.html">A Simple DLM</a>
+    </li>
+    <li>
+      <a href="second_order_dlm.html">Linear Growth DLM</a>
+    </li>
+    <li>
+      <a href="seasonal_dlm.html">Seasonal Composed DLM</a>
+    </li>
+    <li>
+      <a href="CorrelatedModel.html">Correlated Models</a>
+    </li>
+  </ul>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">Exact Inference for Continuous Time Dynamic Linear Models</h1>
+<h4 class="author"><em>Jonathan Law</em></h4>
+<h4 class="date"><em>06/11/2017</em></h4>
+
+</div>
+
+
+<div id="motivation-sensor-data" class="section level2">
+<h2>Motivation: Sensor data</h2>
+<p>The figure below shows measurements of temperuate from a sensor in the <a href="http://uoweb1.ncl.ac.uk">Urban Observatory</a>.</p>
+<p><img src="continuous_time_model_files/figure-html/ts-temperature-1.png" width="672" /></p>
+<p>The temperature data is observed irregularly, the data is supposed to arrive every minute, but network connectivity issues affect the transmission of the data resulting in lost observations. In order to model this process accurately, we can use a continuous time, continuous state space dynamic linear model:</p>
+<p><span class="math display">\[\begin{align*}
+Y(t_i) | \textbf{x}(t_i) &amp;= F(t_i) \textbf{x}(t_i) + v(t_i), &amp;v(t_i) &amp;\sim \mathcal{N}(0, V),\\
+\textbf{X}(t_i) | \textbf{x}(t_{i-1}) &amp;= G(\textrm{d}t)\textbf{x}(t_{i-1}) + \textbf{w}(t_i), &amp;\textbf{w}_t &amp;\sim \textrm{MVN}(0, W \textrm{d}t),\\
+\textbf{X}(t_0) &amp;\sim \textrm{MVN}(m(t_0), C(t_0)).
+\end{align*}
+\]</span></p>
+<p>Where the latent state, <span class="math inline">\(\textbf{X}(t)\)</span>, is a <span class="math inline">\(p\)</span> dimensional vector and the system evolution matrix <span class="math inline">\(G(\textrm{d}t)\)</span> is a <span class="math inline">\(p \times p\)</span> square matrix which depends on the time difference between <span class="math inline">\(t_i\)</span> and <span class="math inline">\(t_{i-1}\)</span> and <span class="math inline">\(\textbf{w}(t_i)\)</span> is <span class="math inline">\(p\)</span>-dimensional mean-zero Normal white noise. <span class="math inline">\(F(t_i)\)</span> is a possibly time dependent <span class="math inline">\(1 \times p\)</span> matrix, <span class="math inline">\(v(t_i)\)</span> is scalar mean-zero Normal white noise representing the measurement noise. The initial distribution of the latent state is multivariate normal with static parameters <span class="math inline">\(m(t_0)\)</span> and <span class="math inline">\(C(t_0)\)</span>.</p>
+</div>
+<div id="example-model-for-temperature" class="section level2">
+<h2>Example Model for Temperature</h2>
+<p>The temperature is seen to have strong daily and yearly seasonality, but weekly seasonality can also be seen in the figure below showing the distribution of temperature measurements for each day of the week:</p>
+<p><img src="continuous_time_model_files/figure-html/weekly-temperature-1.png" width="672" /></p>
+<p>The yearly seasonality can be modelled using a linear-trend, this is a pragmatic decision as there is only one year of data hence the parameters of a yearly seasonal model will be difficult to identify with a limited amount of data. The model is a composition of a linear trend model and two seasonal models (one for daily seasonality, the other for weekly seasonality). We first consider the linear trend model and identify the transition model in continuous time for this model.</p>
+<div id="linear-model-in-continuous-time" class="section level3">
+<h3>Linear Model in Continuous Time</h3>
+<p>The linear model has a 1-dimensional latent state, <span class="math inline">\(x(t)\)</span>, the observation and system evolution matrix are <span class="math inline">\(F(t) = 1\)</span>, <span class="math inline">\(G(t) = 1\)</span>, <span class="math inline">\(\forall t\)</span>. The transition kernel for the latent-state can be written as:</p>
+<p><span class="math display">\[p(x_{t_i} | x_{t_{i-1}}, W) = \mathcal{N}(x_{t-1}, W\textrm{d}t)\]</span></p>
+<p>This is the solution to a stochastic differential equation (SDE) for brownian motion:</p>
+<p><span class="math display">\[\textrm{d}X(t_i) = W\textrm{d}B(t_i).\]</span></p>
+<p>Where <span class="math inline">\(B\)</span> is standard brownian motion.</p>
+</div>
+</div>
+<div id="seasonal-model-in-continuous-time" class="section level2">
+<h2>Seasonal Model in Continuous Time</h2>
+<p>The seasonal model has a 2<span class="math inline">\(h\)</span>-dimensional state space, where <span class="math inline">\(h\)</span> is the number of harmonics in the seasonal model. The standard seasonal model consists of a block-diagonal <span class="math inline">\(G\)</span> matrix containing rotation matrices on the diagonal. The form of the rotation matrix is:</p>
+<p><span class="math display">\[R(\theta) = \begin{pmatrix}
+\cos(\theta) &amp; -\sin(\theta) \\
+\sin(\theta) &amp; \cos(\theta)
+\end{pmatrix}.\]</span></p>
+<p>The angle of rotation depends on the period, <span class="math inline">\(T\)</span>, such that a full rotation is made in each period. The angle of the rotation is then <span class="math inline">\(\theta = 2\pi / T\)</span>. This means at each application of the matrix, the state is “rotated” a further <span class="math inline">\(2\pi/T\)</span>. This is fine if it is required to only know the distribution of the latent state at whole numbers of the period, but the rotation can’t be applied to a half timestep. In the motivating temperature example the daily seasonal model can be said have a period of <span class="math inline">\(T = 24\)</span> if the timestamp is in increments of hours. The timesteps are mostly in increments of minutes, however measurements are irregular. It would be useful if there was a way to know the distribution of the latent state at an arbitrary timestep in the future, <span class="math inline">\(t + \delta t\)</span>.</p>
+<p>One possible way to do this is to consider <span class="math inline">\(\delta t\)</span> to be a small time step and have an infinitessimal rotation. If <span class="math inline">\(\theta\)</span> is very small then the trigonometric functions can be approximated by their Taylor expansion up to the first order terms, ie. <span class="math inline">\(\cos(\theta) = 1\)</span> and <span class="math inline">\(\sin(\theta) = \theta\)</span>. Then a small rotation of a vector <span class="math inline">\(\textbf{u} = (x, y)\)</span> is given by <span class="math inline">\((I + A\textrm{d}\theta)\textbf{u}\)</span>, where <span class="math inline">\(A\)</span> is the skew symmetrix matrix:</p>
+<p><span class="math display">\[A = \begin{pmatrix}
+0 &amp; -1 \\
+1 &amp; 0
+\end{pmatrix}.\]</span></p>
+<p>The many infinitessimal rotations can be chained, one advantage of infinitessimal rotations is that they are commutative. <strong>But why is this necessary?</strong></p>
+<p>Another consideration is since the evolution of the state depends on the time increment, <span class="math inline">\(\textrm{d}t\)</span>, then the angle of rotation can simple depend on the time increment in the same units as the time <span class="math inline">\(t\)</span>. Then the angle of rotation is: <span class="math inline">\(\omega = 2\pi(\textrm{d}t \operatorname{mod} T) / T\)</span>.</p>
+</div>
+<div id="exact-filtering-for-continuous-time-dlms" class="section level2">
+<h2>Exact Filtering For Continuous Time DLMs</h2>
+<p>Assume the last observation of the process was at time <span class="math inline">\(t_i\)</span>, and we have the posterior of the state at time <span class="math inline">\(t_i\)</span> which is described by the mean and variance of the distribution, <span class="math inline">\(m(t_i)\)</span> and <span class="math inline">\(C(t_i)\)</span>. Then to update the posterior at the time of the next observation <span class="math inline">\(t_{i+1}\)</span>:</p>
+<ol style="list-style-type: decimal">
+<li>Calculate the time difference to the next observation, <span class="math inline">\(\textrm{d}t = t_{i+1} - t_i\)</span></li>
+<li>State Prior: <span class="math inline">\(a(t_{i+1}) = G(\textrm{d}t)m(t_i), R(t_{i+1}) = G(\textrm{d}t)C(t_i)G^T(\textrm{d}t) + W \textrm{d}t\)</span></li>
+<li>Forecast: <span class="math inline">\(f(t_{i+1}) = F(t_{i+1})a(t_{i+1}), Q(t_{i+1}) = F(t_{i+1}) R(t_{i+1}) F^T(t_{i+1}) + V\)</span></li>
+<li>Update: <span class="math inline">\(m(t_{i+1}) = a(t_{i+1}) + K(t_{i+1}) * e(t_{i+1}), C(t_{i+1}) = (I - K(t_{i+1}) F(t_{i+1})) R(t_{i+1})\)</span></li>
+</ol>
+<p>where, <span class="math inline">\(K(t) = R(t) F^T(t) Q(t)^{-1}\)</span> and <span class="math inline">\(e(t) = y(t) - f(t)\)</span>. We can prove this using results about the Gaussian distribution:</p>
+<div id="example-temperature-model" class="section level3">
+<h3>Example: Temperature Model</h3>
+<p>Consider the temperature model discussed above, here is a simulation from the model:</p>
+<p><img src="continuous_time_model_files/figure-html/seasonal_observations-1.png" width="672" /></p>
+<p><img src="continuous_time_model_files/figure-html/seasonal_state-1.png" width="672" /></p>
+<p>Now we can perform filtering using the Exact filtering algorithm:</p>
+<p><img src="continuous_time_model_files/figure-html/filtered_seasonal-1.png" width="672" /><img src="continuous_time_model_files/figure-html/filtered_seasonal-2.png" width="672" /></p>
+</div>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

@@ -1,4 +1,3 @@
-
 package dlm.model
 
 import breeze.linalg.{DenseMatrix, diag, DenseVector, inv}
@@ -31,54 +30,61 @@ object KalmanFilter {
   )
 
   def advanceState(
-    mod:  Model, 
+    g:    Time => DenseMatrix[Double], 
     mt:   DenseVector[Double], 
     ct:   DenseMatrix[Double],
     time: Time, 
     p:    Parameters) = {
 
-    val at = mod.g(time) * mt
-    val rt = mod.g(time) * ct * mod.g(time).t + p.w
+    val at = g(time) * mt
+    val rt = g(time) * ct * g(time).t + p.w
 
     (at, rt)
   }
 
   def oneStepPrediction(
-    mod:  Model,
+    f:    Time => DenseMatrix[Double],
     at:   DenseVector[Double],
     rt:   DenseMatrix[Double],
     time: Time,
     p:    Parameters) = {
 
-    val ft = mod.f(time).t * at
-    val qt = mod.f(time).t * rt * mod.f(time) + p.v
+    val ft = f(time).t * at
+    val qt = f(time).t * rt * f(time) + p.v
 
     (ft, qt)
   }
 
   /**
     * Update the state using Joseph Form Update given the newly observed data
-    * @param 
+    * @param f the observation matrix
+    * @param at the a priori state mean at time t
+    * @param rt the a priori state variance at time t
+    * @param predicted the mean of the one-step forecast at time t
+    * @param qt the variance of the one-step forecast at time t
+    * @param y the actual observation at time t
+    * @param p the parameters of a DLM
+    * @return the posterior mean and variance of the latent state at time t
     */
   def updateState(
-    mod: Model, 
-    at: DenseVector[Double],
-    rt: DenseMatrix[Double],
+    f:         Time => DenseMatrix[Double],
+    at:        DenseVector[Double],
+    rt:        DenseMatrix[Double],
     predicted: Observation, 
-    qt: DenseMatrix[Double],
-    y: Data, 
-    p: Parameters) = y.observation match {
+    qt:        DenseMatrix[Double],
+    y:         Data, 
+    p:         Parameters) = y.observation match {
     case Some(obs) =>
       val time = y.time
       val residual = obs - predicted
     
-      val kalman_gain = (qt.t \ (mod.f(time).t * rt.t)).t
+      val kalman_gain = (qt.t \ (f(time).t * rt.t)).t
       val mt1 = at + kalman_gain * residual
       val n = p.w.cols
 
       val identity = DenseMatrix.eye[Double](n)
 
-      val diff = (identity - kalman_gain * mod.f(time).t)
+      val diff = (identity - kalman_gain * f(time).t)
       val covariance = diff * rt * diff.t + kalman_gain * p.v * kalman_gain.t
 
       (mt1, covariance)
@@ -100,9 +106,9 @@ object KalmanFilter {
   def stepKalmanFilter(
     mod: Model, p: Parameters)(state: State, y: Data): State = {
 
-    val (at, rt) = advanceState(mod, state.mt, state.ct, y.time, p)
-    val (ft, qt) = oneStepPrediction(mod, at, rt, y.time, p)
-    val (mt, ct) = updateState(mod, at, rt, ft, qt, y, p)
+    val (at, rt) = advanceState(mod.g, state.mt, state.ct, y.time, p)
+    val (ft, qt) = oneStepPrediction(mod.f, at, rt, y.time, p)
+    val (mt, ct) = updateState(mod.f, at, rt, ft, qt, y, p)
 
     val ll = state.ll + conditionalLikelihood(ft, qt, y.observation)
 
@@ -112,9 +118,14 @@ object KalmanFilter {
   /**
     * Run the Kalman Filter over an array of data
     */
-  def kalmanFilter(mod: Model, observations: Array[Data], p: Parameters) = {
-    val (at, rt) = advanceState(mod, p.m0, p.c0, 0, p)
-    val init = State(observations.map(_.time).min - 1, p.m0, p.c0, at, rt, None, None, 0.0)
+  def kalmanFilter(
+    mod:          Model, 
+    observations: Array[Data], 
+    p:            Parameters) = {
+    val (at, rt) = advanceState(mod.g, p.m0, p.c0, 0, p)
+    val init = State(
+      observations.map(_.time).min - 1, 
+      p.m0, p.c0, at, rt, None, None, 0.0)
 
     observations.scanLeft(init)(stepKalmanFilter(mod, p))
   }
@@ -122,8 +133,12 @@ object KalmanFilter {
   /**
     * Calculate the marginal likelihood of a DLM using a kalman filter
     */
-  def logLikelihood(mod: Model, observations: Array[Data])(p: Parameters): Double = {
-    val (at, rt) = advanceState(mod, p.m0, p.c0, 0, p)
+  def logLikelihood(
+    mod: Model, 
+    observations: Array[Data])
+    (p: Parameters): Double = {
+
+    val (at, rt) = advanceState(mod.g, p.m0, p.c0, 0, p)
     val init = State(
       observations.head.time,
       p.m0,

@@ -48,8 +48,8 @@ object Dlm {
 
     Model(
       (t: Time) => {
-          val m = 1 + x(t).size
-          new DenseMatrix(m, 1, 1.0 +: x(t).data)
+          val m = 1 + x(t.toInt).size
+          new DenseMatrix(m, 1, 1.0 +: x(t.toInt).data)
       },
       (t: Time) => DenseMatrix.eye[Double](2)
     )
@@ -126,12 +126,12 @@ object Dlm {
   }
 
   /**
-    * 
+    * Simulate the latent-state from a DLM model
     */
   def simulateState(
     mod: Model,
     w: DenseMatrix[Double]): Process[(Time, DenseVector[Double])] = {
-    MarkovChain((1, DenseVector.zeros[Double](w.cols))){ case (time, x) => 
+    MarkovChain((1.0, DenseVector.zeros[Double](w.cols))){ case (time, x) => 
       MultivariateGaussianSvd(mod.g(time + 1) * x, w).map((time + 1, _))
     }
   }
@@ -185,8 +185,8 @@ object Dlm {
     ct:   DenseMatrix[Double],
     p:    Parameters) = {
 
-    val (at, rt) = KalmanFilter.advanceState(mod, mt, ct, time, p)
-    val (ft, qt) = KalmanFilter.oneStepPrediction(mod, at, rt, time, p)
+    val (at, rt) = KalmanFilter.advanceState(mod.g, mt, ct, time, p)
+    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, at, rt, time, p)
 
     (time, at, rt, ft, qt)
   }
@@ -201,7 +201,7 @@ object Dlm {
     time: Time,
     p:    Parameters) = {
 
-    val (ft, qt) = KalmanFilter.oneStepPrediction(mod, mt, ct, time, p)
+    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, mt, ct, time, p)
 
     Stream.iterate((time, mt, ct, ft, qt)){ 
       case (t, m, c, _, _) => stepForecast(mod, t + 1, m, c, p) }.
