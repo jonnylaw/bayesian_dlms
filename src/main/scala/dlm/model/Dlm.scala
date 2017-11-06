@@ -8,12 +8,6 @@ import cats.implicits._
 import math.sqrt
 
 object Dlm {
-  type State = MultivariateGaussian
-  type Observation = DenseVector[Double]
-  type Time = Int
-  type ObservationMatrix = Time => DenseMatrix[Double]
-  type SystemMatrix = Time => DenseMatrix[Double]
-
   /**
     * Definition of a DLM
     */
@@ -86,16 +80,19 @@ object Dlm {
     )
   }
 
+  def buildSeasonalMatrix(period: Int, harmonics: Int): DenseMatrix[Double] = {
+    val freq = 2 * math.Pi / period
+    val matrices = (1 to harmonics) map (h => rotationMatrix(freq * h))
+    matrices.reduce(blockDiagonal)
+  }
+
   /**
     * Create a seasonal model with fourier components in the system evolution matrix
     */
   def seasonal(period: Int, harmonics: Int): Model = {
-    val freq = 2 * math.Pi / period
-    val matrices = (1 to harmonics) map (h => rotationMatrix(freq * h))
-
     Model(
       (t: Time) => DenseMatrix.tabulate(harmonics * 2, 1){ case (h, i) => if (h % 2 == 0) 1 else 0 },
-      (t: Time) => matrices.reduce(blockDiagonal)
+      (t: Time) => buildSeasonalMatrix(period, harmonics)
     )
   }
 
