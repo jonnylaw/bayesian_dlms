@@ -9,6 +9,7 @@ import dlm.model.Dlm._
 package object model {
   type Observation = DenseVector[Double]
   type Time = Double
+  type TimeIncrement = Double
   type ObservationMatrix = Time => DenseMatrix[Double]
   type SystemMatrix = Time => DenseMatrix[Double]
   type ConditionalLl = (Observation, DenseVector[Double]) => Double

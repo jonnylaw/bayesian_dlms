@@ -4,8 +4,6 @@ import breeze.linalg._
 import breeze.stats.distributions._
 
 object ContinuousTime {
-  type TimeIncrement = Double
-
   /**
     * A continuous time model has a G matrix which depends on the 
     * time increment between latent-state realisations
@@ -31,19 +29,6 @@ object ContinuousTime {
 
     matrices(dt).reduce(Dlm.blockDiagonal)
   }
-
-  /**
-    *  Infinitessimal rotation
-    *  w small, then cos(w) ~ 1, sin(w) ~ w and R = ((1, -w), (w, 1))
-    *  Then for a small rotation we have (I + Adw) x
-    */
-  // def infinitessimalRotation(theta: Double)(x: DenseMatrix[Double]) = {
-
-  //   val i = DenseMatrix.eye[Double](2)
-  //   val r = DenseMatrix((0.0, -1.0), (1.0, 0.0))
-
-  //   x * (i + r * theta)
-  // }
 
   def dglm2Model(mod: Dglm.Model, contG: TimeIncrement => DenseMatrix[Double]) = {
     Model(
@@ -74,5 +59,45 @@ object ContinuousTime {
     state.map { case (t, x) => 
       (Data(t, Some(MultivariateGaussianSvd(mod.f(t).t * x, p.v).draw)), x) 
     }
+  }
+
+
+  /**
+    * Perform a single forecast step, equivalent to performing the Kalman Filter
+    * Without an observation of the process
+    * @param mod a DLM specification
+    * @param time the current time 
+    * @param mt the mean of the latent state at time t
+    * @param ct the variance of the latent state at time t
+    * @param p the parameters of the DLM
+    */
+  def stepForecast(
+    mod:  Model,
+    time: Time,
+    mt:   DenseVector[Double], 
+    ct:   DenseMatrix[Double],
+    p:    Dlm.Parameters) = {
+
+    val (at, rt) = ExactFilter.advanceState(mod.g, mt, ct, time, p)
+    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, at, rt, time, p)
+
+    (time, at, rt, ft, qt)
+  }
+
+  /**
+    * Forecast a DLM from a state
+    */
+  def forecast(
+    mod:  Model, 
+    mt:   DenseVector[Double], 
+    ct:   DenseMatrix[Double],
+    time: Time,
+    p:    Dlm.Parameters) = {
+
+    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, mt, ct, time, p)
+
+    Stream.iterate((time, mt, ct, ft, qt)){ 
+      case (t, m, c, _, _) => stepForecast(mod, t + 1, m, c, p) }.
+      map(a => (a._1, a._4.data(0), a._5.data(0)))
   }
 }

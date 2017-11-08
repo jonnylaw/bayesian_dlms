@@ -37,17 +37,40 @@ object Metropolis {
     * @param m a diagonal DenseMatrix[Double], representing a covariance matrix
     */
   def proposeDiagonalMatrix(delta: Double)(m: DenseMatrix[Double]) = {
-    rmvn(DenseMatrix.eye[Double](m.cols) * (1.0 /delta)).
+    rmvn(DenseMatrix.eye[Double](m.cols) * (math.sqrt(delta))).
       map(i => diag(m) *:* exp(i)).
       map(a => diag(a))
   }
 
   /**
-    * Propose a new value of the parameters
+    * Propose a new value of the parameters on the log scale
     */
   def symmetricProposal(delta: Double)(p: Parameters): Rand[Parameters] = {
     val logP = Parameters(p.v.map(log), p.w.map(log), p.m0, p.c0.map(log))
-    Rand.always(logP.map(x => proposeDouble(delta)(x).draw))
+    val newP = logP.map(x => proposeDouble(delta)(x).draw)
+    Parameters(p.v.map(exp), p.w.map(exp), p.m0, p.c0.map(exp))
+  }
+
+  /**
+    * A Single Step without acceptance ratio
+    */
+  def step[A](
+    proposal:   A => Rand[A],
+    prior:      A => Double,
+    likelihood: A => Double
+  )(state: (A, Double)) = {
+
+    for {
+      propP <- proposal(state._1)
+      prop_ll = likelihood(propP) + prior(propP)
+      a = prop_ll - state._2
+      u <- Uniform(0, 1)
+      next = if (log(u) < a) {
+        (propP, prop_ll)
+      } else {
+        state
+      }
+    } yield next
   }
 
   /**
@@ -141,7 +164,7 @@ object MetropolisHastings {
   }
 
   /**
-    * Particle Marginal Metropolis Hastings for a DGLM
+    * Particle Marginal Metropolis Hastings for a ContinuousTime Model
     * Where the log-likelihood is an estimate calculated using the bootstrap
     * particle filter 
     * @param mod a DGLM model 
@@ -163,5 +186,4 @@ object MetropolisHastings {
     MarkovChain(initState)(mhStep[Parameters](proposal, 
       prior, ParticleFilter.likelihood(mod, observations, n)))
   }
-
 }

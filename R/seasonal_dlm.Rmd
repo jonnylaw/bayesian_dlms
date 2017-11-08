@@ -37,7 +37,7 @@ R(1, \omega) & 0 & \dots & \dots & 0 \\
 
 The observation matrix is $1 \times 2h$ dimensional:
 
-$$F = \begin{pmatrix}1 \\ 0 \\ 1 \\ \vdots \\ 1 \\ 0 \end{pmatrix}.$$
+$$F = \begin{pmatrix}1 & 0 & 1 & \dots & 1 & 0 \end{pmatrix}.$$
 
 We can specify a seasonal model with trend using:
 
@@ -80,6 +80,7 @@ Plot the states:
 ```{r seasonal-states}
 sims %>%
   select(time, contains("state")) %>%
+  filter(time > 750) %>%
   gather(key, value, -time) %>%
   ggplot(aes(x = time, y = value)) +
   geom_line() +

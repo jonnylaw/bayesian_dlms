@@ -8,17 +8,6 @@ import Dlm._
   * This class learns a correlated system matrix using the InverseWishart prior on the system noise matrix
   */
 object GibbsWishart {
-  /**
-    * Sample a diagonal observation covariance matrix from the d-inverse Gamma Prior
-    */
-  def sampleObservationMatrix(
-    priorV:       InverseGamma, 
-    mod:          Model, 
-    state:        Array[(Time, DenseVector[Double])], 
-    observations: Array[Data]) = {
-
-    GibbsSampling.sampleObservationMatrix(priorV, mod, state, observations)
-  }
 
   /**
     * Sample the system covariance matrix using an Inverse Wishart prior on the system covariance matrix
@@ -50,7 +39,8 @@ object GibbsWishart {
     for {
       system <- sampleSystemMatrix(priorW, mod, state.state)
       latentState = GibbsSampling.sampleState(mod, observations, Parameters(state.p.v, system, state.p.m0, state.p.c0))
-      obs <- sampleObservationMatrix(priorV, mod, latentState, observations)
+      obs <- GibbsSampling.sampleObservationMatrix(
+        priorV, mod.f, latentState, observations)
       p = Parameters(obs, system, state.p.m0, state.p.c0)
     } yield GibbsSampling.State(p, latentState)
   }

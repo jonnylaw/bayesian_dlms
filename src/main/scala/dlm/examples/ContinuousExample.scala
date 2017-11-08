@@ -3,6 +3,7 @@ package dlm.examples
 import dlm.model._
 import breeze.linalg._
 import breeze.stats.distributions._
+import cats._
 import cats.implicits._
 import java.nio.file.Paths
 import kantan.csv._
@@ -31,6 +32,16 @@ trait SeasonalContMod {
     c0 = DenseMatrix.eye[Double](13))
 }
 
+trait SeasonalIrregData {
+  val rawData = Paths.get("data/seasonal_dlm_irregular.csv")
+  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader(false))
+  val observations = reader.
+    collect { 
+      case Success(a) => Data(a.head, Some(a(1)).map(DenseVector(_)))
+    }.
+    toArray
+}
+
 object SimulateContinuous extends App with SeasonalContMod {
   // generate a list of irregular times
   val times = (1 to 1000).map(_.toDouble).
@@ -49,15 +60,8 @@ object SimulateContinuous extends App with SeasonalContMod {
   out.writeCsv(sims.map(format), headers)
 }
 
-object FilterSeasonalIrregular extends App with SeasonalContMod {
-  val rawData = Paths.get("data/seasonal_dlm_irregular.csv")
-  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader(false))
-  val observations = reader.
-    collect { 
-      case Success(a) => Data(a.head, Some(a(1)).map(DenseVector(_)))
-    }.
-    toArray
-
+object FilterSeasonalIrregular extends App with SeasonalContMod with SeasonalIrregData {
+ 
   val filtered = ExactFilter.filter(contMod, observations, p)
 
   val out = new java.io.File("data/seasonal_dlm_irregular_filtered.csv")
@@ -71,3 +75,71 @@ object FilterSeasonalIrregular extends App with SeasonalContMod {
   out.writeCsv(filtered.map(formatFiltered), headers)
 }
 
+object BackwardSample extends App with SeasonalContMod with SeasonalIrregData {
+  val states = Monad[Rand].replicateA(100, ExactBackSample.ffbs(contMod, observations, p)).
+    draw.
+    flatten.
+    groupBy(_._1).
+    map { case (time, state) => 
+      state.
+        reduce((a, b) => (a._1, a._2 + b._2)).
+        map(_ / 100.0) 
+    }
+
+  val out = new java.io.File("data/seasonal_dlm_irregular_back_sample.csv")
+
+  def format(f: (Time, DenseVector[Double])): List[Double] = {
+    List(f._1) ++ f._2.data.toList
+  }
+
+  val headers = rfc.withHeader(false)
+
+  out.writeCsv(states.map(format), headers)
+}
+
+object GibbsSampleIrregular extends App with SeasonalContMod with SeasonalIrregData {
+
+  def priorW(w: DenseMatrix[Double]) =
+    diag(p.v).map(InverseGamma(21.0, 10.0).logPdf).sum
+
+  // metropolis step for W
+  def metropolisStep(
+    p: Dlm.Parameters, 
+    s: (DenseMatrix[Double], Double)) = {
+
+    Metropolis.step(
+      Metropolis.proposeDiagonalMatrix(0.05),
+      priorW,
+      (newW: DenseMatrix[Double]) => 
+      ExactFilter.logLikelihood(contMod, observations)(p.copy(w = newW))
+    )(s)
+  }
+
+  // Gibbs step for V
+  def gibbsStep(state: Array[(Time, DenseVector[Double])]) = {
+    GibbsSampling.sampleObservationMatrix(
+      InverseGamma(4.0, 5.0), contMod.f, state, observations)
+  }
+
+  // full MCMC step for V and W
+  val mcmcStep = (s: (Dlm.Parameters, Double)) => for {
+    state <- ExactBackSample.ffbs(contMod, observations, p)
+    (w, ll) <- metropolisStep(p, (s._1.w, s._2))
+    v <- gibbsStep(state)
+  } yield (Dlm.Parameters(v, w, p.m0, p.c0), ll)
+
+  val init = (p, -1e99)
+  val iters = MarkovChain(init)(mcmcStep).
+    steps.
+    map(_._1).
+    take(10000)
+
+  val headers = rfc.withHeader("V", "W1", "W2", "W3", "W4", 
+    "W5", "W6", "W7", "W8", "W9", "W10", "W11", "W12", "W13")
+
+  def formatParameters(p: Dlm.Parameters) = {
+    DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
+  }
+
+  Streaming.writeChain(formatParameters, "data/seasonal_irregular_gibbs.csv", headers)(iters)
+}

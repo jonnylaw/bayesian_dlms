@@ -66,7 +66,7 @@ object PoissonDglmGibbs extends App with PoissonDglm with PoissonData {
   val priorW = InverseGamma(11.0, 1.0)
 
   val mcmcStep = (s: LatentState, p: Dlm.Parameters) => for {
-    w <- GibbsSampling.sampleSystemMatrix(priorW, model, s.toArray)
+    w <- GibbsSampling.sampleSystemMatrix(priorW, model.g, s.toArray)
     (ll, state) <- ParticleGibbs.filter(n, params, model, data.toList)(s)
   } yield (state, Dlm.Parameters(p.v, w, p.m0, p.c0))
 
@@ -102,7 +102,7 @@ object PoissonDglmGibbsAncestor extends App with PoissonDglm with PoissonData {
   val priorW = InverseGamma(11.0, 1.0)
 
   val mcmcStep = (s: LatentState, p: Dlm.Parameters) => for {
-    w <- GibbsSampling.sampleSystemMatrix(priorW, model, s.toArray)
+    w <- GibbsSampling.sampleSystemMatrix(priorW, model.g, s.toArray)
     (ll, state) <- ParticleGibbsAncestor.filter(n, params, model, data.toList)(s)
   } yield (state, Dlm.Parameters(p.v, w, p.m0, p.c0))
 

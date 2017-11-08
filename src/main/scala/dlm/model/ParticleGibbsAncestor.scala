@@ -97,7 +97,7 @@ object ParticleGibbsAncestor extends App {
     val xn = sample(1, states.transpose, transProb).head.toList
 
     // advance the n-1 states
-    val x1 = ParticleFilter.advanceState(mod, time, x.head.map(_._2), p).draw.toList
+    val x1 = ParticleFilter.advanceState(mod.g, time, x.head.map(_._2), p).draw.toList
 
     // set the nth particle at time t to the conditioned state at time t
     // this is the state at time t
