@@ -17,14 +17,30 @@ object Metropolis {
   /**
     * Add a Random innovation to a numeric value using the Gaussian distribution 
     * @param delta the standard deviation of the innovation distribution
-    * @param a the starting value of the parameter
-    * @return a Rand[Double] representing a perturbation of the double a which can be drawn from
+    * @param a the starting value of the Double
+    * @return a Rand[Double] representing a perturbation of the 
+    * double a which can be drawn from
     */
   def proposeDouble(delta: Double)(a: Double) = 
     Gaussian(0.0, delta).map(i => a + i)
 
   /**
-    * Simulate from a multivariate normal distribution given the cholesky decomposition of the covariance matrix
+    * Add a Random innovation to a DenseVector[Double] using 
+    * the Gaussian distribution 
+    * @param delta the standard deviation of the innovation distribution
+    * @param a the starting value of the parameter
+    * @return a Rand[DenseVector[Double]] representing a perturbation
+    *  of the double a which can be drawn from
+    */
+  def proposeVector(delta: Double)(a: DenseVector[Double]) = {
+    for {
+      i <- Applicative[Rand].replicateA(a.size, Gaussian(0.0, delta))
+    } yield DenseVector(i.toArray) + a
+  }
+
+  /**
+    * Simulate from a multivariate normal distribution
+    * given the cholesky decomposition of the covariance matrix
     */
   def rmvn(chol: DenseMatrix[Double])(implicit rand: RandBasis = Rand) = {
     Rand.always(chol * DenseVector.rand(chol.cols, rand.gaussian(0, 1)))
@@ -35,6 +51,7 @@ object Metropolis {
     * and ensuring the resulting diagonal is symmetric
     * @param delta the standard deviation of the innovation distribution
     * @param m a diagonal DenseMatrix[Double], representing a covariance matrix
+    * @return a distribution over the diagonal matrices
     */
   def proposeDiagonalMatrix(delta: Double)(m: DenseMatrix[Double]) = {
     rmvn(DenseMatrix.eye[Double](m.cols) * (math.sqrt(delta))).
@@ -46,9 +63,12 @@ object Metropolis {
     * Propose a new value of the parameters on the log scale
     */
   def symmetricProposal(delta: Double)(p: Parameters): Rand[Parameters] = {
-    val logP = Parameters(p.v.map(log), p.w.map(log), p.m0, p.c0.map(log))
-    val newP = logP.map(x => proposeDouble(delta)(x).draw)
-    Parameters(p.v.map(exp), p.w.map(exp), p.m0, p.c0.map(exp))
+    for {
+      v <- proposeDiagonalMatrix(delta)(p.v)
+      w <- proposeDiagonalMatrix(delta)(p.w)
+      m0 <- proposeVector(delta)(p.m0)
+      c0 <- proposeDiagonalMatrix(delta)(p.c0)
+    } yield Parameters(v, w, m0, c0)
   }
 
   /**

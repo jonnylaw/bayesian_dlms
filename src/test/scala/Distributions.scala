@@ -7,6 +7,7 @@ import org.scalatest._
 import prop._
 import org.scalacheck.Gen
 import org.scalactic.Equality
+import Dglm._
 
 trait BreezeGenerators {
   val denseVector = (n: Int) => Gen.containerOfN[Array, Double](n, Gen.choose(-10.0, 10.0)).
@@ -109,19 +110,7 @@ trait BreezeGenerators {
 //   }
 // }
 
-class MvnDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
- /**
-    * Calculate the mean and covariance of a sequence of DenseVectors
-    */
-  def meanCovSamples(samples: Seq[DenseVector[Double]]) = {
-    val n = samples.size
-    val m = new DenseMatrix(n, samples.head.size, samples.map(_.data).toArray.transpose.flatten)
-    val sampleMean = samples.reduce(_ + _).map(_ * 1.0/n)
-    val sampleCovariance = covmat.matrixCovariance(m)
-
-    (sampleMean, sampleCovariance)
-  }
-  
+class MvnDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {  
   property("MVN distribution") {
     forAll(symmetricPosDefMatrix(2, 1000)) { cov =>
       implicit val tol = 1e-2
