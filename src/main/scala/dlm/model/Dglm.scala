@@ -155,6 +155,6 @@ object Dglm {
         x1 <- ParticleFilter.advanceState(mod.g, t + 1, x, p)
       } yield (t + 1, x1)
     }.steps.
-      map { case (t, x) => (t, meanVarObservation(mod, x, p.v)) }
+      map { case (t, x) => (t, meanVarObservation(mod, x, p.v).draw) }
   }
 }

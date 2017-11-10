@@ -48,13 +48,22 @@ object ContinuousTime {
     )
   }
 
+  def simulateState(
+    times: Iterable[Double], 
+    g:     TimeIncrement => DenseMatrix[Double],
+    p:     Dlm.Parameters,
+    init:  (Time, DenseVector[Double])) = {
+
+    times.tail.scanLeft(init) { (x, t) =>
+      val dt = t - x._1
+      (t, MultivariateGaussianSvd(g(dt) * x._2, p.w * dt).draw)
+    }
+  }
+
   def simulate(times: Iterable[Double], mod: Model, p: Dlm.Parameters) = {
     val init = (times.head, MultivariateGaussianSvd(p.m0, p.c0).draw)
 
-    val state = times.tail.scanLeft(init) { (x, t) =>
-      val dt = t - x._1
-      (t, MultivariateGaussianSvd(mod.g(dt) * x._2, p.w * dt).draw)
-    }
+    val state = simulateState(times, mod.g, p, init)
 
     state.map { case (t, x) => 
       (Data(t, Some(MultivariateGaussianSvd(mod.f(t).t * x, p.v).draw)), x) 

@@ -107,6 +107,44 @@ object GibbsSampling extends App {
     Rand.always(diag(res))
   }
 
+  def diff[A](xs: Seq[A])(implicit A: Numeric[A]): Seq[A] = {
+    (xs, xs.tail).zipped.map { case (x, x1) => A.minus(x1, x) }
+  }
+
+  /**
+    * Sample the diagonal system matrix for an irregularly observed 
+    * DLM
+    */
+  def sampleSystemMatrixCont(
+    prior: InverseGamma,
+    g:     TimeIncrement => DenseMatrix[Double],
+    state: Array[(Time, DenseVector[Double])]): Rand[DenseMatrix[Double]] = {
+    
+    val sortedState = state.sortBy(_._1)
+    val times = sortedState.map(_._1)
+    val deltas = diff(times)
+    val advanceState = (deltas, sortedState.init.map(_._2)).
+      zipped.
+      map { case (dt, x) => g(dt) * x }
+
+    val stateMean = sortedState.map(_._2).tail
+
+    // take the squared difference of x_t - g * x_{t-1} for t = 1 ... 0
+    // add them all up
+    val squaredSum = (deltas zip stateMean zip advanceState).
+      map { case ((dt, mt), at) => ((mt - at) *:* (mt - at)) / dt }.
+      reduce(_ + _)
+
+    val shape = prior.shape + (state.size - 1) * 0.5
+    val rate = squaredSum map (s => prior.scale + s * 0.5)
+
+    val res = rate.map(r =>
+      InverseGamma(shape, r).draw
+    )
+
+    Rand.always(diag(res))
+  }
+
   /**
     * Sample state
     */

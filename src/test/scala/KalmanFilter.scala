@@ -19,6 +19,7 @@ class KfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matchers w
 
   property("Solution to linear system") {
     forAll (linearSystem(2)) { case (rt, qt) =>
+      implicit val tol = 1e-2
       val naive = rt * inv(qt)
       val better = (qt.t \ rt.t).t
 
@@ -48,7 +49,7 @@ class KfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matchers w
     }
   }
 
-  property("Backward Sampling is length filtered and contains the same times") {
+  property("Backward Sampling is the length of the filtered state and contains the same times") {
     forAll (params) { p =>
       val data = observations(p)
       val filtered = KalmanFilter.kalmanFilter(mod, data, p)

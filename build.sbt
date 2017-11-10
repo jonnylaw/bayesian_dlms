@@ -4,7 +4,7 @@ name := "bayesian_dlms"
 
 organization := "com.github.jonnylaw"
 
-version := "0.1.1"
+version := "0.2-SNAPSHOT"
 
 libraryDependencies ++= Seq(
   "org.scalanlp"        %% "breeze"             % "0.13.2",
@@ -15,6 +15,8 @@ libraryDependencies ++= Seq(
 )
 
 publishMavenStyle := true
+
+crossScalaVersions := Seq("2.11.11","2.12.1")
 
 publishTo := {
   val nexus = "https://oss.sonatype.org/"

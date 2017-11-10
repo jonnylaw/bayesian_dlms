@@ -98,41 +98,21 @@ object BackwardSample extends App with SeasonalContMod with SeasonalIrregData {
 }
 
 object GibbsSampleIrregular extends App with SeasonalContMod with SeasonalIrregData {
-
   def priorW(w: DenseMatrix[Double]) =
     diag(p.v).map(InverseGamma(21.0, 10.0).logPdf).sum
 
-  // metropolis step for W
-  def metropolisStep(
-    p: Dlm.Parameters, 
-    s: (DenseMatrix[Double], Double)) = {
-
-    Metropolis.step(
-      Metropolis.proposeDiagonalMatrix(0.05),
-      priorW,
-      (newW: DenseMatrix[Double]) => 
-      ExactFilter.logLikelihood(contMod, observations)(p.copy(w = newW))
-    )(s)
-  }
-
-  // Gibbs step for V
-  def gibbsStep(state: Array[(Time, DenseVector[Double])]) = {
-    GibbsSampling.sampleObservationMatrix(
-      InverseGamma(4.0, 5.0), contMod.f, state, observations)
-  }
-
   // full MCMC step for V and W
-  val mcmcStep = (s: (Dlm.Parameters, Double)) => for {
+  val mcmcStep = (s: Dlm.Parameters) => for {
     state <- ExactBackSample.ffbs(contMod, observations, p)
-    (w, ll) <- metropolisStep(p, (s._1.w, s._2))
-    v <- gibbsStep(state)
-  } yield (Dlm.Parameters(v, w, p.m0, p.c0), ll)
+    w <- GibbsSampling.sampleSystemMatrixCont(
+      InverseGamma(4.0, 5.0), contMod.g, state)
+    v <- GibbsSampling.sampleObservationMatrix(
+      InverseGamma(4.0, 5.0), contMod.f, state, observations)
+  } yield Dlm.Parameters(v, w, p.m0, p.c0)
 
-  val init = (p, -1e99)
-  val iters = MarkovChain(init)(mcmcStep).
+  val iters = MarkovChain(p)(mcmcStep).
     steps.
-    map(_._1).
-    take(10000)
+    take(100000)
 
   val headers = rfc.withHeader("V", "W1", "W2", "W3", "W4", 
     "W5", "W6", "W7", "W8", "W9", "W10", "W11", "W12", "W13")

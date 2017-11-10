@@ -70,7 +70,7 @@ trait BreezeGenerators {
 //         val g = InverseGamma(shape, scale)
 //         val samples = g.sample(n)
 
-//         assert(g.mean === mean(samples) +- (0.1 * g.mean) ) // relative
+//         assert(g.mean === mean(samples) +- (0.1 * g.mean) )
 //         assert(g.variance === variance(samples) +- (0.1 * g.variance))
 //       }
 //     }
@@ -80,6 +80,7 @@ trait BreezeGenerators {
 // class InverseWishartDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators { 
 //   property("Inverse Wishart Distribution") {
 //     forAll(symmetricPosDefMatrix(2, 100)) { (psi: DenseMatrix[Double]) =>
+//       implicit val tol = 1.0
 //       val n = 100000
 //       val w = InverseWishart(5.0, psi)
 //       val samples = w.sample(n)
@@ -92,6 +93,7 @@ trait BreezeGenerators {
 // class WishartDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
 //   property("Wishart Distribution") {
 //     forAll(symmetricPosDefMatrix(2, 100)) { scale =>
+//       implicit val tol = 1.0
 //       val n = 1000000
 //       val nu = 5.0
 //       val w = Wishart(nu, scale)
@@ -110,18 +112,18 @@ trait BreezeGenerators {
 //   }
 // }
 
-class MvnDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {  
-  property("MVN distribution") {
-    forAll(symmetricPosDefMatrix(2, 1000)) { cov =>
-      implicit val tol = 1e-2
-      val n = 1000000
-      val mvn = MultivariateGaussianSvd(DenseVector.zeros[Double](2), cov)
-      val samples = mvn.sample(n)
+// class MvnDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {  
+//   property("MVN distribution") {
+//     forAll(symmetricPosDefMatrix(2, 1000)) { cov =>
+//       implicit val tol = 1e-1
+//       val n = 1000000
+//       val mvn = MultivariateGaussianSvd(DenseVector.zeros[Double](2), cov)
+//       val samples = mvn.sample(n)
       
-      val (sampleMean, sampleCovariance)  = meanCovSamples(samples)
+//       val (sampleMean, sampleCovariance)  = meanCovSamples(samples)
 
-      assert(mvn.mean === sampleMean)
-      assert(mvn.variance === sampleCovariance)
-    }
-  }
-}
+//       assert(mvn.mean === sampleMean)
+//       assert(mvn.variance === sampleCovariance)
+//     }
+//   }
+// }

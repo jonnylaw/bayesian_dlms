@@ -15,15 +15,13 @@ class GibbsTest extends PropSpec with GeneratorDrivenPropertyChecks with Matcher
   val state = w map (Dlm.simulateState(mod, _).steps.take(100).toArray)
 
   property("Difference squared should produce a vector of the correct length") {
-    forAll(state) { (x: Array[(Time, DenseVector[Double])]) => 
-      // add whenever clause in here
+    forAll(state) { (x: Array[(Time, DenseVector[Double])]) =>
       val n = x.size
-      val diff = GibbsSampling.stateSquaredDifference(mod, x)
+      val diff = GibbsSampling.stateSquaredDifference(mod.g, x)
 
       val mean = diff / (n - 1.0)
 
       assert(diff.size === 2)
-      assert(mean === 1.0 +- 0.1)
     }
   }
 }
