@@ -85,7 +85,7 @@ object GibbsSecondOrder extends App with DlmModel with SimulatedSecondOrderData 
   val priorV = InverseGamma(4.0, 9.0)
   val priorW = InverseGamma(3.0, 8.0)
 
-  val iters = gibbsSamples(mod, priorV, priorW, p, data).
+  val iters = sample(mod, priorV, priorW, p, data).
     steps.
     take(10000)
 
@@ -125,7 +125,7 @@ object GibbsInvestParameters extends App with DlmModel {
 
   println(s"Initial parameters: $initP")
 
-  val iters = GibbsSampling.gibbsSamples(mod, priorV, priorW, initP, data).
+  val iters = GibbsSampling.sample(mod, priorV, priorW, initP, data).
     steps.
     drop(12000).
     take(12000)

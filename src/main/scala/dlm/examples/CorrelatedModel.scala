@@ -74,7 +74,7 @@ object FilterCorrelatedDlm extends App with CorrelatedModel with CorrelatedData 
 
 object GibbsCorrelated extends App with CorrelatedModel with CorrelatedData {
 
-  val iters = GibbsWishart.gibbsSamples(model, InverseGamma(1.0, 1.0), InverseWishart(3, DenseMatrix.eye[Double](2)), p, data).
+  val iters = GibbsWishart.sample(model, InverseGamma(1.0, 1.0), InverseWishart(3, DenseMatrix.eye[Double](2)), p, data).
     steps.
     take(10000)
 

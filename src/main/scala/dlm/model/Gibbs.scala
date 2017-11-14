@@ -107,6 +107,11 @@ object GibbsSampling extends App {
     Rand.always(diag(res))
   }
 
+  /**
+    * Calculate the lagged difference between items in a Seq
+    * @param xs a sequence of numeric values
+    * @return a sequence of numeric values containing the once lagged difference
+    */
   def diff[A](xs: Seq[A])(implicit A: Numeric[A]): Seq[A] = {
     (xs, xs.tail).zipped.map { case (x, x1) => A.minus(x1, x) }
   }
@@ -183,7 +188,7 @@ object GibbsSampling extends App {
     * @param observations an array of Data containing the observed time series
     * @return a Process 
     */
-  def gibbsSamples(
+  def sample(
     mod:          Model, 
     priorV:       InverseGamma, 
     priorW:       InverseGamma, 
@@ -220,7 +225,7 @@ object GibbsSampling extends App {
     } yield State(newP, state)
   }
 
-  def gibbsMetropSamples(
+  def metropSamples(
     proposal:     Parameters => Rand[Parameters],
     mod:          Model, 
     priorV:       InverseGamma, 
@@ -233,4 +238,34 @@ object GibbsSampling extends App {
 
     MarkovChain(init)(gibbsMetropStep(proposal, mod, priorV, priorW, observations))
   }
+
+  /**
+    * A single step
+    */
+  def stepContinuous(
+    mod:          ContinuousTime.Model,
+    priorV:       InverseGamma,
+    priorW:       InverseGamma, 
+    observations: Array[Data]
+  )(s: State): Rand[State] = {
+    for {
+      state <- ExactBackSample.ffbs(mod, observations, s.p)
+      w <- sampleSystemMatrixCont(priorW, mod.g, state)
+      v <- sampleObservationMatrix(priorV, mod.f, state, observations)
+    } yield State(Dlm.Parameters(v, w, s.p.m0, s.p.c0), state)
+  }
+
+  def sampleContinuous(
+    mod:          ContinuousTime.Model,
+    priorV:       InverseGamma,
+    priorW:       InverseGamma, 
+    observations: Array[Data],
+    initParams:   Parameters
+  ) = {
+    val initState = ExactBackSample.ffbs(mod, observations, initParams).draw
+    val init = State(initParams, initState)
+
+    MarkovChain(init)(stepContinuous(mod, priorV, priorW, observations))
+  }
+
 }

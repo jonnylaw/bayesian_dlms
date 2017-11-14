@@ -30,6 +30,9 @@ object GibbsWishart {
     InverseWishart(dof, scale)
   }
 
+  /**
+    * A single step of the Gibbs Wishart algorithm
+    */
   def wishartStep(
     mod:          Model, 
     priorV:       InverseGamma,
@@ -47,8 +50,12 @@ object GibbsWishart {
 
   /**
     * Do some gibbs samples
+    * @param mod a DLM model specification
+    * @param priorV the prior on the observation noise matrix
+    * @param priorW the prior distribution on the system covariance matrix
+    * @param initParams 
     */
-  def gibbsSamples(
+  def sample(
     mod:          Model, 
     priorV:       InverseGamma, 
     priorW:       InverseWishart, 

@@ -102,16 +102,10 @@ object GibbsSampleIrregular extends App with SeasonalContMod with SeasonalIrregD
     diag(p.v).map(InverseGamma(21.0, 10.0).logPdf).sum
 
   // full MCMC step for V and W
-  val mcmcStep = (s: Dlm.Parameters) => for {
-    state <- ExactBackSample.ffbs(contMod, observations, p)
-    w <- GibbsSampling.sampleSystemMatrixCont(
-      InverseGamma(4.0, 5.0), contMod.g, state)
-    v <- GibbsSampling.sampleObservationMatrix(
-      InverseGamma(4.0, 5.0), contMod.f, state, observations)
-  } yield Dlm.Parameters(v, w, p.m0, p.c0)
-
-  val iters = MarkovChain(p)(mcmcStep).
+  val iters = GibbsSampling.sampleContinuous(contMod, InverseGamma(5.0, 4.0),
+    InverseGamma(5.0, 4.0), observations, p).
     steps.
+    map(_.p).
     take(10000)
 
   val headers = rfc.withHeader("V", "W1", "W2", "W3", "W4", 

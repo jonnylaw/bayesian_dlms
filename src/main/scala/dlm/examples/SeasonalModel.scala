@@ -104,7 +104,7 @@ object SmoothSeasonalDlm extends App with SeasonalModel with SeasonalData {
 object SeasonalGibbsSampling extends App with SeasonalModel with SeasonalData {
   implicit val basis = RandBasis.withSeed(7)
 
-  val iters = GibbsSampling.gibbsSamples(mod, InverseGamma(5.0, 4.0), 
+  val iters = GibbsSampling.sample(mod, InverseGamma(5.0, 4.0), 
     InverseGamma(17.0, 4.0), p, data).
     steps.
     take(10000)
