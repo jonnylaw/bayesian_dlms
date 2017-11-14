@@ -185,8 +185,8 @@ object Dlm {
     ct:   DenseMatrix[Double],
     p:    Parameters) = {
 
-    val (at, rt) = KalmanFilter.advanceState(mod.g, mt, ct, time, p)
-    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, at, rt, time, p)
+    val (at, rt) = KalmanFilter.advanceState(mod.g, mt, ct, time, p.w)
+    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, at, rt, time, p.v)
 
     (time, at, rt, ft, qt)
   }
@@ -201,7 +201,7 @@ object Dlm {
     time: Time,
     p:    Parameters) = {
 
-    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, mt, ct, time, p)
+    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, mt, ct, time, p.v)
 
     Stream.iterate((time, mt, ct, ft, qt)){ 
       case (t, m, c, _, _) => stepForecast(mod, t + 1, m, c, p) }.

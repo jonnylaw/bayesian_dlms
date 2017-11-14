@@ -36,6 +36,22 @@ object Dglm {
     }
   }
 
+
+  /**
+    * Simulate from a scaled student-t distribution
+    */
+  def rstudentT(dof: Int, location: Double, scale: Double) = {
+    val alpha = dof * 0.5
+    val beta = dof * scale * scale * 0.5
+    val mu = location
+    for {
+      v <- InverseGamma(alpha, beta)
+    } yield Gaussian(mu, v)
+  }
+
+  /**
+    * Define a DGLM with Student's t observation errors
+    */
   def studentT(df: Int, mod: Dlm.Model): Dglm.Model = {
     Dglm.Model(
       observation = (x: DenseVector[Double], v: DenseMatrix[Double]) =>

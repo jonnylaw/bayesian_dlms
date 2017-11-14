@@ -13,10 +13,10 @@ object ExactFilter {
     mt:   DenseVector[Double], 
     ct:   DenseMatrix[Double],
     dt:   TimeIncrement, 
-    p:    Parameters): (DenseVector[Double], DenseMatrix[Double]) = {
+    w:    DenseMatrix[Double]): (DenseVector[Double], DenseMatrix[Double]) = {
 
     val at = g(dt) * mt
-    val rt = g(dt) * ct * g(dt).t + (dt * p.w)
+    val rt = g(dt) * ct * g(dt).t + (dt * w)
 
     (at, rt)
   }
@@ -28,9 +28,9 @@ object ExactFilter {
     y:      Data): KalmanFilter.State = {
 
     val dt = y.time - state.time
-    val (at, rt) = advanceState(mod.g, state.mt, state.ct, dt, p)
-    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, at, rt, y.time, p)
-    val (mt, ct) = KalmanFilter.updateState(mod.f, at, rt, ft, qt, y, p)
+    val (at, rt) = advanceState(mod.g, state.mt, state.ct, dt, p.w)
+    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, at, rt, y.time, p.v)
+    val (mt, ct) = KalmanFilter.updateState(mod.f, at, rt, ft, qt, y, p.v)
 
     val ll = state.ll + KalmanFilter.conditionalLikelihood(ft, qt, y.observation)
 
@@ -42,7 +42,7 @@ object ExactFilter {
     observations: Array[Data], 
     p:            Parameters) = {
 
-    val (at, rt) = advanceState(mod.g, p.m0, p.c0, 1.0, p)
+    val (at, rt) = advanceState(mod.g, p.m0, p.c0, 1.0, p.w)
     val init = KalmanFilter.State(observations.map(_.time).min - 1, 
       p.m0, p.c0,
       at, rt, None, None, 0.0)
@@ -55,7 +55,7 @@ object ExactFilter {
     observations: Array[Data])
     (p:            Parameters): Double = {
 
-    val (at, rt) = advanceState(mod.g, p.m0, p.c0, 1.0, p)
+    val (at, rt) = advanceState(mod.g, p.m0, p.c0, 1.0, p.w)
     val init = KalmanFilter.State(observations.map(_.time).min - 1, 
       p.m0, p.c0,
       at, rt, None, None, 0.0)

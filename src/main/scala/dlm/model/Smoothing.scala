@@ -17,10 +17,13 @@ object Smoothing {
     * Requires that a Kalman Filter has been run on the model
     * @param mod a DLM model specification
     * @param state the state at time t + 1
-    * @param p the parameters of the DLM
     * @return 
     */
-  def smoothStep(mod: Model, p: Parameters)(state: SmoothingState, kfState: KalmanFilter.State) = {
+  def smoothStep(
+    mod:     Model)
+    (state:  SmoothingState,
+    kfState: KalmanFilter.State) = {
+
     // extract elements from kalman state
     val time = kfState.time
     val mt = kfState.mt
@@ -44,17 +47,19 @@ object Smoothing {
     * p(x_{1:T} | y_{1:T}) of a fully specified DLM with observations available
     * for all time
     * @param mod a DLM model specification
-    * @param p the parameters of the DLM
     * @param kfState the output of a Kalman Filter
     * @return
     */
-  def backwardsSmoother(mod: Model, p: Parameters)(kfState: Array[KalmanFilter.State]) = {
+  def backwardsSmoother(
+    mod:      Model)
+    (kfState: Array[KalmanFilter.State]) = {
 
     val sortedState = kfState.sortWith(_.time > _.time)
     val last = sortedState.head
     val lastTime = last.time
+    val init = SmoothingState(lastTime, last.mt, last.ct, last.at, last.rt)
 
-    sortedState.tail.scanLeft(SmoothingState(lastTime, last.mt, last.ct, last.at, last.rt))(smoothStep(mod, p)).
+    sortedState.tail.scanLeft(init)(smoothStep(mod)).
       sortBy(_.time)
   }
 
@@ -69,8 +74,9 @@ object Smoothing {
     * @param mod 
     */
   def backSampleStep(
-    mod: Model, 
-    p: Parameters)(state: SamplingState, kfState: KalmanFilter.State) = {
+    mod:      Model)
+    (state:   SamplingState, 
+     kfState: KalmanFilter.State) = {
 
     // extract elements from kalman state
     val time = kfState.time
@@ -114,7 +120,9 @@ object Smoothing {
     */
   def backSampleStepJoseph(
     mod: Model,
-    p: Parameters)(state: SamplingState, kfState: KalmanFilter.State) = {
+    w:   DenseMatrix[Double])(
+    state: SamplingState, 
+    kfState: KalmanFilter.State) = {
 
     // extract elements from kalman state
     val time = kfState.time
@@ -133,10 +141,10 @@ object Smoothing {
     val mean = mt + cgrinv * (state.sample - at1)
 
     // calculate the updated covariance
-    val n = p.w.cols
+    val n = mean.size
     val identity = DenseMatrix.eye[Double](n)
     val diff = identity - cgrinv * mod.g(time + 1)
-    val covariance = diff * ct * diff.t + cgrinv * p.w * cgrinv.t
+    val covariance = diff * ct * diff.t + cgrinv * w * cgrinv.t
 
     SamplingState(
       kfState.time,
@@ -159,7 +167,7 @@ object Smoothing {
     val initState = SamplingState(lastTime, lastState, last.at, last.rt)
 
     sortedState.tail.
-      scanLeft(initState)(backSampleStepJoseph(mod, p)).
+      scanLeft(initState)(backSampleStepJoseph(mod)).
       sortBy(_.time).map(a => (a.time, a.sample))
   }
 }
