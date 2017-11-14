@@ -99,8 +99,8 @@ object ContinuousTime {
     ct:   DenseMatrix[Double],
     p:    Dlm.Parameters) = {
 
-    val (at, rt) = ExactFilter.advanceState(mod.g, mt, ct, time, p)
-    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, at, rt, time, p)
+    val (at, rt) = ExactFilter.advanceState(mod.g, mt, ct, time, p.w)
+    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, at, rt, time, p.v)
 
     (time, at, rt, ft, qt)
   }
@@ -115,7 +115,7 @@ object ContinuousTime {
     time: Time,
     p:    Dlm.Parameters) = {
 
-    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, mt, ct, time, p)
+    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, mt, ct, time, p.v)
 
     Stream.iterate((time, mt, ct, ft, qt)){ 
       case (t, m, c, _, _) => stepForecast(mod, t + 1, m, c, p) }.

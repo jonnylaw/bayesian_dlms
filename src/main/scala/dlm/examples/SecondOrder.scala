@@ -70,7 +70,7 @@ object FilterSecondOrderDlm extends App with DlmModel with SimulatedSecondOrderD
 
 object SmoothSecondOrderDlm extends App with DlmModel with SimulatedSecondOrderData {
   val filtered = KalmanFilter.kalmanFilter(mod, data, p)
-  val smoothed = Smoothing.backwardsSmoother(mod, p)(filtered)
+  val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
 
   val out = new java.io.File("data/second_order_dlm_smoothed.csv")
 

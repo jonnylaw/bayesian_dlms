@@ -34,10 +34,10 @@ object KalmanFilter {
     mt:   DenseVector[Double], 
     ct:   DenseMatrix[Double],
     time: Time, 
-    p:    Parameters) = {
+    w:    DenseMatrix[Double]) = {
 
     val at = g(time) * mt
-    val rt = g(time) * ct * g(time).t + p.w
+    val rt = g(time) * ct * g(time).t + w
 
     (at, rt)
   }
@@ -47,10 +47,10 @@ object KalmanFilter {
     at:   DenseVector[Double],
     rt:   DenseMatrix[Double],
     time: Time,
-    p:    Parameters) = {
+    v:    DenseMatrix[Double]) = {
 
     val ft = f(time).t * at
-    val qt = f(time).t * rt * f(time) + p.v
+    val qt = f(time).t * rt * f(time) + v
 
     (ft, qt)
   }
@@ -73,19 +73,19 @@ object KalmanFilter {
     predicted: Observation, 
     qt:        DenseMatrix[Double],
     y:         Data, 
-    p:         Parameters) = y.observation match {
+    v:         DenseMatrix[Double]) = y.observation match {
     case Some(obs) =>
       val time = y.time
       val residual = obs - predicted
     
       val kalman_gain = (qt.t \ (f(time).t * rt.t)).t
       val mt1 = at + kalman_gain * residual
-      val n = p.w.cols
+      val n = mt1.size
 
       val identity = DenseMatrix.eye[Double](n)
 
       val diff = (identity - kalman_gain * f(time).t)
-      val covariance = diff * rt * diff.t + kalman_gain * p.v * kalman_gain.t
+      val covariance = diff * rt * diff.t + kalman_gain * v * kalman_gain.t
 
       (mt1, covariance)
     case None =>
@@ -106,9 +106,9 @@ object KalmanFilter {
   def stepKalmanFilter(
     mod: Model, p: Parameters)(state: State, y: Data): State = {
 
-    val (at, rt) = advanceState(mod.g, state.mt, state.ct, y.time, p)
-    val (ft, qt) = oneStepPrediction(mod.f, at, rt, y.time, p)
-    val (mt, ct) = updateState(mod.f, at, rt, ft, qt, y, p)
+    val (at, rt) = advanceState(mod.g, state.mt, state.ct, y.time, p.w)
+    val (ft, qt) = oneStepPrediction(mod.f, at, rt, y.time, p.v)
+    val (mt, ct) = updateState(mod.f, at, rt, ft, qt, y, p.v)
 
     val ll = state.ll + conditionalLikelihood(ft, qt, y.observation)
 
@@ -123,7 +123,7 @@ object KalmanFilter {
     observations: Array[Data], 
     p:            Parameters) = {
     val (at: DenseVector[Double], rt: DenseMatrix[Double]) = 
-      advanceState(mod.g, p.m0, p.c0, 0, p)
+      advanceState(mod.g, p.m0, p.c0, 0, p.w)
     val init = State(
       observations.map(_.time).min - 1, 
       p.m0, p.c0, at, rt, None, None, 0.0)
@@ -139,7 +139,7 @@ object KalmanFilter {
     observations: Array[Data])
     (p: Parameters): Double = {
 
-    val (at, rt) = advanceState(mod.g, p.m0, p.c0, 0, p)
+    val (at, rt) = advanceState(mod.g, p.m0, p.c0, 0, p.w)
     val init = State(
       observations.head.time,
       p.m0,

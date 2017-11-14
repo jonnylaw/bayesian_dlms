@@ -83,7 +83,7 @@ object FilterSeasonalDlm extends App with SeasonalModel with SeasonalData {
   */
 object SmoothSeasonalDlm extends App with SeasonalModel with SeasonalData {
   val filtered = KalmanFilter.kalmanFilter(mod, data, p)
-  val smoothed = Smoothing.backwardsSmoother(mod, p)(filtered)
+  val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
 
   val out = new java.io.File("data/seasonal_smoothed.csv")
 
