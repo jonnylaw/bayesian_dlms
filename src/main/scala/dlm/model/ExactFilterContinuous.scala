@@ -13,7 +13,7 @@ object ExactFilter {
     mt:   DenseVector[Double], 
     ct:   DenseMatrix[Double],
     dt:   TimeIncrement, 
-    p:    Parameters) = {
+    p:    Parameters): (DenseVector[Double], DenseMatrix[Double]) = {
 
     val at = g(dt) * mt
     val rt = g(dt) * ct * g(dt).t + (dt * p.w)
@@ -92,9 +92,8 @@ object ExactBackSample {
     val diff = identity - cgrinv * mod.g(dt)
     val covariance = diff * ct * diff.t + cgrinv * p.w * cgrinv.t
 
-
     Smoothing.SamplingState(kfState.time, 
-      MultivariateGaussianSvd(mean, covariance).draw, 
+      MultivariateGaussianSvd(mean, Smoothing.makeSymmetric(covariance)).draw, 
       kfState.at, 
       kfState.rt)
   }

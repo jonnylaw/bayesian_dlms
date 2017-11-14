@@ -122,7 +122,8 @@ object KalmanFilter {
     mod:          Model, 
     observations: Array[Data], 
     p:            Parameters) = {
-    val (at, rt) = advanceState(mod.g, p.m0, p.c0, 0, p)
+    val (at: DenseVector[Double], rt: DenseMatrix[Double]) = 
+      advanceState(mod.g, p.m0, p.c0, 0, p)
     val init = State(
       observations.map(_.time).min - 1, 
       p.m0, p.c0, at, rt, None, None, 0.0)

@@ -95,7 +95,7 @@ object Smoothing {
   /**
     * Copies the lower triangular portion of a matrix to the upper triangle
     */
-  def makeSymmetrix(m: DenseMatrix[Double]): DenseMatrix[Double] = {
+  def makeSymmetric(m: DenseMatrix[Double]): DenseMatrix[Double] = {
     val n = m.cols
     DenseMatrix.tabulate(n, n){ case (i, j) =>
       if (i > j) {
@@ -140,7 +140,7 @@ object Smoothing {
 
     SamplingState(
       kfState.time,
-      MultivariateGaussianSvd(mean, makeSymmetrix(covariance)).draw, 
+      MultivariateGaussianSvd(mean, makeSymmetric(covariance)).draw, 
       kfState.at, kfState.rt)
   }
 

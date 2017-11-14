@@ -112,7 +112,7 @@ object GibbsSampleIrregular extends App with SeasonalContMod with SeasonalIrregD
 
   val iters = MarkovChain(p)(mcmcStep).
     steps.
-    take(100000)
+    take(10000)
 
   val headers = rfc.withHeader("V", "W1", "W2", "W3", "W4", 
     "W5", "W6", "W7", "W8", "W9", "W10", "W11", "W12", "W13")
