@@ -5,7 +5,7 @@ import Smoothing._
 import KalmanFilter._
 import cats.implicits._
 import breeze.linalg.{DenseVector, diag, DenseMatrix}
-import breeze.stats.distributions.{Rand, MarkovChain}
+import breeze.stats.distributions.{Rand, MarkovChain, Gamma}
 
 object GibbsSampling extends App {
   case class State(
@@ -159,7 +159,7 @@ object GibbsSampling extends App {
     p:            Parameters) = {
 
     val filtered = kalmanFilter(mod, observations, p)
-    backwardSampling(mod, filtered, p)
+    backwardSampling(mod, filtered, p.w)
   }
 
   /**
@@ -268,4 +268,131 @@ object GibbsSampling extends App {
     MarkovChain(init)(stepContinuous(mod, priorV, priorW, observations))
   }
 
+  /**
+    * Sample the variances of the Normal distribution 
+    * These are auxilliary variables required when calculating 
+    * the one-step prediction in the Kalman Filter
+    * @param ys an array of observations of length N
+    * @param f the observation matrix
+    * @param state a sample from the state, using sampleStateT
+    * @param dof the degrees of freedom of the Student's t-distribution
+    * @param scale the (square of the) scale of the Student's t-distribution
+    * @return a Rand distribution over the list of N variances
+    */
+  def sampleVariancesT(
+    ys:    Array[Data],
+    f:     ObservationMatrix,
+    state: Array[(Time, DenseVector[Double])],
+    dof:   Int,
+    scale: Double
+  ): Rand[List[Double]] = {
+    val alpha = (dof + 1) * 0.5
+
+    val diff = (ys.sortBy(_.time).map(_.observation), 
+      state.sortBy(_._1).tail).zipped.
+      map {
+        case (Some(y), (time, x)) => (y - f(time).t * x) *:* (y - f(time).t * x)
+        case (None, x) => DenseVector.zeros[Double](x._2.size)
+      }
+
+    val beta = diff.map(d => (dof * scale * 0.5) + d(0) * 0.5).toList
+
+    beta.traverse(b => InverseGamma(alpha, b): Rand[Double])
+  }
+
+  /**
+    * Sample the (square of the) scale of the Student's t distribution
+    * @param
+    */
+  def sampleScaleT(
+    variances: List[Double],
+    dof:       Int): Rand[Double] = {
+    val t = variances.size
+  
+    val shape = t * dof * 0.5 + 1
+    val rate = dof * 0.5 * variances.map(1.0/_).sum
+    val scale = 1 / rate
+
+    Gamma(shape, scale)
+  }
+
+  /**
+    * Sample the state, incorporating the drawn variances for each observation
+    * @param 
+    */
+  def sampleStateT(
+    variances:    List[Double],
+    params:       Dlm.Parameters,
+    mod:          Dlm.Model,
+    observations: Array[Data]
+  ) = {
+    // create a list of parameters with the variance in them
+    val ps = variances.map(vi => params.copy(v = DenseMatrix(vi))).toArray
+
+    def kalmanStep(p: Dlm.Parameters) = KalmanFilter.stepKalmanFilter(mod, p) _
+
+    val (at, rt) = KalmanFilter.advanceState(mod.g, params.m0, 
+      params.c0, 0, params.w)
+
+    val init = KalmanFilter.State(
+      observations.map(_.time).min - 1, 
+      params.m0, params.c0, at, rt, None, None, 0.0)
+
+    // fold over the list of variances and the observations
+    val filtered = ps.zip(observations).
+      scanLeft(init){ case (s, (p, y)) => kalmanStep(p)(s, y) }
+
+    Rand.always(Smoothing.backwardSampling(mod, filtered, params.w))
+  }
+
+  /**
+    * The state of the Markov chain for the Student's t-distribution
+    * gibbs sampler
+    */
+  case class StudentTState(
+    p:         Dlm.Parameters,
+    variances: List[Double],
+    state:     Array[(Time, DenseVector[Double])]
+  )
+
+  /**
+    * A single step of the Student t-distribution Gibbs Sampler
+    */
+  def studentTStep(
+    dof:    Int, 
+    data:   Array[Data],
+    priorW: InverseGamma,
+    mod:    Dglm.Model
+  )(state: StudentTState) = {
+    val dlm = Model(mod.f, mod.g)
+
+    for {
+      latentState <- sampleStateT(state.variances, state.p, dlm, data)
+      newW <- sampleSystemMatrix(priorW, mod.g, latentState)
+      variances <- sampleVariancesT(data, mod.f, latentState, dof, state.p.v(0,0))
+      scale <- GibbsSampling.sampleScaleT(variances, dof)
+    } yield StudentTState(
+      state.p.copy(v = DenseMatrix(scale), w = newW),
+      variances, 
+      latentState
+    )
+  }
+
+  /**
+    * Perform Gibbs Sampling for the Student t-distributed model
+    */
+  def studentT(
+    dof:    Int,
+    data:   Array[Data],
+    priorW: InverseGamma,
+    mod:    Dglm.Model,
+    params: Dlm.Parameters
+  ) = {
+    val dlm = Model(mod.f, mod.g)
+    val initVariances = List.fill(data.size)(1.0)
+    val initState = GibbsSampling.sampleStateT(initVariances, params, dlm, data)
+    val init = StudentTState(params, initVariances, initState.draw)
+
+    MarkovChain(init)(studentTStep(dof, data, priorW, mod))
+  }
 }

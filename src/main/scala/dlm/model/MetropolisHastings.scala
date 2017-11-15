@@ -143,7 +143,6 @@ object Metropolis {
     MarkovChain(initState)(mStep[Parameters](proposal, 
       prior, ParticleFilter.likelihood(mod, observations, n)))
   }
-
 }
 
 object MetropolisHastings {

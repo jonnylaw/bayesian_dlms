@@ -83,3 +83,40 @@ smooth_seasonal: data/seasonal_dlm.csv
 
 filter_seasonal: data/seasonal_dlm.csv
 	sbt "run-main dlm.examples.FilterSeasonalDlm"
+
+student_t: simulate_student_t student_t_gibbs student_t_pmmh student_t_pg
+
+simulate_student_t: 
+	sbt "run-main dlm.examples.SimulateStudentT"
+
+student_t_gibbs: data/student_t_dglm.csv
+	sbt assembly
+	cp target/scala-2.11/bayesian_dlms-assembly-0.2-SNAPSHOT.jar student_t_gibbs.jar
+	ssh topsy -t mkdir -p /share/nobackup/a9169110/student_t_gibbs/data
+	scp data/student_t_dglm.csv topsy:/share/nobackup/a9169110/student_t_gibbs/data/.
+	scp student_t_gibbs.jar student_t_gibbs.qsub topsy:/share/nobackup/a9169110/student_t_gibbs/.
+	ssh topsy -f "cd /share/nobackup/a9169110/student_t_gibbs && qsub student_t_gibbs.qsub"
+	ssh topsy -t qstat
+
+student_t_pmmh: data/student_t_dglm.csv
+	sbt assembly
+	cp target/scala-2.11/bayesian_dlms-assembly-0.2-SNAPSHOT.jar student_t_pmmh.jar
+	ssh topsy -t mkdir -p /share/nobackup/a9169110/student_t_pmmh/data
+	scp data/student_t_dglm.csv topsy:/share/nobackup/a9169110/student_t_pmmh/data/.
+	scp student_t_pmmh.jar student_t_pmmh.qsub topsy:/share/nobackup/a9169110/student_t_pmmh/.
+	ssh topsy -f "cd /share/nobackup/a9169110/student_t_pmmh && qsub student_t_pmmh.qsub"
+	ssh topsy -t qstat
+
+student_t_pg: data/student_t_dglm.csv
+	sbt assembly
+	cp target/scala-2.11/bayesian_dlms-assembly-0.2-SNAPSHOT.jar student_t_pg.jar
+	ssh topsy -t mkdir -p /share/nobackup/a9169110/student_t_pg/data
+	scp data/student_t_dglm.csv topsy:/share/nobackup/a9169110/student_t_pg/data/.
+	scp student_t_pg.jar student_t_pg.qsub topsy:/share/nobackup/a9169110/student_t_pg/.
+	ssh topsy -f "cd /share/nobackup/a9169110/student_t_pg && qsub student_t_pg.qsub"
+	ssh topsy -t qstat
+
+get_student_t_data: 
+	scp topsy:/share/nobackup/a9169110/student_t_pg/data/*.csv data/.
+	scp topsy:/share/nobackup/a9169110/student_t_pmmh/data/*.csv data/.
+	scp topsy:/share/nobackup/a9169110/student_t_gibbs/data/*.csv data/.

@@ -57,14 +57,17 @@ X_0 &\sim \mathcal{N}(m_0, C_0).
 
 Figure \@ref(fig:poisson-sims) shows a simulation from the Poisson DGLM.
 
-```{r poisson-sims, fig.cap="Simulation from the poisson DGLM with $(W, m_0, C_0) = (1.0, 0.0, 1.0)$"}
+```{r poisson-sims, fig.cap="Simulation from the poisson DGLM with $(W, m_0, C_0) = (0.01, 0.0, 1.0)$"}
 data = read_csv("../data/poisson_dglm.csv")
 
-data %>%
+data %<>%
   gather(key, value, -time) %>%
-  ggplot(aes(x = time, y = value, colour = key)) +
-  geom_line() +
-  # facet_wrap(~key, scales = "free_y") +
+  filter(time > 900) 
+
+ggplot() +
+  geom_line(data = subset(data, key == "state"), aes(x = time, y = value)) +
+  geom_step(data = subset(data, key == "observation"), aes(x = time, y = value)) +
+  facet_wrap(~key, scales = "free_y", ncol = 1) +
   theme(legend.position = "none")
 ```
 
@@ -93,14 +96,16 @@ chain = iters %>% mcmc() %>% ggs()
 
 p1 = ggs_traceplot(chain)
 p2 = ggs_autocorrelation(chain)
-p3 = ggs_running(chain)
+p3 = ggs_running(chain) + theme(legend.position = "none")
 
-gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
+gridExtra::grid.arrange(p1, p2, p3, ncol = 1)
 ```
 
 ## Particle Gibbs with Ancestor Resampling
 
-Particle Gibbs is sticky, so we use ancestor resampling. At the end of the filter there is a collection of paths with ancestory, we sample the $k^th$ path where $k$ is drawn from $\textrm{Pr}(k = i) \propto w^i_T$. Here, $w^i_T$ is the weight of the $i^th$ particle at the final time, $T$.
+Particle Gibbs is sticky, so we use ancestor resampling. 
+
+*TODO*: Describe PGAS algorithm
 
 ### Example: First Order DLM
 

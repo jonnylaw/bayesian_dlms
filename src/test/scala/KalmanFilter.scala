@@ -53,7 +53,7 @@ class KfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matchers w
     forAll (params) { p =>
       val data = observations(p)
       val filtered = KalmanFilter.kalmanFilter(mod, data, p)
-      val sampled = Smoothing.backwardSampling(mod, filtered, p)
+      val sampled = Smoothing.backwardSampling(mod, filtered, p.w)
 
       assert(sampled.size === filtered.size)
       assert(sampled.map(_._1) === filtered.map(_.time))

@@ -153,9 +153,9 @@ object Smoothing {
   }
 
   def backwardSampling(
-    mod: Model,
+    mod:     Model,
     kfState: Array[KalmanFilter.State], 
-    p: Parameters) = {
+    w:       DenseMatrix[Double]) = {
 
     // sort the state in reverse order
     val sortedState = kfState.sortWith(_.time > _.time)
@@ -167,7 +167,7 @@ object Smoothing {
     val initState = SamplingState(lastTime, lastState, last.at, last.rt)
 
     sortedState.tail.
-      scanLeft(initState)(backSampleStepJoseph(mod)).
+      scanLeft(initState)(backSampleStepJoseph(mod, w)).
       sortBy(_.time).map(a => (a.time, a.sample))
   }
 }

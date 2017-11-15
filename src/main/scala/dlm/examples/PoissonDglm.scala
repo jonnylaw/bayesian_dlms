@@ -111,17 +111,11 @@ object PoissonDglmGibbsAncestor extends App with PoissonDglm with PoissonData {
     map(_._2).
     take(10000)
 
-  val out = new java.io.File("data/poisson_dglm_gibbs_ancestor.csv")
-  val writer = out.asCsvWriter[Double](rfc.withHeader("W"))
-
+  val headers = rfc.withHeader("W")
   def formatParameters(p: Dlm.Parameters) = {
-    (p.w.data(0))
+    List(p.w.data(0))
   }
 
-  // write iters to file
-  while (iters.hasNext) {
-    writer.write(formatParameters(iters.next))
-  }
-
-  writer.close()
+  Streaming.writeChain(formatParameters, 
+    "data/poisson_dglm_gibbs_ancestor.csv", headers)(iters)
 }

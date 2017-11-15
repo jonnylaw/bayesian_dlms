@@ -36,31 +36,18 @@ object Dglm {
     }
   }
 
-
-  /**
-    * Simulate from a scaled student-t distribution
-    */
-  def rstudentT(dof: Int, location: Double, scale: Double) = {
-    val alpha = dof * 0.5
-    val beta = dof * scale * scale * 0.5
-    val mu = location
-    for {
-      v <- InverseGamma(alpha, beta)
-    } yield Gaussian(mu, v)
-  }
-
   /**
     * Define a DGLM with Student's t observation errors
     */
   def studentT(df: Int, mod: Dlm.Model): Dglm.Model = {
     Dglm.Model(
       observation = (x: DenseVector[Double], v: DenseMatrix[Double]) =>
-        StudentsT(df).map(a => DenseVector(a * v(0,0) + x(0))),
+        ScaledStudentsT(df, x(0), math.sqrt(v(0,0))).map(DenseVector(_)),
       mod.f,
       mod.g,
       conditionalLikelihood = (p: Dlm.Parameters) => 
       (y: Observation, x: DenseVector[Double]) => 
-      1/p.v(0,0) * StudentsT(df).logPdf((y(0) - x(0)) / p.v(0,0))
+      ScaledStudentsT(df, x(0), math.sqrt(p.v(0,0))).logPdf(y(0))
     )
   }
 

@@ -74,6 +74,13 @@ object ParticleGibbsAncestor extends App {
   /**
     * Perform Ancestor Resampling on Particle Paths
     * @param mod a DGLM model
+    * @param time the time of the observation
+    * @param states a vector containing the latent states up to the current time 
+    * @param weights a vector of weights calculated at the previous time step
+    * @param condState the previously conditioned upon path
+    * @param p the parameters of the model, including W
+    * @return a tuple where the first element is a list describing the paths from 0:time-1, 
+    * and second element describes the particles at the current time
     */
   def ancestorResampling(
     mod:       Model,
@@ -111,22 +118,35 @@ object ParticleGibbsAncestor extends App {
   * The weights are proportional to the conditional likelihood of the observations
   * given the state multiplied by the transition probability of the resampled 
   * particles at time t-1 to the conditioned state at time t
+  * TODO: This could be wrong, as we do not calculate the transition probability properly
+  * @param mod the DGLM model
+  * @param time the current time, t
+  * @param xt the value of the state at time t
+  * @param xt1 the value of the state at time t-1
+  * @param conditionedState the value of the conditioned state at time t
+  * @param y the observation at time t
+  * @param p the parameters of the model
+  * @return the conditional likeihood of the observation given the state and the
+  * transition probability to the next conditioned upon state
   */
   def calcWeight(
-    mod:   Model,
-    time:  Time,
-    xt:    DenseVector[Double],
-    xt1:   DenseVector[Double],
-    y:     Observation,
-    p:     Dlm.Parameters): Double = {
+    mod:              Model,
+    time:             Time,
+    xt:               DenseVector[Double],
+    xt1:              DenseVector[Double],
+    conditionedState: DenseVector[Double],
+    y:                Observation,
+    p:                Dlm.Parameters): Double = {
 
     mod.conditionalLikelihood(p)(y, xt) + 
-    transitionProbability(xt1, time, mod, p)(xt)
+    transitionProbability(xt1, time, mod, p)(conditionedState)
   }
 
   /**
     * A single step in the Particle Gibbs with Ancestor Sampling algorithm
-    * 
+    * @param mod the model specification
+    * @param p the parameters of the model
+    * @return the state containing the particles, weights and running log-likelihood
     */
   def step(
     mod: Model,
@@ -135,13 +155,14 @@ object ParticleGibbsAncestor extends App {
 
     case (Data(time, Some(y)), conditionedState) =>
       val (prevStates, statet) = ancestorResampling(mod, time, 
-        s.states.toVector, s.weights.toVector, conditionedState, p)
+        s.states.toVector, s.weights.toVector, 
+        conditionedState, p)
 
       // calculate the weights
       val w = (prevStates.head, statet).
         zipped.
         map { case (xt1, xt) => 
-          calcWeight(mod, time, xt._2, xt1._2, y, p) 
+          calcWeight(mod, time, xt._2, xt1._2, conditionedState, y, p) 
         }
 
       // log-sum-exp and calculate log-likelihood
