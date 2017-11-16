@@ -11,7 +11,16 @@ object Dlm {
   /**
     * Definition of a DLM
     */
-  case class Model(f: ObservationMatrix, g: SystemMatrix)
+  case class Model(f: ObservationMatrix, g: SystemMatrix) { self =>
+    /**
+      * Combine two DLMs into a multivariate DLM
+      * @param y another DLM model
+      * @return a DLM model
+      */
+    def |*|(y: Model): Model = {
+      Dlm.outerSumModel(self, y)
+    }
+  }
 
   /**
     * Parameters of a DLM
