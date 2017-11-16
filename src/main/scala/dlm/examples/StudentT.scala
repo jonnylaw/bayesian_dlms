@@ -113,7 +113,7 @@ object StudentTPG extends App with StudenttDglm with StudenttData {
   def mcmcStep(state: State) = for {
     newW <- GibbsSampling.sampleSystemMatrix(priorW, model.g, state.s.toArray)
     propV <- Metropolis.proposeDiagonalMatrix(0.01)(state.p.v)
-    (ll, latentState) <- ParticleGibbsAncestor.filter(n, params, 
+    (ll, latentState) <- ParticleGibbsAncestor.filter(n, params.copy(v = propV), 
       model, data.toList)(state.s)
     a = ll + priorV(propV) - state.ll
     u <- Uniform(0, 1)

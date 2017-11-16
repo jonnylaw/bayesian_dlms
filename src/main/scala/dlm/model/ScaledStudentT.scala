@@ -15,7 +15,7 @@ case class ScaledStudentsT(
     -lgamma((dof + 1) * 0.5) + 0.5 * log(math.Pi * dof * scale) + lgamma(dof * 0.5)
 
   def unnormalizedLogPdf(x: Double): Double = 
-    -(dof + 1) * 0.5 * log1p(((x - location) * (x - location)) / (dof * scale * scale))
+    -(dof + 1) * 0.5 * log(1 + ((x - location) * (x - location)) / (dof * scale * scale))
 
   def draw(): Double = {
     val alpha = dof * 0.5

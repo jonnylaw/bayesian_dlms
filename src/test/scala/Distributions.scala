@@ -1,6 +1,6 @@
 import dlm.model._
 import breeze.linalg.{DenseMatrix, DenseVector, cond, diag}
-import breeze.stats.distributions.{ChiSquared, Gamma}
+import breeze.stats.distributions.{ChiSquared, Gamma, StudentsT}
 import breeze.stats.covmat
 import breeze.stats.{meanAndVariance, variance, mean}
 import org.scalatest._

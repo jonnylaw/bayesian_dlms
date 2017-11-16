@@ -48,7 +48,7 @@ Firsly, determine the posterior, $p(\psi|y_{1:T})$, using Particle Marginal Metr
 
 ```{r pmmh-diagnostics}
 chain = read_csv("../data/student_t_dglm_pmmh.csv")
-parameters = chain[-c(1:1000),] %>%
+parameters = chain[-c(1:1000,67839),] %>%
   mcmc() %>% ggs()
 
 p1 = ggs_traceplot(parameters) + facet_wrap(~Parameter, strip.position = "right", scales = "free_y")
@@ -62,7 +62,7 @@ gridExtra::grid.arrange(p1, p2, p3, ncol = 1)
 
 Now, using Particle Gibbs with Ancestor resampling:
 
-```{r pg-ar, eval=FALSE}
+```{r pg-ar}
 chain = read_csv("../data/student_t_dglm_gibbs_ancestor.csv")
 
 parameters = chain[-c(1:1000),] %>% mcmc() %>% ggs()
