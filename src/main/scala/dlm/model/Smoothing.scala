@@ -148,7 +148,7 @@ object Smoothing {
 
     SamplingState(
       kfState.time,
-      MultivariateGaussianSvd(mean, makeSymmetric(covariance)).draw, 
+      MultivariateGaussianSvd(mean, covariance).draw, 
       kfState.at, kfState.rt)
   }
 

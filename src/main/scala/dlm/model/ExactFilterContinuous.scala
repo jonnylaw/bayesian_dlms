@@ -90,10 +90,10 @@ object ExactBackSample {
     val n = p.w.cols
     val identity = DenseMatrix.eye[Double](n)
     val diff = identity - cgrinv * mod.g(dt)
-    val covariance = diff * ct * diff.t + cgrinv * p.w * cgrinv.t
+    val covariance = diff * ct * diff.t + cgrinv * p.w * dt * cgrinv.t
 
     Smoothing.SamplingState(kfState.time, 
-      MultivariateGaussianSvd(mean, Smoothing.makeSymmetric(covariance)).draw, 
+      MultivariateGaussianSvd(mean, covariance).draw, 
       kfState.at, 
       kfState.rt)
   }

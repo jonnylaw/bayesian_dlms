@@ -59,4 +59,6 @@ class KfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matchers w
       assert(sampled.map(_._1) === filtered.map(_.time))
     }
   }
+
+  // TODO: Add Exact unit tests for a hand-calculated Kalman Filter
 }
