@@ -60,18 +60,6 @@ object ContinuousTime {
     }
   }
 
-  /**
-    * Simulate from a scaled student-t distribution
-    */
-  def studentT(dof: Int, location: Double, scale: Double) = {
-    val alpha = dof * 0.5
-    val beta = dof * scale * scale * 0.5
-    val mu = location
-    for {
-      v <- InverseGamma(alpha, beta)
-    } yield Gaussian(mu, v)
-  }
-
   def simulate(times: Iterable[Double], mod: Model, p: Dlm.Parameters) = {
     val init = (times.head, MultivariateGaussianSvd(p.m0, p.c0).draw)
 

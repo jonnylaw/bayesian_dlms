@@ -48,7 +48,7 @@ Firsly, determine the posterior, $p(\psi|y_{1:T})$, using Particle Marginal Metr
 
 ```{r pmmh-diagnostics}
 chain = read_csv("../data/student_t_dglm_pmmh.csv")
-parameters = chain[-c(1:1000,67839),] %>%
+parameters = chain[-c(1:1000),] %>%
   mcmc() %>% ggs()
 
 p1 = ggs_traceplot(parameters) + facet_wrap(~Parameter, strip.position = "right", scales = "free_y")
@@ -60,9 +60,9 @@ p3 = ggs_running(parameters) +
 gridExtra::grid.arrange(p1, p2, p3, ncol = 1)
 ```
 
-Now, using Particle Gibbs with Ancestor resampling:
+<!-- Now, using Particle Gibbs with Ancestor resampling: -->
 
-```{r pg-ar}
+```{r pg-ar, eval=FALSE}
 chain = read_csv("../data/student_t_dglm_gibbs_ancestor.csv")
 
 parameters = chain[-c(1:1000),] %>% mcmc() %>% ggs()
@@ -159,6 +159,33 @@ $$\begin{aligned}
 
 This is sufficient to learn the parameters of a DGLM with a Student's t-Distributed observation noise. The advantage to this approach is that we don't have the computational complexity of using a Particle Filter for each iteration of the MCMC.
 
+```{r mean-var-invgamma}
+alpha = 21.0
+beta = 2.0
+
+mean = function(a, b) {
+  b / (a - 1)
+}
+
+variance = function(a, b) {
+  b**2 / (a - 1)**2 * (a - 2)
+}
+```
+
+The prior distribution of the system evolution matrix is Inv-Gamma$(`r alpha`, `r beta`)$, for a mean of `r mean(alpha, beta)` and variance `r variance(alpha, beta)`. The prior distribution for $W$ looks like:
+
+```{r}
+prior_w = data_frame(x = 1 / rgamma(n = 10000, shape = alpha, rate = beta))
+
+ggplot(data = prior_w, aes(x = x)) + 
+  geom_density() +
+  # coord_cartesian(xlim = c(0, 1)) +
+  geom_vline(aes(xintercept = 0.1), colour = "#ff0000") +
+  labs(title = "Density of the prior distribution of W")
+  # stat_function(fun = function(x) 1 / dgamma(x = x, shape = 3.0, rate = 2.0))
+```
+
+
 ```{r density_student_t}
 chain = read_csv("../data/student_t_dglm_gibbs.csv")
 
@@ -166,7 +193,9 @@ parameters = chain[-c(1:1000),] %>% mcmc() %>% ggs()
 
 p1 = ggs_traceplot(parameters) + facet_wrap(~Parameter, strip.position = "right", scales = "free_y")
 p2 = ggs_autocorrelation(parameters)
-p3 = ggs_running(parameters) + facet_wrap(~Parameter, strip.position = "right", scales = "free_y") + theme(legend.position = "none")
+p3 = ggs_running(parameters) +
+  facet_wrap(~Parameter, strip.position = "right", scales = "free_y") + 
+  theme(legend.position = "none")
 
 gridExtra::grid.arrange(p1, p2, p3, ncol = 1)
 ```

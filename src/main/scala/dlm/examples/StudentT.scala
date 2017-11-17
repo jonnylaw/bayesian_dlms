@@ -54,9 +54,9 @@ object SimulateStudentT extends App with StudenttDglm {
   */
 object StudentTGibbs extends App with StudenttDglm with StudenttData {
   val iters = GibbsSampling.studentT(3, data, 
-    InverseGamma(2.0, 10.0), mod, params).
+    InverseGamma(3.0, 2.0), mod, params).
     steps.
-    take(100000).
+    take(10000).
     map(_.p)
 
   def formatParameters(p: Dlm.Parameters) = {
