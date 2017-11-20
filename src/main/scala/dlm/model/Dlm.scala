@@ -97,6 +97,8 @@ object Dlm {
 
   /**
     * Create a seasonal model with fourier components in the system evolution matrix
+    * @param period the period of the seasonality
+    * @param 
     */
   def seasonal(period: Int, harmonics: Int): Model = {
     Model(

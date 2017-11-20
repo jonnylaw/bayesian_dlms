@@ -136,23 +136,25 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
 
   test("time step 4, missing data") {
     assert(filterThree.at(0) === 4.027007 +- tol)
-    assert(filterThree.rt(0,0) === 4.291971 +- tol)
+    assert(filterThree.rt(0,0) === 2.291971 +- tol)
 
-    // assert(filterThree.y.get(0) === 4.027007 +- tol)
-    // assert(filterThree.cov.get(0,0) === 5.291971 +- tol)
+    assert(filterThree.y.get(0) === 4.027007 +- tol)
+    assert(filterThree.cov.get(0,0) === 5.291971 +- tol)
 
-    // assert(filterThree.mt(0) === 4.027007 +- tol)
-    // assert(filterThree.ct(0,0) === 4.291971 +- tol)
+    assert(filterThree.mt(0) === 4.027007 +- tol)
+    assert(filterThree.ct(0,0) === 2.291971 +- tol)
   }
 
-  // test("Final time step") {
-  //   assert(filterFour.at(0) === 2.307692 +- tol)
-  //   assert(filterFour.rt(0,0) === 2.269231 +- tol)
+  val filterFour = KalmanFilter.stepKalmanFilter(model, p)(filterThree, data(4))
 
-  //   assert(filterFour.y.get(0) === 2.307692 +- tol)
-  //   assert(filterFour.cov.get(0,0) === 5.269231 +- tol)
+  test("Final time step") {
+    assert(filterFour.at(0) === 4.027007 +- tol)
+    assert(filterFour.rt(0,0) === 3.291971 +- tol)
 
-  //   assert(filterFour.mt(0) === 4.027007 +- tol)
-  //   assert(filterFour.ct(0,0) === 1.291971 +- tol)
-  // }
+    assert(filterFour.y.get(0) === 4.027007 +- tol)
+    assert(filterFour.cov.get(0,0) === 6.291971 +- tol)
+
+    // assert(filterFour.mt(0) === 4.027007 +- tol)
+    // assert(filterFour.ct(0,0) === 1.291971 +- tol)
+  }
 }

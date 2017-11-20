@@ -1,0 +1,117 @@
+---
+title: "Model building and Simulation"
+author: "Jonathan Law"
+date: "20/11/2017"
+output: html_document
+---
+
+# Quickstart
+
+This section is an introduction to using the library, the import statements are only included the first time they are used.
+
+## Model Building: DLMs
+
+DLMs are represented as a `case class` containing the observation matrix and the system matrix:
+
+```scala
+case class Model(
+  f: Time => DenseMatrix[Double],
+  g: TimeIncrement => DenseMatrix[Double]
+)
+```
+
+The object `Dlm` contains functions to build several common models:
+
+```scala
+import dlm.model._
+
+val linear = Dlm.polynomial(1)
+val regression = Dlm.regression(x = // timeseries to regress against)
+val seasonal = Dlm.seasonal(period = 24, harmonics = 3)
+```
+
+These simple models can be composed to produce more complex models, for instance a seasonal model with a linear trend can be produced:
+
+```scala
+import cats.implicits._
+
+val seasonalTrend = linear |+| seasonal
+```
+
+The models can also be combined using a cartesian product in order to model multivariate time series:
+
+```scala
+// model for a bivariate time series
+val multivariateModel = linear |*| seasonalTrend
+
+// model for 30 seemingly unrelated time series
+val sutse = List.fill(30)(linearModel).reduce(_ |*| _)
+```
+
+## Model Building: DGLMs
+
+A dynamic generalised linear model is a DLM with a non-Gaussian observation distribution. The observation distribution is from the Exponential family, although extensions can be made to incorporate the Student's t-distribution from the location-scale family.
+
+To build a DGLM, first build a univariate DLM as above then select an observation model from the `Dglm` object:
+
+```scala
+val poisson = Dglm.poisson(seasonalTrend)
+```
+
+## Simulating from a DLM
+
+Simulation is useful to test inference algorithms or to get a feel for how a model behaves with different sets of parameters. First we must define the model `Parameters`:
+
+```scala
+import breeze.linalg._
+
+val linearP = Dlm.Parameters(
+  v =  DenseMatrix(1.0),
+  w =  DenseMatrix(3.0),
+  m0 = DenseVector(0.0),
+  c0 = DenseMatrix(10.0)
+)
+```
+
+Then we can simulate from the model:
+
+```scala
+val data =  Dlm.simulate(0, linear, P).
+  steps.
+  take(1000)
+```
+
+![first_order_plot](https://jonnylaw.github.io/bayesian_dlms/FirstOrderDlm_files/figure-html/first-order-simulated-1.png]
+
+Simulation from any DLM is possible using the same syntax. The parameters must be appropriate for the model, for instance the latent-state of a seasonal model has dimension of twice the number of harmonics in the model, hence `m0`, `c0` and `w` must be of the same dimension. 
+
+## Simulating from a DGLM
+
+In order to simulate from a DGLM we must know how to sample from the chosen observation distribution of the DGLM. The `Dglm.Model` class and its associated model building functions provide this function and an associated `simulate` function. The figure below shows a simulation from the Poisson model.
+
+```scala
+Dglm.simulate(poisson, p)
+```
+
+![poisson_sims](https://github.com/jonnylaw/bayesian_dlms/blob/master/docs/particle_gibbs_sampling_files/figure-html/poisson-sims-1.png)
+
+Note that the Poisson distribution has only one parameter, the rate and hence `v` in the `Dlm.Parameters` specification is unused. For observation distributions with additional parameters, then the `v` is used for this purpose.
+
+## Filtering
+
+* Kalman Filter
+* Particle Filter
+* Auxiliary Particle Filter
+* Particle Gibbs
+* Particle Gibbs with Ancestor Resampling
+
+## Parameter Learning
+
+* Gibbs Sampling (FFBS, d-Inverse Gamma, Wishart)
+* PMMH
+* Particle Gibbs
+
+## Forecasting
+
+* Advance state and one step prediction
+* Advance particle cloud

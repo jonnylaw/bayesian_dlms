@@ -18,7 +18,9 @@ object Dglm {
     f: ObservationMatrix,
     g: SystemMatrix,
     conditionalLikelihood: (Dlm.Parameters) => ConditionalLl
-  )
+  ) {
+    def |*|(y: Model)
+  }
 
   /**
     * Logistic function to transform the number onto a range between 0 and upper
