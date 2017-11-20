@@ -34,7 +34,7 @@ trait SimulatedData {
 }
 
 object SimulateDlm extends App with FirstOrderDlm {
-  val sims = simulate(0, mod, p).
+  val sims = simulateRegular(0, mod, p).
     steps.
     take(100)
 
@@ -55,7 +55,7 @@ object SimulateDlm extends App with FirstOrderDlm {
 }
 
 object FilterDlm extends App with FirstOrderDlm with SimulatedData {
-  val filtered = KalmanFilter.kalmanFilter(mod, data, p)
+  val filtered = KalmanFilter.filter(mod, data, p)
 
   val out = new java.io.File("data/first_order_dlm_filtered.csv")
 
@@ -68,7 +68,7 @@ object FilterDlm extends App with FirstOrderDlm with SimulatedData {
 }
 
 object SmoothDlm extends App with FirstOrderDlm with SimulatedData {
-  val filtered = KalmanFilter.kalmanFilter(mod, data, p)
+  val filtered = KalmanFilter.filter(mod, data, p)
   val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
 
   val out = new java.io.File("data/first_order_dlm_smoothed.csv")

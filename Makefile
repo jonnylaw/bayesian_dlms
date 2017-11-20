@@ -34,60 +34,60 @@ site: correlated second_order first_order seasonal
 correlated: simulate_correlated simulate_correlated_trend filter_correlated gibbs_correlated
 
 simulate_correlated_trend:
-	sbt "run-main dlm.examples.FirstOrderLinearTrendDlm"
+	sbt "runMain dlm.examples.FirstOrderLinearTrendDlm"
 
 simulate_correlated:
-	sbt "run-main dlm.examples.SimulateCorrelated"
+	sbt "runMain dlm.examples.SimulateCorrelated"
 
 filter_correlated: data/correlated_dlm.csv
-	sbt "run-main dlm.examples.FilterCorrelatedDlm"
+	sbt "runMain dlm.examples.FilterCorrelatedDlm"
 
 gibbs_correlated: data/correlated_dlm.csv
-	sbt "run-main dlm.examples.GibbsCorrelated"
+	sbt "runMain dlm.examples.GibbsCorrelated"
 
 second_order: simulate_second_order filter_second_order gibbs_second_order
 
 simulate_second_order:
-	sbt "run-main dlm.examples.SimulateSecondOrderDlm"
+	sbt "runMain dlm.examples.SimulateSecondOrderDlm"
 
 filter_second_order: data/second_order_dlm.csv
-	sbt "run-main dlm.examples.FilterSecondOrderDlm"
+	sbt "runMain dlm.examples.FilterSecondOrderDlm"
 
 gibbs_second_order: data/second_order_dlm.csv
-	sbt "run-main dlm.examples.GibbsSecondOrder"
+	sbt "runMain dlm.examples.GibbsSecondOrder"
 
 first_order: simulate_first_order filter_first_order smooth_first_order gibbs_first_order
 
 simulate_first_order:
-	sbt "run-main dlm.examples.SimulateDlm"
+	sbt "runMain dlm.examples.SimulateDlm"
 
 filter_first_order: data/first_order_dlm.csv
-	sbt "run-main dlm.examples.FilterDlm"
+	sbt "runMain dlm.examples.FilterDlm"
 
 smooth_first_order: data/first_order_dlm.csv
-	sbt "run-main dlm.examples.SmoothDlm"
+	sbt "runMain dlm.examples.SmoothDlm"
 
 gibbs_first_order: data/first_order_dlm.csv
-	sbt "run-main dlm.examples.GibbsParameters"
+	sbt "runMain dlm.examples.GibbsParameters"
 
 seasonal: simulate_seasonal seasonal_sample_state smooth_seasonal filter_seasonal
 
 simulate_seasonal:
-	sbt "run-main dlm.examples.SimulateSeasonalDlm"
+	sbt "runMain dlm.examples.SimulateSeasonalDlm"
 
 seasonal_sample_state: data/seasonal_dlm.csv
-	sbt "run-main dlm.examples.SampleStates"
+	sbt "runMain dlm.examples.SampleStates"
 
 smooth_seasonal: data/seasonal_dlm.csv
-	sbt "run-main dlm.examples.SmoothSeasonalDlm"
+	sbt "runMain dlm.examples.SmoothSeasonalDlm"
 
 filter_seasonal: data/seasonal_dlm.csv
-	sbt "run-main dlm.examples.FilterSeasonalDlm"
+	sbt "runMain dlm.examples.FilterSeasonalDlm"
 
 student_t: simulate_student_t student_t_gibbs student_t_pmmh student_t_pg
 
 simulate_student_t: 
-	sbt "run-main dlm.examples.SimulateStudentT"
+	sbt "runMain dlm.examples.SimulateStudentT"
 
 student_t_gibbs: data/student_t_dglm.csv
 	sbt assembly

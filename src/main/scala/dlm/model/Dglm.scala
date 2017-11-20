@@ -6,9 +6,6 @@ import cats.implicits._
 import math.exp
 import breeze.stats.covmat
 
-/**
-  * DGLM
-  */
 object Dglm {
   /**
     * A class representing a DGLM
@@ -18,9 +15,7 @@ object Dglm {
     f: ObservationMatrix,
     g: SystemMatrix,
     conditionalLikelihood: (Dlm.Parameters) => ConditionalLl
-  ) {
-    def |*|(y: Model)
-  }
+  )
 
   /**
     * Logistic function to transform the number onto a range between 0 and upper
@@ -149,7 +144,7 @@ object Dglm {
     * @param p the parameters of the model
     * @return the time, mean observation and variance of the observation
     */
-  def forecast(
+  def forecastParticles(
     mod:  Model, 
     xt:   Vector[DenseVector[Double]], 
     time: Time,

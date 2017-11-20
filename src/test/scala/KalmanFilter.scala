@@ -38,12 +38,12 @@ class KfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matchers w
   val mod = Dlm.polynomial(2)
 
   def observations(p: Parameters) = 
-    Dlm.simulate(0, mod, p).steps.take(100).map(_._1).toArray
+    Dlm.simulateRegular(0, mod, p).steps.take(100).map(_._1).toArray
 
   property("Kalman Filter State should be one length observations + 1") {
     forAll (params) { p =>
       val data = observations(p)
-      val filtered = KalmanFilter.kalmanFilter(mod, data, p)
+      val filtered = KalmanFilter.filter(mod, data, p)
 
       assert(filtered.size === (data.size + 1))
       assert(filtered.map(_.time).tail === data.map(_.time))
@@ -53,8 +53,8 @@ class KfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matchers w
   property("Backward Sampling is the length of the filtered state and contains the same times") {
     forAll (params) { p =>
       val data = observations(p)
-      val filtered = KalmanFilter.kalmanFilter(mod, data, p)
-      val sampled = Smoothing.backwardSampling(mod, filtered, p.w)
+      val filtered = KalmanFilter.filter(mod, data, p)
+      val sampled = Smoothing.sample(mod, filtered, p.w)
 
       assert(sampled.size === filtered.size)
       assert(sampled.map(_._1) === filtered.map(_.time))
@@ -106,7 +106,7 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
   }
 
   val state1 = KalmanFilter.State(1, m1, c1, a1, r1, Some(f1), Some(q1), 0.0)
-  val filterOne = KalmanFilter.stepKalmanFilter(model, p)(state1, data(1))
+  val filterOne = KalmanFilter.step(model, p)(state1, data(1))
 
   test("time step 2") {
     assert(filterOne.at(0) === 1.8)
@@ -119,7 +119,7 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(filterOne.ct(0,0) === 1.269231 +- tol)
   }
 
-  val filterTwo = KalmanFilter.stepKalmanFilter(model, p)(filterOne, data(2))
+  val filterTwo = KalmanFilter.step(model, p)(filterOne, data(2))
 
   test("time step 3") {
     assert(filterTwo.at(0) === 2.307692 +- tol)
@@ -132,7 +132,7 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(filterTwo.ct(0,0) === 1.291971 +- tol)
   }
 
-  val filterThree = KalmanFilter.stepKalmanFilter(model, p)(filterTwo, data(3))
+  val filterThree = KalmanFilter.step(model, p)(filterTwo, data(3))
 
   test("time step 4, missing data") {
     assert(filterThree.at(0) === 4.027007 +- tol)
@@ -145,7 +145,7 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(filterThree.ct(0,0) === 2.291971 +- tol)
   }
 
-  val filterFour = KalmanFilter.stepKalmanFilter(model, p)(filterThree, data(4))
+  val filterFour = KalmanFilter.step(model, p)(filterThree, data(4))
 
   test("Final time step") {
     assert(filterFour.at(0) === 4.027007 +- tol)
@@ -154,7 +154,7 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(filterFour.y.get(0) === 4.027007 +- tol)
     assert(filterFour.cov.get(0,0) === 6.291971 +- tol)
 
-    // assert(filterFour.mt(0) === 4.027007 +- tol)
-    // assert(filterFour.ct(0,0) === 1.291971 +- tol)
+    assert(filterFour.mt(0) === 7.204408 +- tol)
+    assert(filterFour.ct(0,0) === 1.569606 +- tol)
   }
 }

@@ -1,13 +1,13 @@
 ---
 title: "Model building and Simulation"
-author: "Jonathan Law"
-date: "20/11/2017"
 output: html_document
 ---
 
-# Quickstart
-
-This section is an introduction to using the library, the import statements are only included the first time they are used.
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+theme_set(theme_minimal())
+```
 
 ## Model Building: DLMs
 
@@ -81,7 +81,15 @@ val data =  Dlm.simulate(0, linear, P).
   take(1000)
 ```
 
-![first_order_plot](https://jonnylaw.github.io/bayesian_dlms/FirstOrderDlm_files/figure-html/first-order-simulated-1.png]
+```{r first-order-simulated, message=FALSE, warning=FALSE, echo=FALSE}
+data = read_csv("../data/first_order_dlm.csv")
+
+data %>%
+  gather(key, value, -time) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  theme(legend.position = "bottom")
+```
 
 Simulation from any DLM is possible using the same syntax. The parameters must be appropriate for the model, for instance the latent-state of a seasonal model has dimension of twice the number of harmonics in the model, hence `m0`, `c0` and `w` must be of the same dimension. 
 
@@ -93,25 +101,18 @@ In order to simulate from a DGLM we must know how to sample from the chosen obse
 Dglm.simulate(poisson, p)
 ```
 
-![poisson_sims](https://github.com/jonnylaw/bayesian_dlms/blob/master/docs/particle_gibbs_sampling_files/figure-html/poisson-sims-1.png)
+```{r poisson-sims, fig.cap="Simulation from the poisson DGLM with $(W, m_0, C_0) = (0.01, 0.0, 1.0)$"}
+data = read_csv("../data/poisson_dglm.csv")
+
+data %<>%
+  gather(key, value, -time) %>%
+  filter(time > 900) 
+
+ggplot() +
+  geom_line(data = subset(data, key == "state"), aes(x = time, y = value)) +
+  geom_step(data = subset(data, key == "observation"), aes(x = time, y = value)) +
+  facet_wrap(~key, scales = "free_y", ncol = 1) +
+  theme(legend.position = "none")
+```
 
 Note that the Poisson distribution has only one parameter, the rate and hence `v` in the `Dlm.Parameters` specification is unused. For observation distributions with additional parameters, then the `v` is used for this purpose.
-
-## Filtering
-
-* Kalman Filter
-* Particle Filter
-* Auxiliary Particle Filter
-* Particle Gibbs
-* Particle Gibbs with Ancestor Resampling
-
-## Parameter Learning
-
-* Gibbs Sampling (FFBS, d-Inverse Gamma, Wishart)
-* PMMH
-* Particle Gibbs
-
-## Forecasting
-
-* Advance state and one step prediction
-* Advance particle cloud

@@ -14,18 +14,25 @@ object GibbsWishart {
     */
   def sampleSystemMatrix(
     priorW: InverseWishart,
-    mod:    Model, 
+    g:      SystemMatrix, 
     state:  Array[(Time, DenseVector[Double])]) = {
 
     val n = state.size - 1
-    val prevState = state.init.map { case (time, x) => mod.g(time) * x }
-    val stateMean = state.tail.map { case (t, x) => x }
-    val difference = stateMean.zip(prevState).
-      map { case (mt, mt1) => (mt - mt1) * (mt - mt1).t }.
+    val sortedState = state.sortBy(_._1)
+    val times = sortedState.map(_._1)
+    val deltas = GibbsSampling.diff(times)
+    val advanceState = (deltas, sortedState.init.map(_._2)).
+      zipped.
+      map { case (dt, x) => g(dt) * x }
+
+    val stateMean = sortedState.map(_._2).tail
+
+    val squaredSum = (deltas zip stateMean zip advanceState).
+      map { case ((dt, mt), at) => (mt - at) * (mt - at).t /:/ dt }.
       reduce(_ + _)
 
     val dof = priorW.nu + n
-    val scale = priorW.psi + difference
+    val scale = priorW.psi + squaredSum
 
     InverseWishart(dof, scale)
   }
@@ -40,10 +47,9 @@ object GibbsWishart {
     observations: Array[Data])(state: GibbsSampling.State) = {
 
     for {
-      system <- sampleSystemMatrix(priorW, mod, state.state)
-      latentState = GibbsSampling.sampleState(mod, observations, Parameters(state.p.v, system, state.p.m0, state.p.c0))
-      obs <- GibbsSampling.sampleObservationMatrix(
-        priorV, mod.f, latentState, observations)
+      system <- sampleSystemMatrix(priorW, mod.g, state.state)
+      latentState <- Smoothing.ffbs(mod, observations, state.p.copy(w = system))
+      obs <- GibbsSampling.sampleObservationMatrix(priorV, mod.f, latentState, observations)
       p = Parameters(obs, system, state.p.m0, state.p.c0)
     } yield GibbsSampling.State(p, latentState)
   }
@@ -62,7 +68,7 @@ object GibbsWishart {
     initParams:   Parameters, 
     observations: Array[Data]) = {
 
-    val initState = GibbsSampling.sampleState(mod, observations, initParams)
+    val initState = Smoothing.ffbs(mod, observations, initParams).draw
     val init = GibbsSampling.State(initParams, initState)
 
     MarkovChain(init)(wishartStep(mod, priorV, priorW, observations))

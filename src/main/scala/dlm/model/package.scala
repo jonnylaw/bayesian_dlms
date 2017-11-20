@@ -11,7 +11,7 @@ package object model {
   type Time = Double
   type TimeIncrement = Double
   type ObservationMatrix = Time => DenseMatrix[Double]
-  type SystemMatrix = Time => DenseMatrix[Double]
+  type SystemMatrix = TimeIncrement => DenseMatrix[Double]
   type ConditionalLl = (Observation, DenseVector[Double]) => Double
   type LatentState = List[(Time, DenseVector[Double])]
 

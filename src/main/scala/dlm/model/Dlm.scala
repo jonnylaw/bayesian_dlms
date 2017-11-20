@@ -35,6 +35,9 @@ object Dlm {
       Parameters(v.map(f), w.map(f), m0.map(f), c0.map(f))
   }
 
+  /**
+    * A polynomial model
+    */
   def polynomial(order: Int): Model = {
     Model(
       (t: Time) => {
@@ -42,7 +45,7 @@ object Dlm {
         elements(0) = 1.0
         new DenseMatrix(order, 1, elements)
       },
-      (t: Time) => DenseMatrix.tabulate(order, order){ 
+      (dt: TimeIncrement) => DenseMatrix.tabulate(order, order){ 
         case (i, j) if (i == j) => 1.0
         case (i, j) if (i == (j - 1)) => 1.0
         case _ => 0.0
@@ -95,6 +98,21 @@ object Dlm {
     matrices.reduce(blockDiagonal)
   }
 
+  def seasonalG(
+    period:    Int,
+    harmonics: Int)(
+    dt:        TimeIncrement): DenseMatrix[Double] = {
+
+    val matrices = (delta: TimeIncrement) => (1 to harmonics).
+      map(h => Dlm.rotationMatrix(h * angle(period)(delta)))
+
+    matrices(dt).reduce(Dlm.blockDiagonal)
+  }
+
+  def angle(period: Int)(dt: TimeIncrement): Double = {
+    2 * math.Pi * (dt % period) / period
+  }
+
   /**
     * Create a seasonal model with fourier components in the system evolution matrix
     * @param period the period of the seasonality
@@ -103,7 +121,7 @@ object Dlm {
   def seasonal(period: Int, harmonics: Int): Model = {
     Model(
       (t: Time) => DenseMatrix.tabulate(harmonics * 2, 1){ case (h, i) => if (h % 2 == 0) 1 else 0 },
-      (t: Time) => buildSeasonalMatrix(period, harmonics)
+      (dt: TimeIncrement) => seasonalG(period, harmonics)(dt)
     )
   }
 
@@ -127,7 +145,7 @@ object Dlm {
   /**
     * Simulate from a DLM
     */
-  def simulate(
+  def simulateRegular(
     startTime: Time, 
     mod: Model, 
     p: Parameters): Process[(Data, DenseVector[Double])] = {
@@ -139,11 +157,39 @@ object Dlm {
   /**
     * Simulate the latent-state from a DLM model
     */
-  def simulateState(
+  def simulateStateRegular(
     mod: Model,
     w: DenseMatrix[Double]): Process[(Time, DenseVector[Double])] = {
     MarkovChain((1.0, DenseVector.zeros[Double](w.cols))){ case (time, x) => 
       MultivariateGaussianSvd(mod.g(time + 1) * x, w).map((time + 1, _))
+    }
+  }
+
+  /**
+    * Simulate the state at the given times
+    */
+  def simulateState(
+    times: Iterable[Double], 
+    g:     TimeIncrement => DenseMatrix[Double],
+    p:     Dlm.Parameters,
+    init:  (Time, DenseVector[Double])) = {
+
+    times.tail.scanLeft(init) { (x, t) =>
+      val dt = t - x._1
+      (t, MultivariateGaussianSvd(g(dt) * x._2, p.w * dt).draw)
+    }
+  }
+
+  /**
+    * Simulate from a DLM at the given times
+    */
+  def simulate(times: Iterable[Double], mod: Model, p: Dlm.Parameters) = {
+    val init = (times.head, MultivariateGaussianSvd(p.m0, p.c0).draw)
+
+    val state = simulateState(times, mod.g, p, init)
+
+    state.map { case (t, x) => 
+      (Data(t, Some(MultivariateGaussianSvd(mod.f(t).t * x, p.v).draw)), x) 
     }
   }
 

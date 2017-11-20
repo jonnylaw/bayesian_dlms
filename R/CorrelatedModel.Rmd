@@ -63,6 +63,8 @@ $$G = \begin{pmatrix}
 In order to compose these two models in the Scala package, we first define the two models:
 
 ```scala
+import dlm.model_
+
 val mod1 = Dlm.polynomial(1)
 val mod2 = Dlm.polynomial(2)
 ```
@@ -70,9 +72,11 @@ val mod2 = Dlm.polynomial(2)
 The models can now be composed using the outer sum function:
 
 ```scala
-val composedModel = Dlm.outerSum(mod1, mod2)
+import breeze.linalg._
 
-val p = Parameters(
+val composedModel = mod1 |*| mod2
+
+val p = Dlm.Parameters(
   v = diag(DenseVector(1.0, 2.0)), 
   w = diag(DenseVector(2.0, 3.0, 1.0)),
   m0 = DenseVector.zeros[Double](2), 
@@ -83,7 +87,7 @@ val p = Parameters(
 Then we can simulate observations from the `composedModel`:
 
 ```scala
-Dlm.simulate(0, composedModel, p).
+val sims = Dlm.simulate(0, composedModel, p).
   steps.
   take(1000)
 ```
@@ -148,66 +152,15 @@ filtered %>%
 
 ## Parameter Learning
 
-The unkown parameters of the model are the system noise matrix, $W$ and the observation noise matrix, $V$. The observation noise matrix is assumed to be diagonal, meaning the measurement noise of each process is considered to be independent. We can use Gibbs Sampling to determine the values of $W$ and $V$, by utilising conjugate structure of the conditional distributions of the model. Assume initially that the parameters of the initial state are known, then the unknown parameters can be written as the vector, $\theta = (v_1, v_2, w_1, \dots, w_9)$. The joint distribution of all the random variables in the model can be written as:
-
-$$p(\textbf{X}_{1:T}, \textbf{Y}_{1:T}, \theta) = p(\theta) p(\textbf{x}_0) \prod_{i=1}^T p(\textbf{y}_i| \textbf{x}_i, \theta) p(\textbf{x}_i | \textbf{x}_{i-1}, \theta)$$
-
-This factorisation of the random variables makes it clear to see how a gibbs sampling approach could be used. We observe values of the observations $Y_{1:T}$ from time $t = \{1, \dots, T\}$, then given the value of the parameters we sample a value of the state using forward filtering - backward sampling (FFBS). Then given the values of the states, we can draw a value for both the observation and system noise covariances. 
-
-## Observation Noise Matrix: d-Inverse Gamma
-
-First consider the observation variance matrix, this matrix is diagonal and hence we only need to learn the variances. The following steps are simplified by considering only one time series in the observation vector. The prior distribution of the observation variance, $V$, is the Inverse Gamma distribution:
-
-$$p(V) = \textrm{InverseGamma}(\alpha, \beta)$$
-
-The likelihood of $y_t$ is Gaussian, with mean $F^T \textbf{x}_t$ and variance $V$. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. The posterior distribution of the observation variance is:
-
-$$\begin{align*}
-p(V | y_{1:T}, \textbf{x}_{0:T}) &\propto  p(x_0) p(V) \prod_{t=1}^Tp(y_t | V, x_t) p(x_t|x_{t-1}) \\
-&= V^{-\alpha-1}\exp\left( -\frac{\beta}{V} \right)(2\pi V)^{-T/2} \exp \left\{ -V^{-1} \sum_{t=1}^T(y_t - F_t \textbf{x}_t)^2 \right\} \\
-&= V^{-(\alpha + T/2) - 1} \exp \left\{ -\frac{1}{V}\left(\beta + \frac{1}{2}\sum_{t=1}^T(y_t - F_t \textbf{x}_t)^2\right) \right\}
-\end{align*}$$
-
-The the posterior distribution of the observation variance is the Inverse Gamma distribution:
-
-$$p(V | y_{1:T}, \textbf{x}_{1:T}) = \textrm{InverseGamma}\left(\alpha + \frac{T}{2}, \beta + \frac{1}{2}\sum_{i=1}^T(y_t - F_t\textbf{x}_t)^2\right).$$
-
-## System Noise Matrix: Inverse Wishart Prior
-
-For the system noise matrix, the Inverse Wishart distribution can be used as the conjugate prior for the Multivariate Normal likelihood for $\textbf{x}_t$ with unknown covariance, $W$ and known mean $G_t\textbf{x}_{t-1}$. The prior on W is written as:
-
-$$p(W) \sim \mathcal{W}^{-1}(\mathbf{psi}, \nu)$$
-
-The PDF of the inverse wishart distribution is given as follows:
-
-$$p(W) = \frac{\left|{\mathbf\Psi}\right|^{\frac{\nu}{2}}}{2^{\frac{\nu p}{2}}\Gamma_p(\frac{\nu}{2})} \left|W\right|^{-\frac{\nu+p+1}{2}}\textrm{exp}\left\{-\frac{1}{2}\operatorname{tr}({\mathbf\Psi}W^{-1})\right\}.$$
-Where $p$ is the dimension of the matrix $W$, in this $p = 2$. The posterior distribution for the parameter $W$ given the values of the state, $x_{1:T}$ can be written as:
-
-$$\begin{align*}p(W|x_{1:T}) &\propto p(x_0)p(W)\prod_{i=1}^T p(x_i|x_{i-1}, W) \\
-&= \left|W\right|^{-\frac{\nu+p+1}{2}}\textrm{exp}\left\{-\frac{1}{2}\operatorname{tr}({\mathbf\Psi}W^{-1})\right\} \\ &\times\left|{W}\right|^{-\frac{T}{2}}\textrm{exp}\left\{ -\frac{1}{2}\sum_{i=1}^T(x_i - Gx_{i-1})^TW^{-1}(x_i-Gx_{i-1})\right\} \\
-&= \left|W\right|^{\frac{\nu + T + 2 + 1}{2}}\textrm{exp}\left\{ -\frac{1}{2}\operatorname{tr}(\mathbf{\Psi}W^{-1}) - \operatorname{tr}\left(\frac{1}{2}\sum_{i=1}^T(x_i - Gx_{i-1})(x_i-Gx_{i-1})^TW^{-1}\right)\right\}
-\end{align*}$$
-
-The final line uses standard results from Multivariate statistics and the following rule for matrix traces: 
-
-* A Matrix trace is invariant under cyclic permutations, $\operatorname{tr}(ABC) = \operatorname{tr}(CAB) = \operatorname{tr}(BCA)$
-
-This can be futher simplified to:
-
-$$p(W|x_{1:T}) \propto \left|W\right|^{\frac{\nu + T + 2 + 1}{2}}\textrm{exp}\left\{ -\frac{1}{2}\operatorname{tr}((\mathbf{\Psi} + \sum_{i=1}^T(x_i - Gx_{i-1})(x_i-Gx_{i-1})^T) W^{-1}) \right\}.$$
-
-This final simplification uses another couple of facts about the matrix trace:
-
-* The sum of the trace is equal to the trace of the sum, $\operatorname{tr}(A + B) = \operatorname{tr}(A) + \operatorname{tr}(B)$
-* $\operatorname{tr}(cA) = c\operatorname{tr}(A)$ for a constant "c"
-
-We recognise the posterior distribution for the system noise covariance as the Inverse Wishart distribution:
-
-$$p(W|x_{1:T}) = \mathcal{W}^{-1}(\nu + T, \mathbf{\Psi} + \sum_{i=1}^T(x_i - Gx_{i-1})(x_i-Gx_{i-1})^T)$$.
-
-Now in order to perform gibbs sampling, we alternate between drawing values of $V, W$ from these posterior distributions and values of the state $x_0,\dots,x_T$ using forward filtering backward sampling. 
+The unkown parameters of the model are the system noise matrix, $W$ and the observation noise matrix, $V$. The observation noise matrix is assumed to be diagonal, meaning the measurement noise of each process is considered to be independent. We can use Gibbs Sampling to determine the values of $W$ and $V$ as expanded upon in the section on [Gibbs Sampling](gibbs_sampling.html).
 
 ## Gibbs Sampling Correlated Model
+
+In order to perform Gibbs Sampling for the Correlated model in Scala:
+
+```scala
+
+```
 
 ```{r correlated-v-diagnostics, fig.cap="Diagnostic plots for the MCMC draws from the posterior distribution of the non-zero diagonal elements of the Observation noise covariance matrix for the simulated correlated model", message=FALSE, warning=FALSE, echo=FALSE}
 iters = read_csv("../data/correlated_dlm_gibbs.csv")

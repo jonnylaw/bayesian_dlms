@@ -1,7 +1,6 @@
 ---
 title: "First Order DLM"
-author: "Jonathan Law"
-date: "27 September 2017"
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -156,15 +155,15 @@ val iters = gibbsSamples(mod, InverseGamma(4.0, 9.0), InverseGamma(3.0, 3.0), p,
 ```{r first-order-gibbs, message=FALSE, warning=FALSE, echo=FALSE}
 gibbs_iters = read_csv("../data/first_order_dlm_gibbs.csv")
 
-chain = mcmc(gibbs_iters) %>%
+chain = mcmc(gibbs_iters[-c(1:1000),]) %>%
   ggs() %>%
   filter(Parameter %in% c("V", "W"))
 
-p1 = ggs_traceplot(chain)
+p1 = ggs_traceplot(chain) + facet_wrap(~Parameter, ncol = 2, scales = "free_y")
 
-p2 = ggs_running(chain)
+p2 = ggs_running(chain) + theme(legend.position = "none") + facet_wrap(~Parameter, ncol = 2, scales = "free_y")
 
 p3 = ggs_autocorrelation(chain)
 
-gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
+gridExtra::grid.arrange(p1, p2, p3, ncol = 1)
 ```

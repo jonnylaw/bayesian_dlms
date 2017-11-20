@@ -1,0 +1,100 @@
+---
+title: "Kalman Filtering"
+author: "Jonathan Law"
+date: "20 November 2017"
+output: html_document
+---
+
+Dynamic Linear Models have a linear Gaussian latent-state and observation model which is amenable to exact filtering because of special properties of the Gaussian distribution. This means the distribution of the latent-state ($p(\textbf{x}_{0:T}|y_{1:T}, \theta)$) can be learned about exactly, this distribution is commonly called the filtering distribution. Suppose a time-dependent process is observed discretely at times $t = 1,\dots,T$, then a general DLM for this process can be written as:
+
+$$\begin{aligned}
+y_t &= F_t x_t + v_t, &v_t &\sim \mathcal{N}(0, V), \\
+x_t &= G_t x_{t-1} + v_t, &w_t &\sim \mathcal{N}(0, W), \\
+x_0 &\sim \mathcal{N}(m_0, C_0).
+\end{aligned}$$
+
+The latent-state forms a Markov Chain, $p(x_t|x_{0:t-1},W) = p(x_t|x_{t-1},W)$ and the observations are conditionally independent given the corresponding value of the latent-state. The matrix $F_t$ is known as the observation matrix, the matrix $G_t$ is the state evolution matrix. $V$ is the measurement variance and $W$ is the system evolution noise.
+
+The Kalman filter proceeds as follows, given observations of the process up until time $t$, $y_{1:t}$ and the posterior of the latent-state at time $t$, then:
+
+1) Prior at time $t + 1$ is $\mathcal{N}(a_t, R_t)$ where $a_t = G_t m_t$ and $R_t = G_t C_t G_t^T + W_t$
+
+2) One step prediction for time $t + 1$ is $\mathcal{N}(f_t, Q_t)$ where $f_t = F_t a_t$ and $Q_t = F_t R_t F_t^T + V_t$
+
+
+3) State update given the new observation, $y_{t+1}$ is $\mathcal{N}(m_{t+1}, C_{t+1})$ where $m_{t+1} = a_t + K_t e_t$, $C_t = (I - K_t * F_t)R_t(I - K_t * F_t) + K_tV_tK_t$ and $K_t = R_t * F_t^T * Q^{-1}$, $e_t = y_t - f_t$
+
+## First Order Example
+
+In order to illustrate the Kalman Filter implementation in Scala, we consider a first order polynomial DLM, where $F_t = 1$, $G_t = 1$ and the latent-state is one-dimensional:
+
+```scala
+import dlm.model._
+import breeze.linalg.{DenseMatrix, DenseVector, diag}
+
+val mod = Dlm.polynomial(1)
+val p = Dlm.Parameters(
+  v = DenseMatrix(3.0),
+  w = DenseMatrix(1.0),
+  m0 = DenseMatrix(0.0),
+  c0 = DenseMatrix(1.0)
+)
+
+val data = Dlm.simulate(0, mod, p).
+  steps.
+  take(1000)
+```
+
+1) The prior at time $t + 1$ is implemented in the `KalmanFilter` object as `advanceState`
+
+```scala
+val mt = // posterior mean of latent-state at time t
+val ct = // posterior covariance of latent-state at time t
+val time = t
+val (at, rt) = KalmanFilter.advanceState(mod.g, mt, ct, time, p.w)
+```
+
+2) One step prediction is implemented in the `KalmanFilter` object as `oneStepPrediction`
+
+```scala
+val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, at, rt, time, p.v)
+```
+
+3) State update is implemented in the `KalmanFilter` object as `updateState`
+
+```scala
+val y = Data(t + 1, Some(DenseVector(5.0))) // an observation at time t + 1
+val (mt1, ct1) = KalmanFilter.updateState(mod.f, at, rt, ft, qt, y, p.v)
+```
+
+These three steps are implemented together into a single function `stepKalmanFilter`. This function is then used to fold over an `Array[Data]` to determine the filtering distribution:
+
+```scala
+val filtered = KalmanFilter.kalmanFilter(mod, data.map(_._1), p)
+```
+
+The result of filtering the simulated observations is plotted below, with 90% probability intervals. The system and observation variances, $W_t$ and $V_t$ are assumed to be constant in time and known.
+
+```{r first-order-filtered, message=FALSE, warning=FALSE, echo=FALSE}
+filtered = read_csv("../data/first_order_dlm_filtered.csv")
+
+filtered %>%
+  inner_join(data, by = "time") %>%
+  mutate(upper = qnorm(p = 0.95, mean = state_mean, sd = sqrt(state_variance))) %>%
+  mutate(lower = qnorm(p = 0.05, mean = state_mean, sd = sqrt(state_variance))) %>%
+  gather(key, value, state_mean, state) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  geom_line(aes(x = time, y = lower), linetype = 3, colour = "#000000") +
+  geom_line(aes(x = time, y = upper), linetype = 3, colour = "#000000") +
+  theme(legend.position = "bottom") +
+  ggtitle("Kalman Filtered")
+```
+
+
+## Other Filters
+
+* Particle Filter
+* Auxiliary Particle Filter
+* Particle Gibbs
+* Particle Gibbs with Ancestor Resampling

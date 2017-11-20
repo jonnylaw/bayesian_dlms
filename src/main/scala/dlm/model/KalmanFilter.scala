@@ -30,20 +30,20 @@ object KalmanFilter {
   )
 
   def advanceState(
-    g:    Time => DenseMatrix[Double], 
+    g:    SystemMatrix,
     mt:   DenseVector[Double], 
     ct:   DenseMatrix[Double],
-    time: Time, 
+    dt:   TimeIncrement, 
     w:    DenseMatrix[Double]) = {
 
-    val at = g(time) * mt
-    val rt = g(time) * ct * g(time).t + w
+    val at = g(dt) * mt
+    val rt = g(dt) * ct * g(dt).t + w * dt
 
     (at, rt)
   }
 
   def oneStepPrediction(
-    f:    Time => DenseMatrix[Double],
+    f:    ObservationMatrix,
     at:   DenseVector[Double],
     rt:   DenseMatrix[Double],
     time: Time,
@@ -67,7 +67,7 @@ object KalmanFilter {
     * @return the posterior mean and variance of the latent state at time t
     */
   def updateState(
-    f:         Time => DenseMatrix[Double],
+    f:         ObservationMatrix,
     at:        DenseVector[Double],
     rt:        DenseMatrix[Double],
     predicted: Observation, 
@@ -103,10 +103,11 @@ object KalmanFilter {
     case None => 0.0
   }
 
-  def stepKalmanFilter(
+  def step(
     mod: Model, p: Parameters)(state: State, y: Data): State = {
 
-    val (at, rt) = advanceState(mod.g, state.mt, state.ct, y.time, p.w)
+    val dt = y.time - state.time
+    val (at, rt) = advanceState(mod.g, state.mt, state.ct, dt, p.w)
     val (ft, qt) = oneStepPrediction(mod.f, at, rt, y.time, p.v)
     val (mt, ct) = updateState(mod.f, at, rt, ft, qt, y, p.v)
 
@@ -118,7 +119,7 @@ object KalmanFilter {
   /**
     * Run the Kalman Filter over an array of data
     */
-  def kalmanFilter(
+  def filter(
     mod:          Model, 
     observations: Array[Data], 
     p:            Parameters) = {
@@ -128,7 +129,7 @@ object KalmanFilter {
       observations.map(_.time).min - 1, 
       p.m0, p.c0, at, rt, None, None, 0.0)
 
-    observations.scanLeft(init)(stepKalmanFilter(mod, p))
+    observations.scanLeft(init)(step(mod, p))
   }
 
   /**
@@ -141,13 +142,13 @@ object KalmanFilter {
 
     val (at, rt) = advanceState(mod.g, p.m0, p.c0, 0, p.w)
     val init = State(
-      observations.head.time,
+      observations.map(_.time).min - 1,
       p.m0,
       p.c0,
       at,
       rt,
       None, None, 0.0)
 
-    observations.foldLeft(init)(stepKalmanFilter(mod, p)).ll
+    observations.foldLeft(init)(step(mod, p)).ll
   }
 }

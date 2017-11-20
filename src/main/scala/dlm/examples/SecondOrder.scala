@@ -34,7 +34,7 @@ trait SimulatedSecondOrderData {
 }
 
 object SimulateSecondOrderDlm extends App with DlmModel {
-  val sims = simulate(0, mod, p).
+  val sims = simulateRegular(0, mod, p).
     steps.
     take(1000)
 
@@ -55,7 +55,7 @@ object SimulateSecondOrderDlm extends App with DlmModel {
 }
 
 object FilterSecondOrderDlm extends App with DlmModel with SimulatedSecondOrderData {
-  val filtered = KalmanFilter.kalmanFilter(mod, data, p)
+  val filtered = KalmanFilter.filter(mod, data, p)
 
   val out = new java.io.File("data/second_order_dlm_filtered.csv")
 
@@ -69,7 +69,7 @@ object FilterSecondOrderDlm extends App with DlmModel with SimulatedSecondOrderD
 }
 
 object SmoothSecondOrderDlm extends App with DlmModel with SimulatedSecondOrderData {
-  val filtered = KalmanFilter.kalmanFilter(mod, data, p)
+  val filtered = KalmanFilter.filter(mod, data, p)
   val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
 
   val out = new java.io.File("data/second_order_dlm_smoothed.csv")
