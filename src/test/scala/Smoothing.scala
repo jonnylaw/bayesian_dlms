@@ -1,4 +1,4 @@
-import dlm.model._
+ import dlm.model._
 import Dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag, inv}
 import breeze.stats.distributions.{ChiSquared, Gamma}
@@ -35,16 +35,25 @@ class SmoothingTest extends FunSuite with Matchers with BreezeGenerators {
 
   val filtered = KalmanFilter.filter(model, data, p)
 
-  val sortedState = filtered.sortWith(_.time > _.time)
-  val last = sortedState.head
-  val lastTime = last.time
-  val init = Smoothing.SmoothingState(lastTime, last.mt, last.ct, last.at, last.rt)
-
   val smoothed = Smoothing.backwardsSmoother(model)(filtered)
-  val smoothOne = Smoothing.smoothStep(model)(init, sortedState(1))
+
+  val s6 = smoothed.last.mean(0)
+  val m5 = filtered(4).mt(0)
+  val c5 = filtered(4).ct(0, 0)
+  val r6 = filtered.last.rt(0,0)
+  val a6 = filtered.last.at(0)
+  val s5 = m5 + c5 * c5 * 1 / (r6 * r6) * (s6 - a6)
+
+  val S6 = smoothed.last.covariance(0,0)
+  val S5 = c5 - c5 * c5 * 1 / (r6 * r6) * (r6 - S6)
+
+  test("The initial smoothing mean and covariance should be equal to the last filtered mean and covariance") {
+    assert(filtered.last.mt(0) === s6 +- tol)
+    assert(filtered.last.ct(0,0) === S6 +- tol)
+  }
 
   test("A single step of the smoothing algorithm") {
-    assert(smoothOne.mean(0) === 6.239211 +- tol)
-    assert(smoothOne.covariance(0,0) === 0.8348942 +- tol)
+    assert(smoothed(5).mean(0) === s5 +- tol)
+    assert(smoothed(5).covariance(0,0) === S5 +- tol)
   }
 }

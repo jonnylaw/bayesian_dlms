@@ -1,5 +1,5 @@
 # Fit a seasonal model using Newcastles HPC, Topsy
-seasonal_model_simulated:
+seasonal_model_gibbs:
 	sbt assembly
 	cp target/scala-2.11/bayesian_dlms-assembly-0.2-SNAPSHOT.jar seasonal_dlm.jar
 	ssh topsy -t mkdir -p /share/nobackup/a9169110/seasonal_dlm/data
@@ -18,7 +18,6 @@ poisson_dglm_gibbs:
 	ssh topsy -f "cd /share/nobackup/a9169110/poisson_dglm && qsub poisson_dglm.qsub"
 	ssh topsy -t qstat
 
-# Fit a 
 seasonal_irregular_gibbs:
 #	sbt assembly
 #	cp target/scala-2.11/bayesian_dlms-assembly-0.2-SNAPSHOT.jar seasonal_dlm_irregular.jar
@@ -70,7 +69,7 @@ smooth_first_order: data/first_order_dlm.csv
 gibbs_first_order: data/first_order_dlm.csv
 	sbt "runMain dlm.examples.GibbsParameters"
 
-seasonal: simulate_seasonal seasonal_sample_state smooth_seasonal filter_seasonal
+seasonal: simulate_seasonal seasonal_sample_state smooth_seasonal filter_seasonal 
 
 simulate_seasonal:
 	sbt "runMain dlm.examples.SimulateSeasonalDlm"

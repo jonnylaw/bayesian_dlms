@@ -76,9 +76,9 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     Data(2.0, Some(DenseVector(3.0))),
     Data(3.0, Some(DenseVector(6.3))),
     Data(4.0, None),
-    Data(5.0, Some(DenseVector(10.1)))
+    Data(5.0, Some(DenseVector(10.1))),
+    Data(7.0, Some(DenseVector(15.2)))
   )
-
 
   val y1 = data.head
   val (a1, r1) = KalmanFilter.advanceState(model.g, p.m0, p.c0, 1, p.w)
@@ -147,7 +147,7 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
 
   val filterFour = KalmanFilter.step(model, p)(filterThree, data(4))
 
-  test("Final time step") {
+  test("time step, t = 5") {
     assert(filterFour.at(0) === 4.027007 +- tol)
     assert(filterFour.rt(0,0) === 3.291971 +- tol)
 
@@ -156,5 +156,11 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
 
     assert(filterFour.mt(0) === 7.204408 +- tol)
     assert(filterFour.ct(0,0) === 1.569606 +- tol)
+  }
+
+  val filterFour = KalmanFilter.step(model, p)(filterThree, data(4))
+
+  test("time step, t = 7, skip an observation without encoding") {
+    assert(filterFive
   }
 }

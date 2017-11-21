@@ -32,7 +32,8 @@ object Smoothing {
     val at1 = state.at1
     val rt1 = state.rt1
 
-    val cgrinv = (rt1.t \ (mod.g(dt) * ct.t)).t
+//    val cgrinv = (rt1.t \ (mod.g(dt) * ct.t)).t
+    val cgrinv = ct * mod.g(dt).t * inv(rt1)
 
     // calculate the updated mean 
     val mean = mt + cgrinv * (state.mean - at1)
@@ -44,7 +45,7 @@ object Smoothing {
     // val covariance = diff * ct * diff.t + cgrinv * w * dt * cgrinv.t
 
     // calculate the updated covariance
-    val covariance = ct - cgrinv * (rt1 - state.covariance) * cgrinv.t
+    val covariance = ct - cgrinv * (rt1 - state.covariance) * cgrinv
 
     SmoothingState(time, mean, covariance, kfState.at, kfState.rt)
   }
@@ -66,7 +67,8 @@ object Smoothing {
     val lastTime = last.time
     val init = SmoothingState(lastTime, last.mt, last.ct, last.at, last.rt)
 
-    sortedState.tail.scanLeft(init)(smoothStep(mod)).sortBy(_.time)
+    sortedState.tail.scanLeft(init)(smoothStep(mod)).
+      sortBy(_.time)
   }
 
   case class SamplingState(
