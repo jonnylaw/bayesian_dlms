@@ -1,30 +1,57 @@
 ---
 title: "Particle Marginal Metropolis Hastings"
-author: "Jonathan Law"
-date: "20 November 2017"
-output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(tidyverse)
 ```
 
-## R Markdown
+The Particle Marginal Metropolis Hastings (PMMH) algorithm can be used to learn parameters of a Dynamic Generalised Linear Model (DGLM).
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+The algorithm uses an unbiased estimate of the marginal likelihood, $p(y_{1:T} | x_{0:T}, V, W)$ in a [Metropolis-Hastings Algorithm](https://en.wikipedia.org/wiki/Metropolis–Hastings_algorithm). The pseudo marginal likelihood can be calculated using the Particle Filter.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+Firstly define a DGLM:
 
-```{r cars}
-summary(cars)
+```tut
+import dlm.model._
+
+val model = Dlm.polynomial(1)
+val dglm = Dglm.poisson(model)
 ```
 
-## Including Plots
+Assume we have some observations of a process which can be modelled using the specified model:
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```scala
+val observations = // some observations
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Then we need to define the proposal function, `def proposal: Parameters => Rand[Parameters]`. A symmetric proposal distribution is implemented in the `Metropolis` object. This proposal distribution is simply a Normal centered at the previous value of the parameters. In the case of the non-negative parameters, $V$, $W$ and $C_0$ the parameter is multiplied by the exponential of a Normal random number.
+
+The function accepts a parameter `delta`, a single `Double` value which controls the variance of the Gaussian proposal distribution:
+
+```tut
+def proposal = Metropolis.symmetricProposal(0.05) _
+```
+
+Then we need to specify a prior distribution for the parameters, which encapsulates our prior beliefs about the parameters.
+
+```scala
+def prior(p: Dlm.Parameters): Double = ???
+```
+
+Then we must specify the initial value of the parameters to start the MCMC.
+
+The PMMH algorithm is implemented in the package, using the bootstrap particle filter:
+
+```scala
+val iters = MetropolisHastings.pmmh(
+  dglm, 
+  observations,
+  proposal,
+  prior,
+  initP
+  n = 500)
+```
+
+With this specification, there are two tuning parameters in the PMMH algorithm, the variance of the Gaussian proposal distribution and the number of particles in the Particle Filter. As the number of particles increases so does the accuracy of the likelihood estimate, however this also increases computational time. The variance of the proposal distribution should be such that the proportion of accepted moves in the pmmh algorithm is approximately one third. This will guarantee that the MCMC has explored the full parameter posterior.

@@ -9,9 +9,7 @@
 <meta name="generator" content="pandoc" />
 
 
-<meta name="author" content="Jonathan Law" />
 
-<meta name="date" content="2017-11-20" />
 
 <title>Particle Marginal Metropolis Hastings</title>
 
@@ -284,31 +282,39 @@ $(document).ready(function () {
 
 
 <h1 class="title toc-ignore">Particle Marginal Metropolis Hastings</h1>
-<h4 class="author"><em>Jonathan Law</em></h4>
-<h4 class="date"><em>20 November 2017</em></h4>
 
 </div>
 
 
-<div id="r-markdown" class="section level2">
-<h2>R Markdown</h2>
-<p>This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <a href="http://rmarkdown.rstudio.com" class="uri">http://rmarkdown.rstudio.com</a>.</p>
-<p>When you click the <strong>Knit</strong> button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">summary</span>(cars)</code></pre></div>
-<pre><code>##      speed           dist       
-##  Min.   : 4.0   Min.   :  2.00  
-##  1st Qu.:12.0   1st Qu.: 26.00  
-##  Median :15.0   Median : 36.00  
-##  Mean   :15.4   Mean   : 42.98  
-##  3rd Qu.:19.0   3rd Qu.: 56.00  
-##  Max.   :25.0   Max.   :120.00</code></pre>
-</div>
-<div id="including-plots" class="section level2">
-<h2>Including Plots</h2>
-<p>You can also embed plots, for example:</p>
-<p><img src="pmmh_files/figure-html/pressure-1.png" width="672" /></p>
-<p>Note that the <code>echo = FALSE</code> parameter was added to the code chunk to prevent printing of the R code that generated the plot.</p>
-</div>
+<p>The Particle Marginal Metropolis Hastings (PMMH) algorithm can be used to learn parameters of a Dynamic Generalised Linear Model (DGLM).</p>
+<p>The algorithm uses an unbiased estimate of the marginal likelihood, <span class="math inline">\(p(y_{1:T} | x_{0:T}, V, W)\)</span> in a <a href="https://en.wikipedia.org/wiki/Metropolisâ€“Hastings_algorithm">Metropolis-Hastings Algorithm</a>. The pseudo marginal likelihood can be calculated using the Particle Filter.</p>
+<p>Firstly define a DGLM:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">import</span> dlm.<span class="fu">model</span>._
+<span class="kw">import</span> dlm.<span class="fu">model</span>._
+
+scala&gt; <span class="kw">val</span> model = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>)
+model: dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Model</span> = <span class="fu">Model</span>(&lt;function1&gt;,&lt;function1&gt;)
+
+scala&gt; <span class="kw">val</span> dglm = Dglm.<span class="fu">poisson</span>(model)
+dglm: dlm.<span class="fu">model</span>.<span class="fu">Dglm</span>.<span class="fu">Model</span> = <span class="fu">Model</span>(&lt;function2&gt;,&lt;function1&gt;,&lt;function1&gt;,&lt;function1&gt;)</code></pre></div>
+<p>Assume we have some observations of a process which can be modelled using the specified model:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> observations = <span class="co">// some observations</span></code></pre></div>
+<p>Then we need to define the proposal function, <code>def proposal: Parameters =&gt; Rand[Parameters]</code>. A symmetric proposal distribution is implemented in the <code>Metropolis</code> object. This proposal distribution is simply a Normal centered at the previous value of the parameters. In the case of the non-negative parameters, <span class="math inline">\(V\)</span>, <span class="math inline">\(W\)</span> and <span class="math inline">\(C_0\)</span> the parameter is multiplied by the exponential of a Normal random number.</p>
+<p>The function accepts a parameter <code>delta</code>, a single <code>Double</code> value which controls the variance of the Gaussian proposal distribution:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">def</span> proposal = Metropolis.<span class="fu">symmetricProposal</span>(<span class="fl">0.05</span>) _
+proposal: dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Parameters</span> =&gt; breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Rand</span>[dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Parameters</span>]</code></pre></div>
+<p>Then we need to specify a prior distribution for the parameters, which encapsulates our prior beliefs about the parameters.</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">def</span> <span class="fu">prior</span>(p: Dlm.<span class="fu">Parameters</span>): Double = ???</code></pre></div>
+<p>Then we must specify the initial value of the parameters to start the MCMC.</p>
+<p>The PMMH algorithm is implemented in the package, using the bootstrap particle filter:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = MetropolisHastings.<span class="fu">pmmh</span>(
+  dglm, 
+  observations,
+  proposal,
+  prior,
+  initP
+  n = <span class="dv">500</span>)</code></pre></div>
+<p>With this specification, there are two tuning parameters in the PMMH algorithm, the variance of the Gaussian proposal distribution and the number of particles in the Particle Filter. As the number of particles increases so does the accuracy of the likelihood estimate, however this also increases computational time. The variance of the proposal distribution should be such that the proportion of accepted moves in the pmmh algorithm is approximately one third. This will guarantee that the MCMC has explored the full parameter posterior.</p>
 
 
 

@@ -34,7 +34,7 @@ object Metropolis {
     */
   def proposeVector(delta: Double)(a: DenseVector[Double]) = {
     for {
-      i <- Applicative[Rand].replicateA(a.size, Gaussian(0.0, delta))
+      i <- Applicative[Rand].replicateA(a.size, Gaussian(0.0, math.sqrt(delta)))
     } yield DenseVector(i.toArray) + a
   }
 

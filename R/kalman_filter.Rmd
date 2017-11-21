@@ -1,8 +1,5 @@
 ---
 title: "Kalman Filtering"
-author: "Jonathan Law"
-date: "20 November 2017"
-output: html_document
 ---
 
 Dynamic Linear Models have a linear Gaussian latent-state and observation model which is amenable to exact filtering because of special properties of the Gaussian distribution. This means the distribution of the latent-state ($p(\textbf{x}_{0:T}|y_{1:T}, \theta)$) can be learned about exactly, this distribution is commonly called the filtering distribution. Suppose a time-dependent process is observed discretely at times $t = 1,\dots,T$, then a general DLM for this process can be written as:

@@ -1,8 +1,5 @@
 ---
 title: "Gibbs Sampling"
-author: "Jonathan Law"
-date: "20 November 2017"
-output: html_document
 ---
 
 The DLM is simple to specify and the distribution of the latent-state can be learned on-line using the exact filtering recursions given in the [Kalman Filter](kalman_filter.html). It remains to determine the values of the static parameters, $V$ and $W$. A Gibbs sampler can be used for this purpose. Consider a general DLM given by the following equation:

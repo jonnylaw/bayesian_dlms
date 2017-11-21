@@ -3,8 +3,11 @@
 *.dat
 project/*
 target/*
+tut/*
 src/main/scala/target/*
 .ensime_cache/
+R/.Rhistory
+R/.RData
 *.qsub
 *.jar
 *.zip

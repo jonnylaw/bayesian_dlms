@@ -19,8 +19,8 @@ poisson_dglm_gibbs:
 	ssh topsy -t qstat
 
 seasonal_irregular_gibbs:
-#	sbt assembly
-#	cp target/scala-2.11/bayesian_dlms-assembly-0.2-SNAPSHOT.jar seasonal_dlm_irregular.jar
+	sbt assembly
+	cp target/scala-2.11/bayesian_dlms-assembly-0.2-SNAPSHOT.jar seasonal_dlm_irregular.jar
 	ssh topsy -t mkdir -p /share/nobackup/a9169110/seasonal_dlm_irregular/data
 	scp data/seasonal_dlm_irregular.csv topsy:/share/nobackup/a9169110/seasonal_dlm_irregular/data/.
 	scp seasonal_dlm_irregular.jar seasonal_dlm_irregular.qsub topsy:/share/nobackup/a9169110/seasonal_dlm_irregular/.
@@ -29,6 +29,10 @@ seasonal_irregular_gibbs:
 	ssh topsy -t qstat 	
 
 site: correlated second_order first_order seasonal
+
+knit_site:
+	sbt "tut"
+	RScript -e 'setwd(\"tut\"); rmarkdown::render_site()'
 
 correlated: simulate_correlated simulate_correlated_trend filter_correlated gibbs_correlated
 

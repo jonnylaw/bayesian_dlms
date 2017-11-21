@@ -352,7 +352,7 @@ data: Iterator[(dlm.<span class="fu">model</span>.<span class="fu">Data</span>, 
 <h2>Simulating from a DGLM</h2>
 <p>In order to simulate from a DGLM we must know how to sample from the chosen observation distribution of the DGLM. The <code>Dglm.Model</code> class and its associated model building functions provide this function and an associated <code>simulate</code> function. The figure below shows a simulation from the Poisson model.</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; Dglm.<span class="fu">simulate</span>(poisson, p)
-res2: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Process</span>[(dlm.<span class="fu">model</span>.<span class="fu">Data</span>, breeze.<span class="fu">linalg</span>.<span class="fu">DenseVector</span>[Double])] = breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">MarkovChain</span>$$anon$<span class="dv">1</span>@55fdac85</code></pre></div>
+res2: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Process</span>[(dlm.<span class="fu">model</span>.<span class="fu">Data</span>, breeze.<span class="fu">linalg</span>.<span class="fu">DenseVector</span>[Double])] = breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">MarkovChain</span>$$anon$<span class="dv">1</span>@6c33d5b5</code></pre></div>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">data =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../data/poisson_dglm.csv&quot;</span>)
 
 data <span class="op">%&lt;&gt;%</span>

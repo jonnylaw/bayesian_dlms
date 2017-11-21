@@ -9,9 +9,7 @@
 <meta name="generator" content="pandoc" />
 
 
-<meta name="author" content="Jonathan Law" />
 
-<meta name="date" content="2017-11-20" />
 
 <title>Forecasting</title>
 
@@ -284,8 +282,6 @@ $(document).ready(function () {
 
 
 <h1 class="title toc-ignore">Forecasting</h1>
-<h4 class="author"><em>Jonathan Law</em></h4>
-<h4 class="date"><em>20 November 2017</em></h4>
 
 </div>
 
@@ -321,7 +317,7 @@ scala&gt; <span class="kw">val</span> rawData = Paths.<span class="fu">get</span
 rawData: java.<span class="fu">nio</span>.<span class="fu">file</span>.<span class="fu">Path</span> = data\seasonal_dlm.<span class="fu">csv</span>
 
 scala&gt; <span class="kw">val</span> reader = rawData.<span class="fu">asCsvReader</span>[List[Double]](rfc.<span class="fu">withHeader</span>)
-reader: kantan.<span class="fu">csv</span>.<span class="fu">CsvReader</span>[kantan.<span class="fu">csv</span>.<span class="fu">ReadResult</span>[List[Double]]] = kantan.<span class="fu">codecs</span>.<span class="fu">resource</span>.<span class="fu">ResourceIterator</span>$$anon$<span class="dv">6</span>@3a6ddb40
+reader: kantan.<span class="fu">csv</span>.<span class="fu">CsvReader</span>[kantan.<span class="fu">csv</span>.<span class="fu">ReadResult</span>[List[Double]]] = kantan.<span class="fu">codecs</span>.<span class="fu">resource</span>.<span class="fu">ResourceIterator</span>$$anon$<span class="dv">6</span>@24ec32c2
 
 scala&gt; <span class="kw">val</span> data = reader.
      |   collect { 
@@ -337,7 +333,7 @@ scala&gt; <span class="kw">val</span> mcmcChain = Paths.<span class="fu">get</sp
 mcmcChain: java.<span class="fu">nio</span>.<span class="fu">file</span>.<span class="fu">Path</span> = data\seasonal_dlm_gibbs.<span class="fu">csv</span>
 
 scala&gt; <span class="kw">val</span> read = mcmcChain.<span class="fu">asCsvReader</span>[List[Double]](rfc.<span class="fu">withHeader</span>)
-read: kantan.<span class="fu">csv</span>.<span class="fu">CsvReader</span>[kantan.<span class="fu">csv</span>.<span class="fu">ReadResult</span>[List[Double]]] = kantan.<span class="fu">codecs</span>.<span class="fu">resource</span>.<span class="fu">ResourceIterator</span>$$anon$<span class="dv">6</span>@417cb8f6
+read: kantan.<span class="fu">csv</span>.<span class="fu">CsvReader</span>[kantan.<span class="fu">csv</span>.<span class="fu">ReadResult</span>[List[Double]]] = kantan.<span class="fu">codecs</span>.<span class="fu">resource</span>.<span class="fu">ResourceIterator</span>$$anon$<span class="dv">6</span>@<span class="dv">2967240</span>
 
 scala&gt; <span class="kw">val</span> params: List[Double] = read.
      |   collect { <span class="kw">case</span> <span class="fu">Success</span>(a) =&gt; a }.

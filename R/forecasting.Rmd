@@ -1,8 +1,5 @@
 ---
 title: "Forecasting"
-author: "Jonathan Law"
-date: "20 November 2017"
-output: html_document
 ---
 
 # Forecasting using a DLM
@@ -78,6 +75,7 @@ The results of the forecasting and 95% prediction intervals are below:
 
 ```{r forecast_seasonal_dlm, echo=FALSE, message=FALSE, warning=FALSE}
 forecast = read_csv("../data/seasonal_model_forecast.csv")
+sims = read_csv("../data/seasonal_dlm.csv")
 
 forecast %>%
   rename(time = Time, forecast = Observation) %>%
