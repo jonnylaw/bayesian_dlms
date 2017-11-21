@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+
+<meta name="author" content="Jonathan Law" />
+
+<meta name="date" content="2017-11-20" />
+
+<title>Gibbs Sampling</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/readable.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+  height: auto;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 66px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+
+.section h2 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+.section h3 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+.section h4 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+.section h5 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+.section h6 {
+  padding-top: 71px;
+  margin-top: -71px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+
+<div class="container-fluid main-container">
+
+<!-- tabsets -->
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+</script>
+
+<!-- code folding -->
+
+
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Bayesian Inference for DLMs</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li>
+  <a href="model_building_simulation.html">Model Building</a>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Filtering
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="kalman_filter.html">Kalman Filter</a>
+    </li>
+    <li>
+      <a href="particle_filter.html">Bootstrap Particle Filter</a>
+    </li>
+    <li>
+      <a href="particle_gibbs.html">Particle Gibbs</a>
+    </li>
+  </ul>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Parameter Learning
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="gibbs_sampling.html">Gibbs Sampling</a>
+    </li>
+    <li>
+      <a href="pmmh.html">PMMH</a>
+    </li>
+  </ul>
+</li>
+<li>
+  <a href="forecasting.html">Forecasting</a>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Examples
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="FirstOrderDlm.html">First Order DLM</a>
+    </li>
+    <li>
+      <a href="second_order_dlm.html">Linear Growth DLM</a>
+    </li>
+    <li>
+      <a href="seasonal_dlm.html">Seasonal Composed DLM</a>
+    </li>
+    <li>
+      <a href="CorrelatedModel.html">Multivariate DLM</a>
+    </li>
+    <li>
+      <a href="student_t_filtering.html">Student's t-distributed DLM</a>
+    </li>
+  </ul>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">Gibbs Sampling</h1>
+<h4 class="author"><em>Jonathan Law</em></h4>
+<h4 class="date"><em>20 November 2017</em></h4>
+
+</div>
+
+
+<p>The DLM is simple to specify and the distribution of the latent-state can be learned on-line using the exact filtering recursions given in the <a href="kalman_filter.html">Kalman Filter</a>. It remains to determine the values of the static parameters, <span class="math inline">\(V\)</span> and <span class="math inline">\(W\)</span>. A Gibbs sampler can be used for this purpose. Consider a general DLM given by the following equation:</p>
+<p><span class="math display">\[\begin{aligned}
+y_t &amp;= F_t x_t + v_t, &amp;v_t &amp;\sim \mathcal{N}(0, V), \\
+x_t &amp;= G_t x_{t-1} + v_t, &amp;w_t &amp;\sim \mathcal{N}(0, W), \\
+x_0 &amp;\sim \mathcal{N}(m_0, C_0).
+\end{aligned}\]</span></p>
+<p>The unknown parameters of the model are the system noise matrix, <span class="math inline">\(W\)</span> and the observation noise matrix, <span class="math inline">\(V\)</span>. The observation noise matrix is assumed to be diagonal, meaning the measurement noise of each process is considered to be independent. Assume that the parameters of the initial state (<span class="math inline">\(m_0\)</span> and <span class="math inline">\(C_0\)</span>) are known, then the unknown parameters can be written as <span class="math inline">\(\theta = (V, W)\)</span>. The joint distribution of all the random variables in the DLM can be written as:</p>
+<p><span class="math display">\[p(\textbf{X}_{0:T}, \textbf{Y}_{1:T}, \theta) = p(\theta) p(\textbf{x}_0) \prod_{t=1}^T p(\textbf{y}_t| \textbf{x}_t, \theta) p(\textbf{x}_t | \textbf{x}_{t-1}, \theta)\]</span></p>
+<p>This factorisation of the random variables makes it clear to see how a Gibbs sampling approach could be used.</p>
+<div id="observation-noise-matrix-d-inverse-gamma" class="section level2">
+<h2>Observation Noise Matrix: d-Inverse Gamma</h2>
+<p>First consider the observation variance matrix, this matrix is diagonal and hence we only need to learn the variances. The following steps are simplified by considering only one time series in the observation vector. The prior distribution of the observation variance, <span class="math inline">\(V\)</span>, is the Inverse Gamma distribution:</p>
+<p><span class="math display">\[p(V) = \textrm{InverseGamma}(\alpha, \beta)\]</span></p>
+<p>The likelihood of <span class="math inline">\(y_t\)</span> is Gaussian, with mean <span class="math inline">\(F^T \textbf{x}_t\)</span> and variance <span class="math inline">\(V\)</span>. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. The posterior distribution of the observation variance is:</p>
+<p><span class="math display">\[\begin{align*}
+p(V | y_{1:T}, \textbf{x}_{0:T}) &amp;\propto  p(x_0) p(V) \prod_{t=1}^Tp(y_t | V, x_t) p(x_t|x_{t-1}) \\
+&amp;= V^{-\alpha-1}\exp\left( -\frac{\beta}{V} \right)(2\pi V)^{-T/2} \exp \left\{ -V^{-1} \sum_{t=1}^T(y_t - F_t \textbf{x}_t)^2 \right\} \\
+&amp;= V^{-(\alpha + T/2) - 1} \exp \left\{ -\frac{1}{V}\left(\beta + \frac{1}{2}\sum_{t=1}^T(y_t - F_t \textbf{x}_t)^2\right) \right\}
+\end{align*}\]</span></p>
+<p>The the posterior distribution of the observation variance is the Inverse Gamma distribution:</p>
+<p><span class="math display">\[p(V | y_{1:T}, \textbf{x}_{1:T}) = \textrm{InverseGamma}\left(\alpha + \frac{T}{2}, \beta + \frac{1}{2}\sum_{i=1}^T(y_t - F_t\textbf{x}_t)^2\right).\]</span></p>
+</div>
+<div id="system-noise-matrix-inverse-wishart-prior" class="section level2">
+<h2>System Noise Matrix: Inverse Wishart Prior</h2>
+<p>For the system noise matrix, the Inverse Wishart distribution can be used as the conjugate prior for the Multivariate Normal likelihood for <span class="math inline">\(\textbf{x}_t\)</span> with unknown covariance, <span class="math inline">\(W\)</span> and known mean <span class="math inline">\(G_t\textbf{x}_{t-1}\)</span>. The prior on W is written as:</p>
+<p><span class="math display">\[p(W) \sim \mathcal{W}^{-1}(\mathbf{psi}, \nu)\]</span></p>
+<p>The PDF of the inverse wishart distribution is given as follows:</p>
+<p><span class="math display">\[p(W) = \frac{\left|{\mathbf\Psi}\right|^{\frac{\nu}{2}}}{2^{\frac{\nu p}{2}}\Gamma_p(\frac{\nu}{2})} \left|W\right|^{-\frac{\nu+p+1}{2}}\textrm{exp}\left\{-\frac{1}{2}\operatorname{tr}({\mathbf\Psi}W^{-1})\right\}.\]</span> Where <span class="math inline">\(p\)</span> is the dimension of the matrix <span class="math inline">\(W\)</span>, in this <span class="math inline">\(p = 2\)</span>. The posterior distribution for the parameter <span class="math inline">\(W\)</span> given the values of the state, <span class="math inline">\(x_{1:T}\)</span> can be written as:</p>
+<p><span class="math display">\[\begin{align*}p(W|x_{1:T}) &amp;\propto p(x_0)p(W)\prod_{i=1}^T p(x_i|x_{i-1}, W) \\
+&amp;= \left|W\right|^{-\frac{\nu+p+1}{2}}\textrm{exp}\left\{-\frac{1}{2}\operatorname{tr}({\mathbf\Psi}W^{-1})\right\} \\ &amp;\times\left|{W}\right|^{-\frac{T}{2}}\textrm{exp}\left\{ -\frac{1}{2}\sum_{i=1}^T(x_i - Gx_{i-1})^TW^{-1}(x_i-Gx_{i-1})\right\} \\
+&amp;= \left|W\right|^{\frac{\nu + T + 2 + 1}{2}}\textrm{exp}\left\{ -\frac{1}{2}\operatorname{tr}(\mathbf{\Psi}W^{-1}) - \operatorname{tr}\left(\frac{1}{2}\sum_{i=1}^T(x_i - Gx_{i-1})(x_i-Gx_{i-1})^TW^{-1}\right)\right\}
+\end{align*}\]</span></p>
+<p>The final line uses standard results from Multivariate statistics and the following rule for matrix traces:</p>
+<ul>
+<li>A Matrix trace is invariant under cyclic permutations, <span class="math inline">\(\operatorname{tr}(ABC) = \operatorname{tr}(CAB) = \operatorname{tr}(BCA)\)</span></li>
+</ul>
+<p>This can be futher simplified to:</p>
+<p><span class="math display">\[p(W|x_{1:T}) \propto \left|W\right|^{\frac{\nu + T + 2 + 1}{2}}\textrm{exp}\left\{ -\frac{1}{2}\operatorname{tr}((\mathbf{\Psi} + \sum_{i=1}^T(x_i - Gx_{i-1})(x_i-Gx_{i-1})^T) W^{-1}) \right\}.\]</span></p>
+<p>This final simplification uses another couple of facts about the matrix trace:</p>
+<ul>
+<li>The sum of the trace is equal to the trace of the sum, <span class="math inline">\(\operatorname{tr}(A + B) = \operatorname{tr}(A) + \operatorname{tr}(B)\)</span></li>
+<li><span class="math inline">\(\operatorname{tr}(cA) = c\operatorname{tr}(A)\)</span> for a constant “c”</li>
+</ul>
+<p>We recognise the posterior distribution for the system noise covariance as the Inverse Wishart distribution:</p>
+<p><span class="math display">\[p(W|x_{1:T}) = \mathcal{W}^{-1}(\nu + T, \mathbf{\Psi} + \sum_{i=1}^T(x_i - Gx_{i-1})(x_i-Gx_{i-1})^T)\]</span>.</p>
+<p>Now in order to perform gibbs sampling, we alternate between drawing values of <span class="math inline">\(V, W\)</span> from these posterior distributions and values of the state <span class="math inline">\(x_0,\dots,x_T\)</span> using forward filtering backward sampling.</p>
+</div>
+<div id="forward-filtering-backward-sampling" class="section level2">
+<h2>Forward Filtering Backward Sampling</h2>
+<p>TODO</p>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

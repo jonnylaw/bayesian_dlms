@@ -37,20 +37,20 @@ R(1, \omega) & 0 & \dots & \dots & 0 \\
 
 The observation matrix is $1 \times 2h$ dimensional:
 
-$$F = \begin{pmatrix}1 \\ 0 \\ 1 \\ \vdots \\ 1 \\ 0 \end{pmatrix}.$$
+$$F = \begin{pmatrix}1 & 0 & 1 & \dots & 1 & 0 \end{pmatrix}.$$
 
 We can specify a seasonal model with trend using:
 
-```scala
+```tut
 import dlm.model._
 import cats.implicits._
 
 val mod = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
 ```
 
-Then we can simlulate from the model by supplying parameters and use the provided simulate function:
+Then we can simulate from the model by supplying parameters and use the provided simulate function:
 
-```scala
+```tut
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 
 val p = Dlm.Parameters(
@@ -60,9 +60,10 @@ val p = Dlm.Parameters(
   c0 = diag(DenseVector.fill(7)(1.0))
 )
 
-val sims = simulate(0, mod, p).
+val sims = Dlm.simulateRegular(0, mod, p).
   steps.
-  take(1000)
+  take(1000).
+  toArray
 ```
 
 ```{r simulated-seasonal}
@@ -80,6 +81,7 @@ Plot the states:
 ```{r seasonal-states}
 sims %>%
   select(time, contains("state")) %>%
+  filter(time > 750) %>%
   gather(key, value, -time) %>%
   ggplot(aes(x = time, y = value)) +
   geom_line() +
@@ -92,8 +94,8 @@ sims %>%
 
 We can perform Kalman Filtering, to learn the distribution of the latent state given the data we have simulated:
 
-```scala
-val filtered = KalmanFilter.kalmanFilter(mod, sims, p)
+```tut
+val filtered = KalmanFilter.filter(mod, sims.map(_._1), p)
 ```
 
 ```{r filtered-seasonal}
@@ -118,8 +120,8 @@ filtered %>%
 
 Kalman Smoothing can be performed:
 
-```scala
-val smoothed = Smoothing.backwardsSmoother(mod, p)(filtered)
+```tut
+val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
 ```
 
 ```{r smoothed-seasonal}
@@ -151,11 +153,13 @@ actual_values = tibble(
 
 The system matrix $W$ is diagonal, hence the Inverse Gamma distribution can be used for the observation and system noise matrices in a Gibbs Sampler. The state is sampled using Forward Filtering Backward Sampling (FFBS), then conditional on the state, the system and observation noise matrices are sampled from Inverse Gamma distributions. 
 
-```scala
-val iters = GibbsSampling.gibbsSamples(mod, InverseGamma(5.0, 4.0), 
-  InverseGamma(17.0, 4.0), p, data).
-  steps.
-  take(10000)
+```tut
+val iters = GibbsSampling.sample(
+    mod, 
+    InverseGamma(5.0, 4.0), 
+    InverseGamma(17.0, 4.0), 
+    p, 
+    sims.map(_._1))
 ```
 
 The diagnostic plots are below:
@@ -211,33 +215,38 @@ Forecasting a DLM is equivalent to running the Kalman Filter without any observa
 
 First we take the mean value of the MCMC parameters, assuming that the parameters have been written to a CSV called `seasonal_dlm_gibbs.csv` with eight columns, $V, W_1,\dots,W_7$:
 
-```scala
-  val mcmcChain = Paths.get("data/seasonal_dlm_gibbs.csv")
-  val read = mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
+```tut
+import java.nio.file.Paths
+import kantan.csv._
+import kantan.csv.ops._
+import breeze.stats.mean
 
-  val params: List[Double] = read.
-    collect { case Success(a) => a }.
-    toList.
-    transpose.
-    map(a => mean(a))
+val mcmcChain = Paths.get("data/seasonal_dlm_gibbs.csv")
+val read = mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
 
-  val meanParameters = Parameters(
-    DenseMatrix(params.head), 
-    diag(DenseVector(params.tail.toArray)), 
-    p.m0,
-    p.c0)
+val params: List[Double] = read.
+  collect { case Success(a) => a }.
+  toList.
+  transpose.
+  map(a => mean(a))
+
+val meanParameters = Dlm.Parameters(
+  DenseMatrix(params.head), 
+  diag(DenseVector(params.tail.toArray)), 
+  p.m0,
+  p.c0)
 ```
 
 When then use these parameters to get the posterior distribution of the final state:
 
-```scala
-  val filtered = KalmanFilter.kalmanFilter(mod, data, meanParameters)
+```tut
+  val filtered = KalmanFilter.filter(mod, sims.map(_._1), meanParameters)
   val (mt, ct, initTime) = filtered.map(a => (a.mt, a.ct, a.time)).last
 ```
 
 We then initialise the forecast function with state state posterior at the time of the last observation:
 
-```scala
+```tut
   val forecasted = Dlm.forecast(mod, mt, ct, initTime, meanParameters).
     take(100).
     toList

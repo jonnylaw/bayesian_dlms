@@ -34,7 +34,7 @@ trait SimulatedSecondOrderData {
 }
 
 object SimulateSecondOrderDlm extends App with DlmModel {
-  val sims = simulate(0, mod, p).
+  val sims = simulateRegular(0, mod, p).
     steps.
     take(1000)
 
@@ -55,7 +55,7 @@ object SimulateSecondOrderDlm extends App with DlmModel {
 }
 
 object FilterSecondOrderDlm extends App with DlmModel with SimulatedSecondOrderData {
-  val filtered = KalmanFilter.kalmanFilter(mod, data, p)
+  val filtered = KalmanFilter.filter(mod, data, p)
 
   val out = new java.io.File("data/second_order_dlm_filtered.csv")
 
@@ -69,8 +69,8 @@ object FilterSecondOrderDlm extends App with DlmModel with SimulatedSecondOrderD
 }
 
 object SmoothSecondOrderDlm extends App with DlmModel with SimulatedSecondOrderData {
-  val filtered = KalmanFilter.kalmanFilter(mod, data, p)
-  val smoothed = Smoothing.backwardsSmoother(mod, p)(filtered)
+  val filtered = KalmanFilter.filter(mod, data, p)
+  val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
 
   val out = new java.io.File("data/second_order_dlm_smoothed.csv")
 
@@ -85,7 +85,7 @@ object GibbsSecondOrder extends App with DlmModel with SimulatedSecondOrderData 
   val priorV = InverseGamma(4.0, 9.0)
   val priorW = InverseGamma(3.0, 8.0)
 
-  val iters = gibbsSamples(mod, priorV, priorW, p, data).
+  val iters = sample(mod, priorV, priorW, p, data).
     steps.
     take(10000)
 
@@ -125,7 +125,7 @@ object GibbsInvestParameters extends App with DlmModel {
 
   println(s"Initial parameters: $initP")
 
-  val iters = GibbsSampling.gibbsSamples(mod, priorV, priorW, initP, data).
+  val iters = GibbsSampling.sample(mod, priorV, priorW, initP, data).
     steps.
     drop(12000).
     take(12000)

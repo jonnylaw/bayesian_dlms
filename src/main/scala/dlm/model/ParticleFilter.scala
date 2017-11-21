@@ -10,8 +10,9 @@ import cats.{Traverse, Functor}
 import scala.language.higherKinds
 
 /**
-  * The particle filter can be used for inference of DGLMs
-  * ie. Dynamic Generalised Linear Models, where the observation distribution is not Gaussian
+  * The particle filter can be used for inference of 
+  * Dynamic Generalised Linear Models (DGLMs),
+  * where the observation distribution is not Gaussian.
   */
 object ParticleFilter {
 
@@ -27,8 +28,7 @@ object ParticleFilter {
 
   /**
     * Advance the system of particles to the next timepoint
-    * @param mod the DLM model specification containing F_t and G_t, the observation
-    * and system evolution matrices
+    * @param g the system evolution matrix, G_t
     * @param time the time of the next observation
     * @param state a collection of particles representing time emprical posterior 
     * distribution of the state at time - 1 
@@ -36,19 +36,20 @@ object ParticleFilter {
     * @return a distribution over a collection of particles at this time
     */
   def advanceState[F[_]: Traverse](
-    mod:   Model, 
+    g:     SystemMatrix,
     time:  Time, 
     state: F[DenseVector[Double]], 
     p:     Dlm.Parameters) = {
 
-    state traverse (x => MultivariateGaussianSvd(mod.g(time) * x , p.w): Rand[DenseVector[Double]])
+    state traverse (x => 
+      MultivariateGaussianSvd(g(time) * x , p.w): Rand[DenseVector[Double]])
   }
 
   /**
     * Calculate the weights of each particle using the conditional likelihood of
     * the observations given the state
-    * @param mod the DLM model specification containing F_t and G_t, the observation
-    * and system evolution matrices
+    * @param mod the DGLM model specification containing F_t and G_t, 
+    * and the conditional likelihood of observations
     * @param time the time of the observation
     * @param state a collection of particles representing time emprical prior 
     * distribution of the state at this time
@@ -82,7 +83,7 @@ object ParticleFilter {
     p:      Dlm.Parameters)(state: State, d: Data): State = d.observation match {
     case Some(y) =>
       val resampledX = resample(state.state, state.weights)
-      val x1 = advanceState(mod, d.time, resampledX, p).draw
+      val x1 = advanceState(mod.g, d.time, resampledX, p).draw
       val w = calcWeights(mod, d.time, x1, y, p)
       val max = w.max
       val w1 = w map (a => exp(a - max))
@@ -90,7 +91,7 @@ object ParticleFilter {
 
       State(d.time, x1, w1, ll)
     case None =>
-      val x = advanceState(mod, d.time, state.state, p).draw
+      val x = advanceState(mod.g, d.time, state.state, p).draw
       val n = state.state.size
       State(d.time, x, Vector.fill(n)(1.0 / n), state.ll)
   }
@@ -111,7 +112,10 @@ object ParticleFilter {
     n:            Int) = {
 
     val initState = MultivariateGaussian(p.m0, p.c0).sample(n).toVector
-    val init = State(observations.head.time - 1, initState, Vector.fill(n)(1.0 / n), 0.0)
+    val init = State(
+      observations.map(_.time).min - 1,
+      initState, 
+      Vector.fill(n)(1.0 / n), 0.0)
 
     observations.scanLeft(init)(filterStep(mod, p))
   }
@@ -126,7 +130,10 @@ object ParticleFilter {
     p:            Dlm.Parameters) = {
 
     val initState = MultivariateGaussian(p.m0, p.c0).sample(n).toVector
-    val init = State(observations.head.time - 1, initState, Vector.fill(n)(1.0 / n), 0.0)
+    val init = State(
+      observations.map(_.time).min - 1, 
+      initState,
+      Vector.fill(n)(1.0 / n), 0.0)
 
     observations.foldLeft(init)(filterStep(mod, p)).ll
   }

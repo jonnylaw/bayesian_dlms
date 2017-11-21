@@ -1,0 +1,121 @@
+---
+title: "Model building and Simulation"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+theme_set(theme_minimal())
+```
+
+## Model Building: DLMs
+
+DLMs are represented as a `case class` containing the observation matrix and the system matrix:
+
+```tut
+import dlm.model._
+import breeze.linalg.{DenseMatrix, DenseVector}
+
+case class Model(
+  f: Time => DenseMatrix[Double],
+  g: TimeIncrement => DenseMatrix[Double]
+)
+```
+
+The object `Dlm` contains functions to build several common models:
+
+```tut
+val linear = Dlm.polynomial(1)
+val seasonal = Dlm.seasonal(period = 24, harmonics = 3)
+```
+
+```scala
+val x: Array[Data] = ??? // timeseries to regress against
+val regression = Dlm.regression(x = x)
+```
+
+These simple models can be composed to produce more complex models, for instance a seasonal model with a linear trend can be produced:
+
+```tut
+import cats.implicits._
+
+val seasonalTrend = linear |+| seasonal
+```
+
+The models can also be combined using a cartesian product in order to model multivariate time series:
+
+```tut
+// model for a bivariate time series
+val multivariateModel = linear |*| seasonalTrend
+
+// model for 30 seemingly unrelated time series
+val sutse = List.fill(30)(linear).reduce(_ |*| _)
+```
+
+## Model Building: DGLMs
+
+A dynamic generalised linear model is a DLM with a non-Gaussian observation distribution. The observation distribution is from the Exponential family, although extensions can be made to incorporate the Student's t-distribution from the location-scale family.
+
+To build a DGLM, first build a univariate DLM as above then select an observation model from the `Dglm` object:
+
+```tut
+val poisson = Dglm.poisson(linear)
+```
+
+## Simulating from a DLM
+
+Simulation is useful to test inference algorithms or to get a feel for how a model behaves with different sets of parameters. First we must define the model `Parameters`:
+
+```tut
+val p = Dlm.Parameters(
+  v =  DenseMatrix(1.0),
+  w =  DenseMatrix(3.0),
+  m0 = DenseVector(0.0),
+  c0 = DenseMatrix(10.0)
+)
+```
+
+Then we can simulate from the model:
+
+```tut
+val data = Dlm.simulateRegular(0, linear, p).
+  steps.
+  take(1000)
+```
+
+```{r first-order-simulated, message=FALSE, warning=FALSE, echo=FALSE}
+data = read_csv("../data/first_order_dlm.csv")
+
+data %>%
+  gather(key, value, -time) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  theme(legend.position = "bottom")
+```
+
+Simulation from any DLM is possible using the same syntax. The parameters must be appropriate for the model, for instance the latent-state of a seasonal model has dimension of twice the number of harmonics in the model, hence `m0`, `c0` and `w` must be of the same dimension. 
+
+## Simulating from a DGLM
+
+In order to simulate from a DGLM we must know how to sample from the chosen observation distribution of the DGLM. The `Dglm.Model` class and its associated model building functions provide this function and an associated `simulate` function. The figure below shows a simulation from the Poisson model.
+
+```tut
+Dglm.simulate(poisson, p)
+```
+
+```{r poisson-sims, fig.cap="Simulation from the poisson DGLM with $(W, m_0, C_0) = (0.01, 0.0, 1.0)$"}
+data = read_csv("../data/poisson_dglm.csv")
+
+data %<>%
+  gather(key, value, -time) %>%
+  filter(time > 900) 
+
+ggplot() +
+  geom_line(data = subset(data, key == "state"), aes(x = time, y = value)) +
+  geom_step(data = subset(data, key == "observation"), aes(x = time, y = value)) +
+  facet_wrap(~key, scales = "free_y", ncol = 1) +
+  theme(legend.position = "none")
+```
+
+Note that the Poisson distribution has only one parameter, the rate and hence `v` in the `Dlm.Parameters` specification is unused. For observation distributions with additional parameters, then the `v` is used for this purpose.

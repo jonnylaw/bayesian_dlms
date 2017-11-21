@@ -1,0 +1,41 @@
+name: "bayesian_dlms"
+navbar:
+  title: "Bayesian Inference for DLMs"
+  left:
+    - text: "Home"
+      href: index.html
+    - text: "Model Building"
+      href: model_building_simulation.html
+    - text: "Filtering"
+      menu:
+      - text: "Kalman Filter"
+        href: kalman_filter.html
+      - text: "Bootstrap Particle Filter"
+        href: particle_filter.html
+      - text: "Particle Gibbs"
+        href: particle_gibbs.html
+    - text: "Parameter Learning"
+      menu:
+      - text: "Gibbs Sampling"
+        href: gibbs_sampling.html
+      - text: "PMMH"
+        href: pmmh.html
+    - text: "Forecasting"
+      href: forecasting.html
+    - text: "Examples"
+      menu:
+      - text: "First Order DLM"
+        href: FirstOrderDlm.html
+      - text: "Linear Growth DLM"
+        href: second_order_dlm.html
+      - text: "Seasonal Composed DLM"
+        href: seasonal_dlm.html
+      - text: "Multivariate DLM"
+        href: CorrelatedModel.html
+      - text: "Student's t-distributed DLM"
+        href: student_t_filtering.html
+output_dir: ../docs
+output:
+  html_document:
+    theme: readable
+    highlight: tango

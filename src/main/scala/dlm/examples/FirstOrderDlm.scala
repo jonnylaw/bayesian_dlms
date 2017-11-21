@@ -8,7 +8,6 @@ import breeze.stats.distributions.{Gaussian, MarkovChain, Rand}
 import java.nio.file.Paths
 import java.io.File
 import cats.implicits._
-import cats.data.Kleisli
 import kantan.csv._
 import kantan.csv.ops._
 
@@ -35,7 +34,7 @@ trait SimulatedData {
 }
 
 object SimulateDlm extends App with FirstOrderDlm {
-  val sims = simulate(0, mod, p).
+  val sims = simulateRegular(0, mod, p).
     steps.
     take(100)
 
@@ -56,7 +55,7 @@ object SimulateDlm extends App with FirstOrderDlm {
 }
 
 object FilterDlm extends App with FirstOrderDlm with SimulatedData {
-  val filtered = KalmanFilter.kalmanFilter(mod, data, p)
+  val filtered = KalmanFilter.filter(mod, data, p)
 
   val out = new java.io.File("data/first_order_dlm_filtered.csv")
 
@@ -69,8 +68,8 @@ object FilterDlm extends App with FirstOrderDlm with SimulatedData {
 }
 
 object SmoothDlm extends App with FirstOrderDlm with SimulatedData {
-  val filtered = KalmanFilter.kalmanFilter(mod, data, p)
-  val smoothed = Smoothing.backwardsSmoother(mod, p)(filtered)
+  val filtered = KalmanFilter.filter(mod, data, p)
+  val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
 
   val out = new java.io.File("data/first_order_dlm_smoothed.csv")
 
@@ -82,7 +81,7 @@ object SmoothDlm extends App with FirstOrderDlm with SimulatedData {
 }
  
 object GibbsParameters extends App with FirstOrderDlm with SimulatedData {
-  val iters = gibbsSamples(mod, InverseGamma(4.0, 9.0), InverseGamma(6.0, 5.0), p, data).
+  val iters = sample(mod, InverseGamma(4.0, 9.0), InverseGamma(6.0, 5.0), p, data).
     steps.
     take(10000)
 

@@ -36,7 +36,7 @@ trait CorrelatedData {
 }
 
 object SimulateCorrelated extends App with CorrelatedModel {
-  val sims = Dlm.simulate(0, model, p).
+  val sims = Dlm.simulateRegular(0, model, p).
     steps.
     take(1000)
 
@@ -57,7 +57,7 @@ object SimulateCorrelated extends App with CorrelatedModel {
 }
 
 object FilterCorrelatedDlm extends App with CorrelatedModel with CorrelatedData {
-  val filtered = KalmanFilter.kalmanFilter(model, data, p)
+  val filtered = KalmanFilter.filter(model, data, p)
 
   val out = new java.io.File("data/correlated_dlm_filtered.csv")
 
@@ -74,7 +74,7 @@ object FilterCorrelatedDlm extends App with CorrelatedModel with CorrelatedData 
 
 object GibbsCorrelated extends App with CorrelatedModel with CorrelatedData {
 
-  val iters = GibbsWishart.gibbsSamples(model, InverseGamma(1.0, 1.0), InverseWishart(3, DenseMatrix.eye[Double](2)), p, data).
+  val iters = GibbsWishart.sample(model, InverseGamma(1.0, 1.0), InverseWishart(3, DenseMatrix.eye[Double](2)), p, data).
     steps.
     take(10000)
 
@@ -107,7 +107,7 @@ object FirstOrderLinearTrendDlm extends App {
     c0 = DenseMatrix.eye[Double](3)
   )
 
-  val sims = Dlm.simulate(0, composedModel, p).
+  val sims = Dlm.simulateRegular(0, composedModel, p).
     steps.
     take(1000)
 

@@ -1,0 +1,29 @@
+---
+title: "Bayesian Inference for DLMs"
+---
+
+## Getting Started
+
+Include the following in your build.sbt file. [SBT](http://www.scala-sbt.org/) is the Simple Build Tool for Scala projects.
+
+```scala
+libraryDependencies += "com.github.jonnylaw" % "bayesian_dlm" % "0.1"
+```
+
+Read through the examples by navigating the documentation in the menubar above.
+
+Features:
+
+* Kalman Filter
+* Kalman Smoother
+* Forward-Filtering Backward Sampling (FFBS)
+* Gibbs Sampling using d-Inverse Gamma Modelling
+* Gibbs Sampling using the Inverse Wishart Distribution
+* Metropolis Hastings Sampling
+* Bootstrap Particle Filter for DGLMs
+* Particle Gibbs Sampling
+* Particle Gibbs with Ancestor Sampling
+
+Todo:
+
+* Document all the features

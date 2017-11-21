@@ -1,0 +1,160 @@
+---
+title: "Second Order DLM"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE, message=FALSE, warning=FALSE)
+library(tidyverse)
+```
+
+# Simulate Data
+
+The data is simulated from a second order DLM:
+
+$$\begin{align}
+Y_t &= F \textbf{x}_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
+\textbf{X}_t &= G \textbf{x}_{t-1} + \textbf{w}_t, \quad w_t \sim \textrm{MVN}(0, W), \\
+\textbf{X}_0 &\sim \textrm{MVN}(m_0, C_0).
+\end{align}$$
+
+The state is two dimensional, as such the system noise matrix $W$ is a $2 \times 2$ matrix. The observation and system evolution matrices do not depend on time, the observation matrix is $F = (1 \quad 0)$ and the system evolution matrix is:
+
+$$G = \begin{pmatrix} 
+1 & 1 \\
+0 & 1
+\end{pmatrix}.$$
+
+In order to examine the properties of this model, first we can simulate a time series of values from it:
+
+```scala
+scala> import dlm.model._
+import dlm.model._
+
+scala> import breeze.linalg.{DenseMatrix, DenseVector, diag}
+import breeze.linalg.{DenseMatrix, DenseVector, diag}
+
+scala> val mod = Dlm.polynomial(2)
+mod: dlm.model.Dlm.Model = Model(<function1>,<function1>)
+
+scala>   val p = Dlm.Parameters(
+     |     DenseMatrix(3.0),
+     |     diag(DenseVector(2.0, 1.0)),
+     |     DenseVector(0.0, 0.0), 
+     |     diag(DenseVector(100.0, 100.0))
+     |   )
+p: dlm.model.Dlm.Parameters =
+Parameters(3.0  ,2.0  0.0
+0.0  1.0  ,DenseVector(0.0, 0.0),100.0  0.0
+0.0    100.0  )
+
+scala> val data = Dlm.simulateRegular(0, mod, p).
+     |   steps.
+     |   take(1000).
+     |   toArray
+data: Array[(dlm.model.Data, breeze.linalg.DenseVector[Double])] = Array((Data(1.0,Some(DenseVector(1.8247651819530644))),DenseVector(0.6543171649706047, -0.4701997796432561)), (Data(2.0,Some(DenseVector(-0.5878408069482894))),DenseVector(0.46084509273114643, 0.2997146600043752)), (Data(3.0,Some(DenseVector(3.032680134413355))),DenseVector(3.3357307793743036, 0.35921863056575404)), (Data(4.0,Some(DenseVector(3.612834170851169))),DenseVector(5.4816977412792465, 0.589209390550565)), (Data(5.0,Some(DenseVector(3.718505442794812))),DenseVector(5.3392635445179435, -0.20824782450929502)), (Data(6.0,Some(DenseVector(3.301744365037126))),DenseVector(4.860257064817917, -0.9388053555026706)), (Data(7.0,Some(DenseVector(7.105676296999512))),DenseVector(5.806939110994677, -1.856888004367184)), (Dat...
+```
+
+```{r second-order-simulated, message=FALSE, echo=FALSE, fig.cap="Simulated values from the Second Order DLM with parameters, $(V, W, \textbf{m}_0, C_0) = (3.0, \textrm{diag}(2.0, 1.0), (0.0, 0.0), \textrm{diag}(100.0, 100.0))$"}
+data = read_csv("../data/second_order_dlm.csv")
+
+data %>%
+  filter(time < 100) %>%
+  gather(key, value, -time) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  theme(legend.position = "bottom")
+```
+
+# Filtered
+
+Kalman Filtering can be performed to learn the posterior distribution of the states, given the observations:
+
+```scala
+scala> val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
+filtered: Array[dlm.model.KalmanFilter.State] =
+Array(State(0.0,DenseVector(0.0, 0.0),100.0  0.0
+0.0    100.0  ,DenseVector(0.0, 0.0),200.0  100.0
+100.0  100.0  ,None,None,0.0), State(1.0,DenseVector(1.798061301241556, 0.8901293570502753),2.9560975609756097  1.4634146341463414
+1.4634146341463414  52.21951219512194   ,DenseVector(0.0, 0.0),202.0  100.0
+100.0  101.0  ,Some(DenseVector(0.0)),Some(205.0  ),-3.588564908064775), State(2.0,DenseVector(-0.43209255778914635, -1.8968779307486987),2.8573747680890538  2.552179962894248
+2.5521799628942485  7.550015460729751  ,DenseVector(2.6881906582918313, 0.8901293570502753),60.102439024390236  53.68292682926828
+53.68292682926828   53.21951219512194  ,Some(DenseVector(2.6881906582918313)),Some(63.102439024390236  ),-6.6649225131456165), Sta...
+```
+
+```{r filtering, message=FALSE, echo=FALSE, fig.cap="Filtered State of the second order model, with 90% probability intervals"}
+filtered = read_csv("../data/second_order_dlm_filtered.csv")
+
+filtered %>%
+  inner_join(data, by = "time") %>%
+  filter(time < 100) %>%
+  mutate(upper = qnorm(p = 0.95, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
+  mutate(lower = qnorm(p = 0.05, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
+  gather(key, value, state_mean_2, state_2) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  geom_line(aes(x = time, y = lower), linetype = 3, colour = "#000000") +
+  geom_line(aes(x = time, y = upper), linetype = 3, colour = "#000000") +
+  theme(legend.position = "bottom") +
+  ggtitle("Kalman Filtered")
+```
+
+# Learn Parameters
+
+The parameters can be learned using Gibbs sampling. The state evolution distribution and the observation distribution are Gaussian with unknown variance $W$ and $V$ respectively. The state is assumed to have a diagonal, $2 \times 2$ covariance matrix and hence the unknown variances are chosen to have Inverse Gamma priors. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. To perform gibbs sampling using the Bayesian DLMs package:
+
+```scala
+scala> val iters = GibbsSampling.sample(
+     |     mod, 
+     |     InverseGamma(4.0, 9.0), 
+     |     InverseGamma(5.0, 8.0), 
+     |     p, 
+     |     data.map(_._1))
+iters: breeze.stats.distributions.Process[dlm.model.GibbsSampling.State] = breeze.stats.distributions.MarkovChain$$anon$1@10a65cfc
+```
+
+```{r gibbs_sampling, message=FALSE, echo=FALSE}
+gibbs_iters = read_csv("../data/second_order_dlm_gibbs.csv")
+
+actual_values = tibble(
+  parameter = c("V", "W1", "W2"),
+  actual_value = c(3.0, 2.0, 1.0)
+)
+
+summary(gibbs_iters)
+```
+
+```{r helper_functions, echo=FALSE}
+thin = function(df, n) {
+  df[seq(from = 1, to = nrow(df), by = n),]
+}
+
+drop = function(df, n) {
+  df[-(1:n),]
+}
+```
+
+```{r, echo=FALSE}
+params = gibbs_iters %>%
+  mutate(iteration = 1:nrow(gibbs_iters)) %>%
+  thin(2) %>%
+  drop(2000) %>%
+  gather(key = parameter, value, -iteration) %>%
+  inner_join(actual_values, by = "parameter")
+
+p1 = params %>%
+  ggplot(aes(x = iteration, y = value)) +
+  geom_line() +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~parameter, scales = "free_y")
+
+p2 = params %>%
+  group_by(parameter) %>%
+  mutate(running_mean = dlm::ergMean(value)) %>%
+  ggplot(aes(x = iteration, y = running_mean)) +
+  geom_line() +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~parameter, nrow = 1, scales = "free_y")
+
+gridExtra::grid.arrange(p1, p2, ncol = 1)
+```
+

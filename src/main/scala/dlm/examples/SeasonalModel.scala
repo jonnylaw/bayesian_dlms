@@ -38,7 +38,7 @@ trait SeasonalData {
   * Simulate data from a Seasonal DLM
   */
 object SimulateSeasonalDlm extends App with SeasonalModel {
-  val sims = simulate(0, mod, p).
+  val sims = simulateRegular(0, mod, p).
     steps.
     take(1000)
 
@@ -62,7 +62,7 @@ object SimulateSeasonalDlm extends App with SeasonalModel {
   * Filter the seasonal DLM
   */
 object FilterSeasonalDlm extends App with SeasonalModel with SeasonalData {
-  val filtered = KalmanFilter.kalmanFilter(mod, data, p)
+  val filtered = KalmanFilter.filter(mod, data, p)
 
   val out = new java.io.File("data/seasonal_filtered.csv")
 
@@ -82,8 +82,8 @@ object FilterSeasonalDlm extends App with SeasonalModel with SeasonalData {
   * Run backward smoothing on the seasonal DLM
   */
 object SmoothSeasonalDlm extends App with SeasonalModel with SeasonalData {
-  val filtered = KalmanFilter.kalmanFilter(mod, data, p)
-  val smoothed = Smoothing.backwardsSmoother(mod, p)(filtered)
+  val filtered = KalmanFilter.filter(mod, data, p)
+  val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
 
   val out = new java.io.File("data/seasonal_smoothed.csv")
 
@@ -104,7 +104,7 @@ object SmoothSeasonalDlm extends App with SeasonalModel with SeasonalData {
 object SeasonalGibbsSampling extends App with SeasonalModel with SeasonalData {
   implicit val basis = RandBasis.withSeed(7)
 
-  val iters = GibbsSampling.gibbsSamples(mod, InverseGamma(5.0, 4.0), 
+  val iters = GibbsSampling.sample(mod, InverseGamma(5.0, 4.0), 
     InverseGamma(17.0, 4.0), p, data).
     steps.
     take(10000)
@@ -137,7 +137,7 @@ object ForecastSeasonal extends App with SeasonalModel with SeasonalData {
     p.c0)
 
   // get the posterior distribution of the final state
-  val filtered = KalmanFilter.kalmanFilter(mod, data, meanParameters)
+  val filtered = KalmanFilter.filter(mod, data, meanParameters)
   val (mt, ct, initTime) = filtered.map(a => (a.mt, a.ct, a.time)).last
   
   val forecasted = Dlm.forecast(mod, mt, ct, initTime, meanParameters).
@@ -153,7 +153,7 @@ object ForecastSeasonal extends App with SeasonalModel with SeasonalData {
   * Sample the state using FFBS algorithm
   */
 object SampleStates extends App with SeasonalModel with SeasonalData {
-  val iters = Iterator.fill(10000)(GibbsSampling.sampleState(mod, data, p))
+  val iters = Iterator.fill(10000)(Smoothing.ffbs(mod, data, p).draw)
 
   val out = new java.io.File("data/seasonal_dlm_state_2_samples.csv")
   val writer = out.asCsvWriter[List[Double]](rfc.withoutHeader)
