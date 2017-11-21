@@ -62,8 +62,8 @@ $$G = \begin{pmatrix}
 
 In order to compose these two models in the Scala package, we first define the two models:
 
-```scala
-import dlm.model_
+```tut
+import dlm.model._
 
 val mod1 = Dlm.polynomial(1)
 val mod2 = Dlm.polynomial(2)
@@ -71,7 +71,7 @@ val mod2 = Dlm.polynomial(2)
 
 The models can now be composed using the outer sum function:
 
-```scala
+```tut
 import breeze.linalg._
 
 val composedModel = mod1 |*| mod2
@@ -79,17 +79,18 @@ val composedModel = mod1 |*| mod2
 val p = Dlm.Parameters(
   v = diag(DenseVector(1.0, 2.0)), 
   w = diag(DenseVector(2.0, 3.0, 1.0)),
-  m0 = DenseVector.zeros[Double](2), 
-  c0 = DenseMatrix.eye[Double](2)
+  m0 = DenseVector.zeros[Double](3), 
+  c0 = DenseMatrix.eye[Double](3)
 )
 ```
 
 Then we can simulate observations from the `composedModel`:
 
-```scala
-val sims = Dlm.simulate(0, composedModel, p).
+```tut
+val sims = Dlm.simulateRegular(0, composedModel, p).
   steps.
-  take(1000)
+  take(1000).
+  toArray
 ```
 
 The figure below shows a simulation from this composed model:
@@ -158,8 +159,13 @@ The unkown parameters of the model are the system noise matrix, $W$ and the obse
 
 In order to perform Gibbs Sampling for the Correlated model in Scala:
 
-```scala
-
+```tut
+val iters = GibbsSampling.sample(
+    composedModel, 
+    InverseGamma(4.0, 9.0), 
+    InverseGamma(3.0, 3.0), 
+    p, 
+    sims.map(_._1))
 ```
 
 ```{r correlated-v-diagnostics, fig.cap="Diagnostic plots for the MCMC draws from the posterior distribution of the non-zero diagonal elements of the Observation noise covariance matrix for the simulated correlated model", message=FALSE, warning=FALSE, echo=FALSE}

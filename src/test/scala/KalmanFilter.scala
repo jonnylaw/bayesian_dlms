@@ -158,9 +158,22 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(filterFour.ct(0,0) === 1.569606 +- tol)
   }
 
-  val filterFour = KalmanFilter.step(model, p)(filterThree, data(4))
+  val filterFive = KalmanFilter.step(model, p)(filterFour, data(5))
 
   test("time step, t = 7, skip an observation without encoding") {
-    assert(filterFive
+    assert(filterFive.at(0) === 7.204408 +- tol)
+    assert(filterFive.rt(0,0) === 3.569606 +- tol)
+
+    assert(filterFive.y.get(0) === 7.204408 +- tol)
+    assert(filterFive.cov.get(0,0) === 6.569606 +- tol)
+
+    assert(filterFive.mt(0) === 11.54883 +- tol)
+    assert(filterFive.ct(0,0) === 1.630055 +- tol)
   }
+
+  // val filtered = KalmanFilter.filter(model, data, p)
+
+  // test("Full kalman Filter is equivalent to all steps") {
+  //   assert(filtered.head === filter
+  // }
 }

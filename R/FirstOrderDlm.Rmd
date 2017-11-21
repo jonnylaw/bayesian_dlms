@@ -1,6 +1,5 @@
 ---
 title: "First Order DLM"
-output: html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -23,7 +22,7 @@ X_0 &\sim \mathcal{N}(m_0, C_0).
 
 The code required to simulate from this model is given below:
 
-```scala
+```tut
 import dlm.model._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 
@@ -31,22 +30,23 @@ val mod = Dlm.polynomial(1)
 val p = Dlm.Parameters(
   v = DenseMatrix(3.0),
   w = DenseMatrix(1.0),
-  m0 = DenseMatrix(0.0),
+  m0 = DenseVector(0.0),
   c0 = DenseMatrix(1.0)
 )
 
-val data = Dlm.simulate(0, mod, p).
+val data = Dlm.simulateRegular(0, mod, p).
   steps.
-  take(1000)
+  take(1000).
+  toArray
 ```
 
-The value `mod` is the `case class` called `Model` containing the definition of the observation and system matrices. These matrices are actually functions from `(t: Time) => DenseMatrix[Double]`. The funciton `Dlm.polynomial` provides a shorthand for writing:
+The value `mod` is the `case class` called `Model` containing the definition of the observation and system matrices. These observation matrix, `f`, is a function from `(t: Time) => DenseMatrix[Double]` and the system evolution matrix `g` is a function from `(dt: TimeIncrement) => DenseMatrix[Double]`. The funciton `Dlm.polynomial` provides a shorthand for writing:
 
-```scala
-val mod = Model(
-    f = (t: Time) => DenseMatrix((1.0)), 
-    g = (t: Time) => DenseMatrix((1.0))
-  )
+```tut
+Dlm.Model(
+  f = (t: Time) => DenseMatrix(1.0), 
+  g = (dt: TimeIncrement) => DenseMatrix(1.0)
+)
 ```
 
 The figure below shows a plot of 100 simulations 
@@ -73,8 +73,8 @@ The result of filtering the simulated observations is plotted below, with 90% pr
 
 To perform Kalman Filtering on an `Array` of `Data`, we simply discard the state from the simulated data and pass it into the `kalmanFilter` function:
 
-```scala
-val filtered = KalmanFilter.kalmanFilter(mod, data.map(_._1), p)
+```tut
+val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
 ```
 
 ```{r first-order-filtered, message=FALSE, warning=FALSE, echo=FALSE}
@@ -146,8 +146,13 @@ Inverse gamma priors on the system and observation variances, $p(V) = \textrm{In
 
 To perform gibbs sampling with inverse gamma priors:
 
-```scala
-val iters = gibbsSamples(mod, InverseGamma(4.0, 9.0), InverseGamma(3.0, 3.0), p, data.map(_._1))
+```tut
+val iters = GibbsSampling.sample(
+    mod, 
+    InverseGamma(4.0, 9.0), 
+    InverseGamma(3.0, 3.0), 
+    p, 
+    data.map(_._1))
 ```
 
 `iters` are a Process[Parameters], which represents a Markov Chain. This can be converted into an iterator by calling `steps` then the appropriate amount of iterations can be taken from the MCMC. The Figure below shows diagnostic plots for the MCMC chain.

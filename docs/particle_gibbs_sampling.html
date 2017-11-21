@@ -9,9 +9,7 @@
 <meta name="generator" content="pandoc" />
 
 
-<meta name="author" content="Jonathan Law" />
 
-<meta name="date" content="2017-10-24" />
 
 <title>Particle Gibbs</title>
 
@@ -208,6 +206,45 @@ $(document).ready(function () {
         <li>
   <a href="index.html">Home</a>
 </li>
+<li>
+  <a href="model_building_simulation.html">Model Building</a>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Filtering
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="kalman_filter.html">Kalman Filter</a>
+    </li>
+    <li>
+      <a href="particle_filter.html">Bootstrap Particle Filter</a>
+    </li>
+    <li>
+      <a href="particle_gibbs.html">Particle Gibbs</a>
+    </li>
+  </ul>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Parameter Learning
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="gibbs_sampling.html">Gibbs Sampling</a>
+    </li>
+    <li>
+      <a href="pmmh.html">PMMH</a>
+    </li>
+  </ul>
+</li>
+<li>
+  <a href="forecasting.html">Forecasting</a>
+</li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
     Examples
@@ -216,7 +253,7 @@ $(document).ready(function () {
   </a>
   <ul class="dropdown-menu" role="menu">
     <li>
-      <a href="FirstOrderDlm.html">A Simple DLM</a>
+      <a href="FirstOrderDlm.html">First Order DLM</a>
     </li>
     <li>
       <a href="second_order_dlm.html">Linear Growth DLM</a>
@@ -225,7 +262,10 @@ $(document).ready(function () {
       <a href="seasonal_dlm.html">Seasonal Composed DLM</a>
     </li>
     <li>
-      <a href="CorrelatedModel.html">Correlated Models</a>
+      <a href="CorrelatedModel.html">Multivariate DLM</a>
+    </li>
+    <li>
+      <a href="student_t_filtering.html">Student's t-distributed DLM</a>
     </li>
   </ul>
 </li>
@@ -242,8 +282,6 @@ $(document).ready(function () {
 
 
 <h1 class="title toc-ignore">Particle Gibbs</h1>
-<h4 class="author"><em>Jonathan Law</em></h4>
-<h4 class="date"><em>24 October 2017</em></h4>
 
 </div>
 
@@ -287,16 +325,19 @@ X_0 &amp;\sim \mathcal{N}(m_0, C_0).
 <p>Figure @ref(fig:poisson-sims) shows a simulation from the Poisson DGLM.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">data =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../data/poisson_dglm.csv&quot;</span>)
 
-data <span class="op">%&gt;%</span>
+data <span class="op">%&lt;&gt;%</span>
 <span class="st">  </span><span class="kw">gather</span>(key, value, <span class="op">-</span>time) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">ggplot</span>(<span class="kw">aes</span>(<span class="dt">x =</span> time, <span class="dt">y =</span> value, <span class="dt">colour =</span> key)) <span class="op">+</span>
-<span class="st">  </span><span class="kw">geom_line</span>() <span class="op">+</span>
-<span class="st">  </span><span class="co"># facet_wrap(~key, scales = &quot;free_y&quot;) +</span>
+<span class="st">  </span><span class="kw">filter</span>(time <span class="op">&gt;</span><span class="st"> </span><span class="dv">900</span>) 
+
+<span class="kw">ggplot</span>() <span class="op">+</span>
+<span class="st">  </span><span class="kw">geom_line</span>(<span class="dt">data =</span> <span class="kw">subset</span>(data, key <span class="op">==</span><span class="st"> &quot;state&quot;</span>), <span class="kw">aes</span>(<span class="dt">x =</span> time, <span class="dt">y =</span> value)) <span class="op">+</span>
+<span class="st">  </span><span class="kw">geom_step</span>(<span class="dt">data =</span> <span class="kw">subset</span>(data, key <span class="op">==</span><span class="st"> &quot;observation&quot;</span>), <span class="kw">aes</span>(<span class="dt">x =</span> time, <span class="dt">y =</span> value)) <span class="op">+</span>
+<span class="st">  </span><span class="kw">facet_wrap</span>(<span class="op">~</span>key, <span class="dt">scales =</span> <span class="st">&quot;free_y&quot;</span>, <span class="dt">ncol =</span> <span class="dv">1</span>) <span class="op">+</span>
 <span class="st">  </span><span class="kw">theme</span>(<span class="dt">legend.position =</span> <span class="st">&quot;none&quot;</span>)</code></pre></div>
 <div class="figure">
-<img src="particle_gibbs_sampling_files/figure-html/poisson-sims-1.png" alt="Simulation from the poisson DGLM with $(W, m_0, C_0) = (1.0, 0.0, 1.0)$" width="672" />
+<img src="particle_gibbs_sampling_files/figure-html/poisson-sims-1.png" alt="Simulation from the poisson DGLM with $(W, m_0, C_0) = (0.01, 0.0, 1.0)$" width="672" />
 <p class="caption">
-Simulation from the poisson DGLM with <span class="math inline">\((W, m_0, C_0) = (1.0, 0.0, 1.0)\)</span>
+Simulation from the poisson DGLM with <span class="math inline">\((W, m_0, C_0) = (0.01, 0.0, 1.0)\)</span>
 </p>
 </div>
 <p>We first sample a path using the Particle Filter, then conditional on that path, we sample a value of the system noise covariance matrix, <span class="math inline">\(W\)</span>, by exploiting the conjugate structure of the model. The state is one-dimensional hence we need to determine the variance, <span class="math inline">\(W\)</span>. The Inverse Gamma distribution is conjugate to the Normal distribution with unknown variance:</p>
@@ -316,15 +357,16 @@ chain =<span class="st"> </span>iters <span class="op">%&gt;%</span><span class=
 
 p1 =<span class="st"> </span><span class="kw">ggs_traceplot</span>(chain)
 p2 =<span class="st"> </span><span class="kw">ggs_autocorrelation</span>(chain)
-p3 =<span class="st"> </span><span class="kw">ggs_running</span>(chain)
+p3 =<span class="st"> </span><span class="kw">ggs_running</span>(chain) <span class="op">+</span><span class="st"> </span><span class="kw">theme</span>(<span class="dt">legend.position =</span> <span class="st">&quot;none&quot;</span>)
 
-gridExtra<span class="op">::</span><span class="kw">grid.arrange</span>(p1, p2, p3, <span class="dt">ncol =</span> <span class="dv">3</span>)</code></pre></div>
+gridExtra<span class="op">::</span><span class="kw">grid.arrange</span>(p1, p2, p3, <span class="dt">ncol =</span> <span class="dv">1</span>)</code></pre></div>
 <p><img src="particle_gibbs_sampling_files/figure-html/mcmc-output-1.png" width="672" /></p>
 </div>
 </div>
 <div id="particle-gibbs-with-ancestor-resampling" class="section level2">
 <h2>Particle Gibbs with Ancestor Resampling</h2>
-<p>Particle Gibbs is sticky, so we use ancestor resampling. At the end of the filter there is a collection of paths with ancestory, we sample the <span class="math inline">\(k^th\)</span> path where <span class="math inline">\(k\)</span> is drawn from <span class="math inline">\(\textrm{Pr}(k = i) \propto w^i_T\)</span>. Here, <span class="math inline">\(w^i_T\)</span> is the weight of the <span class="math inline">\(i^th\)</span> particle at the final time, <span class="math inline">\(T\)</span>.</p>
+<p>Particle Gibbs is sticky, so we use ancestor resampling.</p>
+<p><em>TODO</em>: Describe PGAS algorithm</p>
 <div id="example-first-order-dlm" class="section level3">
 <h3>Example: First Order DLM</h3>
 <p>For a simple example of Particle Gibbs with Ancestor Resampling, we use the simple, illustrative example from Lindsten 2014.</p>

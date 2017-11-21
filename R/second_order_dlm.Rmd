@@ -26,21 +26,22 @@ $$G = \begin{pmatrix}
 
 In order to examine the properties of this model, first we can simulate a time series of values from it:
 
-```scala
+```tut
 import dlm.model._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 
 val mod = Dlm.polynomial(2)
-  val p = Parameters(
+  val p = Dlm.Parameters(
     DenseMatrix(3.0),
     diag(DenseVector(2.0, 1.0)),
     DenseVector(0.0, 0.0), 
     diag(DenseVector(100.0, 100.0))
   )
 
-val data = Dlm.simulate(0, mod, p).
+val data = Dlm.simulateRegular(0, mod, p).
   steps.
-  take(1000)
+  take(1000).
+  toArray
 ```
 
 ```{r second-order-simulated, message=FALSE, echo=FALSE, fig.cap="Simulated values from the Second Order DLM with parameters, $(V, W, \textbf{m}_0, C_0) = (3.0, \textrm{diag}(2.0, 1.0), (0.0, 0.0), \textrm{diag}(100.0, 100.0))$"}
@@ -58,8 +59,8 @@ data %>%
 
 Kalman Filtering can be performed to learn the posterior distribution of the states, given the observations:
 
-```scala
-val filtered = KalmanFilter.kalmanFilter(mod, data.map(_._1), p)
+```tut
+val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
 ```
 
 ```{r filtering, message=FALSE, echo=FALSE, fig.cap="Filtered State of the second order model, with 90% probability intervals"}
@@ -83,8 +84,13 @@ filtered %>%
 
 The parameters can be learned using Gibbs sampling. The state evolution distribution and the observation distribution are Gaussian with unknown variance $W$ and $V$ respectively. The state is assumed to have a diagonal, $2 \times 2$ covariance matrix and hence the unknown variances are chosen to have Inverse Gamma priors. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. To perform gibbs sampling using the Bayesian DLMs package:
 
-```scala
-val iters = gibbsSamples(mod, InverseGamma(4.0, 9.0), InverseGamma(5.0, 8.0), p, data.map(_._1))
+```tut
+val iters = GibbsSampling.sample(
+    mod, 
+    InverseGamma(4.0, 9.0), 
+    InverseGamma(5.0, 8.0), 
+    p, 
+    data.map(_._1))
 ```
 
 ```{r gibbs_sampling, message=FALSE, echo=FALSE}

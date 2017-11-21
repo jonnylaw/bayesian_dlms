@@ -32,12 +32,10 @@ object Smoothing {
     val at1 = state.at1
     val rt1 = state.rt1
 
-//    val cgrinv = (rt1.t \ (mod.g(dt) * ct.t)).t
-    val cgrinv = ct * mod.g(dt).t * inv(rt1)
+    val cgrinv = (rt1.t \ (mod.g(dt) * ct.t)).t
 
     // calculate the updated mean 
     val mean = mt + cgrinv * (state.mean - at1)
-
 
     // val n = w.cols
     // val identity = DenseMatrix.eye[Double](n)
@@ -76,35 +74,6 @@ object Smoothing {
     sample:     DenseVector[Double],
     at1:        DenseVector[Double], 
     rt1:        DenseMatrix[Double])
-
-  /**
-    * Simulation version of the backwards smoother
-    * @param mod 
-    */
-  def backSampleStep(
-    mod:      Model)
-    (state:   SamplingState, 
-     kfState: KalmanFilter.State) = {
-
-    // extract elements from kalman state
-    val time = kfState.time
-    val mt = kfState.mt
-    val ct = kfState.ct
-    val at1 = state.at1
-    val rt1 = state.rt1
-
-    val invrt = inv(rt1)
-
-    // calculate the updated mean
-    // the difference between the backwards sampler and smoother is here
-    // we take the difference of the previously sampled state 
-    val mean = mt + ct * mod.g(time + 1).t * invrt * (state.sample - at1)
-
-    // calculate the updated covariance
-    val covariance = ct - ct * mod.g(time + 1).t * invrt * mod.g(time + 1) * ct
-
-    SamplingState(kfState.time, MultivariateGaussianSvd(mean, covariance).draw, kfState.at, kfState.rt)
-  }
 
   /**
     * Copies the lower triangular portion of a matrix to the upper triangle

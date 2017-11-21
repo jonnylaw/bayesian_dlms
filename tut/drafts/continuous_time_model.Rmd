@@ -1,0 +1,147 @@
+---
+title: "Exact Inference for Continuous Time Dynamic Linear Models"
+author: "Jonathan Law"
+date: "06/11/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(coda)
+library(ggmcmc)
+theme_set(theme_minimal())
+```
+
+### Linear Model in Continuous Time
+
+The linear model has a 1-dimensional latent state, $x(t)$, the observation and system evolution matrix are $F(t) = 1$, $G(t) = 1$, $\forall t$. The transition kernel for the latent-state can be written as:
+
+$$p(x_{t_i} | x_{t_{i-1}}, W) = \mathcal{N}(x_{t-1}, W\textrm{d}t)$$
+
+This is the solution to a stochastic differential equation (SDE) for brownian motion:
+
+$$\textrm{d}X(t_i) = W\textrm{d}B(t_i).$$
+
+Where $B$ is standard brownian motion. 
+
+## Seasonal Model in Continuous Time
+
+The seasonal model has a 2$h$-dimensional state space, where $h$ is the number of harmonics in the seasonal model. The standard seasonal model consists of a block-diagonal $G$ matrix containing rotation matrices on the diagonal. The form of the rotation matrix is:
+
+$$R(\theta) = \begin{pmatrix}
+\cos(\theta) & -\sin(\theta) \\
+\sin(\theta) & \cos(\theta)
+\end{pmatrix}.$$
+
+The angle of rotation depends on the period, $T$, such that a full rotation is made in each period. The angle of the rotation is then $\theta = 2\pi / T$. This means at each application of the matrix, the state is "rotated" a further $2\pi/T$. This is fine if it is required to only know the distribution of the latent state at whole numbers of the period, but the rotation can't be applied to a half timestep. In the motivating temperature example the daily seasonal model can be said have a period of $T = 24$ if the timestamp is in increments of hours. The timesteps are mostly in increments of minutes, however measurements are irregular. It would be useful if there was a way to know the distribution of the latent state at an arbitrary timestep in the future, $t + \delta t$. 
+
+One possible way to do this is to consider $\delta t$ to be a small time step and have an infinitessimal rotation. If $\theta$ is very small then the trigonometric functions can be approximated by their Taylor expansion up to the first order terms, ie. $\cos(\theta) = 1$ and $\sin(\theta) = \theta$. Then a small rotation of a vector $\textbf{u} = (x, y)$ is given by $(I + A\textrm{d}\theta)\textbf{u}$, where $A$ is the skew symmetrix matrix:
+
+$$A = \begin{pmatrix}
+0 & -1 \\
+1 & 0
+\end{pmatrix}.$$
+
+The many infinitessimal rotations can be chained, one advantage of infinitessimal rotations is that they are commutative. **But why is this necessary?**
+
+Another consideration is since the evolution of the state depends on the time increment, $\textrm{d}t$, then the angle of rotation can simple depend on the time increment in the same units as the time $t$. Then the angle of rotation is: $\omega = 2\pi(\textrm{d}t \operatorname{mod} T) / T$.
+
+## Exact Filtering For Continuous Time DLMs
+
+Assume the last observation of the process was at time $t_i$, and we have the posterior of the state at time $t_i$ which is described by the mean and variance of the distribution, $m(t_i)$ and $C(t_i)$. Then to update the posterior at the time of the next observation $t_{i+1}$:
+
+1. Calculate the time difference to the next observation, $\textrm{d}t = t_{i+1} - t_i$
+2. State Prior: $a(t_{i+1}) = G(\textrm{d}t)m(t_i), R(t_{i+1}) = G(\textrm{d}t)C(t_i)G^T(\textrm{d}t) + W \textrm{d}t$
+3. Forecast: $f(t_{i+1}) = F(t_{i+1})a(t_{i+1}), Q(t_{i+1}) = F(t_{i+1}) R(t_{i+1}) F^T(t_{i+1}) + V$
+4. Update: $m(t_{i+1}) = a(t_{i+1}) + K(t_{i+1}) * e(t_{i+1}), C(t_{i+1}) = (I - K(t_{i+1}) F(t_{i+1})) R(t_{i+1})$
+
+where, $K(t) = R(t) F^T(t) Q(t)^{-1}$ and  $e(t) = y(t) - f(t)$. We can prove this using results about the Gaussian distribution:
+
+### Example: Temperature Model
+
+Consider the temperature model discussed above, here is a simulation from the model:
+
+```{r seasonal_observations}
+data = read_csv("../data/seasonal_dlm_irregular.csv", col_names = c("time", "observation", paste("state", 1:13, sep = "_")))
+
+data %>%
+  ggplot(aes(x = time, y = observation)) +
+  geom_line()
+```
+
+```{r seasonal_state}
+data %>%
+  gather(key = state, value, contains("state")) %>%
+  ggplot(aes(x = time, y = value)) +
+  geom_line() +
+  facet_wrap(~state, ncol = 1, strip.position = "right", scales = "free_y")
+```
+
+Now we can perform filtering using the Exact filtering algorithm:
+
+```{r filtered_seasonal}
+filtered = read_csv("../data/seasonal_dlm_irregular_filtered.csv", 
+                    col_names = c("time", paste("state_mean", 1:13, sep = "_"), paste("state_variance", 1:13, sep = "_")))
+
+filtered %>%
+  gather(key, value, contains("state_mean")) %>%
+  ggplot(aes(x = time, y = value)) +
+  geom_line() +
+  facet_wrap(~key, scales = "free_y", ncol = 1, strip.position = "right")
+
+filtered %>%
+  inner_join(data, by = "time") %>%
+  mutate(upper = qnorm(0.95, mean = state_mean_2, sd = sqrt(state_variance_2)), 
+         lower = qnorm(0.05, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
+  filter(time > 900) %>%
+  gather(key, value, state_2, state_mean_2) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_point(size = 0.5) +
+  geom_line(aes(x = time, y = lower), linetype = 2, colour = "#666666") +
+  geom_line(aes(x = time, y = upper), linetype = 2, colour = "#666666") +
+  theme(legend.position = "bottom")
+```
+
+## Parameter Learning
+
+In order to fit a model to the temperature, it remains to determine the values of the parameters, $V$ and $W$. A Gibbs Sampler can be used to learn the values of the parameters.
+
+Sample the states:
+
+```{r sample_states}
+sampled = read_csv("../data/seasonal_dlm_irregular_back_sample.csv", 
+                   col_names = c("time", paste("mean_state", 1:13, sep = "_")))
+
+sampled %>%
+  inner_join(data, by = "time") %>%
+  gather(key, value, contains("state_2")) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line()
+```
+
+Now it is possible to sample the state given the fixed parameters, $V$ and $W$, we can build a Gibbs sampler exploiting the conjugate structure of the model to sample the value of $V$. However, because the variance of the system evolution kernel depends on the time step between the discrete observations, $\textrm{d}t = t_i - t_{i-1}$, there is no conjugate form to update $W$, hence the system matrix will be updated using Metropolis Hastings.
+
+```{r parameter-learning-ct}
+chain = read_csv("../data/seasonal_irregular_gibbs.csv")
+
+parameters = chain %>% mcmc() %>% ggs()
+
+ggmcmc(parameters, file = "~/Desktop/seasonal_irreg.pdf")
+```
+
+```{r diagnostics}
+p1 = ggs_traceplot(parameters)
+p2 = ggs_autocorrelation(parameters)
+gridExtra::grid.arrange(p1, p2)
+```
+
+
+## Temperature Example
+
+
+
+```{r}
+
+```
+

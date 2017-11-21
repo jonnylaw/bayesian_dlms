@@ -206,6 +206,45 @@ $(document).ready(function () {
         <li>
   <a href="index.html">Home</a>
 </li>
+<li>
+  <a href="model_building_simulation.html">Model Building</a>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Filtering
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="kalman_filter.html">Kalman Filter</a>
+    </li>
+    <li>
+      <a href="particle_filter.html">Bootstrap Particle Filter</a>
+    </li>
+    <li>
+      <a href="particle_gibbs.html">Particle Gibbs</a>
+    </li>
+  </ul>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Parameter Learning
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="gibbs_sampling.html">Gibbs Sampling</a>
+    </li>
+    <li>
+      <a href="pmmh.html">PMMH</a>
+    </li>
+  </ul>
+</li>
+<li>
+  <a href="forecasting.html">Forecasting</a>
+</li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
     Examples
@@ -214,7 +253,7 @@ $(document).ready(function () {
   </a>
   <ul class="dropdown-menu" role="menu">
     <li>
-      <a href="FirstOrderDlm.html">A Simple DLM</a>
+      <a href="FirstOrderDlm.html">First Order DLM</a>
     </li>
     <li>
       <a href="second_order_dlm.html">Linear Growth DLM</a>
@@ -223,7 +262,10 @@ $(document).ready(function () {
       <a href="seasonal_dlm.html">Seasonal Composed DLM</a>
     </li>
     <li>
-      <a href="CorrelatedModel.html">Correlated Models</a>
+      <a href="CorrelatedModel.html">Multivariate DLM</a>
+    </li>
+    <li>
+      <a href="student_t_filtering.html">Student's t-distributed DLM</a>
     </li>
   </ul>
 </li>
@@ -258,20 +300,31 @@ Y_t &amp;= F \textbf{x}_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
 0 &amp; 1
 \end{pmatrix}.\]</span></p>
 <p>In order to examine the properties of this model, first we can simulate a time series of values from it:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> dlm.<span class="fu">model</span>._
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">import</span> dlm.<span class="fu">model</span>._
+<span class="kw">import</span> dlm.<span class="fu">model</span>._
+
+scala&gt; <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
 <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
 
-<span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">2</span>)
-  <span class="kw">val</span> p = <span class="fu">Parameters</span>(
-    <span class="fu">DenseMatrix</span>(<span class="fl">3.0</span>),
-    <span class="fu">diag</span>(<span class="fu">DenseVector</span>(<span class="fl">2.0</span>, <span class="fl">1.0</span>)),
-    <span class="fu">DenseVector</span>(<span class="fl">0.0</span>, <span class="fl">0.0</span>), 
-    <span class="fu">diag</span>(<span class="fu">DenseVector</span>(<span class="fl">100.0</span>, <span class="fl">100.0</span>))
-  )
+scala&gt; <span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">2</span>)
+mod: dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Model</span> = <span class="fu">Model</span>(&lt;function1&gt;,&lt;function1&gt;)
 
-<span class="kw">val</span> data = Dlm.<span class="fu">simulate</span>(<span class="dv">0</span>, mod, p).
-  steps.
-  <span class="fu">take</span>(<span class="dv">1000</span>)</code></pre></div>
+scala&gt;   <span class="kw">val</span> p = Dlm.<span class="fu">Parameters</span>(
+     |     <span class="fu">DenseMatrix</span>(<span class="fl">3.0</span>),
+     |     <span class="fu">diag</span>(<span class="fu">DenseVector</span>(<span class="fl">2.0</span>, <span class="fl">1.0</span>)),
+     |     <span class="fu">DenseVector</span>(<span class="fl">0.0</span>, <span class="fl">0.0</span>), 
+     |     <span class="fu">diag</span>(<span class="fu">DenseVector</span>(<span class="fl">100.0</span>, <span class="fl">100.0</span>))
+     |   )
+p: dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Parameters</span> =
+<span class="fu">Parameters</span>(<span class="fl">3.0</span>  ,<span class="fl">2.0</span>  <span class="fl">0.0</span>
+<span class="fl">0.0</span>  <span class="fl">1.0</span>  ,<span class="fu">DenseVector</span>(<span class="fl">0.0</span>, <span class="fl">0.0</span>),<span class="fl">100.0</span>  <span class="fl">0.0</span>
+<span class="fl">0.0</span>    <span class="fl">100.0</span>  )
+
+scala&gt; <span class="kw">val</span> data = Dlm.<span class="fu">simulateRegular</span>(<span class="dv">0</span>, mod, p).
+     |   steps.
+     |   <span class="fu">take</span>(<span class="dv">1000</span>).
+     |   toArray
+data: Array[(dlm.<span class="fu">model</span>.<span class="fu">Data</span>, breeze.<span class="fu">linalg</span>.<span class="fu">DenseVector</span>[Double])] = Array((<span class="fu">Data</span>(<span class="fl">1.0</span>,Some(<span class="fu">DenseVector</span>(<span class="fl">1.8247651819530644</span>))),<span class="fu">DenseVector</span>(<span class="fl">0.6543171649706047</span>, -<span class="fl">0.4701997796432561</span>)), (<span class="fu">Data</span>(<span class="fl">2.0</span>,Some(<span class="fu">DenseVector</span>(-<span class="fl">0.5878408069482894</span>))),<span class="fu">DenseVector</span>(<span class="fl">0.46084509273114643</span>, <span class="fl">0.2997146600043752</span>)), (<span class="fu">Data</span>(<span class="fl">3.0</span>,Some(<span class="fu">DenseVector</span>(<span class="fl">3.032680134413355</span>))),<span class="fu">DenseVector</span>(<span class="fl">3.3357307793743036</span>, <span class="fl">0.35921863056575404</span>)), (<span class="fu">Data</span>(<span class="fl">4.0</span>,Some(<span class="fu">DenseVector</span>(<span class="fl">3.612834170851169</span>))),<span class="fu">DenseVector</span>(<span class="fl">5.4816977412792465</span>, <span class="fl">0.589209390550565</span>)), (<span class="fu">Data</span>(<span class="fl">5.0</span>,Some(<span class="fu">DenseVector</span>(<span class="fl">3.718505442794812</span>))),<span class="fu">DenseVector</span>(<span class="fl">5.3392635445179435</span>, -<span class="fl">0.20824782450929502</span>)), (<span class="fu">Data</span>(<span class="fl">6.0</span>,Some(<span class="fu">DenseVector</span>(<span class="fl">3.301744365037126</span>))),<span class="fu">DenseVector</span>(<span class="fl">4.860257064817917</span>, -<span class="fl">0.9388053555026706</span>)), (<span class="fu">Data</span>(<span class="fl">7.0</span>,Some(<span class="fu">DenseVector</span>(<span class="fl">7.105676296999512</span>))),<span class="fu">DenseVector</span>(<span class="fl">5.806939110994677</span>, -<span class="fl">1.856888004367184</span>)), (Dat...</code></pre></div>
 <div class="figure">
 <img src="second_order_dlm_files/figure-html/second-order-simulated-1.png" alt="Simulated values from the Second Order DLM with parameters, $(V, W,     extbf{m}_0, C_0) = (3.0,    extrm{diag}(2.0, 1.0), (0.0, 0.0),  extrm{diag}(100.0, 100.0))$" width="672" />
 <p class="caption">
@@ -282,7 +335,15 @@ Simulated values from the Second Order DLM with parameters, <span class="math in
 <div id="filtered" class="section level1">
 <h1>Filtered</h1>
 <p>Kalman Filtering can be performed to learn the posterior distribution of the states, given the observations:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> filtered = KalmanFilter.<span class="fu">kalmanFilter</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">val</span> filtered = KalmanFilter.<span class="fu">filter</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)
+filtered: Array[dlm.<span class="fu">model</span>.<span class="fu">KalmanFilter</span>.<span class="fu">State</span>] =
+Array(State(<span class="fl">0.0</span>,<span class="fu">DenseVector</span>(<span class="fl">0.0</span>, <span class="fl">0.0</span>),<span class="fl">100.0</span>  <span class="fl">0.0</span>
+<span class="fl">0.0</span>    <span class="fl">100.0</span>  ,<span class="fu">DenseVector</span>(<span class="fl">0.0</span>, <span class="fl">0.0</span>),<span class="fl">200.0</span>  <span class="fl">100.0</span>
+<span class="fl">100.0</span>  <span class="fl">100.0</span>  ,None,None,<span class="fl">0.0</span>), State(<span class="fl">1.0</span>,<span class="fu">DenseVector</span>(<span class="fl">1.798061301241556</span>, <span class="fl">0.8901293570502753</span>),<span class="fl">2.9560975609756097</span>  <span class="fl">1.4634146341463414</span>
+<span class="fl">1.4634146341463414</span>  <span class="fl">52.21951219512194</span>   ,<span class="fu">DenseVector</span>(<span class="fl">0.0</span>, <span class="fl">0.0</span>),<span class="fl">202.0</span>  <span class="fl">100.0</span>
+<span class="fl">100.0</span>  <span class="fl">101.0</span>  ,Some(<span class="fu">DenseVector</span>(<span class="fl">0.0</span>)),Some(<span class="fl">205.0</span>  ),-<span class="fl">3.588564908064775</span>), State(<span class="fl">2.0</span>,<span class="fu">DenseVector</span>(-<span class="fl">0.43209255778914635</span>, -<span class="fl">1.8968779307486987</span>),<span class="fl">2.8573747680890538</span>  <span class="fl">2.552179962894248</span>
+<span class="fl">2.5521799628942485</span>  <span class="fl">7.550015460729751</span>  ,<span class="fu">DenseVector</span>(<span class="fl">2.6881906582918313</span>, <span class="fl">0.8901293570502753</span>),<span class="fl">60.102439024390236</span>  <span class="fl">53.68292682926828</span>
+<span class="fl">53.68292682926828</span>   <span class="fl">53.21951219512194</span>  ,Some(<span class="fu">DenseVector</span>(<span class="fl">2.6881906582918313</span>)),Some(<span class="fl">63.102439024390236</span>  ),-<span class="fl">6.6649225131456165</span>), Sta...</code></pre></div>
 <div class="figure">
 <img src="second_order_dlm_files/figure-html/filtering-1.png" alt="Filtered State of the second order model, with 90% probability intervals" width="672" />
 <p class="caption">
@@ -293,7 +354,13 @@ Filtered State of the second order model, with 90% probability intervals
 <div id="learn-parameters" class="section level1">
 <h1>Learn Parameters</h1>
 <p>The parameters can be learned using Gibbs sampling. The state evolution distribution and the observation distribution are Gaussian with unknown variance <span class="math inline">\(W\)</span> and <span class="math inline">\(V\)</span> respectively. The state is assumed to have a diagonal, <span class="math inline">\(2 \times 2\)</span> covariance matrix and hence the unknown variances are chosen to have Inverse Gamma priors. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. To perform gibbs sampling using the Bayesian DLMs package:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = <span class="fu">gibbsSamples</span>(mod, <span class="fu">InverseGamma</span>(<span class="fl">4.0</span>, <span class="fl">9.0</span>), <span class="fu">InverseGamma</span>(<span class="fl">5.0</span>, <span class="fl">8.0</span>), p, data.<span class="fu">map</span>(_._<span class="dv">1</span>))</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">val</span> iters = GibbsSampling.<span class="fu">sample</span>(
+     |     mod, 
+     |     <span class="fu">InverseGamma</span>(<span class="fl">4.0</span>, <span class="fl">9.0</span>), 
+     |     <span class="fu">InverseGamma</span>(<span class="fl">5.0</span>, <span class="fl">8.0</span>), 
+     |     p, 
+     |     data.<span class="fu">map</span>(_._<span class="dv">1</span>))
+iters: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Process</span>[dlm.<span class="fu">model</span>.<span class="fu">GibbsSampling</span>.<span class="fu">State</span>] = breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">MarkovChain</span>$$anon$<span class="dv">1</span>@10a65cfc</code></pre></div>
 <pre><code>##        V               W1               W2        
 ##  Min.   :1.850   Min.   :0.7802   Min.   :0.7099  
 ##  1st Qu.:2.792   1st Qu.:1.5999   1st Qu.:1.0273  

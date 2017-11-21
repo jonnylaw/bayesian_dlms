@@ -18,6 +18,12 @@ publishMavenStyle := true
 
 crossScalaVersions := Seq("2.11.11","2.12.1")
 
+// Enable Tut for typechecking and running scala documentation
+enablePlugins(TutPlugin)
+tutSourceDirectory := baseDirectory.value / "R"
+tutTargetDirectory := baseDirectory.value / "tut"
+tutNameFilter := ".+\\.Rmd".r
+
 publishTo := {
   val nexus = "https://oss.sonatype.org/"
   if (isSnapshot.value)

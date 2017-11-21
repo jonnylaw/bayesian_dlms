@@ -11,9 +11,37 @@ Performing forecasting for future observations of the process using a DLM is equ
 
 ## Example: Seasonal Model
 
-First we take the mean value of the MCMC parameters, assuming that the parameters have been written to a CSV called `seasonal_dlm_gibbs.csv` with eight columns, $V, W_1,\dots,W_7$:
+Define the seasonal model:
 
-```scala
+```tut
+import dlm.model._
+import cats.implicits._
+
+val mod = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
+```
+
+Read in some simulated values from the [seasonal model](SeasonalModel.html).
+
+```tut
+import breeze.linalg._
+import java.nio.file.Paths
+import kantan.csv._
+import kantan.csv.ops._
+
+val rawData = Paths.get("data/seasonal_dlm.csv")
+val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
+val data = reader.
+  collect { 
+    case Success(a) => Data(a.head.toInt, Some(a(1)).map(DenseVector(_)))
+  }.
+  toArray
+```
+
+Then calculate the mean value of the MCMC parameters, assuming that the parameters have been written to a CSV called `seasonal_dlm_gibbs.csv` with eight columns, $V, W_1,\dots,W_7$:
+
+```tut
+import breeze.stats.mean
+
 val mcmcChain = Paths.get("data/seasonal_dlm_gibbs.csv")
 val read = mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
 
@@ -23,23 +51,24 @@ val params: List[Double] = read.
   transpose.
   map(a => mean(a))
 
-val meanParameters = Parameters(
-  DenseMatrix(params.head), 
-  diag(DenseVector(params.tail.toArray)), 
-  p.m0,
-  p.c0)
+val meanParameters = Dlm.Parameters(
+  v =  DenseMatrix(params.head), 
+  w =  diag(DenseVector(params.tail.toArray)), 
+  m0 = DenseVector.zeros[Double](7),
+  c0 = DenseMatrix.eye[Double](7)
+ )
 ```
 
 When then use these parameters to get the posterior distribution of the final state:
 
-```scala
-  val filtered = KalmanFilter.kalmanFilter(mod, data, meanParameters)
-  val (mt, ct, initTime) = filtered.map(a => (a.mt, a.ct, a.time)).last
+```tut
+val filtered = KalmanFilter.filter(mod, data, meanParameters)
+val (mt, ct, initTime) = filtered.map(a => (a.mt, a.ct, a.time)).last
 ```
 
 We then initialise the forecast function with state state posterior at the time of the last observation:
 
-```scala
+```tut
 val forecasted = Dlm.forecast(mod, mt, ct, initTime, meanParameters).
   take(100).
   toList

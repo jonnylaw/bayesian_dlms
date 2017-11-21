@@ -1,4 +1,4 @@
- import dlm.model._
+import dlm.model._
 import Dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag, inv}
 import breeze.stats.distributions.{ChiSquared, Gamma}
@@ -12,7 +12,7 @@ import Arbitrary.arbitrary
 import org.scalactic.Equality
 import org.scalactic.Equality
 
-class SmoothingTest extends FunSuite with Matchers with BreezeGenerators {
+trait SmoothedData {
   val model = Dlm.polynomial(1)
   val p = Dlm.Parameters(
     v = DenseMatrix(3.0),
@@ -34,26 +34,61 @@ class SmoothingTest extends FunSuite with Matchers with BreezeGenerators {
   implicit val tol = 1e-4
 
   val filtered = KalmanFilter.filter(model, data, p)
-
   val smoothed = Smoothing.backwardsSmoother(model)(filtered)
+}
 
-  val s6 = smoothed.last.mean(0)
-  val m5 = filtered(4).mt(0)
-  val c5 = filtered(4).ct(0, 0)
-  val r6 = filtered.last.rt(0,0)
-  val a6 = filtered.last.at(0)
-  val s5 = m5 + c5 * c5 * 1 / (r6 * r6) * (s6 - a6)
-
-  val S6 = smoothed.last.covariance(0,0)
-  val S5 = c5 - c5 * c5 * 1 / (r6 * r6) * (r6 - S6)
-
-  test("The initial smoothing mean and covariance should be equal to the last filtered mean and covariance") {
-    assert(filtered.last.mt(0) === s6 +- tol)
-    assert(filtered.last.ct(0,0) === S6 +- tol)
+class SmoothingTest extends FunSuite with Matchers with SmoothedData {
+  test("Smoothed should be length of the data + 1, including initial state at t = 0") {
+    assert(smoothed.size === data.size + 1)
   }
 
-  test("A single step of the smoothing algorithm") {
+  val s7 = smoothed.last.mean(0)
+  val m5 = filtered(5).mt(0)
+  val c5 = filtered(5).ct(0, 0)
+  val r7 = filtered.last.rt(0,0)
+  val a7 = filtered.last.at(0)
+  val s5 = m5 + c5 * 1 / r7 * (s7 - a7)
+
+  val S7 = smoothed.last.covariance(0,0)
+  val S5 = c5 - c5 * c5 * 1 / (r7 * r7) * (r7 - S7)
+
+  test("The initial smoothing mean and covariance should be equal to the last filtered mean and covariance") {
+    assert(filtered.last.mt(0) === s7 +- tol)
+    assert(filtered.last.ct(0,0) === S7 +- tol)
+  }
+
+  test("The first step of the smoothing algorithm to calculate s5 and S5 from s7 and S7") {
     assert(smoothed(5).mean(0) === s5 +- tol)
     assert(smoothed(5).covariance(0,0) === S5 +- tol)
   }
+
+  val m4 = filtered(4).mt(0)
+  val c4 = filtered(4).ct(0,0)
+  val r5 = filtered(5).rt(0,0)
+  val a5 = filtered(5).at(0)
+
+  val s4 = m4 + c4 * 1 / r5 * (s5 - a5)
+  val S4 = c4 - c4 * c4 * 1 / (r5 * r5) * (r5 - S5)
+
+  test("Second smoothing step") {
+    assert(smoothed(4).mean(0) === s4 +- tol)
+    assert(smoothed(4).covariance(0,0) === S4 +- tol)
+  }
 }
+
+// class FFBSTest extends FunSuite with Matchers with SmoothedData {
+//   test("The mean of repeated draws of FFBS should be equivalent to the smoothed value") {
+//     val n = 10000
+//     val sampledState = Smoothing.ffbs(model, data, p).
+//       sample(n).
+//       map(s => s.map(_._2))
+
+//     val meanState = sampledState.
+//       transpose.
+//       map(_.reduce(_ + _)).
+//       map(_/n.toDouble)
+
+//     assert(meanState.size === smoothed.size)
+//     assert(meanState === smoothed.map(_.mean))
+//   }
+// }
