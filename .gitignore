@@ -1,8 +1,7 @@
 .ensime
 *.csv
 *.dat
-project/*
-target/*
+**/target
 tut/*
 src/main/scala/target/*
 .ensime_cache/
