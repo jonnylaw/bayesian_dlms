@@ -3,6 +3,7 @@ package dlm.model
 import java.io.File
 import Dlm.Parameters
 import breeze.stats.distributions.Process
+import java.nio.file.Paths
 import kantan.csv._
 import kantan.csv.ops._
 
@@ -32,5 +33,25 @@ object Streaming {
     }
 
     writer.close()
+  }
+
+  /**
+    * Read an MCMC Chain into a list of doubles
+    */
+  def readMcmcChain(filename: String): Iterator[List[Double]] = {
+    val mcmcChain = Paths.get("data/seasonal_dlm_gibbs.csv")
+      mcmcChain.asCsvReader[List[Double]](rfc.withHeader).
+      collect { case Success(a) => a }.
+      toIterator
+  }
+
+
+  /**
+    * Calculate the column means of List of List of doubles
+    */
+  def colMeans(params: List[List[Double]]): List[Double] =  {
+    params.
+      transpose.
+      map(a => breeze.stats.mean(a))
   }
 }

@@ -4,7 +4,7 @@ name := "bayesian_dlms"
 
 organization := "com.github.jonnylaw"
 
-version := "0.2"
+version := "0.2.1-SNAPSHOT"
 
 libraryDependencies ++= Seq(
   "org.scalanlp"        %% "breeze"             % "0.13.2",

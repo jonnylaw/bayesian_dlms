@@ -116,9 +116,10 @@ object Smoothing {
     val identity = DenseMatrix.eye[Double](n)
     val diff = identity - cgrinv * mod.g(dt)
     val covariance = diff * ct * diff.t + cgrinv * w * dt * cgrinv.t
+    val r = (covariance + covariance.t) /:/ 2.0
 
     Smoothing.SamplingState(kfState.time, 
-      MultivariateGaussianSvd(mean, covariance).draw, 
+      MultivariateGaussianSvd(mean, r).draw, 
       kfState.at, 
       kfState.rt)
   }

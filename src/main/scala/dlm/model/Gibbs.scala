@@ -198,7 +198,7 @@ object GibbsSampling extends App {
     state: Array[(Time, DenseVector[Double])],
     dof:   Int,
     scale: Double
-  ): Rand[List[Double]] = {
+  ) = {
     val alpha = (dof + 1) * 0.5
 
     val diff = (ys.sortBy(_.time).map(_.observation), 
@@ -208,9 +208,9 @@ object GibbsSampling extends App {
         case (None, x) => DenseVector.zeros[Double](x._2.size)
       }
 
-    val beta = diff.map(d => (dof * scale * 0.5) + d(0) * 0.5).toList
+    val beta = diff.map(d => (dof * scale * 0.5) + d(0) * 0.5)
 
-    beta.traverse(b => InverseGamma(alpha, b): Rand[Double])
+    beta map (b => InverseGamma(alpha, b).draw)
   }
 
   /**
@@ -218,7 +218,7 @@ object GibbsSampling extends App {
     * @param
     */
   def sampleScaleT(
-    variances: List[Double],
+    variances: Array[Double],
     dof:       Int): Rand[Double] = {
     val t = variances.size
   
@@ -234,13 +234,13 @@ object GibbsSampling extends App {
     * @param 
     */
   def sampleStateT(
-    variances:    List[Double],
+    variances:    Array[Double],
     params:       Dlm.Parameters,
     mod:          Dlm.Model,
     observations: Array[Data]
   ) = {
     // create a list of parameters with the variance in them
-    val ps = variances.map(vi => params.copy(v = DenseMatrix(vi))).toArray
+    val ps = variances.map(vi => params.copy(v = DenseMatrix(vi)))
 
     def kalmanStep(p: Dlm.Parameters) = KalmanFilter.step(mod, p) _
 
@@ -264,7 +264,7 @@ object GibbsSampling extends App {
     */
   case class StudentTState(
     p:         Dlm.Parameters,
-    variances: List[Double],
+    variances: Array[Double],
     state:     Array[(Time, DenseVector[Double])]
   )
 
@@ -282,7 +282,7 @@ object GibbsSampling extends App {
     for {
       latentState <- sampleStateT(state.variances, state.p, dlm, data)
       newW <- sampleSystemMatrix(priorW, mod.g, latentState)
-      variances <- sampleVariancesT(data, mod.f, latentState, dof, state.p.v(0,0))
+      variances = sampleVariancesT(data, mod.f, latentState, dof, state.p.v(0,0))
       scale <- GibbsSampling.sampleScaleT(variances, dof)
     } yield StudentTState(
       state.p.copy(v = DenseMatrix(scale), w = newW),
@@ -302,7 +302,7 @@ object GibbsSampling extends App {
     params: Dlm.Parameters
   ) = {
     val dlm = Model(mod.f, mod.g)
-    val initVariances = List.fill(data.size)(1.0)
+    val initVariances = Array.fill(data.size)(1.0)
     val initState = GibbsSampling.sampleStateT(initVariances, params, dlm, data)
     val init = StudentTState(params, initVariances, initState.draw)
 
