@@ -28,7 +28,7 @@ seasonal_irregular_gibbs:
 	ssh topsy -t "cd /share/nobackup/a9169110/seasonal_dlm_irregular && qsub seasonal_dlm_irregular.qsub"
 	ssh topsy -t qstat 	
 
-site: correlated second_order first_order seasonal
+site: correlated second_order first_order seasonal knit_site
 
 knit_site:
 	sbt "tut"

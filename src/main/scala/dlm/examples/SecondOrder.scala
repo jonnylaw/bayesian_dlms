@@ -113,8 +113,8 @@ object GibbsInvestParameters extends App with DlmModel {
     map { case (x, i) => Data(i + 1960, Some(DenseVector(x(1).toDouble / 1000.0))) }.
     toArray
 
-  val priorV = InverseGamma(4.0, 10.0)
-  val priorW = InverseGamma(4.0, 10.0)
+  val priorV = InverseGamma(40.0, 10.0)
+  val priorW = InverseGamma(40.0, 10.0)
 
   val initP = Parameters(
     v = DenseMatrix(priorV.draw),
@@ -122,8 +122,6 @@ object GibbsInvestParameters extends App with DlmModel {
     m0 = p.m0,
     c0 = p.c0
   )
-
-  println(s"Initial parameters: $initP")
 
   val iters = GibbsSampling.sample(mod, priorV, priorW, initP, data).
     steps.

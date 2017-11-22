@@ -126,3 +126,53 @@ object FirstOrderLinearTrendDlm extends App {
 
   writer.close()
 }
+
+object SusteInvestment extends App {
+    val data: Array[Data] = scala.io.Source.fromFile("data/invest2.dat").
+    getLines.
+    map(_.split(",")).
+    zipWithIndex.
+    map { case (x, i) => Data(i + 1960, Some(DenseVector(x(0), x(1).toDouble / 1000.0))) }.
+    toArray
+
+  def alpha(a: Double, b: Double) {
+    (2 * b + a * a ) / b
+  }
+
+  def beta(a: Double, b: Double) {
+    (a/b) * (a * a + b)
+  }
+
+  val meanV = 0.1
+  val variance = 1000.0
+  val meanW = 1.0
+
+  val priorV = InverseGamma(alpha(meanV, variance), beta(meanV, variance))
+  val priorW = InverseGamma(alpha(meanW, variance), beta(meanW, variance)))
+
+  val initP = Parameters(
+    v = DenseMatrix(priorV.draw),
+    w = diag(DenseVector.fill(2)(priorW.draw)),
+    m0 = p.m0,
+    c0 = p.c0
+  )
+
+  val iters = GibbsSampling.sample(mod, priorV, priorW, initP, data).
+    steps.
+    drop(12000).
+    take(12000)
+
+  val out = new java.io.File("data/gibbs_spain_investment.csv")
+  val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2"))
+
+  def formatParameters(p: Parameters) = {
+    DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
+  }
+
+  // write iters to file
+  while (iters.hasNext) {
+    writer.write(formatParameters(iters.next.p))
+  }
+
+  writer.close()
+}

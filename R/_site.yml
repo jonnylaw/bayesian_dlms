@@ -34,6 +34,8 @@ navbar:
         href: CorrelatedModel.html
       - text: "Student's t-distributed DLM"
         href: student_t_filtering.html
+      - text: "Spain Investment Data"
+        href: spain_investment_data.html
 output_dir: ../docs
 output:
   html_document:
