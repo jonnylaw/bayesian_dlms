@@ -20,3 +20,22 @@ To read more about DLMs I recommend the following textbooks:
 Petris, Giovanni, Sonia Petrone, and Patrizia Campagnoli. "Dynamic Linear Models with R." [Springer, 2009](http://www.springer.com/gb/book/9780387772370)
 
 Harrison, Jeff, and Mike West. "Bayesian forecasting & dynamic models." [Springer, 1999](http://www.springer.com/gb/book/9780387947259)
+
+# Features  
+
+* Building univariate and multivariate D(G)LMs
+* Support for irregularly observed and explicitly missing data
+* Kalman Filter
+* Backwards Smoothing
+* Forward-Filtering Backward Sampling (FFBS)
+* Gibbs Sampling using d-Inverse Gamma Modelling
+* Gibbs Sampling using the Inverse Wishart Distribution
+* Metropolis Hastings Sampling
+* Bootstrap Particle Filter for DGLMs
+* Particle Gibbs Sampling
+* Particle Gibbs with Ancestor Sampling
+
+# Upcoming Features
+
+* Matrix Normal Model
+* Partial Observations of Multivariate Time Series
