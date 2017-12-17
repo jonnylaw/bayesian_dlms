@@ -10,7 +10,7 @@ Performing forecasting for future observations of the process using a DLM is equ
 
 Define the seasonal model:
 
-```tut
+```tut:silent
 import dlm.model._
 import cats.implicits._
 
@@ -19,7 +19,7 @@ val mod = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
 
 Read in some simulated values from the [seasonal model](SeasonalModel.html).
 
-```tut
+```tut:silent
 import breeze.linalg._
 import java.nio.file.Paths
 import kantan.csv._
@@ -29,14 +29,14 @@ val rawData = Paths.get("data/seasonal_dlm.csv")
 val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
 val data = reader.
   collect { 
-    case Success(a) => Data(a.head.toInt, Some(a(1)).map(DenseVector(_)))
+    case Success(a) => Dlm.Data(a.head.toInt, DenseVector(Some(a(1))))
   }.
   toArray
 ```
 
 Then calculate the mean value of the MCMC parameters, assuming that the parameters have been written to a CSV called `seasonal_dlm_gibbs.csv` with eight columns, $V, W_1,\dots,W_7$:
 
-```tut
+```tut:silent
 import breeze.stats.mean
 
 val mcmcChain = Paths.get("data/seasonal_dlm_gibbs.csv")
@@ -58,14 +58,14 @@ val meanParameters = Dlm.Parameters(
 
 When then use these parameters to get the posterior distribution of the final state:
 
-```tut
+```tut:silent
 val filtered = KalmanFilter.filter(mod, data, meanParameters)
 val (mt, ct, initTime) = filtered.map(a => (a.mt, a.ct, a.time)).last
 ```
 
 We then initialise the forecast function with state state posterior at the time of the last observation:
 
-```tut
+```tut:silent
 val forecasted = Dlm.forecast(mod, mt, ct, initTime, meanParameters).
   take(100).
   toList
@@ -74,13 +74,12 @@ val forecasted = Dlm.forecast(mod, mt, ct, initTime, meanParameters).
 The results of the forecasting and 95% prediction intervals are below:
 
 ```{r forecast_seasonal_dlm, echo=FALSE, message=FALSE, warning=FALSE}
-forecast = read_csv("../data/seasonal_model_forecast.csv")
 sims = read_csv("../data/seasonal_dlm.csv")
+forecast = read_csv("../data/seasonal_model_forecast.csv")
 
 forecast %>%
-  rename(time = Time, forecast = Observation) %>%
-  mutate(upper = qnorm(p = 0.95, mean = forecast, sd = sqrt(Variance)),
-         lower = qnorm(p = 0.05, mean = forecast, sd = sqrt(Variance))) %>%
+  mutate(upper = qnorm(p = 0.95, mean = forecast, sd = sqrt(variance)),
+         lower = qnorm(p = 0.05, mean = forecast, sd = sqrt(variance))) %>%
   bind_rows(sims) %>%
   filter(time > 900) %>%
   gather(key, value, forecast, observation) %>%
@@ -89,7 +88,8 @@ forecast %>%
   geom_line(aes(x = time, y = lower), linetype = 2) +
   geom_line(aes(x = time, y = upper), linetype = 2) +
   labs(title = "Forecast for 100 Time Points") +
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom") +
+  coord_cartesian(ylim = c(-50, 50))
 ```
 
 # Forecasting using a DGLM

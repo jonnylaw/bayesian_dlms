@@ -7,19 +7,6 @@ import cats._
 import dlm.model.Dlm._
 
 package object model {
-  type Observation = DenseVector[Double]
-  type Time = Double
-  type TimeIncrement = Double
-  type ObservationMatrix = Time => DenseMatrix[Double]
-  type SystemMatrix = TimeIncrement => DenseMatrix[Double]
-  type ConditionalLl = (Observation, DenseVector[Double]) => Double
-  type LatentState = List[(Time, DenseVector[Double])]
-
-  /**
-    * A single observation of a model
-    */
-  case class Data(time: Time, observation: Option[Observation])
-
   /**
     * A Gaussian DLM can be implicitly converted to a DGLM
     * Then particle filtering methods can be used on Gaussian Models

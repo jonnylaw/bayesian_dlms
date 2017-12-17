@@ -13,8 +13,8 @@ import kantan.csv.ops._
 
 trait FirstOrderDlm {
   val mod = Dlm.Model(
-    f = (t: Time) => DenseMatrix((1.0)), 
-    g = (t: Time) => DenseMatrix((1.0))
+    f = (t: Double) => DenseMatrix((1.0)), 
+    g = (t: Double) => DenseMatrix((1.0))
   )
   val p = Dlm.Parameters(
     DenseMatrix(3.0), 
@@ -25,10 +25,10 @@ trait FirstOrderDlm {
 
 trait SimulatedData {
   val rawData = Paths.get("data/first_order_dlm.csv")
-  val reader = rawData.asCsvReader[(Time, Double, Double)](rfc.withHeader)
+  val reader = rawData.asCsvReader[(Double, Double, Double)](rfc.withHeader)
   val data = reader.
     collect { 
-      case Success(a) => Data(a._1, Some(a._2).map(DenseVector(_)))
+      case Success(a) => Data(a._1, DenseVector(a._2.some))
     }.
     toArray
 }
@@ -40,11 +40,11 @@ object SimulateDlm extends App with FirstOrderDlm {
 
   val out = new java.io.File("data/first_order_dlm.csv")
   val headers = rfc.withHeader("time", "observation", "state")
-  val writer = out.asCsvWriter[(Time, Option[Double], Double)](headers)
+  val writer = out.asCsvWriter[List[Double]](headers)
 
   def formatData(d: (Data, DenseVector[Double])) = d match {
     case (Data(t, y), x) =>
-      (t, y.map(x => x(0)), x(0))
+      t :: KalmanFilter.flattenObs(y).data.toList ::: x.data.toList
   }
 
   while (sims.hasNext) {
@@ -129,7 +129,7 @@ object ParticleGibbsFo extends App with FirstOrderDlm with SimulatedData {
     writer.close()
   }
 
-  def formatState(s: List[(Time, DenseVector[Double])]): List[Double] = {
+  def formatState(s: List[(Double, DenseVector[Double])]): List[Double] = {
     s.map(x => x._2.data.head)
   }
 
@@ -161,7 +161,7 @@ object ParticleGibbsAncestorFo extends App with FirstOrderDlm with SimulatedData
     writer.close()
   }
 
-  def formatState(s: List[(Time, DenseVector[Double])]): List[Double] = {
+  def formatState(s: List[(Double, DenseVector[Double])]): List[Double] = {
     s.map(x => x._2.data.head)
   }
 

@@ -1,6 +1,6 @@
 package dlm.model
 
-import breeze.linalg.DenseVector
+import breeze.linalg.{DenseVector, DenseMatrix}
 import breeze.stats.distributions._
 import breeze.numerics.{exp, log}
 import breeze.stats.mean
@@ -8,7 +8,7 @@ import Dglm._
 import cats.implicits._
 import cats.{Traverse, Functor}
 import scala.language.higherKinds
-
+import Dlm.Data
 /**
   * The particle filter can be used for inference of 
   * Dynamic Generalised Linear Models (DGLMs),
@@ -20,7 +20,7 @@ object ParticleFilter {
     * State of the Particle Filter
     */
   case class State(
-    time:    Time,
+    time:    Double,
     state:   Vector[DenseVector[Double]],
     weights: Vector[Double],
     ll:      Double
@@ -36,8 +36,8 @@ object ParticleFilter {
     * @return a distribution over a collection of particles at this time
     */
   def advanceState[F[_]: Traverse](
-    g:     SystemMatrix,
-    time:  Time, 
+    g:     Double => DenseMatrix[Double],
+    time:  Double, 
     state: F[DenseVector[Double]], 
     p:     Dlm.Parameters) = {
 
@@ -59,14 +59,17 @@ object ParticleFilter {
     */
   def calcWeights[F[_]: Functor](
     mod:    Model, 
-    time:   Time, 
+    time:   Double, 
     state:  F[DenseVector[Double]], 
-    y:      Observation,
+    y:      DenseVector[Double],
     p:      Dlm.Parameters
   ) = {
     state.map(x => mod.conditionalLikelihood(p)(mod.f(time).t * x, y))
   }
 
+  /**
+    * Multinomial Resampling
+    */
   def resample[A](
     particles: Vector[A], 
     weights:   Vector[Double]): Vector[A] = {
@@ -80,20 +83,26 @@ object ParticleFilter {
 
   def filterStep(
     mod:    Model, 
-    p:      Dlm.Parameters)(state: State, d: Data): State = d.observation match {
-    case Some(y) =>
-      val resampledX = resample(state.state, state.weights)
+    p:      Dlm.Parameters)
+    (s:     State,
+     d:     Data): State = {
+
+    val y = KalmanFilter.flattenObs(d.observation)
+
+    if (y.data.isEmpty) {
+      val x = advanceState(mod.g, d.time, s.state, p).draw
+      val n = s.state.size
+      State(d.time, x, Vector.fill(n)(1.0 / n), s.ll)
+    } else {
+      val resampledX = resample(s.state, s.weights)
       val x1 = advanceState(mod.g, d.time, resampledX, p).draw
       val w = calcWeights(mod, d.time, x1, y, p)
       val max = w.max
       val w1 = w map (a => exp(a - max))
-      val ll = state.ll + max + log(mean(w1))
+      val ll = s.ll + max + log(mean(w1))
 
       State(d.time, x1, w1, ll)
-    case None =>
-      val x = advanceState(mod.g, d.time, state.state, p).draw
-      val n = state.state.size
-      State(d.time, x, Vector.fill(n)(1.0 / n), state.ll)
+    }
   }
 
   /**

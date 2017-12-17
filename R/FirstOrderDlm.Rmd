@@ -3,6 +3,7 @@ title: "First Order DLM"
 ---
 
 ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 library(tidyverse)
 library(coda)
 library(ggmcmc)
@@ -22,7 +23,7 @@ X_0 &\sim \mathcal{N}(m_0, C_0).
 
 The code required to simulate from this model is given below:
 
-```tut
+```tut:silent
 import dlm.model._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 
@@ -40,18 +41,18 @@ val data = Dlm.simulateRegular(0, mod, p).
   toArray
 ```
 
-The value `mod` is the `case class` called `Model` containing the definition of the observation and system matrices. These observation matrix, `f`, is a function from `(t: Time) => DenseMatrix[Double]` and the system evolution matrix `g` is a function from `(dt: TimeIncrement) => DenseMatrix[Double]`. The funciton `Dlm.polynomial` provides a shorthand for writing:
+The value `mod` is the `case class` called `Model` containing the definition of the observation and system matrices. These observation matrix, `f`, is a function from `(t: Double) => DenseMatrix[Double]` and the system evolution matrix `g` is a function from `(dt: Double) => DenseMatrix[Double]`. The function `Dlm.polynomial(1)` is equivalent to writing:
 
-```tut
+```tut:silent
 Dlm.Model(
-  f = (t: Time) => DenseMatrix(1.0), 
-  g = (dt: TimeIncrement) => DenseMatrix(1.0)
+  f = (t: Double) => DenseMatrix(1.0), 
+  g = (dt: Double) => DenseMatrix(1.0)
 )
 ```
 
 The figure below shows a plot of 100 simulations 
 
-```{r first-order-simulated, message=FALSE, warning=FALSE, echo=FALSE}
+```{r first-order-simulated}
 data = read_csv("../data/first_order_dlm.csv")
 
 data %>%
@@ -73,11 +74,11 @@ The result of filtering the simulated observations is plotted below, with 90% pr
 
 To perform Kalman Filtering on an `Array` of `Data`, we simply discard the state from the simulated data and pass it into the `kalmanFilter` function:
 
-```tut
+```tut:silent
 val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
 ```
 
-```{r first-order-filtered, message=FALSE, warning=FALSE, echo=FALSE}
+```{r first-order-filtered}
 filtered = read_csv("../data/first_order_dlm_filtered.csv")
 
 filtered %>%
@@ -121,7 +122,7 @@ H_t &= C_t - C_t G^T_{t + 1} R_{t+1}^{-1} (R_{t+1} - S_{t+1})R_{t+1}^{-1} G_{t +
 \end{align*}
 $$
 
-```{r first-order-smoothed, message=FALSE, warning=FALSE, echo=FALSE}
+```{r first-order-smoothed}
 smoothed = read_csv("../data/first_order_dlm_smoothed.csv")
 
 smoothed %>%
@@ -146,7 +147,7 @@ Inverse gamma priors on the system and observation variances, $p(V) = \textrm{In
 
 To perform gibbs sampling with inverse gamma priors:
 
-```tut
+```tut:silent
 val iters = GibbsSampling.sample(
     mod, 
     InverseGamma(4.0, 9.0), 
@@ -157,7 +158,7 @@ val iters = GibbsSampling.sample(
 
 `iters` are a Process[Parameters], which represents a Markov Chain. This can be converted into an iterator by calling `steps` then the appropriate amount of iterations can be taken from the MCMC. The Figure below shows diagnostic plots for the MCMC chain.
 
-```{r first-order-gibbs, message=FALSE, warning=FALSE, echo=FALSE}
+```{r first-order-gibbs}
 gibbs_iters = read_csv("../data/first_order_dlm_gibbs.csv")
 
 chain = mcmc(gibbs_iters[-c(1:1000),]) %>%

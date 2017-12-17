@@ -30,7 +30,7 @@ trait CorrelatedData {
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.
     collect { 
-      case Success(a) => Data(a.head.toInt, DenseVector(a(1), a(2)).some)
+      case Success(a) => Data(a.head.toInt, DenseVector(a(1).some, a(2).some))
     }.
     toArray
 }
@@ -46,7 +46,7 @@ object SimulateCorrelated extends App with CorrelatedModel {
 
   def formatData(d: (Data, DenseVector[Double])) = d match {
     case (Data(t, y), x) =>
-      List(t.toDouble) ++ y.map(_.data).get ++ x.data
+      t :: KalmanFilter.flattenObs(y).data.toList ::: x.data.toList
   }
 
   while (sims.hasNext) {
@@ -117,7 +117,7 @@ object FirstOrderLinearTrendDlm extends App {
 
   def formatData(d: (Data, DenseVector[Double])) = d match {
     case (Data(t, y), x) =>
-      List(t.toDouble) ++ y.map(_.data).get ++ x.data
+      t :: KalmanFilter.flattenObs(y).data.toList ::: x.data.toList
   }
 
   while (sims.hasNext) {
@@ -133,7 +133,8 @@ object SusteInvestment extends App with CorrelatedModel {
       map(_.split(",")).
       zipWithIndex.
       map { case (x, i) => 
-        Data(i + 1960, Some(DenseVector(x(0).toDouble, x(1).toDouble))) }.
+        Data(i + 1960, DenseVector(x(0).toDouble.some, x(1).toDouble.some))
+      }.
       toArray
 
   def alpha(a: Double, b: Double) = {

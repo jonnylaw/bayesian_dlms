@@ -11,18 +11,6 @@ library(coda)
 theme_set(theme_minimal())
 ```
 
-## Particle Filter
-
-The particle filter can be used for non-linear and non-Gaussian state space models, such as DGLMs. A general DGLM is given by:
-
-$$\begin{align*}
-Y_t &\sim p(y_t | g(F_tx_t), \theta) \\
-X_t &= G_tX_{t-1} + w_t, \qquad w_t \sim \mathcal{N}(0, W), \\
-X_0 &\sim \mathcal{N}(m_0, C_0).
-\end{align*}$$
-
-Where $p(y_t | F_tx_t, \theta)$ is a Exponential Family distribution, with optional static parameter $\theta$.
-
 ## Particle Gibbs
 
 In a DGLM, the latent-state is Gaussian and thus permits a Gibbs Sampling scheme to determine the value of the system noise covariance matrix. 

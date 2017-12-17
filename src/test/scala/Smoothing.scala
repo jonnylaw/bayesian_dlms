@@ -10,7 +10,6 @@ import org.scalacheck.Gen
 import org.scalacheck.Arbitrary
 import Arbitrary.arbitrary
 import org.scalactic.Equality
-import org.scalactic.Equality
 
 trait SmoothedData {
   val model = Dlm.polynomial(1)
@@ -22,12 +21,12 @@ trait SmoothedData {
   )
 
   val data = Array(
-    Data(1.0, Some(DenseVector(4.5))),
-    Data(2.0, Some(DenseVector(3.0))),
-    Data(3.0, Some(DenseVector(6.3))),
-    Data(4.0, None),
-    Data(5.0, Some(DenseVector(10.1))),
-    Data(7.0, Some(DenseVector(15.2)))
+    Data(1.0, DenseVector(Some(4.5))),
+    Data(2.0, DenseVector(Some(3.0))),
+    Data(3.0, DenseVector(Some(6.3))),
+    Data(4.0, DenseVector[Option[Double]](None)),
+    Data(5.0, DenseVector(Some(10.1))),
+    Data(7.0, DenseVector(Some(15.2)))
   )
 
   // tolerance
@@ -39,7 +38,7 @@ trait SmoothedData {
 
 class SmoothingTest extends FunSuite with Matchers with SmoothedData {
   test("Smoothed should be length of the data + 1, including initial state at t = 0") {
-    assert(smoothed.size === data.size + 1)
+    assert(smoothed.size == data.size + 1)
   }
 
   val s7 = smoothed.last.mean(0)
@@ -75,20 +74,3 @@ class SmoothingTest extends FunSuite with Matchers with SmoothedData {
     assert(smoothed(4).covariance(0,0) === S4 +- tol)
   }
 }
-
-// class FFBSTest extends FunSuite with Matchers with SmoothedData {
-//   test("The mean of repeated draws of FFBS should be equivalent to the smoothed value") {
-//     val n = 10000
-//     val sampledState = Smoothing.ffbs(model, data, p).
-//       sample(n).
-//       map(s => s.map(_._2))
-
-//     val meanState = sampledState.
-//       transpose.
-//       map(_.reduce(_ + _)).
-//       map(_/n.toDouble)
-
-//     assert(meanState.size === smoothed.size)
-//     assert(meanState === smoothed.map(_.mean))
-//   }
-// }

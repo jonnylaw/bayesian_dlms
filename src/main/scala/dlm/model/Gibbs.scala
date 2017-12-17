@@ -8,7 +8,7 @@ import breeze.stats.distributions.{Rand, MarkovChain, Gamma}
 object GibbsSampling extends App {
   case class State(
     p:     Parameters, 
-    state: Array[(Time, DenseVector[Double])]
+    state: Array[(Double, DenseVector[Double])]
   )
 
   /**
@@ -20,18 +20,23 @@ object GibbsSampling extends App {
     * @return the sum of squared differences between the one step forecast and the actual observation for each time
     */
   def observationSquaredDifference(
-    f:            Time => DenseMatrix[Double],
-    state:        Array[(Time, DenseVector[Double])],
+    f:            Double => DenseMatrix[Double],
+    state:        Array[(Double, DenseVector[Double])],
     observations: Array[Data]) = {
 
-    val forecast = state.sortBy(_._1).tail.
-      map { case (time, x) => f(time).t * x }
+    val sortedState = state.sortBy(_._1)
+    val sortedObservations = observations.sortBy(_.time).map(_.observation)
 
-    (observations.sortBy(_.time).map(_.observation), forecast).zipped.
-      map { 
-        case (Some(y), fr) => (y - fr) *:* (y - fr)
-        case (None, f) => DenseVector.zeros[Double](f.size)
-      }.
+    val ft = sortedState.tail.zip(sortedObservations).
+      map { case ((time, x), y) => 
+        val fm = KalmanFilter.missingF(f, time, y) 
+        fm.t * x
+      }
+
+    val flatObservations = sortedObservations map (KalmanFilter.flattenObs)
+
+    (flatObservations, ft).zipped.
+      map { case (y, fr) => (y - fr) *:* (y - fr)}.
       reduce(_ + _)
   }
 
@@ -45,8 +50,8 @@ object GibbsSampling extends App {
     */
   def sampleObservationMatrix(
     prior:        InverseGamma,
-    f:            Time => DenseMatrix[Double],
-    state:        Array[(Time, DenseVector[Double])],
+    f:            Double => DenseMatrix[Double],
+    state:        Array[(Double, DenseVector[Double])],
     observations: Array[Data]): Rand[DenseMatrix[Double]] = {
 
     val ssy = observationSquaredDifference(f, state, observations)
@@ -76,8 +81,8 @@ object GibbsSampling extends App {
     */
   def sampleSystemMatrix(
     prior: InverseGamma,
-    g:     TimeIncrement => DenseMatrix[Double],
-    state: Array[(Time, DenseVector[Double])]): Rand[DenseMatrix[Double]] = {
+    g:     Double => DenseMatrix[Double],
+    state: Array[(Double, DenseVector[Double])]): Rand[DenseMatrix[Double]] = {
     
     val sortedState = state.sortBy(_._1)
     val times = sortedState.map(_._1)
@@ -194,23 +199,32 @@ object GibbsSampling extends App {
     */
   def sampleVariancesT(
     ys:    Array[Data],
-    f:     ObservationMatrix,
-    state: Array[(Time, DenseVector[Double])],
+    f:     Double => DenseMatrix[Double],
+    state: Array[(Double, DenseVector[Double])],
     dof:   Int,
     scale: Double
-  ) = {
+  ): Rand[Vector[Double]] = {
     val alpha = (dof + 1) * 0.5
 
-    val diff = (ys.sortBy(_.time).map(_.observation), 
-      state.sortBy(_._1).tail).zipped.
-      map {
-        case (Some(y), (time, x)) => (y - f(time).t * x) *:* (y - f(time).t * x)
-        case (None, x) => DenseVector.zeros[Double](x._2.size)
+    val sortedState = state.sortBy(_._1)
+    val sortedObservations = ys.sortBy(_.time).map(_.observation)
+
+    val ft = sortedState.tail.zip(sortedObservations).
+      map { case ((time, x), y) => 
+        val fm = KalmanFilter.missingF(f, time, y) 
+        fm.t * x
       }
 
-    val beta = diff.map(d => (dof * scale * 0.5) + d(0) * 0.5)
+    val flatObservations: Array[DenseVector[Double]] = sortedObservations.
+      map(KalmanFilter.flattenObs)
 
-    beta map (b => InverseGamma(alpha, b).draw)
+    val diff: DenseVector[Double] = (flatObservations, ft).zipped.
+      map { case (y, fr) => (y - fr) *:* (y - fr)}.
+      reduce(_ + _)
+
+    val beta = diff.map(d => (dof * scale * 0.5) + d * 0.5).data.toVector
+
+    beta traverse (b => InverseGamma(alpha, b): Rand[Double])
   }
 
   /**
@@ -218,7 +232,7 @@ object GibbsSampling extends App {
     * @param
     */
   def sampleScaleT(
-    variances: Array[Double],
+    variances: Vector[Double],
     dof:       Int): Rand[Double] = {
     val t = variances.size
   
@@ -234,7 +248,7 @@ object GibbsSampling extends App {
     * @param 
     */
   def sampleStateT(
-    variances:    Array[Double],
+    variances:    Vector[Double],
     params:       Dlm.Parameters,
     mod:          Dlm.Model,
     observations: Array[Data]
@@ -255,7 +269,7 @@ object GibbsSampling extends App {
     val filtered = ps.zip(observations).
       scanLeft(init){ case (s, (p, y)) => kalmanStep(p)(s, y) }
 
-    Rand.always(Smoothing.sample(mod, filtered, params.w))
+    Rand.always(Smoothing.sample(mod, filtered.toArray, params.w))
   }
 
   /**
@@ -264,8 +278,8 @@ object GibbsSampling extends App {
     */
   case class StudentTState(
     p:         Dlm.Parameters,
-    variances: Array[Double],
-    state:     Array[(Time, DenseVector[Double])]
+    variances: Vector[Double],
+    state:     Array[(Double, DenseVector[Double])]
   )
 
   /**
@@ -282,7 +296,7 @@ object GibbsSampling extends App {
     for {
       latentState <- sampleStateT(state.variances, state.p, dlm, data)
       newW <- sampleSystemMatrix(priorW, mod.g, latentState)
-      variances = sampleVariancesT(data, mod.f, latentState, dof, state.p.v(0,0))
+      variances <- sampleVariancesT(data, mod.f, latentState, dof, state.p.v(0,0))
       scale <- GibbsSampling.sampleScaleT(variances, dof)
     } yield StudentTState(
       state.p.copy(v = DenseMatrix(scale), w = newW),
@@ -302,7 +316,7 @@ object GibbsSampling extends App {
     params: Dlm.Parameters
   ) = {
     val dlm = Model(mod.f, mod.g)
-    val initVariances = Array.fill(data.size)(1.0)
+    val initVariances = Vector.fill(data.size)(1.0)
     val initState = GibbsSampling.sampleStateT(initVariances, params, dlm, data)
     val init = StudentTState(params, initVariances, initState.draw)
 

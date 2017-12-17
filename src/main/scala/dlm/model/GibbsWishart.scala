@@ -14,8 +14,8 @@ object GibbsWishart {
     */
   def sampleSystemMatrix(
     priorW: InverseWishart,
-    g:      SystemMatrix, 
-    state:  Array[(Time, DenseVector[Double])]) = {
+    g:      Double => DenseMatrix[Double], 
+    state:  Array[(Double, DenseVector[Double])]) = {
 
     val n = state.size - 1
     val sortedState = state.sortBy(_._1)

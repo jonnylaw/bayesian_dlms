@@ -29,7 +29,7 @@ trait SeasonalData {
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.
     collect { 
-      case Success(a) => Data(a.head.toInt, Some(a(1)).map(DenseVector(_)))
+      case Success(a) => Data(a.head, DenseVector(a(1).some))
     }.
     toArray
 }
@@ -48,7 +48,7 @@ object SimulateSeasonalDlm extends App with SeasonalModel {
 
   def formatData(d: (Data, DenseVector[Double])) = d match {
     case (Data(t, y), x) =>
-      List(t.toDouble) ++ y.get.data.toList ++ x.data.toList
+      t :: KalmanFilter.flattenObs(y).data.toList ::: x.data.toList
   }
 
   while (sims.hasNext) {
@@ -145,7 +145,7 @@ object ForecastSeasonal extends App with SeasonalModel with SeasonalData {
     toList
 
   val out = new java.io.File("data/seasonal_model_forecast.csv")
-  val headers = rfc.withHeader("Time", "Observation", "Variance")
+  val headers = rfc.withHeader("time", "forecast", "variance")
   val writer = out.writeCsv(forecasted, headers)
 }
 
@@ -161,7 +161,7 @@ object SampleStates extends App with SeasonalModel with SeasonalData {
   /**
     * Select only the nth state
     */
-  def formatState(n: Int)(s: Array[(Time, DenseVector[Double])]) = {
+  def formatState(n: Int)(s: Array[(Double, DenseVector[Double])]) = {
     val state: List[List[Double]] = s.map(_._2.data.toList).toList.transpose
     state(n)
   }

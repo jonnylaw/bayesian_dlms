@@ -15,7 +15,7 @@
 
 <script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<link href="site_libs/bootstrap-3.3.5/css/readable.min.css" rel="stylesheet" />
+<link href="site_libs/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
 <script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
 <script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
 <script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
@@ -27,38 +27,41 @@
 div.sourceCode { overflow-x: auto; }
 table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
   margin: 0; padding: 0; vertical-align: baseline; border: none; }
-table.sourceCode { width: 100%; line-height: 100%; background-color: #f8f8f8; }
-td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+table.sourceCode { width: 100%; line-height: 100%; background-color: #ffffff; color: #1f1c1b; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; background-color: #ffffff; color: #a0a0a0; border-right: 1px solid #a0a0a0; }
 td.sourceCode { padding-left: 5px; }
-pre, code { background-color: #f8f8f8; }
-code > span.kw { color: #204a87; font-weight: bold; } /* Keyword */
-code > span.dt { color: #204a87; } /* DataType */
-code > span.dv { color: #0000cf; } /* DecVal */
-code > span.bn { color: #0000cf; } /* BaseN */
-code > span.fl { color: #0000cf; } /* Float */
-code > span.ch { color: #4e9a06; } /* Char */
-code > span.st { color: #4e9a06; } /* String */
-code > span.co { color: #8f5902; font-style: italic; } /* Comment */
-code > span.ot { color: #8f5902; } /* Other */
-code > span.al { color: #ef2929; } /* Alert */
-code > span.fu { color: #000000; } /* Function */
-code > span.er { color: #a40000; font-weight: bold; } /* Error */
-code > span.wa { color: #8f5902; font-weight: bold; font-style: italic; } /* Warning */
-code > span.cn { color: #000000; } /* Constant */
-code > span.sc { color: #000000; } /* SpecialChar */
-code > span.vs { color: #4e9a06; } /* VerbatimString */
-code > span.ss { color: #4e9a06; } /* SpecialString */
-code > span.im { } /* Import */
-code > span.va { color: #000000; } /* Variable */
-code > span.cf { color: #204a87; font-weight: bold; } /* ControlFlow */
-code > span.op { color: #ce5c00; font-weight: bold; } /* Operator */
-code > span.pp { color: #8f5902; font-style: italic; } /* Preprocessor */
-code > span.ex { } /* Extension */
-code > span.at { color: #c4a000; } /* Attribute */
-code > span.do { color: #8f5902; font-weight: bold; font-style: italic; } /* Documentation */
-code > span.an { color: #8f5902; font-weight: bold; font-style: italic; } /* Annotation */
-code > span.cv { color: #8f5902; font-weight: bold; font-style: italic; } /* CommentVar */
-code > span.in { color: #8f5902; font-weight: bold; font-style: italic; } /* Information */
+pre, code { color: #1f1c1b; background-color: #ffffff; }
+code > span.kw { color: #1f1c1b; font-weight: bold; } /* Keyword */
+code > span.dt { color: #0057ae; } /* DataType */
+code > span.dv { color: #b08000; } /* DecVal */
+code > span.bn { color: #b08000; } /* BaseN */
+code > span.fl { color: #b08000; } /* Float */
+code > span.cn { color: #aa5500; } /* Constant */
+code > span.ch { color: #924c9d; } /* Char */
+code > span.sc { color: #3daee9; } /* SpecialChar */
+code > span.st { color: #bf0303; } /* String */
+code > span.vs { color: #bf0303; } /* VerbatimString */
+code > span.ss { color: #ff5500; } /* SpecialString */
+code > span.im { color: #ff5500; } /* Import */
+code > span.co { color: #898887; } /* Comment */
+code > span.do { color: #607880; } /* Documentation */
+code > span.an { color: #ca60ca; } /* Annotation */
+code > span.cv { color: #0095ff; } /* CommentVar */
+code > span.ot { color: #006e28; } /* Other */
+code > span.fu { color: #644a9b; } /* Function */
+code > span.va { color: #0057ae; } /* Variable */
+code > span.cf { color: #1f1c1b; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #1f1c1b; } /* Operator */
+code > span.bu { color: #644a9b; font-weight: bold; } /* BuiltIn */
+code > span.ex { color: #0095ff; font-weight: bold; } /* Extension */
+code > span.pp { color: #006e28; } /* Preprocessor */
+code > span.at { color: #0057ae; } /* Attribute */
+code > span.re { color: #0057ae; } /* RegionMarker */
+code > span.in { color: #b08000; } /* Information */
+code > span.wa { color: #bf0303; } /* Warning */
+code > span.al { color: #bf0303; font-weight: bold; } /* Alert */
+code > span.er { color: #bf0303; text-decoration: underline; } /* Error */
+code > span. { color: #1f1c1b; } /* Normal */
 </style>
 <style type="text/css">
   pre:not([class]) {
@@ -125,34 +128,34 @@ button.code-folding-btn:focus {
 <style type="text/css">
 /* padding for bootstrap navbar */
 body {
-  padding-top: 66px;
+  padding-top: 51px;
   padding-bottom: 40px;
 }
 /* offset scroll position for anchor links (for fixed navbar)  */
 .section h1 {
-  padding-top: 71px;
-  margin-top: -71px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 
 .section h2 {
-  padding-top: 71px;
-  margin-top: -71px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 .section h3 {
-  padding-top: 71px;
-  margin-top: -71px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 .section h4 {
-  padding-top: 71px;
-  margin-top: -71px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 .section h5 {
-  padding-top: 71px;
-  margin-top: -71px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 .section h6 {
-  padding-top: 71px;
-  margin-top: -71px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 </style>
 
@@ -267,6 +270,9 @@ $(document).ready(function () {
     <li>
       <a href="student_t_filtering.html">Student's t-distributed DLM</a>
     </li>
+    <li>
+      <a href="spain_investment_data.html">Spain Investment Data</a>
+    </li>
   </ul>
 </li>
       </ul>
@@ -292,108 +298,48 @@ $(document).ready(function () {
 <div id="example-seasonal-model" class="section level2">
 <h2>Example: Seasonal Model</h2>
 <p>Define the seasonal model:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">import</span> dlm.<span class="fu">model</span>._
-<span class="kw">import</span> dlm.<span class="fu">model</span>._
-
-scala&gt; <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> dlm.<span class="fu">model</span>._
 <span class="kw">import</span> cats.<span class="fu">implicits</span>._
 
-scala&gt; <span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>) |+| Dlm.<span class="fu">seasonal</span>(<span class="dv">24</span>, <span class="dv">3</span>)
-mod: dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Model</span> = <span class="fu">Model</span>(&lt;function1&gt;,&lt;function1&gt;)</code></pre></div>
+<span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>) |+| Dlm.<span class="fu">seasonal</span>(<span class="dv">24</span>, <span class="dv">3</span>)</code></pre></div>
 <p>Read in some simulated values from the <a href="SeasonalModel.html">seasonal model</a>.</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">import</span> breeze.<span class="fu">linalg</span>._
-<span class="kw">import</span> breeze.<span class="fu">linalg</span>._
-
-scala&gt; <span class="kw">import</span> java.<span class="fu">nio</span>.<span class="fu">file</span>.<span class="fu">Paths</span>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> breeze.<span class="fu">linalg</span>._
 <span class="kw">import</span> java.<span class="fu">nio</span>.<span class="fu">file</span>.<span class="fu">Paths</span>
-
-scala&gt; <span class="kw">import</span> kantan.<span class="fu">csv</span>._
 <span class="kw">import</span> kantan.<span class="fu">csv</span>._
-
-scala&gt; <span class="kw">import</span> kantan.<span class="fu">csv</span>.<span class="fu">ops</span>._
 <span class="kw">import</span> kantan.<span class="fu">csv</span>.<span class="fu">ops</span>._
 
-scala&gt; <span class="kw">val</span> rawData = Paths.<span class="fu">get</span>(<span class="st">&quot;data/seasonal_dlm.csv&quot;</span>)
-rawData: java.<span class="fu">nio</span>.<span class="fu">file</span>.<span class="fu">Path</span> = data\seasonal_dlm.<span class="fu">csv</span>
-
-scala&gt; <span class="kw">val</span> reader = rawData.<span class="fu">asCsvReader</span>[List[Double]](rfc.<span class="fu">withHeader</span>)
-reader: kantan.<span class="fu">csv</span>.<span class="fu">CsvReader</span>[kantan.<span class="fu">csv</span>.<span class="fu">ReadResult</span>[List[Double]]] = kantan.<span class="fu">codecs</span>.<span class="fu">resource</span>.<span class="fu">ResourceIterator</span>$$anon$<span class="dv">6</span>@24ec32c2
-
-scala&gt; <span class="kw">val</span> data = reader.
-     |   collect { 
-     |     <span class="kw">case</span> <span class="fu">Success</span>(a) =&gt; <span class="fu">Data</span>(a.<span class="fu">head</span>.<span class="fu">toInt</span>, Some(<span class="fu">a</span>(<span class="dv">1</span>)).<span class="fu">map</span>(<span class="fu">DenseVector</span>(_)))
-     |   }.
-     |   toArray
-data: Array[dlm.<span class="fu">model</span>.<span class="fu">Data</span>] = Array(<span class="fu">Data</span>(<span class="fl">1.0</span>,Some(<span class="fu">DenseVector</span>(<span class="fl">0.4379348004884742</span>))), <span class="fu">Data</span>(<span class="fl">2.0</span>,Some(<span class="fu">DenseVector</span>(<span class="fl">1.4108334752047018</span>))), <span class="fu">Data</span>(<span class="fl">3.0</span>,Some(<span class="fu">DenseVector</span>(<span class="fl">1.0554007562215737</span>))), <span class="fu">Data</span>(<span class="fl">4.0</span>,Some(<span class="fu">DenseVector</span>(<span class="fl">1.6065644463898545</span>))), <span class="fu">Data</span>(<span class="fl">5.0</span>,Some(<span class="fu">DenseVector</span>(-<span class="fl">0.9324848268895531</span>))), <span class="fu">Data</span>(<span class="fl">6.0</span>,Some(<span class="fu">DenseVector</span>(-<span class="fl">0.41798535825781014</span>))), <span class="fu">Data</span>(<span class="fl">7.0</span>,Some(<span class="fu">DenseVector</span>(<span class="fl">3.1133842878248283</span>))), <span class="fu">Data</span>(<span class="fl">8.0</span>,Some(<span class="fu">DenseVector</span>(<span class="fl">1.5529700271666615</span>))), <span class="fu">Data</span>(<span class="fl">9.0</span>,Some(<span class="fu">DenseVector</span>(-<span class="fl">6.066407414909048</span>))), <span class="fu">Data</span>(<span class="fl">10.0</span>,Some(<span class="fu">DenseVector</span>(-<span class="fl">1.3903044774146969</span>))), <span class="fu">Data</span>(<span class="fl">11.0</span>,Some(<span class="fu">DenseVector</span>(<span class="fl">1.00857024620827</span>))), <span class="fu">Data</span>(<span class="fl">12.0</span>,Some(<span class="fu">DenseVector</span>(-<span class="fl">2.1280969981651334</span>))), <span class="fu">Data</span>(<span class="fl">13.0</span>,Some(<span class="fu">DenseVector</span>(-<span class="fl">1.6266216847540287</span>))), <span class="fu">Data</span>(<span class="fl">14.0</span>,Some(<span class="fu">DenseVector</span>(<span class="fl">1.8439005505644868</span>))), <span class="fu">Data</span>(<span class="fl">15.0</span>,Some(<span class="fu">DenseVector</span>(<span class="fl">0.16211017003365258</span>))), <span class="fu">Data</span>(<span class="fl">16.0</span>,Some(...</code></pre></div>
+<span class="kw">val</span> rawData = Paths.<span class="fu">get</span>(<span class="st">&quot;data/seasonal_dlm.csv&quot;</span>)
+<span class="kw">val</span> reader = rawData.<span class="fu">asCsvReader</span>[List[Double]](rfc.<span class="fu">withHeader</span>)
+<span class="kw">val</span> data = reader.
+  collect { 
+    <span class="kw">case</span> <span class="fu">Success</span>(a) =&gt; Dlm.<span class="fu">Data</span>(a.<span class="fu">head</span>.<span class="fu">toInt</span>, <span class="fu">DenseVector</span>(Some(<span class="fu">a</span>(<span class="dv">1</span>))))
+  }.
+  toArray</code></pre></div>
 <p>Then calculate the mean value of the MCMC parameters, assuming that the parameters have been written to a CSV called <code>seasonal_dlm_gibbs.csv</code> with eight columns, <span class="math inline">\(V, W_1,\dots,W_7\)</span>:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">mean</span>
-<span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">mean</span>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">mean</span>
 
-scala&gt; <span class="kw">val</span> mcmcChain = Paths.<span class="fu">get</span>(<span class="st">&quot;data/seasonal_dlm_gibbs.csv&quot;</span>)
-mcmcChain: java.<span class="fu">nio</span>.<span class="fu">file</span>.<span class="fu">Path</span> = data\seasonal_dlm_gibbs.<span class="fu">csv</span>
+<span class="kw">val</span> mcmcChain = Paths.<span class="fu">get</span>(<span class="st">&quot;data/seasonal_dlm_gibbs.csv&quot;</span>)
+<span class="kw">val</span> read = mcmcChain.<span class="fu">asCsvReader</span>[List[Double]](rfc.<span class="fu">withHeader</span>)
 
-scala&gt; <span class="kw">val</span> read = mcmcChain.<span class="fu">asCsvReader</span>[List[Double]](rfc.<span class="fu">withHeader</span>)
-read: kantan.<span class="fu">csv</span>.<span class="fu">CsvReader</span>[kantan.<span class="fu">csv</span>.<span class="fu">ReadResult</span>[List[Double]]] = kantan.<span class="fu">codecs</span>.<span class="fu">resource</span>.<span class="fu">ResourceIterator</span>$$anon$<span class="dv">6</span>@<span class="dv">2967240</span>
+<span class="kw">val</span> params: List[Double] = read.
+  collect { <span class="kw">case</span> <span class="fu">Success</span>(a) =&gt; a }.
+  toList.
+  transpose.
+  <span class="fu">map</span>(a =&gt; <span class="fu">mean</span>(a))
 
-scala&gt; <span class="kw">val</span> params: List[Double] = read.
-     |   collect { <span class="kw">case</span> <span class="fu">Success</span>(a) =&gt; a }.
-     |   toList.
-     |   transpose.
-     |   <span class="fu">map</span>(a =&gt; <span class="fu">mean</span>(a))
-params: List[Double] = List(<span class="fl">0.8845079756307068</span>, <span class="fl">0.14898898017307993</span>, <span class="fl">0.2796182358596836</span>, <span class="fl">0.28173619914799153</span>, <span class="fl">0.2758751247272198</span>, <span class="fl">0.2816157274900601</span>, <span class="fl">0.2519573345917604</span>, <span class="fl">0.24110852919544112</span>)
-
-scala&gt; <span class="kw">val</span> meanParameters = Dlm.<span class="fu">Parameters</span>(
-     |   v =  <span class="fu">DenseMatrix</span>(params.<span class="fu">head</span>), 
-     |   w =  <span class="fu">diag</span>(<span class="fu">DenseVector</span>(params.<span class="fu">tail</span>.<span class="fu">toArray</span>)), 
-     |   m0 = DenseVector.<span class="fu">zeros</span>[Double](<span class="dv">7</span>),
-     |   c0 = DenseMatrix.<span class="fu">eye</span>[Double](<span class="dv">7</span>)
-     |  )
-meanParameters: dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Parameters</span> =
-<span class="fu">Parameters</span>(<span class="fl">0.8845079756307068</span>  ,<span class="fl">0.14898898017307993</span>  <span class="fl">0.0</span>                 <span class="fl">0.0</span>                  ... (<span class="dv">7</span> total)
-<span class="fl">0.0</span>                  <span class="fl">0.2796182358596836</span>  <span class="fl">0.0</span>                  ...
-<span class="fl">0.0</span>                  <span class="fl">0.0</span>                 <span class="fl">0.28173619914799153</span>  ...
-<span class="fl">0.0</span>                  <span class="fl">0.0</span>                 <span class="fl">0.0</span>                  ...
-<span class="fl">0.0</span>                  <span class="fl">0.0</span>                 <span class="fl">0.0</span>                  ...
-<span class="fl">0.0</span>                  <span class="fl">0.0</span>                 <span class="fl">0.0</span>                  ...
-<span class="fl">0.0</span>                  <span class="fl">0.0</span>                 <span class="fl">0.0</span>                  ...,<span class="fu">DenseVector</span>(<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>),<span class="fl">1.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">1.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">1.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">1.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">1.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="dv">0</span>...</code></pre></div>
+<span class="kw">val</span> meanParameters = Dlm.<span class="fu">Parameters</span>(
+  v =  <span class="fu">DenseMatrix</span>(params.<span class="fu">head</span>), 
+  w =  <span class="fu">diag</span>(<span class="fu">DenseVector</span>(params.<span class="fu">tail</span>.<span class="fu">toArray</span>)), 
+  m0 = DenseVector.<span class="fu">zeros</span>[Double](<span class="dv">7</span>),
+  c0 = DenseMatrix.<span class="fu">eye</span>[Double](<span class="dv">7</span>)
+ )</code></pre></div>
 <p>When then use these parameters to get the posterior distribution of the final state:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">val</span> filtered = KalmanFilter.<span class="fu">filter</span>(mod, data, meanParameters)
-filtered: Array[dlm.<span class="fu">model</span>.<span class="fu">KalmanFilter</span>.<span class="fu">State</span>] =
-Array(State(<span class="fl">0.0</span>,<span class="fu">DenseVector</span>(<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>),<span class="fl">1.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">1.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">1.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">1.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">1.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">1.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">1.0</span>  ,<span class="fu">DenseVector</span>(<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>),<span class="fl">1.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">1.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">1.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">1.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">1.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">1.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">1.0</span>  ,None,None,<span class="fl">0.0</span>), State(<span class="fl">1.0</span>,<span class="fu">DenseVector</span>(<span class="fl">0.08614736680800719</span>, <span class="fl">0.0959415133139168</span>, <span class="fl">0.0</span>, <span class="fl">0.09566086730834508</span>, <span class="fl">0.0</span>, <span class="fl">0.09386759106671745</span>, <span class="fl">0.0</span>),<span class="fl">0.92296817</span>...
-
-scala&gt; <span class="kw">val</span> (mt, ct, initTime) = filtered.<span class="fu">map</span>(a =&gt; (a.<span class="fu">mt</span>, a.<span class="fu">ct</span>, a.<span class="fu">time</span>)).<span class="fu">last</span>
-mt: breeze.<span class="fu">linalg</span>.<span class="fu">DenseVector</span>[Double] = <span class="fu">DenseVector</span>(<span class="fl">5.30023592316088</span>, <span class="fl">13.364804116054309</span>, -<span class="fl">5.823030583899986</span>, <span class="fl">13.322842653403423</span>, -<span class="fl">11.996595079225864</span>, -<span class="fl">10.074359078424946</span>, -<span class="fl">19.0726279240834</span>)
-ct: breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>[Double] =
-<span class="fl">1.4824923547284103</span>   -<span class="fl">0.5079954882956018</span>   -<span class="fl">0.9844789894569338</span>  ... (<span class="dv">7</span> total)
--<span class="fl">0.5079954882956017</span>  <span class="fl">2.3938974914696387</span>    -<span class="fl">0.3161714269117561</span>  ...
--<span class="fl">0.9844789894569342</span>  -<span class="fl">0.31617142691175604</span>  <span class="fl">3.2787915997106905</span>   ...
--<span class="fl">0.4705834380671068</span>  -<span class="fl">0.9062770408728755</span>   <span class="fl">0.8922250858640552</span>   ...
--<span class="fl">0.2975488930219069</span>  -<span class="fl">0.9560703098100984</span>   -<span class="fl">0.1781542556845435</span>  ...
--<span class="fl">0.3476505885453832</span>  -<span class="fl">0.6942286459009825</span>   <span class="fl">0.30571047004505203</span>  ...
-<span class="fl">0.06742023869212262</span>  <span class="fl">0.02013481934000952</span>   -<span class="fl">0.2811795486093878</span>  ...
-initTime: dlm.<span class="fu">model</span>.<span class="fu">Time</span> = <span class="fl">1000.0</span></code></pre></div>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> filtered = KalmanFilter.<span class="fu">filter</span>(mod, data, meanParameters)
+<span class="kw">val</span> (mt, ct, initTime) = filtered.<span class="fu">map</span>(a =&gt; (a.<span class="fu">mt</span>, a.<span class="fu">ct</span>, a.<span class="fu">time</span>)).<span class="fu">last</span></code></pre></div>
 <p>We then initialise the forecast function with state state posterior at the time of the last observation:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">val</span> forecasted = Dlm.<span class="fu">forecast</span>(mod, mt, ct, initTime, meanParameters).
-     |   <span class="fu">take</span>(<span class="dv">100</span>).
-     |   toList
-forecasted: List[(dlm.<span class="fu">model</span>.<span class="fu">Time</span>, Double, Double)] = List((<span class="fl">1000.0</span>,<span class="fl">21.913523614193664</span>,<span class="fl">1.60512413134061</span>), (<span class="fl">1001.0</span>,-<span class="fl">2.960331273551211</span>,<span class="fl">964.5423462993369</span>), (<span class="fl">1002.0</span>,<span class="fl">20.04759248898447</span>,<span class="fl">1919.5370269888276</span>), (<span class="fl">1003.0</span>,-<span class="fl">21.272204070425918</span>,<span class="fl">2885.383255540375</span>), (<span class="fl">1004.0</span>,<span class="fl">55.90941644452681</span>,<span class="fl">3852.8401892725688</span>), (<span class="fl">1005.0</span>,<span class="fl">1.632124655051868</span>,<span class="fl">4789.02559567327</span>), (<span class="fl">1006.0</span>,-<span class="fl">7.726256869010135</span>,<span class="fl">5755.52830011983</span>), (<span class="fl">1007.0</span>,-<span class="fl">0.03667277728477636</span>,<span class="fl">6711.793895470083</span>), (<span class="fl">1008.0</span>,-<span class="fl">0.03667277728477636</span>,<span class="fl">7675.885088224641</span>), (<span class="fl">1009.0</span>,-<span class="fl">7.726256869010133</span>,<span class="fl">8640.049417014416</span>), (<span class="fl">1010.0</span>,<span class="fl">1.6321246550517827</span>,<span class="fl">9600.134617647604</span>), (<span class="fl">1011.0</span>,<span class="fl">55.9094164445268</span>,<span class="fl">10582.600354655138</span>), (<span class="fl">1012.0</span>,-<span class="fl">21.272204070425797</span>,<span class="fl">11560.676778282743</span>), (<span class="fl">1013.0</span>,<span class="fl">20.04759248898445</span>,<span class="fl">12513.907668438816</span>), (<span class="fl">1014.0</span>,-<span class="fl">2.960331273551306</span>,<span class="fl">13472.208337275617</span>), (<span class="fl">1015.0</span>,<span class="fl">21.91352361419347</span>,<span class="dv">14428</span>...</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> forecasted = Dlm.<span class="fu">forecast</span>(mod, mt, ct, initTime, meanParameters).
+  <span class="fu">take</span>(<span class="dv">100</span>).
+  toList</code></pre></div>
 <p>The results of the forecasting and 95% prediction intervals are below:</p>
 <p><img src="forecasting_files/figure-html/forecast_seasonal_dlm-1.png" width="672" /></p>
 </div>

@@ -3,15 +3,21 @@ package dlm.model
 import breeze.linalg.{DenseMatrix, diag, DenseVector, inv}
 import breeze.stats.distributions._
 import scala.math.{exp, log, sin, cos}
-import cats.{Monad, Semigroup}
 import cats.implicits._
 import math.sqrt
 
 object Dlm {
   /**
+    * A single observation of a model
+    */
+  case class Data(time: Double, observation: DenseVector[Option[Double]])
+
+  /**
     * Definition of a DLM
     */
-  case class Model(f: ObservationMatrix, g: SystemMatrix) { self =>
+  case class Model(
+    f: Double => DenseMatrix[Double], 
+    g: Double => DenseMatrix[Double]) { self =>
     /**
       * Combine two DLMs into a multivariate DLM
       * @param y another DLM model
@@ -20,7 +26,22 @@ object Dlm {
     def |*|(y: Model): Model = {
       Dlm.outerSumModel(self, y)
     }
+
+    def |+|(y: Model): Model = {
+      Dlm.composeModels(self, y)
+    }
   }
+
+  /**
+    * Dynamic Linear Models can be combined in order to model different
+    * time dependent phenomena, for instance seasonal with trend
+    */
+    def composeModels(x: Model, y: Model): Model = {
+      Model(
+        (t: Double) => DenseMatrix.vertcat(x.f(t), y.f(t)), 
+        (t: Double) => blockDiagonal(x.g(t), y.g(t))
+      )
+    }
 
   /**
     * Parameters of a DLM
@@ -40,12 +61,12 @@ object Dlm {
     */
   def polynomial(order: Int): Model = {
     Model(
-      (t: Time) => {
+      (t: Double) => {
         val elements = Array.fill(order)(0.0)
         elements(0) = 1.0
         new DenseMatrix(order, 1, elements)
       },
-      (dt: TimeIncrement) => DenseMatrix.tabulate(order, order){ 
+      (dt: Double) => DenseMatrix.tabulate(order, order){ 
         case (i, j) if (i == j) => 1.0
         case (i, j) if (i == (j - 1)) => 1.0
         case _ => 0.0
@@ -59,11 +80,11 @@ object Dlm {
   def regression(x: Array[DenseVector[Double]]): Model = {
 
     Model(
-      (t: Time) => {
+      (t: Double) => {
           val m = 1 + x(t.toInt).size
           new DenseMatrix(m, 1, 1.0 +: x(t.toInt).data)
       },
-      (t: Time) => DenseMatrix.eye[Double](2)
+      (t: Double) => DenseMatrix.eye[Double](2)
     )
   }
 
@@ -92,24 +113,21 @@ object Dlm {
     )
   }
 
-  def buildSeasonalMatrix(period: Int, harmonics: Int): DenseMatrix[Double] = {
-    val freq = 2 * math.Pi / period
-    val matrices = (1 to harmonics) map (h => rotationMatrix(freq * h))
-    matrices.reduce(blockDiagonal)
-  }
-
   def seasonalG(
     period:    Int,
     harmonics: Int)(
-    dt:        TimeIncrement): DenseMatrix[Double] = {
+    dt:        Double): DenseMatrix[Double] = {
 
-    val matrices = (delta: TimeIncrement) => (1 to harmonics).
+    val matrices = (delta: Double) => (1 to harmonics).
       map(h => Dlm.rotationMatrix(h * angle(period)(delta)))
 
     matrices(dt).reduce(Dlm.blockDiagonal)
   }
 
-  def angle(period: Int)(dt: TimeIncrement): Double = {
+  /**
+    * 
+    */
+  def angle(period: Int)(dt: Double): Double = {
     2 * math.Pi * (dt % period) / period
   }
 
@@ -120,37 +138,39 @@ object Dlm {
     */
   def seasonal(period: Int, harmonics: Int): Model = {
     Model(
-      (t: Time) => DenseMatrix.tabulate(harmonics * 2, 1){ case (h, i) => if (h % 2 == 0) 1 else 0 },
-      (dt: TimeIncrement) => seasonalG(period, harmonics)(dt)
+      (t: Double) => DenseMatrix.tabulate(harmonics * 2, 1){ 
+        case (h, i) => if (h % 2 == 0) 1 else 0 },
+      (dt: Double) => seasonalG(period, harmonics)(dt)
     )
   }
 
   /**
-    * Simulate a single step from a DLM
+    * Simulate a single step from a DLM, used in simulateRegular
     */
   def simStep(
     mod: Model, 
     x: DenseVector[Double], 
-    time: Time, 
+    time: Double, 
     p: Parameters): Rand[(Data, DenseVector[Double])] = {
 
     for {
       w <- MultivariateGaussianSvd(DenseVector.zeros[Double](p.w.cols), p.w)
       v <- MultivariateGaussianSvd(DenseVector.zeros[Double](p.v.cols), p.v)
-      x1 = mod.g(time) * x + w
+      x1 = mod.g(1) * x + w
       y = mod.f(time).t * x1 + v
-    } yield (Data(time, Some(y)), x1)
+    } yield (Data(time, y.map(_.some)), x1)
   }
 
   /**
     * Simulate from a DLM
     */
   def simulateRegular(
-    startTime: Time, 
+    startTime: Double, 
     mod: Model, 
     p: Parameters): Process[(Data, DenseVector[Double])] = {
-
-    val init = (Data(startTime, None), p.m0)
+  
+    val initState = MultivariateGaussian(p.m0, p.c0).draw
+    val init = (Data(startTime, DenseVector[Option[Double]](None)), initState)
     MarkovChain(init){ case (y, x) => simStep(mod, x, y.time + 1, p) }
   }
 
@@ -159,7 +179,7 @@ object Dlm {
     */
   def simulateStateRegular(
     mod: Model,
-    w: DenseMatrix[Double]): Process[(Time, DenseVector[Double])] = {
+    w: DenseMatrix[Double]): Process[(Double, DenseVector[Double])] = {
     MarkovChain((1.0, DenseVector.zeros[Double](w.cols))){ case (time, x) => 
       MultivariateGaussianSvd(mod.g(time + 1) * x, w).map((time + 1, _))
     }
@@ -170,9 +190,9 @@ object Dlm {
     */
   def simulateState(
     times: Iterable[Double], 
-    g:     TimeIncrement => DenseMatrix[Double],
+    g:     Double => DenseMatrix[Double],
     p:     Dlm.Parameters,
-    init:  (Time, DenseVector[Double])) = {
+    init:  (Double, DenseVector[Double])) = {
 
     times.tail.scanLeft(init) { (x, t) =>
       val dt = t - x._1
@@ -189,22 +209,10 @@ object Dlm {
     val state = simulateState(times, mod.g, p, init)
 
     state.map { case (t, x) => 
-      (Data(t, Some(MultivariateGaussianSvd(mod.f(t).t * x, p.v).draw)), x) 
+      (Data(t, MultivariateGaussianSvd(mod.f(t).t * x, p.v).draw.map(_.some)), x) 
     }
   }
 
-  /**
-    * Dynamic Linear Models can be combined in order to model different
-    * time dependent phenomena, for instance seasonal with trend
-    */
-  implicit def addModel = new Semigroup[Model] {
-    def combine(x: Model, y: Model): Model = {
-      Model(
-        (t: Time) => DenseMatrix.vertcat(x.f(t), y.f(t)), 
-        (t: Time) => blockDiagonal(x.g(t), y.g(t))
-      )
-    }
-  }
 
   /**
     * Similar Dynamic Linear Models can be combined in order to model
@@ -212,8 +220,8 @@ object Dlm {
     */
   def outerSumModel(x: Model, y: Model) = {
     Model(
-      (t: Time) => blockDiagonal(x.f(t), y.f(t)),
-      (t: Time) => blockDiagonal(x.g(t), y.g(t))
+      (t: Double) => blockDiagonal(x.f(t), y.f(t)),
+      (t: Double) => blockDiagonal(x.g(t), y.g(t))
     )
   }
 
@@ -237,7 +245,7 @@ object Dlm {
     */
   def stepForecast(
     mod:  Model,
-    time: Time,
+    time: Double,
     mt:   DenseVector[Double], 
     ct:   DenseMatrix[Double],
     p:    Parameters) = {
@@ -255,7 +263,7 @@ object Dlm {
     mod:  Model, 
     mt:   DenseVector[Double], 
     ct:   DenseMatrix[Double],
-    time: Time,
+    time: Double,
     p:    Parameters) = {
 
     val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, mt, ct, time, p.v)

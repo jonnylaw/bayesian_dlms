@@ -26,7 +26,7 @@ $$G = \begin{pmatrix}
 
 In order to examine the properties of this model, first we can simulate a time series of values from it:
 
-```tut
+```tut:silent
 import dlm.model._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 
@@ -59,7 +59,7 @@ data %>%
 
 Kalman Filtering can be performed to learn the posterior distribution of the states, given the observations:
 
-```tut
+```tut:silent
 val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
 ```
 
@@ -84,7 +84,7 @@ filtered %>%
 
 The parameters can be learned using Gibbs sampling. The state evolution distribution and the observation distribution are Gaussian with unknown variance $W$ and $V$ respectively. The state is assumed to have a diagonal, $2 \times 2$ covariance matrix and hence the unknown variances are chosen to have Inverse Gamma priors. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. To perform gibbs sampling using the Bayesian DLMs package:
 
-```tut
+```tut:silent
 val iters = GibbsSampling.sample(
     mod, 
     InverseGamma(4.0, 9.0), 
