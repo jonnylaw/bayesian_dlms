@@ -6,10 +6,21 @@ organization := "com.github.jonnylaw"
 
 version := "0.2.1-SNAPSHOT"
 
+scalacOptions ++= Seq(
+  "-encoding", "UTF-8",   // source files are in UTF-8
+  "-deprecation",         // warn about use of deprecated APIs
+  "-unchecked",           // warn about unchecked type parameters
+  "-feature",             // warn about misused language features
+  "-language:higherKinds",// allow higher kinded types without `import scala.language.higherKinds`
+  "-Xlint",               // enable handy linter warnings
+  "-Ypartial-unification", // allow the compiler to unify type constructors of different arities
+  "-language:implicitConversions" // allow implicit conversion of dlm to dglm
+)
+
 libraryDependencies ++= Seq(
   "org.scalanlp"        %% "breeze"             % "0.13.2",
   "org.scalanlp"        %% "breeze-natives"     % "0.13.2",
-  "org.typelevel"       %% "cats-core"          % "0.9.0",
+  "org.typelevel"       %% "cats-core"          % "1.0.0-RC2",
   "com.nrinaudo"        %% "kantan.csv-cats"    % "0.3.0",
   "org.scalatest"       %% "scalatest"          % "3.0.4"  % "test"
 )
