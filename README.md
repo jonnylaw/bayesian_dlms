@@ -1,4 +1,4 @@
-![https://travis-ci.org/jonnylaw/bayesian_dlms.svg?branch=master]
+![build status](https://travis-ci.org/jonnylaw/bayesian_dlms.svg?branch=master)
 
 # bayesian_dlms
 Bayesian Inference for Dynamic Linear Models (DLMs)
