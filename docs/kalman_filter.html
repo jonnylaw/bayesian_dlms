@@ -15,7 +15,7 @@
 
 <script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<link href="site_libs/bootstrap-3.3.5/css/readable.min.css" rel="stylesheet" />
+<link href="site_libs/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
 <script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
 <script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
 <script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
@@ -27,38 +27,41 @@
 div.sourceCode { overflow-x: auto; }
 table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
   margin: 0; padding: 0; vertical-align: baseline; border: none; }
-table.sourceCode { width: 100%; line-height: 100%; background-color: #f8f8f8; }
-td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+table.sourceCode { width: 100%; line-height: 100%; background-color: #ffffff; color: #1f1c1b; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; background-color: #ffffff; color: #a0a0a0; border-right: 1px solid #a0a0a0; }
 td.sourceCode { padding-left: 5px; }
-pre, code { background-color: #f8f8f8; }
-code > span.kw { color: #204a87; font-weight: bold; } /* Keyword */
-code > span.dt { color: #204a87; } /* DataType */
-code > span.dv { color: #0000cf; } /* DecVal */
-code > span.bn { color: #0000cf; } /* BaseN */
-code > span.fl { color: #0000cf; } /* Float */
-code > span.ch { color: #4e9a06; } /* Char */
-code > span.st { color: #4e9a06; } /* String */
-code > span.co { color: #8f5902; font-style: italic; } /* Comment */
-code > span.ot { color: #8f5902; } /* Other */
-code > span.al { color: #ef2929; } /* Alert */
-code > span.fu { color: #000000; } /* Function */
-code > span.er { color: #a40000; font-weight: bold; } /* Error */
-code > span.wa { color: #8f5902; font-weight: bold; font-style: italic; } /* Warning */
-code > span.cn { color: #000000; } /* Constant */
-code > span.sc { color: #000000; } /* SpecialChar */
-code > span.vs { color: #4e9a06; } /* VerbatimString */
-code > span.ss { color: #4e9a06; } /* SpecialString */
-code > span.im { } /* Import */
-code > span.va { color: #000000; } /* Variable */
-code > span.cf { color: #204a87; font-weight: bold; } /* ControlFlow */
-code > span.op { color: #ce5c00; font-weight: bold; } /* Operator */
-code > span.pp { color: #8f5902; font-style: italic; } /* Preprocessor */
-code > span.ex { } /* Extension */
-code > span.at { color: #c4a000; } /* Attribute */
-code > span.do { color: #8f5902; font-weight: bold; font-style: italic; } /* Documentation */
-code > span.an { color: #8f5902; font-weight: bold; font-style: italic; } /* Annotation */
-code > span.cv { color: #8f5902; font-weight: bold; font-style: italic; } /* CommentVar */
-code > span.in { color: #8f5902; font-weight: bold; font-style: italic; } /* Information */
+pre, code { color: #1f1c1b; background-color: #ffffff; }
+code > span.kw { color: #1f1c1b; font-weight: bold; } /* Keyword */
+code > span.dt { color: #0057ae; } /* DataType */
+code > span.dv { color: #b08000; } /* DecVal */
+code > span.bn { color: #b08000; } /* BaseN */
+code > span.fl { color: #b08000; } /* Float */
+code > span.cn { color: #aa5500; } /* Constant */
+code > span.ch { color: #924c9d; } /* Char */
+code > span.sc { color: #3daee9; } /* SpecialChar */
+code > span.st { color: #bf0303; } /* String */
+code > span.vs { color: #bf0303; } /* VerbatimString */
+code > span.ss { color: #ff5500; } /* SpecialString */
+code > span.im { color: #ff5500; } /* Import */
+code > span.co { color: #898887; } /* Comment */
+code > span.do { color: #607880; } /* Documentation */
+code > span.an { color: #ca60ca; } /* Annotation */
+code > span.cv { color: #0095ff; } /* CommentVar */
+code > span.ot { color: #006e28; } /* Other */
+code > span.fu { color: #644a9b; } /* Function */
+code > span.va { color: #0057ae; } /* Variable */
+code > span.cf { color: #1f1c1b; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #1f1c1b; } /* Operator */
+code > span.bu { color: #644a9b; font-weight: bold; } /* BuiltIn */
+code > span.ex { color: #0095ff; font-weight: bold; } /* Extension */
+code > span.pp { color: #006e28; } /* Preprocessor */
+code > span.at { color: #0057ae; } /* Attribute */
+code > span.re { color: #0057ae; } /* RegionMarker */
+code > span.in { color: #b08000; } /* Information */
+code > span.wa { color: #bf0303; } /* Warning */
+code > span.al { color: #bf0303; font-weight: bold; } /* Alert */
+code > span.er { color: #bf0303; text-decoration: underline; } /* Error */
+code > span. { color: #1f1c1b; } /* Normal */
 </style>
 <style type="text/css">
   pre:not([class]) {
@@ -125,34 +128,34 @@ button.code-folding-btn:focus {
 <style type="text/css">
 /* padding for bootstrap navbar */
 body {
-  padding-top: 66px;
+  padding-top: 51px;
   padding-bottom: 40px;
 }
 /* offset scroll position for anchor links (for fixed navbar)  */
 .section h1 {
-  padding-top: 71px;
-  margin-top: -71px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 
 .section h2 {
-  padding-top: 71px;
-  margin-top: -71px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 .section h3 {
-  padding-top: 71px;
-  margin-top: -71px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 .section h4 {
-  padding-top: 71px;
-  margin-top: -71px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 .section h5 {
-  padding-top: 71px;
-  margin-top: -71px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 .section h6 {
-  padding-top: 71px;
-  margin-top: -71px;
+  padding-top: 56px;
+  margin-top: -56px;
 }
 </style>
 
@@ -267,6 +270,9 @@ $(document).ready(function () {
     <li>
       <a href="student_t_filtering.html">Student's t-distributed DLM</a>
     </li>
+    <li>
+      <a href="spain_investment_data.html">Spain Investment Data</a>
+    </li>
   </ul>
 </li>
       </ul>
@@ -302,28 +308,21 @@ x_0 &amp;\sim \mathcal{N}(m_0, C_0).
 <div id="first-order-example" class="section level2">
 <h2>First Order Example</h2>
 <p>In order to illustrate the Kalman Filter implementation in Scala, we consider a first order polynomial DLM, where <span class="math inline">\(F_t = 1\)</span>, <span class="math inline">\(G_t = 1\)</span> and the latent-state is one-dimensional:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">import</span> dlm.<span class="fu">model</span>._
-<span class="kw">import</span> dlm.<span class="fu">model</span>._
-
-scala&gt; <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> dlm.<span class="fu">model</span>._
 <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
 
-scala&gt; <span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>)
-mod: dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Model</span> = <span class="fu">Model</span>(&lt;function1&gt;,&lt;function1&gt;)
+<span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>)
+<span class="kw">val</span> p = Dlm.<span class="fu">Parameters</span>(
+  v = <span class="fu">DenseMatrix</span>(<span class="fl">3.0</span>),
+  w = <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>),
+  m0 = <span class="fu">DenseVector</span>(<span class="fl">0.0</span>),
+  c0 = <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>)
+)
 
-scala&gt; <span class="kw">val</span> p = Dlm.<span class="fu">Parameters</span>(
-     |   v = <span class="fu">DenseMatrix</span>(<span class="fl">3.0</span>),
-     |   w = <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>),
-     |   m0 = <span class="fu">DenseVector</span>(<span class="fl">0.0</span>),
-     |   c0 = <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>)
-     | )
-p: dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Parameters</span> = <span class="fu">Parameters</span>(<span class="fl">3.0</span>  ,<span class="fl">1.0</span>  ,<span class="fu">DenseVector</span>(<span class="fl">0.0</span>),<span class="fl">1.0</span>  )
-
-scala&gt; <span class="kw">val</span> data = Dlm.<span class="fu">simulateRegular</span>(<span class="dv">0</span>, mod, p).
-     |   steps.
-     |   <span class="fu">take</span>(<span class="dv">1000</span>).
-     |   toArray
-data: Array[(dlm.<span class="fu">model</span>.<span class="fu">Data</span>, breeze.<span class="fu">linalg</span>.<span class="fu">DenseVector</span>[Double])] = Array((<span class="fu">Data</span>(<span class="fl">1.0</span>,Some(<span class="fu">DenseVector</span>(-<span class="fl">0.11136892584384568</span>))),<span class="fu">DenseVector</span>(-<span class="fl">0.035918218458410284</span>)), (<span class="fu">Data</span>(<span class="fl">2.0</span>,Some(<span class="fu">DenseVector</span>(-<span class="fl">1.2065237462383718</span>))),<span class="fu">DenseVector</span>(-<span class="fl">0.7907396823307755</span>)), (<span class="fu">Data</span>(<span class="fl">3.0</span>,Some(<span class="fu">DenseVector</span>(-<span class="fl">1.8853201693068888</span>))),<span class="fu">DenseVector</span>(-<span class="fl">1.9967516056322119</span>)), (<span class="fu">Data</span>(<span class="fl">4.0</span>,Some(<span class="fu">DenseVector</span>(-<span class="fl">2.8662785971449303</span>))),<span class="fu">DenseVector</span>(-<span class="fl">3.1053479249392035</span>)), (<span class="fu">Data</span>(<span class="fl">5.0</span>,Some(<span class="fu">DenseVector</span>(-<span class="fl">3.6540690080718035</span>))),<span class="fu">DenseVector</span>(-<span class="fl">3.1122712879208114</span>)), (<span class="fu">Data</span>(<span class="fl">6.0</span>,Some(<span class="fu">DenseVector</span>(-<span class="fl">1.4605833269153257</span>))),<span class="fu">DenseVector</span>(-<span class="fl">4.3135190211960275</span>)), (<span class="fu">Data</span>(<span class="fl">7.0</span>,Some(<span class="fu">DenseVector</span>(-<span class="fl">3.231441446771772</span>))),<span class="fu">DenseVector</span>(-<span class="fl">4.404291989428861</span>)), (<span class="fu">Data</span>(<span class="fl">8.0</span>,Some(<span class="fu">DenseVector</span>(-<span class="fl">1.5499541617623285</span>))),<span class="fu">DenseVector</span>(-<span class="fl">3.6198751753109146</span>)), (<span class="fu">Data</span>(<span class="fl">9.0</span>,Some(<span class="fu">DenseVector</span>(-<span class="fl">0.6157526250278</span>...</code></pre></div>
+<span class="kw">val</span> data = Dlm.<span class="fu">simulateRegular</span>(<span class="dv">0</span>, mod, p).
+  steps.
+  <span class="fu">take</span>(<span class="dv">1000</span>).
+  toArray</code></pre></div>
 <ol style="list-style-type: decimal">
 <li>The prior at time <span class="math inline">\(t + 1\)</span> is implemented in the <code>KalmanFilter</code> object as <code>advanceState</code></li>
 </ol>
@@ -338,11 +337,10 @@ data: Array[(dlm.<span class="fu">model</span>.<span class="fu">Data</span>, bre
 <ol start="3" style="list-style-type: decimal">
 <li>State update is implemented in the <code>KalmanFilter</code> object as <code>updateState</code></li>
 </ol>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> y = <span class="fu">Data</span>(t + <span class="dv">1</span>, Some(<span class="fu">DenseVector</span>(<span class="fl">5.0</span>))) <span class="co">// an observation at time t + 1</span>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> y = Dlm.<span class="fu">Data</span>(t + <span class="dv">1</span>, Some(<span class="fu">DenseVector</span>(<span class="fl">5.0</span>))) <span class="co">// an observation at time t + 1</span>
 <span class="kw">val</span> (mt1, ct1) = KalmanFilter.<span class="fu">updateState</span>(mod.<span class="fu">f</span>, at, rt, ft, qt, y, p.<span class="fu">v</span>)</code></pre></div>
-<p>These three steps are implemented together into a single function <code>stepKalmanFilter</code>. This function is then used to fold over an <code>Array[Data]</code> to determine the filtering distribution:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">val</span> filtered = KalmanFilter.<span class="fu">filter</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)
-filtered: Array[dlm.<span class="fu">model</span>.<span class="fu">KalmanFilter</span>.<span class="fu">State</span>] = Array(State(<span class="fl">0.0</span>,<span class="fu">DenseVector</span>(<span class="fl">0.0</span>),<span class="fl">1.0</span>  ,<span class="fu">DenseVector</span>(<span class="fl">0.0</span>),<span class="fl">1.0</span>  ,None,None,<span class="fl">0.0</span>), State(<span class="fl">1.0</span>,<span class="fu">DenseVector</span>(-<span class="fl">0.04454757033753828</span>),<span class="fl">1.2000000000000002</span>  ,<span class="fu">DenseVector</span>(<span class="fl">0.0</span>),<span class="fl">2.0</span>  ,Some(<span class="fu">DenseVector</span>(<span class="fl">0.0</span>)),Some(<span class="fl">5.0</span>  ),-<span class="fl">1.724897793186084</span>), State(<span class="fl">2.0</span>,<span class="fu">DenseVector</span>(-<span class="fl">0.5361528755263525</span>),<span class="fl">1.2692307692307692</span>  ,<span class="fu">DenseVector</span>(-<span class="fl">0.04454757033753828</span>),<span class="fl">2.2</span>  ,Some(<span class="fu">DenseVector</span>(-<span class="fl">0.04454757033753828</span>)),Some(<span class="fl">5.2</span>  ),-<span class="fl">3.597991469315325</span>), State(<span class="fl">3.0</span>,<span class="fu">DenseVector</span>(-<span class="fl">1.1171811261325688</span>),<span class="fl">1.2919708029197077</span>  ,<span class="fu">DenseVector</span>(-<span class="fl">0.5361528755263525</span>),<span class="fl">2.269230769230769</span>  ,Some(<span class="fu">DenseVector</span>(-<span class="fl">0.5361528755263525</span>)),Some(<span class="fl">5.269230769230769</span>  ),-<span class="fl">5.520596875444431</span>), State(<span class="fl">4.0</span>,<span class="fu">DenseVector</span>(-<span class="fl">1.8747212721986122</span>),<span class="fl">1.2993103448275862</span>  ,<span class="fu">DenseVector</span>(-<span class="fl">1.1171811261325688</span>),<span class="fl">2.2919708029197077</span>  ,Some(<span class="fu">DenseVector</span>(-<span class="fl">1.117181126</span>...</code></pre></div>
+<p>These three steps are implemented together into a single function <code>stepKalmanFilter</code>. This function is then used to fold over an <code>Array[Dlm.Data]</code> to determine the filtering distribution:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> filtered = KalmanFilter.<span class="fu">filter</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)</code></pre></div>
 <p>The result of filtering the simulated observations is plotted below, with 90% probability intervals. The system and observation variances, <span class="math inline">\(W_t\)</span> and <span class="math inline">\(V_t\)</span> are assumed to be constant in time and known.</p>
 <p><img src="kalman_filter_files/figure-html/first-order-filtered-1.png" width="672" /></p>
 </div>

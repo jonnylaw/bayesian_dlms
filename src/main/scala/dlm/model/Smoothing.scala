@@ -6,7 +6,7 @@ import breeze.stats.distributions.{MultivariateGaussian, Rand}
 
 object Smoothing {
   case class SmoothingState(
-    time:       Time, 
+    time:       Double, 
     mean:       DenseVector[Double], 
     covariance: DenseMatrix[Double], 
     at1:        DenseVector[Double], 
@@ -70,7 +70,7 @@ object Smoothing {
   }
 
   case class SamplingState(
-    time:       Time, 
+    time:       Double, 
     sample:     DenseVector[Double],
     at1:        DenseVector[Double], 
     rt1:        DenseMatrix[Double])

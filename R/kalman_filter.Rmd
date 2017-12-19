@@ -25,7 +25,7 @@ The Kalman filter proceeds as follows, given observations of the process up unti
 
 In order to illustrate the Kalman Filter implementation in Scala, we consider a first order polynomial DLM, where $F_t = 1$, $G_t = 1$ and the latent-state is one-dimensional:
 
-```tut
+```tut:silent
 import dlm.model._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 
@@ -61,13 +61,13 @@ val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, at, rt, time, p.v)
 3) State update is implemented in the `KalmanFilter` object as `updateState`
 
 ```scala
-val y = Data(t + 1, Some(DenseVector(5.0))) // an observation at time t + 1
+val y = Dlm.Data(t + 1, Some(DenseVector(5.0))) // an observation at time t + 1
 val (mt1, ct1) = KalmanFilter.updateState(mod.f, at, rt, ft, qt, y, p.v)
 ```
 
-These three steps are implemented together into a single function `stepKalmanFilter`. This function is then used to fold over an `Array[Data]` to determine the filtering distribution:
+These three steps are implemented together into a single function `stepKalmanFilter`. This function is then used to fold over an `Array[Dlm.Data]` to determine the filtering distribution:
 
-```tut
+```tut:silent
 val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
 ```
 

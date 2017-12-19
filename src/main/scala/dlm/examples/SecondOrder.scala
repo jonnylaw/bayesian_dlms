@@ -25,10 +25,10 @@ trait DlmModel {
 
 trait SimulatedSecondOrderData {
   val rawData = Paths.get("data/second_order_dlm.csv")
-  val reader = rawData.asCsvReader[(Time, Double, Double, Double)](rfc.withHeader)
+  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.
     collect { 
-      case Success(a) => Data(a._1, Some(a._2).map(DenseVector(_)))
+      case Success(a) => Data(a.head, DenseVector(Some(a(1))))
     }.
     toArray
 }
@@ -40,11 +40,11 @@ object SimulateSecondOrderDlm extends App with DlmModel {
 
   val out = new java.io.File("data/second_order_dlm.csv")
   val headers = rfc.withHeader("time", "observation", "state_1", "state_2")
-  val writer = out.asCsvWriter[(Time, Option[Double], Double, Double)](headers)
+  val writer = out.asCsvWriter[List[Double]](headers)
 
   def formatData(d: (Data, DenseVector[Double])) = d match {
     case (Data(t, y), x) =>
-      (t, y.map(a => a(0)), x(0), x(1))
+      t :: KalmanFilter.flattenObs(y).data.toList ::: x.data.toList
   }
 
   while (sims.hasNext) {
@@ -110,7 +110,7 @@ object GibbsInvestParameters extends App with DlmModel {
     getLines.
     map(_.split(",")).
     zipWithIndex.
-    map { case (x, i) => Data(i + 1960, Some(DenseVector(x(1).toDouble / 1000.0))) }.
+    map { case (x, i) => Data(i + 1960, DenseVector(Some(x(1).toDouble / 1000.0))) }.
     toArray
 
   val priorV = InverseGamma(40.0, 10.0)

@@ -1,0 +1,35 @@
+---
+title: "Particle Filter"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Particle Filter
+
+The particle filter can be used for non-linear and non-Gaussian state space models, such as DGLMs. A general DGLM is given by:
+
+$$\begin{align*}
+Y_t &\sim p(y_t | g(F_tx_t), \theta) \\
+X_t &= G_tX_{t-1} + w_t, \qquad w_t \sim \mathcal{N}(0, W), \\
+X_0 &\sim \mathcal{N}(m_0, C_0).
+\end{align*}$$
+
+Where $p(y_t | F_tx_t, \theta)$ is an Exponential Family distribution, with optional static parameter $\theta$.
+
+The particle filter can be used to find the filtering state $p(x_{0:t}|y_{1:T}, \psi)$, where $\psi$ represents the static parameters in the model. The particle filter algorithm proceeds as follows:
+
+*Initialisation*
+1. Sample $k$ initial particles from the initial distribution, $x_0^{(i)} \sim \mathcal{N}(m_0, C_0), i = 1,\dots,k$
+2. Initialise the particle weights $w^{(i)} = \frac{1}{k}$
+
+*Main Loop*
+
+3. Assume at time $t$ we have weighted sample from the posterior $\{x_t^{(i)}, w_t^{(i)}, i = 1,\dots,k\}$ 
+4. Advance the state using the state evolution kernel $x_{t+1}^{(i)} \sim \mathcal{N}(G_tx_t^{(i)}, W), i = 1,\dots,k$
+5. Calculate the weights using the conditional likelihood: $w_{t+1}^{(i)} = p(y_{t+1}|x_{t+1}^{(i)}), i = 1,\dots,k$
+7. Normalise the weights, $\pi_{t+1}^{(i)} = \frac{w_{t+1}^{(i)}}{\sum_{j=1}^kw_{t+1}^{(j)}}, i = 1,\dots,k$
+6. Resample the particles by sampling $u_j \sim p(\pmb\pi_{t+1})$ then select $x^{(u_j)}_{t+1}$ $j = 1,\dots,k$
+
+Repeat the mean loop until $t = T$.

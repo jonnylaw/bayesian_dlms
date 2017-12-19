@@ -13,31 +13,31 @@ theme_set(theme_minimal())
 
 DLMs are represented as a `case class` containing the observation matrix and the system matrix:
 
-```tut
+```tut:silent
 import dlm.model._
 import breeze.linalg.{DenseMatrix, DenseVector}
 
 case class Model(
-  f: Time => DenseMatrix[Double],
-  g: TimeIncrement => DenseMatrix[Double]
+  f: Double => DenseMatrix[Double],
+  g: Double => DenseMatrix[Double]
 )
 ```
 
 The object `Dlm` contains functions to build several common models:
 
-```tut
+```tut:silent
 val linear = Dlm.polynomial(1)
 val seasonal = Dlm.seasonal(period = 24, harmonics = 3)
 ```
 
 ```scala
-val x: Array[Data] = ??? // timeseries to regress against
+val x: Array[Dlm.Data] = ??? // timeseries to regress against
 val regression = Dlm.regression(x = x)
 ```
 
 These simple models can be composed to produce more complex models, for instance a seasonal model with a linear trend can be produced:
 
-```tut
+```tut:silent
 import cats.implicits._
 
 val seasonalTrend = linear |+| seasonal
@@ -45,7 +45,7 @@ val seasonalTrend = linear |+| seasonal
 
 The models can also be combined using a cartesian product in order to model multivariate time series:
 
-```tut
+```tut:silent
 // model for a bivariate time series
 val multivariateModel = linear |*| seasonalTrend
 
@@ -59,7 +59,7 @@ A dynamic generalised linear model is a DLM with a non-Gaussian observation dist
 
 To build a DGLM, first build a univariate DLM as above then select an observation model from the `Dglm` object:
 
-```tut
+```tut:silent
 val poisson = Dglm.poisson(linear)
 ```
 
@@ -67,7 +67,7 @@ val poisson = Dglm.poisson(linear)
 
 Simulation is useful to test inference algorithms or to get a feel for how a model behaves with different sets of parameters. First we must define the model `Parameters`:
 
-```tut
+```tut:silent
 val p = Dlm.Parameters(
   v =  DenseMatrix(1.0),
   w =  DenseMatrix(3.0),
@@ -78,7 +78,7 @@ val p = Dlm.Parameters(
 
 Then we can simulate from the model:
 
-```tut
+```tut:silent
 val data = Dlm.simulateRegular(0, linear, p).
   steps.
   take(1000)
@@ -100,7 +100,7 @@ Simulation from any DLM is possible using the same syntax. The parameters must b
 
 In order to simulate from a DGLM we must know how to sample from the chosen observation distribution of the DGLM. The `Dglm.Model` class and its associated model building functions provide this function and an associated `simulate` function. The figure below shows a simulation from the Poisson model.
 
-```tut
+```tut:silent
 Dglm.simulate(poisson, p)
 ```
 

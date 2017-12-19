@@ -22,10 +22,10 @@ trait PoissonDglm {
 
 trait PoissonData {
   val rawData = Paths.get("data/poisson_dglm.csv")
-  val reader = rawData.asCsvReader[(Time, Double, Double)](rfc.withHeader)
+  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.
     collect { 
-      case Success(a) => Data(a._1, Some(a._2).map(DenseVector(_)))
+      case Success(a) => Dlm.Data(a.head, DenseVector(a(1).some))
     }.
     toArray
 }
@@ -37,11 +37,11 @@ object SimulatePoissonDglm extends App with PoissonDglm {
 
   val out = new java.io.File("data/poisson_dglm.csv")
   val header = rfc.withHeader("time", "observation", "state")
-  val writer = out.asCsvWriter[(Time, Option[Double], Double)](header)
+  val writer = out.asCsvWriter[List[Double]](header)
 
-  def formatData(d: (Data, DenseVector[Double])) = d match {
-    case (Data(t, y), x) =>
-      (t, y.map(x => x(0)), x(0))
+  def formatData(d: (Dlm.Data, DenseVector[Double])) = d match {
+    case (Dlm.Data(t, y), x) =>
+      t :: KalmanFilter.flattenObs(y).data.toList ::: x.data.toList
   }
 
   while (sims.hasNext) {
@@ -65,7 +65,7 @@ object PoissonDglmGibbs extends App with PoissonDglm with PoissonData {
 
   val priorW = InverseGamma(11.0, 1.0)
 
-  val mcmcStep = (s: LatentState, p: Dlm.Parameters) => for {
+  val mcmcStep = (s: List[(Double, DenseVector[Double])], p: Dlm.Parameters) => for {
     w <- GibbsSampling.sampleSystemMatrix(priorW, model.g, s.toArray)
     (ll, state) <- ParticleGibbs.filter(n, params, model, data.toList)(s)
   } yield (state, Dlm.Parameters(p.v, w, p.m0, p.c0))
@@ -101,7 +101,7 @@ object PoissonDglmGibbsAncestor extends App with PoissonDglm with PoissonData {
 
   val priorW = InverseGamma(11.0, 1.0)
 
-  val mcmcStep = (s: LatentState, p: Dlm.Parameters) => for {
+  val mcmcStep = (s: List[(Double, DenseVector[Double])], p: Dlm.Parameters) => for {
     w <- GibbsSampling.sampleSystemMatrix(priorW, model.g, s.toArray)
     (ll, state) <- ParticleGibbsAncestor.filter(n, params, model, data.toList)(s)
   } yield (state, Dlm.Parameters(p.v, w, p.m0, p.c0))

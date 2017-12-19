@@ -72,19 +72,18 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
   )
 
   val data = Array(
-    Data(1.0, Some(DenseVector(4.5))),
-    Data(2.0, Some(DenseVector(3.0))),
-    Data(3.0, Some(DenseVector(6.3))),
-    Data(4.0, None),
-    Data(5.0, Some(DenseVector(10.1))),
-    Data(7.0, Some(DenseVector(15.2)))
+    Data(1.0, DenseVector(Some(4.5))),
+    Data(2.0, DenseVector(Some(3.0))),
+    Data(3.0, DenseVector(Some(6.3))),
+    Data(4.0, DenseVector[Option[Double]](None)),
+    Data(5.0, DenseVector(Some(10.1))),
+    Data(7.0, DenseVector(Some(15.2)))
   )
 
   val y1 = data.head
   val (a1, r1) = KalmanFilter.advanceState(model.g, p.m0, p.c0, 1, p.w)
-  val (f1, q1) = KalmanFilter.oneStepPrediction(model.f, a1, r1, 1, p.v)
-  val (m1, c1) = KalmanFilter.updateState(model.f, a1, r1, f1, q1, y1, p.v)
-  val e1 = y1.observation.get - f1
+  val (f1, q1, m1, c1, _) = KalmanFilter.updateState(model.f, a1, r1, y1, p.v, 0.0)
+  val e1 = KalmanFilter.flattenObs(y1.observation) - f1
   val k1 = r1 * inv(q1)
 
   // tolerance
@@ -176,4 +175,14 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
   // test("Full kalman Filter is equivalent to all steps") {
   //   assert(filtered.head === filter
   // }
+
+  test("Missing Matrix") {
+    val obs = DenseVector(Some(1), None, Some(1), None, Some(5), None)
+    val initMatrix = (t: Double) => DenseMatrix.ones[Double](10, 6)
+
+    val fm = KalmanFilter.missingF(initMatrix, 1.0, obs)
+
+    assert(fm.cols === obs.data.flatten.size)
+    assert(fm.rows === 10)
+  }
 }

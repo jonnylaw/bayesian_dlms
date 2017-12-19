@@ -7,6 +7,7 @@ import breeze.linalg.DenseVector
 import breeze.stats.mean
 import math.{log, exp}
 import cats.implicits._
+import Dlm.Data
 
 /**
   * Particle Gibbs with Ancestor Sampling
@@ -22,7 +23,7 @@ object ParticleGibbsAncestor extends App {
     sampledStates:    Vector[DenseVector[Double]],
     weights:          Vector[Double],
     conditionedState: DenseVector[Double],
-    time:             Time,
+    time:             Double,
     mod:              Model,
     p:                Dlm.Parameters
   ): Vector[Double] = {
@@ -47,7 +48,7 @@ object ParticleGibbsAncestor extends App {
     */
   def transitionProbability(
     sampledState: DenseVector[Double],
-    time:         Time,
+    time:         Double,
     mod:          Model,
     p:            Dlm.Parameters)(conditionedState: DenseVector[Double]) = {
 
@@ -84,11 +85,11 @@ object ParticleGibbsAncestor extends App {
     */
   def ancestorResampling(
     mod:       Model,
-    time:      Time,
-    states:    Vector[LatentState],
+    time:      Double,
+    states:    Vector[List[(Double, DenseVector[Double])]],
     weights:   Vector[Double],
     condState: DenseVector[Double],
-    p:         Dlm.Parameters): (List[LatentState], LatentState) = {
+    p:         Dlm.Parameters): (List[List[(Double, DenseVector[Double])]], List[(Double, DenseVector[Double])]) = {
     val n = states.head.size
 
     // sample n-1 particles from ALL of the states
@@ -131,11 +132,11 @@ object ParticleGibbsAncestor extends App {
   */
   def calcWeight(
     mod:              Model,
-    time:             Time,
+    time:             Double,
     xt:               DenseVector[Double],
     xt1:              DenseVector[Double],
     conditionedState: DenseVector[Double],
-    y:                Observation,
+    y:                DenseVector[Double],
     p:                Dlm.Parameters): Double = {
 
     mod.conditionalLikelihood(p)(y, xt) + 
@@ -153,31 +154,35 @@ object ParticleGibbsAncestor extends App {
     p:   Dlm.Parameters
   ) = (s: State, a: (Data, DenseVector[Double])) => a match {
 
-    case (Data(time, Some(y)), conditionedState) =>
-      val (prevStates, statet) = ancestorResampling(mod, time, 
-        s.states.toVector, s.weights.toVector, 
-        conditionedState, p)
+    case (d, conditionedState) =>
 
-      // calculate the weights
-      val w = (prevStates.head, statet).
-        zipped.
-        map { case (xt1, xt) => 
-          calcWeight(mod, time, xt._2, xt1._2, conditionedState, y, p) 
-        }
+      val y = KalmanFilter.flattenObs(d.observation)
 
-      // log-sum-exp and calculate log-likelihood
-      val max = w.max
-      val w1 = w map (a => exp(a - max))
-      val ll = s.ll + max + log(mean(w1))
+      if (y.data.isEmpty) {
+        val n = s.states.size
+        val (xt1, xt) = ancestorResampling(mod, d.time,
+          s.states.toVector, s.weights.toVector, conditionedState, p)
 
-      State(statet :: prevStates, w1, ll)
+        State(xt :: xt1, List.fill(n)(1.0 / n), s.ll)
+      } else {
+        val (prevStates, statet) = ancestorResampling(mod, d.time,
+          s.states.toVector, s.weights.toVector,
+          conditionedState, p)
 
-    case (Data(time, None), conditionedState) => 
-      val n = s.states.size
-      val (xt1, xt) = ancestorResampling(mod, time, 
-        s.states.toVector, s.weights.toVector, conditionedState, p)
+        // calculate the weights
+        val w = (prevStates.head, statet).
+          zipped.
+          map { case (xt1, xt) =>
+            calcWeight(mod, d.time, xt._2, xt1._2, conditionedState, y, p)
+          }
 
-      State(xt :: xt1, List.fill(n)(1.0 / n), s.ll)
+        // log-sum-exp and calculate log-likelihood
+        val max = w.max
+        val w1 = w map (a => exp(a - max))
+        val ll = s.ll + max + log(mean(w1))
+
+        State(statet :: prevStates, w1, ll)
+      }
   }
 
   /**
@@ -193,7 +198,7 @@ object ParticleGibbsAncestor extends App {
     n:   Int,
     mod: Model,
     p:   Dlm.Parameters,
-    obs: List[Data])(state: LatentState): State = {
+    obs: List[Data])(state: List[(Double, DenseVector[Double])]): State = {
 
     val firstTime = obs.map(d => d.time).min
     val x0 = ParticleGibbs.initState(p).
@@ -221,7 +226,7 @@ object ParticleGibbsAncestor extends App {
     n:   Int,
     p:   Dlm.Parameters,
     mod: Model,
-    obs: List[Data])(state: LatentState): Rand[(Double, LatentState)] = {
+    obs: List[Data])(state: List[(Double, DenseVector[Double])]): Rand[(Double, List[(Double, DenseVector[Double])])] = {
     val filtered = filterAll(n, mod, p, obs)(state)
 
     ParticleGibbs.sampleState(filtered.states, filtered.weights).

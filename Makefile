@@ -1,13 +1,3 @@
-# Fit a seasonal model using Newcastles HPC, Topsy
-seasonal_model_gibbs:
-	sbt assembly
-	cp target/scala-2.11/bayesian_dlms-assembly-0.2-SNAPSHOT.jar seasonal_dlm.jar
-	ssh topsy -t mkdir -p /share/nobackup/a9169110/seasonal_dlm/data
-	scp data/seasonal_dlm.csv topsy:/share/nobackup/a9169110/seasonal_dlm/data/.
-	scp seasonal_dlm.jar seasonal_dlm.qsub topsy:/share/nobackup/a9169110/seasonal_dlm/.
-	ssh topsy -f "cd /share/nobackup/a9169110/seasonal_dlm && qsub seasonal_dlm.qsub"
-	ssh topsy -t qstat
-
 # Fit a Poisson DGLM using Particle Gibbs using Newcastles HPC, Topsy
 poisson_dglm_gibbs:
 	sbt assembly
@@ -18,21 +8,11 @@ poisson_dglm_gibbs:
 	ssh topsy -f "cd /share/nobackup/a9169110/poisson_dglm && qsub poisson_dglm.qsub"
 	ssh topsy -t qstat
 
-seasonal_irregular_gibbs:
-	sbt assembly
-	cp target/scala-2.11/bayesian_dlms-assembly-0.2-SNAPSHOT.jar seasonal_dlm_irregular.jar
-	ssh topsy -t mkdir -p /share/nobackup/a9169110/seasonal_dlm_irregular/data
-	scp data/seasonal_dlm_irregular.csv topsy:/share/nobackup/a9169110/seasonal_dlm_irregular/data/.
-	scp seasonal_dlm_irregular.jar seasonal_dlm_irregular.qsub topsy:/share/nobackup/a9169110/seasonal_dlm_irregular/.
-	ssh topsy -t "cd /share/nobackup/a9169110/seasonal_dlm_irregular && dos2unix seasonal_dlm_irregular.qsub"
-	ssh topsy -t "cd /share/nobackup/a9169110/seasonal_dlm_irregular && qsub seasonal_dlm_irregular.qsub"
-	ssh topsy -t qstat 	
-
 site: correlated second_order first_order seasonal knit_site
 
 knit_site:
 	sbt "tut"
-	RScript -e 'setwd(\"tut\"); rmarkdown::render_site()'
+	RScript -e 'Sys.setenv(RSTUDIO_PANDOC="/Applications/RStudio.app/Contents/MacOS/pandoc"); rmarkdown::render_site(input = "tut")'
 
 correlated: simulate_correlated simulate_correlated_trend filter_correlated gibbs_correlated
 
@@ -73,19 +53,30 @@ smooth_first_order: data/first_order_dlm.csv
 gibbs_first_order: data/first_order_dlm.csv
 	sbt "runMain dlm.examples.GibbsParameters"
 
-seasonal: simulate_seasonal seasonal_sample_state smooth_seasonal filter_seasonal 
+seasonal: simulate_seasonal smooth_seasonal filter_seasonal forecast_seasonal
 
 simulate_seasonal:
 	sbt "runMain dlm.examples.SimulateSeasonalDlm"
-
-seasonal_sample_state: data/seasonal_dlm.csv
-	sbt "runMain dlm.examples.SampleStates"
 
 smooth_seasonal: data/seasonal_dlm.csv
 	sbt "runMain dlm.examples.SmoothSeasonalDlm"
 
 filter_seasonal: data/seasonal_dlm.csv
 	sbt "runMain dlm.examples.FilterSeasonalDlm"
+
+forecast_seasonal: data/seasonal_dlm.csv
+	sbt "runMain dlm.examples.ForecastSeasonal"
+
+# Fit a seasonal model using Newcastles HPC, Topsy
+gibbs_seasonal:
+	sbt assembly
+	cp target/scala-2.11/bayesian_dlms-assembly-0.2-SNAPSHOT.jar seasonal_dlm.jar
+	ssh topsy -t mkdir -p /share/nobackup/a9169110/seasonal_dlm/data
+	scp data/seasonal_dlm.csv topsy:/share/nobackup/a9169110/seasonal_dlm/data/.
+	scp seasonal_dlm.jar seasonal_dlm.qsub topsy:/share/nobackup/a9169110/seasonal_dlm/.
+	ssh topsy -f "cd /share/nobackup/a9169110/seasonal_dlm && qsub seasonal_dlm.qsub"
+	ssh topsy -t qstat
+
 
 student_t: simulate_student_t student_t_gibbs student_t_pmmh student_t_pg
 

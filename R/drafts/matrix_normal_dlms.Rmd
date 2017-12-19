@@ -1,0 +1,42 @@
+---
+title: "Matrix Normal DLMs"
+output: pdf_document
+bibliography: dlms.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(tidyverse)
+```
+
+The Matrix Normal DLM is used to model multiple correlated time series modelling similar data in a parsimonious way (@carvalho2007dynamic). Consider a $p$ dimensional time series with discrete observations $y_{t,i}$, $i = 1,\dots,p$ at times $t = 1,\dots,T$, then write a single model for the $p^{\textrm{th}}$ time series as:
+
+$$\begin{aligned}
+y_{t,i} &= F_{t,i} x_{t,i} + v_{t,i}, &v_{t,i} &\sim \mathcal{N}(0, V_{t,i}) \\
+x_{t,i} &= G_{t,i} x_{t,i} + w_{t,i}, &w_{t,i} &\sim \textrm{MVN}_{p}(0, W_{t,i}).
+\end{aligned}$$
+
+The observation, $y_{t,i}$ is univariate, the observation matrix $F_{t,i}$ is $d_i \times 1$, the system evolution matrix $G_{t,i}$ is $d_i \times d_i$ and the state vector is a $d_i$-dimensional vector. In order to combine these $p$ models into one, it is natural to combine the observation and system matrices blockwise and concatenate the state vectors and observations:
+
+$$\begin{aligned}
+F_t &= \begin{bmatrix} F_{t,1} & \dots & 0 \\ \vdots & \ddots & \vdots \\ 0 & \dots & F_{t,p} \end{bmatrix}, &G_t &= \begin{bmatrix} G_{t,1} & \dots & 0 \\ \vdots & \ddots & \vdots \\ 0 & \dots & G_{t,p} \end{bmatrix}, \\
+Y_t &= \begin{pmatrix}y_{t,1} & \dots & y_{t,p}\end{pmatrix}^\prime, &X_t &= \begin{pmatrix}x_{t,1} & \dots & x_{t,p}\end{pmatrix}^\prime.
+\end{aligned}$$
+
+This results in a $p$-dimensional observation vector, and a $D = \sum_{i=1}^p d_i$-dimensional state vector. This means the dimension of the noise covariance of the state, $W_t$ is $D \times D$, this presents a problem to estimate for large $D$, resulting from modelling a large amount of time series, (large $p$) or having a large latent state, (large $d_i$). This is how models are composed in the Scala package.
+
+In order to overcome this problem, we can consider a Matrix Normal DLM. Firstly, consider that the individual models $F_t$ and $G_t$ matrices are the same for each of the $p$ models (hence the state for each model is $d$-dimensional) then a Matrix DLM can be written as:
+
+$$\begin{aligned}
+Y_t &= F_t X_t + \mathbf{V}_t, &\mathbf{V}_t &\sim \textrm{MVN}_p(0, V_t \Sigma_t) \\
+X_t &= G_t X_t + \mathbf{W}_t, &\mathbf{W}_t &\sim \mathcal{MN}_{d\times p}(0, \Omega_t, \Sigma_t).
+\end{aligned}$$
+
+Where $F_t$ is an $d \times 1$ dimensional observation matrix, $G_t$ is a $d \times d$ state evolution matrix, the state $X$ is a $d \times p$ matrix. The system noise error $\mathbf{W}_t$ is a $d \times p$ matrix drawn from the matrix normal distribution with row-variance $\Omega_t$, a $d \times d$ matrix and column variance $\Sigma_t$, a $p \times p$ covariance matrix. $V_t$ is a scalar, scaling factor for the observation variance.
+
+Note that we can recover the naive composition (When $F_t$ and $G_t$ are the same for all models) by noticing that the Matrix Normal, $M \sim \mathcal{MN}_{p \times d}(0, \Omega_t, \Sigma_t)$ is equivalent to $vec(M) \sim \textrm{MVN}_{pd}(0, \Omega_t \otimes \Sigma_t)$, where the function $vec(m)$ creates a stacked vector of the columns of the matrix $m$ and $\otimes$ is the kronecker product. The Kronecker product of a $m \times n$ matrix A and a $p \times q$ matrix B results in an $np \times mq$ matrix:
+
+$$A\otimes B = \begin{bmatrix} a_{11} \mathbf{B} & \cdots & a_{1n}\mathbf{B} \\ \vdots & \ddots & \vdots \\ a_{m1} \mathbf{B} & \cdots & a_{mn} \mathbf{B} \end{bmatrix}.$$
+
+If we consider the number of parameters (not including the latent state) in the Naive model, $\psi = \begin{pmatrix}V_t & W_t\end{pmatrix}$ we have the values of the observation matrix, $v_{ij}$, $i = 1,\dots,p$ and $j = 1,\dots,p$ allowing for symmetry is $p(p+1)/2$ and the $W_t$ matrix, $D(D+1)/2$. If we restrict the naive model to have the same observation and system evolution matrix and hence the same dimension for each state in the composition then the total number of parameters is $p(p+1)/2 + dp(dp+1)/2$. The number of parameters in the Matrix Normal model is $p(p+1)/2$ for the matrix $\Sigma_t$ and $d(d+1)/2$ for the matrix $\Omega_t$. This is a much reduced parameter space at the expense of having to use the same observation and system evolution matrices for each of the $p$ time series.
+

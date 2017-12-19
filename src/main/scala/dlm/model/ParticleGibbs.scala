@@ -8,13 +8,14 @@ import cats.data.Reader
 import math.{exp, log}
 import breeze.stats.mean
 import ParticleFilter._
+import Dlm.Data
 
 /**
   * Particle Gibbs Sampler for A Dynamic Generalised Linear Model
   */
 object ParticleGibbs {
   case class State(
-    states:  List[LatentState],
+    states:  List[List[(Double, DenseVector[Double])]],
     weights: List[Double],
     ll:      Double)
 
@@ -26,34 +27,38 @@ object ParticleGibbs {
     mod: Model,
     p:   Dlm.Parameters) = (s: State, a: (Data, DenseVector[Double])) => a match {
 
-    case (Data(t, Some(y)), conditionedState) =>
-      // resample using the previous weights
-      val resampled = resample(s.states.head.toVector, s.weights.toVector).toList
+    case (d, conditionedState) =>
 
-      // advance n-1 resampled states from time t
-      val x1 = advanceState(mod.g, t, resampled.map(_._2), p).draw
+      val y = KalmanFilter.flattenObs(d.observation)
 
-      // concat conditioned state and advanced state
-      val x: List[DenseVector[Double]] = (conditionedState :: x1)
+      if (y.data.isEmpty) {
+        // resample using the previous weights
+        val resampledX = resample(s.states.head.toVector, s.weights.toVector)
 
-      // calculate weights of all n states at time t
-      val w = calcWeights(mod, t, x, y, p)
+        // advance n-1 states from time t, located at the head of the list
+        val x1 = advanceState(mod.g, d.time, s.states.head.map(_._2), p).draw
 
-      // log-sum-exp and calculate log-likelihood
-      val max = w.max
-      val w1 = w map (a => exp(a - max))
-      val ll = s.ll + max + log(mean(w1))
+        State(x1.map(x => (d.time, x)) :: s.states, List.fill(x1.size - 1)(1.0 / x1.size), s.ll)
+      } else {
+        // resample using the previous weights
+        val resampled = resample(s.states.head.toVector, s.weights.toVector).toList
 
-      State(x1.map(x => (t, x)) :: s.states, w1.tail, ll)
+        // advance n-1 resampled states from time t
+        val x1 = advanceState(mod.g, d.time, resampled.map(_._2), p).draw
 
-    case (Data(t, None), conditionedState) =>
-      // resample using the previous weights
-      val resampledX = resample(s.states.head.toVector, s.weights.toVector)
+        // concat conditioned state and advanced state
+        val x: List[DenseVector[Double]] = (conditionedState :: x1)
 
-      // advance n-1 states from time t, located at the head of the list
-      val x1 = advanceState(mod.g, t, s.states.head.map(_._2), p).draw
+        // calculate weights of all n states at time t
+        val w = calcWeights(mod, d.time, x, y, p)
 
-      State(x1.map(x => (t, x)) :: s.states, List.fill(x1.size - 1)(1.0 / x1.size), s.ll)
+        // log-sum-exp and calculate log-likelihood
+        val max = w.max
+        val w1 = w map (a => exp(a - max))
+        val ll = s.ll + max + log(mean(w1))
+
+        State(x1.map(x => (d.time, x)) :: s.states, w1.tail, ll)
+      }
   }
 
   /**
@@ -64,8 +69,8 @@ object ParticleGibbs {
     * @return a single path
     */
   def sampleState(
-    states:  List[LatentState], 
-    weights: List[Double]): Rand[LatentState]  = {
+    states:  List[List[(Double, DenseVector[Double])]], 
+    weights: List[Double]): Rand[List[(Double, DenseVector[Double])]]  = {
     for {
       k <- Multinomial(DenseVector(weights.toArray))
       x = states.transpose
@@ -87,7 +92,7 @@ object ParticleGibbs {
     n:             Int, 
     p:             Dlm.Parameters, 
     mod:           Model, 
-    obs:           List[Data])(state: LatentState): Rand[(Double, LatentState)] = {
+    obs:           List[Data])(state: List[(Double, DenseVector[Double])]): Rand[(Double, List[(Double, DenseVector[Double])])] = {
 
     val firstTime = obs.map(d => d.time).min
     val x0 = initState(p).sample(n-1).toList.map(x => (firstTime - 1, x))

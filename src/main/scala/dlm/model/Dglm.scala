@@ -5,6 +5,7 @@ import breeze.linalg.{DenseVector, DenseMatrix}
 import cats.implicits._
 import math.exp
 import breeze.stats.covmat
+import Dlm.Data
 
 object Dglm {
   /**
@@ -12,9 +13,9 @@ object Dglm {
     */
   case class Model(
     observation: (DenseVector[Double], DenseMatrix[Double]) => Rand[DenseVector[Double]],
-    f: ObservationMatrix,
-    g: SystemMatrix,
-    conditionalLikelihood: (Dlm.Parameters) => ConditionalLl
+    f: Double => DenseMatrix[Double],
+    g: Double => DenseMatrix[Double],
+    conditionalLikelihood: (Dlm.Parameters) => (DenseVector[Double], DenseVector[Double]) => Double
   )
 
   /**
@@ -43,7 +44,7 @@ object Dglm {
       mod.f,
       mod.g,
       conditionalLikelihood = (p: Dlm.Parameters) => 
-      (y: Observation, x: DenseVector[Double]) => 
+      (y: DenseVector[Double], x: DenseVector[Double]) => 
       ScaledStudentsT(df, x(0), math.sqrt(p.v(0,0))).logPdf(y(0))
     )
   }
@@ -91,16 +92,17 @@ object Dglm {
 
   def simStep(
     mod: Model, 
-    p:   Dlm.Parameters) = (time: Time, x: DenseVector[Double]) => {
+    p:   Dlm.Parameters) = (time: Double, x: DenseVector[Double]) => {
     for {
       x1 <- MultivariateGaussianSvd(mod.g(time) * x, p.w)
       y <- mod.observation(mod.f(time).t * x1, p.v)
-    } yield (Data(time + 1, y.some), x1)
+    } yield (Data(time + 1, y.map(_.some)), x1)
   }
 
   def simulate(mod: Model, p: Dlm.Parameters) = {
-    val initState = (Data(0, None), MultivariateGaussianSvd(p.m0, p.c0).draw)
-    MarkovChain(initState){ case (d, x) => simStep(mod, p)(d.time, x) }
+    val initState = MultivariateGaussianSvd(p.m0, p.c0).draw
+    val init = (Data(0, DenseVector[Option[Double]](None)), initState)
+    MarkovChain(init){ case (d, x) => simStep(mod, p)(d.time, x) }
   }
 
  /**
@@ -144,17 +146,17 @@ object Dglm {
     * @param p the parameters of the model
     * @return the time, mean observation and variance of the observation
     */
-  def forecastParticles(
-    mod:  Model, 
-    xt:   Vector[DenseVector[Double]], 
-    time: Time,
-    p:    Dlm.Parameters) = {
+  // def forecastParticles(
+  //   mod:  Model, 
+  //   xt:   Vector[DenseVector[Double]], 
+  //   time: Double,
+  //   p:    Dlm.Parameters) = {
 
-    MarkovChain((time, xt)){ case (t, x) => 
-      for {
-        x1 <- ParticleFilter.advanceState(mod.g, t + 1, x, p)
-      } yield (t + 1, x1)
-    }.steps.
-      map { case (t, x) => (t, meanVarObservation(mod, x, p.v).draw) }
-  }
+  //   MarkovChain((time, xt)){ case (t, x) => 
+  //     for {
+  //       x1 <- ParticleFilter.advanceState(mod.g, t + 1, x, p)
+  //     } yield (t + 1, x1)
+  //   }.steps.
+  //     map { case (t, x) => (t, meanVarObservation(mod, x, p.v).draw) }
+  // }
 }

@@ -30,7 +30,7 @@ trait CorrelatedData {
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.
     collect { 
-      case Success(a) => Data(a.head.toInt, DenseVector(a(1), a(2)).some)
+      case Success(a) => Data(a.head.toInt, DenseVector(a(1).some, a(2).some))
     }.
     toArray
 }
@@ -46,7 +46,7 @@ object SimulateCorrelated extends App with CorrelatedModel {
 
   def formatData(d: (Data, DenseVector[Double])) = d match {
     case (Data(t, y), x) =>
-      List(t.toDouble) ++ y.map(_.data).get ++ x.data
+      t :: KalmanFilter.flattenObs(y).data.toList ::: x.data.toList
   }
 
   while (sims.hasNext) {
@@ -117,7 +117,7 @@ object FirstOrderLinearTrendDlm extends App {
 
   def formatData(d: (Data, DenseVector[Double])) = d match {
     case (Data(t, y), x) =>
-      List(t.toDouble) ++ y.map(_.data).get ++ x.data
+      t :: KalmanFilter.flattenObs(y).data.toList ::: x.data.toList
   }
 
   while (sims.hasNext) {
@@ -127,19 +127,21 @@ object FirstOrderLinearTrendDlm extends App {
   writer.close()
 }
 
-object SusteInvestment extends App {
+object SusteInvestment extends App with CorrelatedModel {
     val data: Array[Data] = scala.io.Source.fromFile("data/invest2.dat").
-    getLines.
-    map(_.split(",")).
-    zipWithIndex.
-    map { case (x, i) => Data(i + 1960, Some(DenseVector(x(0), x(1).toDouble / 1000.0))) }.
-    toArray
+      getLines.
+      map(_.split(",")).
+      zipWithIndex.
+      map { case (x, i) => 
+        Data(i + 1960, DenseVector(x(0).toDouble.some, x(1).toDouble.some))
+      }.
+      toArray
 
-  def alpha(a: Double, b: Double) {
+  def alpha(a: Double, b: Double) = {
     (2 * b + a * a ) / b
   }
 
-  def beta(a: Double, b: Double) {
+  def beta(a: Double, b: Double) = {
     (a/b) * (a * a + b)
   }
 
@@ -148,16 +150,16 @@ object SusteInvestment extends App {
   val meanW = 1.0
 
   val priorV = InverseGamma(alpha(meanV, variance), beta(meanV, variance))
-  val priorW = InverseGamma(alpha(meanW, variance), beta(meanW, variance)))
+  val priorW = InverseGamma(alpha(meanW, variance), beta(meanW, variance))
 
   val initP = Parameters(
     v = DenseMatrix(priorV.draw),
     w = diag(DenseVector.fill(2)(priorW.draw)),
-    m0 = p.m0,
-    c0 = p.c0
+    m0 = DenseVector.zeros[Double](2),
+    c0 = DenseMatrix.eye[Double](2)
   )
 
-  val iters = GibbsSampling.sample(mod, priorV, priorW, initP, data).
+  val iters = GibbsSampling.sample(model, priorV, priorW, initP, data).
     steps.
     drop(12000).
     take(12000)

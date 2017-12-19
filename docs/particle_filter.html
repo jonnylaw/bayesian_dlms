@@ -11,7 +11,7 @@
 
 
 
-<title>Investment Data</title>
+<title>Particle Filter</title>
 
 <script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -241,57 +241,31 @@ $(document).ready(function () {
 
 
 
-<h1 class="title toc-ignore">Investment Data</h1>
+<h1 class="title toc-ignore">Particle Filter</h1>
 
 </div>
 
 
-<div id="r-markdown" class="section level2">
-<h2>R Markdown</h2>
-<p>This example is reproduced from <a href="https://www.springer.com/us/book/9780387772370">DLMs with R</a>, Section 4.5.1.</p>
-<p><img src="spain_investment_data_files/figure-html/read_investment_data-1.png" width="672" /></p>
-</div>
-<div id="proposed-model" class="section level1">
-<h1>Proposed Model</h1>
-<p>The proposed model is the second order DLM representing a linear growth.</p>
-<p><span class="math display">\[\begin{align}
-Y_t &amp;= F \textbf{x}_t + \textbf{v}_t, \quad v_t \sim \mathcal{N}(0, V), \\
-\textbf{X}_t &amp;= G \textbf{x}_{t-1} + w_t, \quad w_t \sim \textrm{MVN}(0, W), \\
-\textbf{X}_0 &amp;\sim \textrm{MVN}(m_0, C_0).
-\end{align}\]</span></p>
-<p>The state is two dimensional, as such the system noise matrix <span class="math inline">\(W\)</span> is a <span class="math inline">\(2 \times 2\)</span> matrix. The observation and system evolution matrices do not depend on time, the observation matrix is <span class="math inline">\(F = (1 \quad 0)\)</span> and the system evolution matrix is:</p>
-<p><span class="math display">\[G = \begin{pmatrix} 
-1 &amp; 1 \\
-0 &amp; 1
-\end{pmatrix}.\]</span></p>
-</div>
-<div id="gibbs-sampling" class="section level1">
-<h1>Gibbs Sampling</h1>
-<p>First we consider the joint distribution of the random variables in the model:</p>
-<p><span class="math display">\[p(\textbf{x}_{0:T}, y_{1:T}, V, W) = p(V)p(W)\prod_{t=1}^T p(y_t|\textbf{x}_t, V)p(\textbf{x}_t|\textbf{x}_{t-1}, W).\]</span></p>
-<p>The joint distribution simplifies nicely because of the conditional independent of the observations given the latent-state and the Markov property of the latent-state. In order to construct a gibbs sampler for the process, we can sample the latent-state using forward filtering backward sampling and use Inverse Gamma distributions for the prior distributions of <span class="math inline">\(V\)</span> and <span class="math inline">\(W\)</span>. This reduces to a conditional conjugate update for <span class="math inline">\(W\)</span> of the form:</p>
-<p><span class="math display">\[p(W|\textbf{x}_{0:T}, y_{1:T}, V) = \textrm{Inv-Gamma}\left(\alpha + \frac{T}{2}, \beta + \frac{1}{2}\sum_{t=1}^T (\textbf{x}_t - G_t\textbf{x}_{t-1})\right)\]</span></p>
-<p>And for the observation matrix, <span class="math inline">\(V\)</span>:</p>
-<p><span class="math display">\[p(V|\textbf{x}_{0:T}, y_{1:T}, W) = \textrm{Inv-Gamma}\left(\alpha + \frac{T}{2}, \beta + \frac{1}{2}\sum_{t=1}^T (y_t - F_t\textbf{x}_{t})\right)\]</span></p>
-<p>It is useful to specify prior belief about the parameters in terms of the mean and variance. If <span class="math inline">\(X \sim \textrm{Inv-Gamma}(\alpha, \beta)\)</span> then:</p>
-<p><span class="math display">\[\begin{aligned}
-\mathbb{E}(X) &amp;= \frac{\beta}{\alpha - 1}, \\
-\textrm{Var}(X) &amp;= \frac{\beta^2}{(\alpha-1)^2(\alpha-2)}.
-\end{aligned}\]</span></p>
-<p>Then let <span class="math inline">\(\mathbb{E}(X) = a\)</span> and <span class="math inline">\(\textrm{Var}(X) = b\)</span> and the solve for <span class="math inline">\(\alpha\)</span> and <span class="math inline">\(\beta\)</span>:</p>
-<p><span class="math display">\[\begin{aligned}
-\alpha &amp;= \frac{2b + a^2}{b}, \\
-\beta &amp;= \frac{a(a^2+b)}{b}.
-\end{aligned}\]</span></p>
-<p>The prior mean for the observation variance is <span class="math inline">\(a_y = 1\)</span> with variance <span class="math inline">\(b_y = 1000\)</span> and the prior mean for the system variance is <span class="math inline">\(a_x = 0.1\)</span> and variance <span class="math inline">\(b_x = 1000\)</span> leading to prior distributions of:</p>
-<p><span class="math display">\[\begin{aligned}
-p(V) &amp;= \textrm{Inv-Gamma}(2.001, 1.001) \\
-p(W) &amp;= \textrm{Inv-Gamma}(2.00001, 0.100001)
-\end{aligned}\]</span></p>
-<p>The following figure shows the density of these prior distributions:</p>
-<p><img src="spain_investment_data_files/figure-html/plot_priors-1.png" width="672" /></p>
-<p>The posterior densities summarised from 12,000 MCMC draws are plotted below:</p>
-<p><img src="spain_investment_data_files/figure-html/plot_gibbs_distributions-1.png" width="672" /></p>
+<div id="particle-filter" class="section level2">
+<h2>Particle Filter</h2>
+<p>The particle filter can be used for non-linear and non-Gaussian state space models, such as DGLMs. A general DGLM is given by:</p>
+<p><span class="math display">\[\begin{align*}
+Y_t &amp;\sim p(y_t | g(F_tx_t), \theta) \\
+X_t &amp;= G_tX_{t-1} + w_t, \qquad w_t \sim \mathcal{N}(0, W), \\
+X_0 &amp;\sim \mathcal{N}(m_0, C_0).
+\end{align*}\]</span></p>
+<p>Where <span class="math inline">\(p(y_t | F_tx_t, \theta)\)</span> is an Exponential Family distribution, with optional static parameter <span class="math inline">\(\theta\)</span>.</p>
+<p>The particle filter can be used to find the filtering state <span class="math inline">\(p(x_{0:t}|y_{1:T}, \psi)\)</span>, where <span class="math inline">\(\psi\)</span> represents the static parameters in the model. The particle filter algorithm proceeds as follows:</p>
+<p><em>Initialisation</em> 1. Sample <span class="math inline">\(k\)</span> initial particles from the initial distribution, <span class="math inline">\(x_0^{(i)} \sim \mathcal{N}(m_0, C_0), i = 1,\dots,k\)</span> 2. Initialise the particle weights <span class="math inline">\(w^{(i)} = \frac{1}{k}\)</span></p>
+<p><em>Main Loop</em></p>
+<ol start="3" style="list-style-type: decimal">
+<li>Assume at time <span class="math inline">\(t\)</span> we have weighted sample from the posterior <span class="math inline">\(\{x_t^{(i)}, w_t^{(i)}, i = 1,\dots,k\}\)</span></li>
+<li>Advance the state using the state evolution kernel <span class="math inline">\(x_{t+1}^{(i)} \sim \mathcal{N}(G_tx_t^{(i)}, W), i = 1,\dots,k\)</span></li>
+<li>Calculate the weights using the conditional likelihood: <span class="math inline">\(w_{t+1}^{(i)} = p(y_{t+1}|x_{t+1}^{(i)}), i = 1,\dots,k\)</span></li>
+<li>Normalise the weights, <span class="math inline">\(\pi_{t+1}^{(i)} = \frac{w_{t+1}^{(i)}}{\sum_{j=1}^kw_{t+1}^{(j)}}, i = 1,\dots,k\)</span></li>
+<li>Resample the particles by sampling <span class="math inline">\(u_j \sim p(\pmb\pi_{t+1})\)</span> then select <span class="math inline">\(x^{(u_j)}_{t+1}\)</span> <span class="math inline">\(j = 1,\dots,k\)</span></li>
+</ol>
+<p>Repeat the mean loop until <span class="math inline">\(t = T\)</span>.</p>
 </div>
 
 

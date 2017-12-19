@@ -41,7 +41,7 @@ $$F = \begin{pmatrix}1 & 0 & 1 & \dots & 1 & 0 \end{pmatrix}.$$
 
 We can specify a seasonal model with trend using:
 
-```tut
+```tut:silent
 import dlm.model._
 import cats.implicits._
 
@@ -50,7 +50,7 @@ val mod = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
 
 Then we can simulate from the model by supplying parameters and use the provided simulate function:
 
-```tut
+```tut:silent
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 
 val p = Dlm.Parameters(
@@ -94,7 +94,7 @@ sims %>%
 
 We can perform Kalman Filtering, to learn the distribution of the latent state given the data we have simulated:
 
-```tut
+```tut:silent
 val filtered = KalmanFilter.filter(mod, sims.map(_._1), p)
 ```
 
@@ -120,7 +120,7 @@ filtered %>%
 
 Kalman Smoothing can be performed:
 
-```tut
+```tut:silent
 val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
 ```
 
@@ -153,7 +153,7 @@ actual_values = tibble(
 
 The system matrix $W$ is diagonal, hence the Inverse Gamma distribution can be used for the observation and system noise matrices in a Gibbs Sampler. The state is sampled using Forward Filtering Backward Sampling (FFBS), then conditional on the state, the system and observation noise matrices are sampled from Inverse Gamma distributions. 
 
-```tut
+```tut:silent
 val iters = GibbsSampling.sample(
     mod, 
     InverseGamma(5.0, 4.0), 
@@ -215,7 +215,7 @@ Forecasting a DLM is equivalent to running the Kalman Filter without any observa
 
 First we take the mean value of the MCMC parameters, assuming that the parameters have been written to a CSV called `seasonal_dlm_gibbs.csv` with eight columns, $V, W_1,\dots,W_7$:
 
-```tut
+```tut:silent
 import java.nio.file.Paths
 import kantan.csv._
 import kantan.csv.ops._
@@ -239,17 +239,17 @@ val meanParameters = Dlm.Parameters(
 
 When then use these parameters to get the posterior distribution of the final state:
 
-```tut
+```tut:silent
   val filtered = KalmanFilter.filter(mod, sims.map(_._1), meanParameters)
   val (mt, ct, initTime) = filtered.map(a => (a.mt, a.ct, a.time)).last
 ```
 
 We then initialise the forecast function with state state posterior at the time of the last observation:
 
-```tut
-  val forecasted = Dlm.forecast(mod, mt, ct, initTime, meanParameters).
-    take(100).
-    toList
+```tut:silent
+val forecasted = Dlm.forecast(mod, mt, ct, initTime, meanParameters).
+  take(100).
+  toList
 ```
 
 The results of the forecasting and 95% prediction intervals are below:
@@ -258,9 +258,8 @@ The results of the forecasting and 95% prediction intervals are below:
 forecast = read_csv("../data/seasonal_model_forecast.csv")
 
 forecast %>%
-  rename(time = Time, forecast = Observation) %>%
-  mutate(upper = qnorm(p = 0.95, mean = forecast, sd = sqrt(Variance)),
-         lower = qnorm(p = 0.05, mean = forecast, sd = sqrt(Variance))) %>%
+  mutate(upper = qnorm(p = 0.95, mean = forecast, sd = sqrt(variance)),
+         lower = qnorm(p = 0.05, mean = forecast, sd = sqrt(variance))) %>%
   bind_rows(sims) %>%
   filter(time > 900) %>%
   gather(key, value, forecast, observation) %>%
@@ -269,5 +268,6 @@ forecast %>%
   geom_line(aes(x = time, y = lower), linetype = 2) +
   geom_line(aes(x = time, y = upper), linetype = 2) +
   labs(title = "Forecast for 100 Time Points") +
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom") +
+  coord_cartesian(ylim = c(-50, 50))
 ```
