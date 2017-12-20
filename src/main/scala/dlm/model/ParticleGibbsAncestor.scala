@@ -115,11 +115,17 @@ object ParticleGibbsAncestor extends App {
     ((xn :: x.transpose).transpose, xt)
   }
 
+  def missingState(x: DenseVector[Double], y: DenseVector[Option[Double]]) = {
+    val indices = KalmanFilter.indexNonMissing(y)
+    val xa = x.data
+    DenseVector(indices map (i => xa(i)))
+  }
+
 /**
   * The weights are proportional to the conditional likelihood of the observations
   * given the state multiplied by the transition probability of the resampled 
   * particles at time t-1 to the conditioned state at time t
-  * TODO: This could be wrong, as we do not calculate the transition probability properly
+  * TODO: This could be wrong, I don't think transition probability is calculated properly
   * @param mod the DGLM model
   * @param time the current time, t
   * @param xt the value of the state at time t
@@ -136,11 +142,15 @@ object ParticleGibbsAncestor extends App {
     xt:               DenseVector[Double],
     xt1:              DenseVector[Double],
     conditionedState: DenseVector[Double],
-    y:                DenseVector[Double],
+    y:                DenseVector[Option[Double]],
     p:                Dlm.Parameters): Double = {
 
-    mod.conditionalLikelihood(p)(y, xt) + 
-    transitionProbability(xt1, time, mod, p)(conditionedState)
+    val vm = KalmanFilter.missingV(p.v, y)
+    val ym = KalmanFilter.flattenObs(y)
+    val xm = missingState(xt, y)
+    val xm1 = missingState(xt1, y)
+    mod.conditionalLikelihood(vm)(ym, xm) + 
+    transitionProbability(xm1, time, mod, p)(conditionedState)
   }
 
   /**
@@ -173,7 +183,7 @@ object ParticleGibbsAncestor extends App {
         val w = (prevStates.head, statet).
           zipped.
           map { case (xt1, xt) =>
-            calcWeight(mod, d.time, xt._2, xt1._2, conditionedState, y, p)
+            calcWeight(mod, d.time, xt._2, xt1._2, conditionedState, d.observation, p)
           }
 
         // log-sum-exp and calculate log-likelihood

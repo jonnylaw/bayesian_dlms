@@ -78,14 +78,17 @@ gibbs_seasonal:
 	ssh topsy -t qstat
 
 
-student_t: simulate_student_t student_t_gibbs student_t_pmmh student_t_pg
+student_t: student_t_gibbs student_t_pmmh student_t_pg
 
 simulate_student_t: 
 	sbt "runMain dlm.examples.SimulateStudentT"
 
+student_t_gibbs_local: data/student_t_dglm.csv
+	sbt "runMain dlm.examples.StudentTGibbs"
+
 student_t_gibbs: data/student_t_dglm.csv
 	sbt assembly
-	cp target/scala-2.11/bayesian_dlms-assembly-0.2-SNAPSHOT.jar student_t_gibbs.jar
+	cp target/scala-2.11/bayesian_dlms-assembly-0.3.0-SNAPSHOT.jar student_t_gibbs.jar
 	ssh topsy -t mkdir -p /share/nobackup/a9169110/student_t_gibbs/data
 	scp data/student_t_dglm.csv topsy:/share/nobackup/a9169110/student_t_gibbs/data/.
 	scp student_t_gibbs.jar student_t_gibbs.qsub topsy:/share/nobackup/a9169110/student_t_gibbs/.
@@ -94,7 +97,7 @@ student_t_gibbs: data/student_t_dglm.csv
 
 student_t_pmmh: data/student_t_dglm.csv
 	sbt assembly
-	cp target/scala-2.11/bayesian_dlms-assembly-0.2-SNAPSHOT.jar student_t_pmmh.jar
+	cp target/scala-2.11/bayesian_dlms-assembly-0.3.0-SNAPSHOT.jar student_t_pmmh.jar
 	ssh topsy -t mkdir -p /share/nobackup/a9169110/student_t_pmmh/data
 	scp data/student_t_dglm.csv topsy:/share/nobackup/a9169110/student_t_pmmh/data/.
 	scp student_t_pmmh.jar student_t_pmmh.qsub topsy:/share/nobackup/a9169110/student_t_pmmh/.
@@ -103,7 +106,7 @@ student_t_pmmh: data/student_t_dglm.csv
 
 student_t_pg: data/student_t_dglm.csv
 	sbt assembly
-	cp target/scala-2.11/bayesian_dlms-assembly-0.2-SNAPSHOT.jar student_t_pg.jar
+	cp target/scala-2.11/bayesian_dlms-assembly-0.3.0-SNAPSHOT.jar student_t_pg.jar
 	ssh topsy -t mkdir -p /share/nobackup/a9169110/student_t_pg/data
 	scp data/student_t_dglm.csv topsy:/share/nobackup/a9169110/student_t_pg/data/.
 	scp student_t_pg.jar student_t_pg.qsub topsy:/share/nobackup/a9169110/student_t_pg/.

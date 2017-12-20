@@ -92,6 +92,17 @@ object KalmanFilter {
   }
 
   /**
+    * Build observation error variance matrix for potentially missing data
+    */
+  def missingV[A](
+    v: DenseMatrix[Double],
+    y: DenseVector[Option[A]]): DenseMatrix[Double] = {
+
+    val missing = indexNonMissing(y)
+    v(missing.toVector, missing.toVector).toDenseMatrix
+  }
+
+  /**
     * Perform a one-step prediction taking into account missing data
     * in the observations, this alters the size of the F-matrix
     * @param f the observation matrix
@@ -110,9 +121,10 @@ object KalmanFilter {
     y:    DenseVector[Option[Double]]
   ) = {
     val fm = missingF(f, time, y)
+    val vm = missingV(v, y)
 
     val ft = fm.t * at
-    val qt = fm.t * rt * fm + v
+    val qt = fm.t * rt * fm + vm
 
     (ft, qt)
   }
@@ -151,18 +163,21 @@ object KalmanFilter {
     if (y.data.isEmpty) {
       (ft, qt, at, rt, ll)
     } else {
-      val (predicted, predcov) = oneStepMissing(f, at, rt, d.time, v, d.observation)
+      val vm = missingV(v, d.observation)
+      val fm = missingF(f, d.time, d.observation)
+      val (predicted, predcov) = oneStepMissing(f, at, rt, d.time, vm, d.observation)
+
       val time = d.time
       val residual = y - predicted
       
-      val kalman_gain = (predcov.t \ (f(time).t * rt.t)).t
+      val kalman_gain = (predcov.t \ (fm.t * rt.t)).t
       val mt1 = at + kalman_gain * residual
       val n = mt1.size
 
       val identity = DenseMatrix.eye[Double](n)
 
-      val diff = (identity - kalman_gain * f(time).t)
-      val covariance = diff * rt * diff.t + kalman_gain * v * kalman_gain.t
+      val diff = (identity - kalman_gain * fm.t)
+      val covariance = diff * rt * diff.t + kalman_gain * vm * kalman_gain.t
 
       val newll = ll + conditionalLikelihood(predicted, predcov, y)
 

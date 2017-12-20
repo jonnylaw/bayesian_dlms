@@ -15,7 +15,7 @@ object Dglm {
     observation: (DenseVector[Double], DenseMatrix[Double]) => Rand[DenseVector[Double]],
     f: Double => DenseMatrix[Double],
     g: Double => DenseMatrix[Double],
-    conditionalLikelihood: (Dlm.Parameters) => (DenseVector[Double], DenseVector[Double]) => Double
+    conditionalLikelihood: (DenseMatrix[Double]) => (DenseVector[Double], DenseVector[Double]) => Double
   )
 
   /**
@@ -40,15 +40,21 @@ object Dglm {
   def studentT(df: Int, mod: Dlm.Model): Dglm.Model = {
     Dglm.Model(
       observation = (x: DenseVector[Double], v: DenseMatrix[Double]) =>
-        ScaledStudentsT(df, x(0), math.sqrt(v(0,0))).map(DenseVector(_)),
+        ScaledStudentsT(df, x(0), v(0,0)).map(DenseVector(_)),
       mod.f,
       mod.g,
-      conditionalLikelihood = (p: Dlm.Parameters) => 
+      conditionalLikelihood = (v: DenseMatrix[Double]) => 
       (y: DenseVector[Double], x: DenseVector[Double]) => 
-      ScaledStudentsT(df, x(0), math.sqrt(p.v(0,0))).logPdf(y(0))
+      ScaledStudentsT(df, x(0), v(0,0)).logPdf(y(0))
     )
   }
 
+  /**
+    * A beta distribution parameterised by the mean and variance
+    * @param mean the mean of the resulting beta distribution
+    * @param variance the variance of the beta distribution
+    * @return a beta distribution
+    */
   def beta(mean: Double, variance: Double): ContinuousDistr[Double] = {
     val a = (mean * (1 - mean)) / variance
     val alpha = mean * (a - 1)
@@ -70,10 +76,10 @@ object Dglm {
       },
       f = mod.f,
       g = mod.g,
-      conditionalLikelihood = p => (x, y) => {
+      conditionalLikelihood = v => (x, y) => {
         val mean = logisticFunction(1.0)(x(0))
 
-        beta(mean, p.v(0, 0)).logPdf(y(0))
+        beta(mean, v(0, 0)).logPdf(y(0))
       })
   }
 
@@ -85,11 +91,14 @@ object Dglm {
       observation = (x, v) => Poisson(exp(x(0))).map(DenseVector(_)),
       f = mod.f,
       g = mod.g,
-      conditionalLikelihood = p => (x, y) =>
+      conditionalLikelihood = v => (x, y) =>
       Poisson(exp(x(0))).logProbabilityOf(y(0).toInt)
     )
   }
 
+  /**
+    * Simulate a single step of a DGLM model
+    */
   def simStep(
     mod: Model, 
     p:   Dlm.Parameters) = (time: Double, x: DenseVector[Double]) => {
@@ -99,6 +108,9 @@ object Dglm {
     } yield (Data(time + 1, y.map(_.some)), x1)
   }
 
+  /**
+    * Simulate from a dlm model at regular time intervals
+    */
   def simulate(mod: Model, p: Dlm.Parameters) = {
     val initState = MultivariateGaussianSvd(p.m0, p.c0).draw
     val init = (Data(0, DenseVector[Option[Double]](None)), initState)
@@ -146,17 +158,17 @@ object Dglm {
     * @param p the parameters of the model
     * @return the time, mean observation and variance of the observation
     */
-  // def forecastParticles(
-  //   mod:  Model, 
-  //   xt:   Vector[DenseVector[Double]], 
-  //   time: Double,
-  //   p:    Dlm.Parameters) = {
+  def forecastParticles(
+    mod:  Model, 
+    xt:   Vector[DenseVector[Double]], 
+    time: Double,
+    p:    Dlm.Parameters) = {
 
-  //   MarkovChain((time, xt)){ case (t, x) => 
-  //     for {
-  //       x1 <- ParticleFilter.advanceState(mod.g, t + 1, x, p)
-  //     } yield (t + 1, x1)
-  //   }.steps.
-  //     map { case (t, x) => (t, meanVarObservation(mod, x, p.v).draw) }
-  // }
+    MarkovChain((time, xt)){ case (t, x) => 
+      for {
+        x1 <- ParticleFilter.advanceState(mod.g, t + 1, x, p)
+      } yield (t + 1, x1)
+    }.steps.
+      map { case (t, x) => (t, meanVarObservation(mod, x, p.v).draw) }
+  }
 }
