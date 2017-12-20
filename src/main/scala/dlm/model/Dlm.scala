@@ -277,7 +277,7 @@ object Dlm {
     val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, mt, ct, time, p.v)
 
     Stream.iterate((time, mt, ct, ft, qt)){ 
-      case (t, m, c, _, _) => stepForecast(mod, t + 1, m, c, 1.0, p) }.
+      case (t, m, c, _, _) => stepForecast(mod, t + 1, 1.0, m, c, p) }.
       map(a => (a._1, a._4.data(0), a._5.data(0)))
   }
 

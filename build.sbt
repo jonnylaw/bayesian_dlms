@@ -21,7 +21,7 @@ scalacOptions ++= Seq(
 libraryDependencies ++= Seq(
   "org.scalanlp"        %% "breeze"             % "0.13.2",
   "org.scalanlp"        %% "breeze-natives"     % "0.13.2",
-  "org.typelevel"       %% "cats-core"          % "0.9.0",
+  "org.typelevel"        %% "cats-core"         % "1.0.0-RC1",
   "com.nrinaudo"        %% "kantan.csv-cats"    % "0.3.0",
   "org.scalatest"       %% "scalatest"          % "3.0.4"  % "test"
 )

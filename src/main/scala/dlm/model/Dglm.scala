@@ -40,12 +40,12 @@ object Dglm {
   def studentT(df: Int, mod: Dlm.Model): Dglm.Model = {
     Dglm.Model(
       observation = (x: DenseVector[Double], v: DenseMatrix[Double]) =>
-        ScaledStudentsT(df, x(0), math.sqrt(v(0,0))).map(DenseVector(_)),
+        ScaledStudentsT(df, x(0), v(0,0)).map(DenseVector(_)),
       mod.f,
       mod.g,
       conditionalLikelihood = (p: Dlm.Parameters) => 
       (y: DenseVector[Double], x: DenseVector[Double]) => 
-      ScaledStudentsT(df, x(0), math.sqrt(p.v(0,0))).logPdf(y(0))
+      ScaledStudentsT(df, x(0), p.v(0,0)).logPdf(y(0))
     )
   }
 
@@ -146,17 +146,17 @@ object Dglm {
     * @param p the parameters of the model
     * @return the time, mean observation and variance of the observation
     */
-  // def forecastParticles(
-  //   mod:  Model, 
-  //   xt:   Vector[DenseVector[Double]], 
-  //   time: Double,
-  //   p:    Dlm.Parameters) = {
+  def forecastParticles(
+    mod:  Model, 
+    xt:   Vector[DenseVector[Double]], 
+    time: Double,
+    p:    Dlm.Parameters) = {
 
-  //   MarkovChain((time, xt)){ case (t, x) => 
-  //     for {
-  //       x1 <- ParticleFilter.advanceState(mod.g, t + 1, x, p)
-  //     } yield (t + 1, x1)
-  //   }.steps.
-  //     map { case (t, x) => (t, meanVarObservation(mod, x, p.v).draw) }
-  // }
+    MarkovChain((time, xt)){ case (t, x) => 
+      for {
+        x1 <- ParticleFilter.advanceState(mod.g, t + 1, x, p)
+      } yield (t + 1, x1)
+    }.steps.
+      map { case (t, x) => (t, meanVarObservation(mod, x, p.v).draw) }
+  }
 }
