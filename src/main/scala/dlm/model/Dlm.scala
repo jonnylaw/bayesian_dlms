@@ -97,7 +97,6 @@ object Dlm {
 
   /**
     * Build a block diagonal matrix by combining two matrices of the same size
-    * TODO: Test and check this function
     */
   def blockDiagonal(
     a: DenseMatrix[Double],
@@ -113,6 +112,9 @@ object Dlm {
     )
   }
 
+  /**
+    * Build the G matrix for the system evolution
+    */
   def seasonalG(
     period:    Int,
     harmonics: Int)(
@@ -125,7 +127,7 @@ object Dlm {
   }
 
   /**
-    * 
+    * Get the angle of the rotation for the seasonal model
     */
   def angle(period: Int)(dt: Double): Double = {
     2 * math.Pi * (dt % period) / period
@@ -134,7 +136,8 @@ object Dlm {
   /**
     * Create a seasonal model with fourier components in the system evolution matrix
     * @param period the period of the seasonality
-    * @param 
+    * @param harmonics the number of harmonics in the seasonal model
+    * @return a seasonal DLM model
     */
   def seasonal(period: Int, harmonics: Int): Model = {
     Model(
@@ -146,6 +149,10 @@ object Dlm {
 
   /**
     * Simulate a single step from a DLM, used in simulateRegular
+    * @param mod a DLM model
+    * @param x a realisation from the latent state at time t-1
+    * @param time the current time
+    * @param p 
     */
   def simStep(
     mod: Model, 
@@ -246,11 +253,12 @@ object Dlm {
   def stepForecast(
     mod:  Model,
     time: Double,
+    dt:   Double,
     mt:   DenseVector[Double], 
     ct:   DenseMatrix[Double],
     p:    Parameters) = {
 
-    val (at, rt) = KalmanFilter.advanceState(mod.g, mt, ct, time, p.w)
+    val (at, rt) = KalmanFilter.advanceState(mod.g, mt, ct, dt, p.w)
     val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, at, rt, time, p.v)
 
     (time, at, rt, ft, qt)
@@ -269,7 +277,7 @@ object Dlm {
     val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, mt, ct, time, p.v)
 
     Stream.iterate((time, mt, ct, ft, qt)){ 
-      case (t, m, c, _, _) => stepForecast(mod, t + 1, m, c, p) }.
+      case (t, m, c, _, _) => stepForecast(mod, t + 1, m, c, 1.0, p) }.
       map(a => (a._1, a._4.data(0), a._5.data(0)))
   }
 
