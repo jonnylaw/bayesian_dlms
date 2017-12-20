@@ -40,13 +40,9 @@ sims %>%
 
 ## Parameter learning
 
-In order to fit the t-distributed state space model to observed data we need to learn the values of the parameters $\psi = \{s^2, W, m_0, C_0\}$. A particle filter can be used to find an (unbiased) estimate of the likelihood, then Metropolis Hastings can be used to learn the posterior distribution of the parameters. Alternatively, Particle Gibbs can be used to sample a value of the state then the conjugate structure of the latent-state with unknown variance, $W$ can be exploited. The scale would then be updated using Metropolis hastings. However, since the Student's t-distrubtion is an Inverse Gamma mixture of normals, we can actually use the Kalman Filter to sample the value of the state and perform Gibbs sampling for the value of the scale, $s$. This reduces computational complexity, at the expense of some algebra!
+In order to fit the t-distributed state space model to observed data we need to learn the values of the parameters $\psi = \{s^2, W, m_0, C_0\}$. A particle filter can be used to find an (unbiased) estimate of the likelihood, then Metropolis Hastings can be used to learn the posterior distribution of the parameters. Alternatively, Particle Gibbs can be used to sample a value of the state then the conjugate structure of the latent-state with unknown variance, $W$ can be exploited. The scale would then be updated using Metropolis hastings. However, since the Student's t-distrubtion is an Inverse Gamma mixture of normals, we can use the Kalman Filter to sample the value of the state and perform Gibbs sampling for the value of the scale, $s$.
 
-### Particle Filtering
-
-Firsly, determine the posterior, $p(\psi|y_{1:T})$, using Particle Marginal Metropolis Hastings:
-
-```{r pmmh-diagnostics}
+```{r pmmh-diagnostics, eval=FALSE}
 chain = read_csv("../data/student_t_dglm_pmmh.csv")
 parameters = chain[-c(1:1000),] %>%
   mcmc() %>% ggs()
@@ -185,6 +181,11 @@ ggplot(data = prior_w, aes(x = x)) +
   # stat_function(fun = function(x) 1 / dgamma(x = x, shape = 3.0, rate = 2.0))
 ```
 
+In order to run the perform Gibbs sampling on the sampled data, we use the following code:
+
+```tut:silent
+val iters = StudentTGibbs.sample(3, data.toVector, InverseGamma(21.0, 2.0), mod, params)
+```
 
 ```{r density_student_t}
 chain = read_csv("../data/student_t_dglm_gibbs.csv")

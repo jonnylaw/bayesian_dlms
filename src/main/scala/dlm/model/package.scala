@@ -16,7 +16,7 @@ package object model {
       (x: DenseVector[Double], v: DenseMatrix[Double]) => MultivariateGaussianSvd(x, v),
       dlmModel.f,
       dlmModel.g,
-      (p: Dlm.Parameters) => (x: DenseVector[Double], y: DenseVector[Double]) => MultivariateGaussianSvd(x, p.v).logPdf(y)
+      (v: DenseMatrix[Double]) => (x: DenseVector[Double], y: DenseVector[Double]) => MultivariateGaussianSvd(x, v).logPdf(y)
     )
   }
 

@@ -50,7 +50,7 @@ object ParticleGibbs {
         val x: List[DenseVector[Double]] = (conditionedState :: x1)
 
         // calculate weights of all n states at time t
-        val w = calcWeights(mod, d.time, x, y, p)
+        val w = calcWeights(mod, d.time, x, d.observation, p)
 
         // log-sum-exp and calculate log-likelihood
         val max = w.max

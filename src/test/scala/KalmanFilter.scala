@@ -63,21 +63,21 @@ class KfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matchers w
 }
 
 class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
-  val model = Dlm.polynomial(1)
+  val model = Dlm.polynomial(1) |*| Dlm.polynomial(1)
   val p = Dlm.Parameters(
-    v = DenseMatrix(3.0),
-    w = DenseMatrix(1.0),
-    m0 = DenseVector(0.0),
-    c0 = DenseMatrix(1.0)
+    v = diag(DenseVector(3.0, 3.0)),
+    w = diag(DenseVector(1.0, 1.0)),
+    m0 = DenseVector.fill(2)(0.0),
+    c0 = diag(DenseVector(1.0, 1.0))
   )
 
   val data = Array(
-    Data(1.0, DenseVector(Some(4.5))),
-    Data(2.0, DenseVector(Some(3.0))),
-    Data(3.0, DenseVector(Some(6.3))),
-    Data(4.0, DenseVector[Option[Double]](None)),
-    Data(5.0, DenseVector(Some(10.1))),
-    Data(7.0, DenseVector(Some(15.2)))
+    Data(1.0, DenseVector(Some(4.5), Some(4.5))),
+    Data(2.0, DenseVector(Some(3.0), Some(3.0))),
+    Data(3.0, DenseVector(Some(6.3), Some(6.3))), 
+    Data(4.0, DenseVector[Option[Double]](None, None)),
+    Data(5.0, DenseVector(Some(10.1), None)),// partially observed
+    Data(7.0, DenseVector(Some(15.2), Some(15.2)))
   )
 
   val y1 = data.head
@@ -89,7 +89,7 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
   // tolerance
   implicit val tol = 1e-4
 
-  test("advance state for first order model be a1 = m0, R1 = C0 + W") {
+  test("advance state for first order model should be a1 = m0, R1 = C0 + W") {
     assert(a1 === p.m0)
     assert(r1 === p.c0 + p.w)
   }
@@ -108,73 +108,68 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
   val filterOne = KalmanFilter.step(model, p)(state1, data(1))
 
   test("time step 2") {
-    assert(filterOne.at(0) === 1.8)
-    assert(filterOne.rt(0,0) === 2.2)
+    assert(filterOne.at === DenseVector(1.8, 1.8))
+    assert(filterOne.rt === diag(DenseVector(2.2, 2.2)))
 
-    assert(filterOne.y.get(0) === 1.8)
-    assert(filterOne.cov.get(0,0) === 5.2)
+    assert(filterOne.y.get === DenseVector(1.8, 1.8))
+    assert(filterOne.cov.get === diag(DenseVector(5.2, 5.2)))
 
-    assert(filterOne.mt(0) === 2.307692 +- tol)
-    assert(filterOne.ct(0,0) === 1.269231 +- tol)
+    assert(filterOne.mt === DenseVector(2.307692, 2.307692))
+    assert(filterOne.ct === diag(DenseVector(1.269231, 1.269231)))
   }
 
   val filterTwo = KalmanFilter.step(model, p)(filterOne, data(2))
 
   test("time step 3") {
-    assert(filterTwo.at(0) === 2.307692 +- tol)
-    assert(filterTwo.rt(0,0) === 2.269231 +- tol)
+    assert(filterTwo.at === DenseVector(2.307692, 2.307692))
+    assert(filterTwo.rt === diag(DenseVector(2.269231, 2.269231)))
 
-    assert(filterTwo.y.get(0) === 2.307692 +- tol)
-    assert(filterTwo.cov.get(0,0) === 5.269231 +- tol)
+    assert(filterTwo.y.get === DenseVector(2.307692, 2.307692))
+    assert(filterTwo.cov.get === diag(DenseVector(5.269231, 5.269231)))
 
-    assert(filterTwo.mt(0) === 4.027007 +- tol)
-    assert(filterTwo.ct(0,0) === 1.291971 +- tol)
+    assert(filterTwo.mt === DenseVector(4.027007, 4.027007))
+    assert(filterTwo.ct === diag(DenseVector(1.291971, 1.291971)))
   }
 
   val filterThree = KalmanFilter.step(model, p)(filterTwo, data(3))
 
   test("time step 4, missing data") {
-    assert(filterThree.at(0) === 4.027007 +- tol)
-    assert(filterThree.rt(0,0) === 2.291971 +- tol)
+    assert(filterThree.at === DenseVector(4.027007, 4.027007))
+    assert(filterThree.rt === diag(DenseVector(2.291971, 2.291971)))
 
-    assert(filterThree.y.get(0) === 4.027007 +- tol)
-    assert(filterThree.cov.get(0,0) === 5.291971 +- tol)
+    assert(filterThree.y.get === DenseVector(4.027007, 4.027007))
+    assert(filterThree.cov.get === diag(DenseVector(5.291971, 5.291971)))
 
-    assert(filterThree.mt(0) === 4.027007 +- tol)
-    assert(filterThree.ct(0,0) === 2.291971 +- tol)
+    assert(filterThree.mt === DenseVector(4.027007, 4.027007))
+    assert(filterThree.ct === diag(DenseVector(2.291971, 2.291971)))
   }
 
   val filterFour = KalmanFilter.step(model, p)(filterThree, data(4))
 
-  test("time step, t = 5") {
-    assert(filterFour.at(0) === 4.027007 +- tol)
-    assert(filterFour.rt(0,0) === 3.291971 +- tol)
+  test("time step, t = 5, partially observed data") {
+    assert(filterFour.at === DenseVector(4.027007, 4.027007))
+    assert(filterFour.rt === diag(DenseVector(3.291971, 3.291971)))
 
-    assert(filterFour.y.get(0) === 4.027007 +- tol)
-    assert(filterFour.cov.get(0,0) === 6.291971 +- tol)
+    assert(filterFour.y.get === DenseVector(4.027007, 4.027007))
+    assert(filterFour.cov.get === diag(DenseVector(6.291971, 6.291971)))
 
-    assert(filterFour.mt(0) === 7.204408 +- tol)
-    assert(filterFour.ct(0,0) === 1.569606 +- tol)
+    assert(filterFour.mt === DenseVector(7.204408, 4.027007))
+    assert(filterFour.ct === diag(DenseVector(1.569606, 3.291971)))
   }
 
   val filterFive = KalmanFilter.step(model, p)(filterFour, data(5))
 
   test("time step, t = 7, skip an observation without encoding") {
-    assert(filterFive.at(0) === 7.204408 +- tol)
-    assert(filterFive.rt(0,0) === 3.569606 +- tol)
+    assert(filterFive.at === DenseVector(7.204408, 4.027007))
+    assert(filterFive.rt === diag(DenseVector(3.569606, 5.291971)))
 
-    assert(filterFive.y.get(0) === 7.204408 +- tol)
-    assert(filterFive.cov.get(0,0) === 6.569606 +- tol)
+    assert(filterFive.y.get === DenseVector(7.204408, 4.027007))
+    assert(filterFive.cov.get === diag(DenseVector(6.569606, 8.291971)))
 
-    assert(filterFive.mt(0) === 11.54883 +- tol)
-    assert(filterFive.ct(0,0) === 1.630055 +- tol)
+    // calculate the update 
+    // assert(filterFive.mt === 11.54883)
+    // assert(filterFive.ct === 1.630055)
   }
-
-  // val filtered = KalmanFilter.filter(model, data, p)
-
-  // test("Full kalman Filter is equivalent to all steps") {
-  //   assert(filtered.head === filter
-  // }
 
   test("Missing Matrix") {
     val obs = DenseVector(Some(1), None, Some(1), None, Some(5), None)

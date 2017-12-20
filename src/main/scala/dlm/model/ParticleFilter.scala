@@ -42,7 +42,7 @@ object ParticleFilter {
     p:     Dlm.Parameters) = {
 
     state traverse (x => 
-      MultivariateGaussianSvd(g(time) * x , p.w): Rand[DenseVector[Double]])
+      MultivariateGaussianSvd(g(time) * x, p.w): Rand[DenseVector[Double]])
   }
 
   /**
@@ -61,10 +61,12 @@ object ParticleFilter {
     mod:    Model, 
     time:   Double, 
     state:  F[DenseVector[Double]], 
-    y:      DenseVector[Double],
+    y:      DenseVector[Option[Double]],
     p:      Dlm.Parameters
   ) = {
-    state.map(x => mod.conditionalLikelihood(p)(mod.f(time).t * x, y))
+    val fm = KalmanFilter.missingF(mod.f, time, y)
+    val vm = KalmanFilter.missingV(p.v, y)
+    state.map(x => mod.conditionalLikelihood(vm)(fm.t * x, KalmanFilter.flattenObs(y)))
   }
 
   /**
@@ -96,7 +98,7 @@ object ParticleFilter {
     } else {
       val resampledX = resample(s.state, s.weights)
       val x1 = advanceState(mod.g, d.time, resampledX, p).draw
-      val w = calcWeights(mod, d.time, x1, y, p)
+      val w = calcWeights(mod, d.time, x1, d.observation, p)
       val max = w.max
       val w1 = w map (a => exp(a - max))
       val ll = s.ll + max + log(mean(w1))
