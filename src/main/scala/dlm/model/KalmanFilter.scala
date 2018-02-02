@@ -39,16 +39,19 @@ object KalmanFilter {
     * @return the a-priori mean and covariance of the state at time t
     */
   def advanceState(
-    g:    Double => DenseMatrix[Double],
-    mt:   DenseVector[Double], 
-    ct:   DenseMatrix[Double],
-    dt:   Double, 
-    w:    DenseMatrix[Double]) = {
+    g:  Double => DenseMatrix[Double],
+    mt: DenseVector[Double], 
+    ct: DenseMatrix[Double],
+    dt: Double, 
+    w:  DenseMatrix[Double]) = {
+    if (dt == 0) {
+      (mt, rt)
+    } else {
+      val at = g(dt) * mt
+      val rt = g(dt) * ct * g(dt).t + w * dt
 
-    val at = g(dt) * mt
-    val rt = g(dt) * ct * g(dt).t + w * dt
-
-    (at, rt)
+      (at, rt)
+    }
   }
 
   /**
