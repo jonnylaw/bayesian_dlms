@@ -8,7 +8,7 @@ Bayesian Inference for Dynamic Linear Models (DLMs)
 This package is crossbuilt for Scala 2.11.11 and Scala 2.12.1. To install using sbt add this to your `build.sbt`:
 
 ```scala
-libraryDependencies += "com.github.jonnylaw" %% "bayesian_dlms" % "0.2"
+libraryDependencies += "com.github.jonnylaw" %% "bayesian_dlms" % "0.3.2"
 ```
 
 Check out the [documentation](https://jonnylaw.github.io/bayesian_dlms/).
