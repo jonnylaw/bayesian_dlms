@@ -21,3 +21,4 @@ class MetropolisHastings extends PropSpec with GeneratorDrivenPropertyChecks wit
     }
   }
 }
+

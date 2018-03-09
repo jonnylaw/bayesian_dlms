@@ -27,10 +27,10 @@ case class MultivariateGaussianSvd(
     // the product of the eigenvalues is equal to the determinant of A
     // hence the sum the log of the eigenvalues is equal to the log determinant of A
     val det = sum(log(root.eigenvalues))
-    mean.length/2.0 *  log(2 * Pi) + det
+    mean.length * 0.5 * log(2 * Pi) + sqrt(det)
   }
 
-  def unnormalizedLogPdf(x: breeze.linalg.DenseVector[Double]): Double = {
+  def unnormalizedLogPdf(x: DenseVector[Double]): Double = {
     val centered = x - mu
     val slv = cov \ centered
 

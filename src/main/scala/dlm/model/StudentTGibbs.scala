@@ -66,7 +66,10 @@ object StudentTGibbs {
 
   /**
     * Sample the state, incorporating the drawn variances for each observation
-    * @param 
+    * @param variances 
+    * @param params
+    * @param mod
+    * @param observations
     */
   def sampleState(
     variances:    Vector[Double],
@@ -84,7 +87,7 @@ object StudentTGibbs {
 
     val init = KalmanFilter.State(
       observations.map(_.time).min - 1, 
-      params.m0, params.c0, at, rt, None, None, 0.0)
+      params.m0, params.c0, at, rt, None, None)
 
     // fold over the list of variances and the observations
     val filtered = ps.zip(observations).

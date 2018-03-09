@@ -34,7 +34,7 @@ trait SimulatedData {
 }
 
 object SimulateDlm extends App with FirstOrderDlm {
-  val sims = simulateRegular(0, mod, p).
+  val sims = simulateRegular(0, mod, p,1.0).
     steps.
     take(100)
 

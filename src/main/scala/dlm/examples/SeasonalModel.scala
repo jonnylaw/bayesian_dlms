@@ -38,7 +38,7 @@ trait SeasonalData {
   * Simulate data from a Seasonal DLM
   */
 object SimulateSeasonalDlm extends App with SeasonalModel {
-  val sims = simulateRegular(0, mod, p).
+  val sims = simulateRegular(0, mod, p, 1.0).
     steps.
     take(1000)
 

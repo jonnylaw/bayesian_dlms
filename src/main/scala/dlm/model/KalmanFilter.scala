@@ -15,7 +15,6 @@ object KalmanFilter {
     * @param rt the prior covariance of the latent state
     * @param y the one step predicted observation mean, not present at the first timestep
     * @param cov the one step predicted observation covariance, not present at the first timestep
-    * @param ll the current log-likelihood of all the observations up until the current time
     */
   case class State(
     time: Double,
@@ -24,8 +23,7 @@ object KalmanFilter {
     at:   DenseVector[Double],
     rt:   DenseMatrix[Double],
     y:    Option[DenseVector[Double]],
-    cov:  Option[DenseMatrix[Double]],
-    ll:   Double
+    cov:  Option[DenseMatrix[Double]]
   )
 
   /**
@@ -145,7 +143,6 @@ object KalmanFilter {
     * @param rt the a priori state variance at time t
     * @param d the actual observation at time t
     * @param v the variance of the measurement noise
-    * @param ll the current log-likelihood
     * @return the posterior mean and variance of the latent state at time t
     */
   def updateState(
@@ -153,15 +150,14 @@ object KalmanFilter {
     at:        DenseVector[Double],
     rt:        DenseMatrix[Double],
     d:         Data, 
-    v:         DenseMatrix[Double],
-    ll:        Double) = {
+    v:         DenseMatrix[Double]) = {
     
     val y = flattenObs(d.observation)
     // perform one step prediction
     val (ft, qt) = oneStepPrediction(f, at, rt, d.time, v)
 
     if (y.data.isEmpty) {
-      (ft, qt, at, rt, ll)
+      (ft, qt, at, rt)
     } else {
       val vm = missingV(v, d.observation)
       val fm = missingF(f, d.time, d.observation)
@@ -179,9 +175,9 @@ object KalmanFilter {
       val diff = (identity - kalman_gain * fm.t)
       val covariance = diff * rt * diff.t + kalman_gain * vm * kalman_gain.t
 
-      val newll = ll + conditionalLikelihood(predicted, predcov, y)
+      // val newll = ll + conditionalLikelihood(predicted, predcov, y)
 
-      (ft, qt, mt1, covariance, newll)
+      (ft, qt, mt1, covariance)
     }
   }
 
@@ -212,9 +208,9 @@ object KalmanFilter {
 
     val dt = y.time - state.time
     val (at, rt) = advanceState(mod.g, state.mt, state.ct, dt, p.w)
-    val (ft, qt, mt, ct, ll) = updateState(mod.f, at, rt, y, p.v, state.ll)
+    val (ft, qt, mt, ct) = updateState(mod.f, at, rt, y, p.v)
 
-    State(y.time, mt, ct, at, rt, Some(ft), Some(qt), ll)
+    State(y.time, mt, ct, at, rt, Some(ft), Some(qt))
   }
 
   /**
@@ -227,8 +223,8 @@ object KalmanFilter {
     val (at: DenseVector[Double], rt: DenseMatrix[Double]) = 
       advanceState(mod.g, p.m0, p.c0, 0, p.w)
     val init = State(
-      observations.map(_.time).min - 1, 
-      p.m0, p.c0, at, rt, None, None, 0.0)
+      observations.map(_.time).min - 1.0, 
+      p.m0, p.c0, at, rt, None, None)
 
     observations.scanLeft(init)(step(mod, p))
   }
@@ -239,17 +235,17 @@ object KalmanFilter {
   def logLikelihood(
     mod: Model, 
     observations: Array[Data])
-    (p: Parameters): Double = {
+    (p: Parameters): Double = ???
 
-    val (at, rt) = advanceState(mod.g, p.m0, p.c0, 0, p.w)
-    val init = State(
-      observations.map(_.time).min - 1,
-      p.m0,
-      p.c0,
-      at,
-      rt,
-      None, None, 0.0)
+  //   val (at, rt) = advanceState(mod.g, p.m0, p.c0, 0, p.w)
+  //   val init = State(
+  //     observations.map(_.time).min - 1.0,
+  //     p.m0,
+  //     p.c0,
+  //     at,
+  //     rt,
+  //     None, None, 0.0)
 
-    observations.foldLeft(init)(step(mod, p)).ll
-  }
+  //   observations.foldLeft(init)(step(mod, p))
+  // }
 }

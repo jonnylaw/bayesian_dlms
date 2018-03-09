@@ -4,6 +4,7 @@ title: "Correlated DLM"
 
 ```{r setup, include=FALSE}
 library(tidyverse)
+library(patchwork)
 knitr::opts_chunk$set(cache=TRUE, echo=FALSE, message=FALSE, warning=FALSE)
 theme_set(theme_minimal())
 ```
@@ -111,7 +112,7 @@ For simplicity of exposition we consider the outer sum of two first order DLMs. 
 
 $$\begin{align*}
 \begin{pmatrix}y_{1,t} \\ y_{2,t}\end{pmatrix} &= \begin{pmatrix}1 & 0 \\ 0 & 1\end{pmatrix}\begin{pmatrix}x_{1,t} \\ x_{2,t}\end{pmatrix} + \begin{pmatrix}v_{1,t} \\ v_{2,t} \end{pmatrix}, \qquad \textbf{v} \sim \textrm{MVN}\left(0, \begin{pmatrix}V_1 & 0 \\ 0 & V_2\end{pmatrix}\right), \\
-\begin{pmatrix}x_{1,t} \\ x_{2,t} \end{pmatrix} &= \begin{pmatrix}1 & 0 \\ 0 & 1\end{pmatrix} \begin{pmatrix}x_{1,t-1} \\ x_{2,t-1} \end{pmatrix} + \begin{pmatrix} w_1 \\ w_2 \end{pmatrix}, \qquad \textbf{v} \sim \textrm{MVN}\left(0, \begin{pmatrix}W_1 & W_2 \\ W_3 & W_4\end{pmatrix}\right), \\
+\begin{pmatrix}x_{1,t} \\ x_{2,t} \end{pmatrix} &= \begin{pmatrix}1 & 0 \\ 0 & 1\end{pmatrix} \begin{pmatrix}x_{1,t-1} \\ x_{2,t-1} \end{pmatrix} + \begin{pmatrix} w_1 \\ w_2 \end{pmatrix}, \qquad \textbf{v} \sim \textrm{MVN}\left(0, \begin{pmatrix}W_1 & W_2 \\ W_4 & W_4\end{pmatrix}\right), \\
 \textbf{x}_0 &\sim \textrm{MVN}(m_0, C_0).
 \end{align*}$$
 
@@ -121,7 +122,7 @@ A simulation from this model is presented in the figure below:
 data = read_csv("../data/correlated_dlm.csv")
 
 data %>%
-  gather(key, value, observation_1, observation_2) %>%
+  gather(key, value, contains("observation")) %>%
   ggplot(aes(x = time, y = value)) +
   geom_line() +
   facet_wrap(~key, scales = "free_y", ncol = 1)
@@ -132,21 +133,21 @@ data %>%
 Given that we have simulated the model, we can perform the Kalman filter to determine the filtering distribution of the latent state using the true value of the parameters. The figure below shows the filtering distribution with 90% probability intervals for time $t = 200, \dots , 300$.
 
 ```{r filter-correlated}
-filtered = read_csv("../data/correlated_dlm_filtered.csv")
+filtered = read_csv("../data/correlated_dlm_filtered.csv", 
+                    col_names = c("time", paste("state", 1:2, "mean", sep = "_"), paste("variance", 1:2, sep = "_")))
 
 filtered %>%
   inner_join(data, by = "time") %>%
-  filter(time > 200) %>%
-  filter(time < 300) %>%
-  mutate(upper = qnorm(p = 0.95, mean = state_mean, sd = sqrt(state_variance))) %>%
-  mutate(lower = qnorm(p = 0.05, mean = state_mean, sd = sqrt(state_variance))) %>%
-  gather(key, value, state_mean, state_1) %>%
+  filter(time > 50) %>%
+  mutate(lower = qnorm(p = 0.05, mean = state_2_mean, sd = sqrt(variance_2))) %>%
+  mutate(upper = qnorm(p = 0.95, mean = state_2_mean, sd = sqrt(variance_2))) %>%
+  gather(key, value, contains("state_2")) %>%
   ggplot(aes(x = time, y = value, colour = key)) +
   geom_line() +
   geom_line(aes(x = time, y = lower), linetype = 3, colour = "#000000") +
   geom_line(aes(x = time, y = upper), linetype = 3, colour = "#000000") +
   theme(legend.position = "bottom") +
-  labs(title = "Kalman Filtering the Correlated Model", 
+  labs(title = "Kalman Filtering the Correlated Model",
        subtitle = "Mean of the Filtering Distribution overlayed with the actual simulated state with 90% probability intervals")
 ```
 
@@ -169,26 +170,33 @@ val iters = GibbsSampling.sample(
 ```
 
 ```{r correlated-v-diagnostics, fig.cap="Diagnostic plots for the MCMC draws from the posterior distribution of the non-zero diagonal elements of the Observation noise covariance matrix for the simulated correlated model"}
-iters = read_csv("../data/correlated_dlm_gibbs.csv")
+iters = read_csv("../data/correlated_dlm_gibbs.csv", 
+                 col_names = c(paste0("V", 1:4), paste0("W", 1:4)))
 
 actual_values = tibble(
   parameter = c("V1", "V4", paste0("W", 1:4)),
   actual_value = c(1.0, 4.0, 0.75, 0.5, 0.5, 1.25)
 )
 
+# Remove burn-in and thin chain
+# burnin = 1e3
+# thin = 4
+# iters = iters[seq(from = burnin, to = nrow(iters), by = thin),]
+
 params = iters %>%
   mutate(iteration = 1:nrow(iters)) %>%
   gather(key = parameter, value, -iteration) %>%
-  inner_join(actual_values, by = "parameter") %>%
-  filter(parameter %in% c("V1", "V4"))
+  inner_join(actual_values, by = "parameter")
 
 p1 = params %>%
+  filter(parameter %in% c("V1", "V4")) %>%
   ggplot(aes(x = iteration, y = value)) +
   geom_line() +
   geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
   facet_wrap(~parameter, scales = "free_y")
 
 p2 = params %>%
+  filter(parameter %in% c("V1", "V4")) %>%
   group_by(parameter) %>%
   mutate(running_mean = dlm::ergMean(value)) %>%
   ggplot(aes(x = iteration, y = running_mean)) +
@@ -196,23 +204,19 @@ p2 = params %>%
   geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
   facet_wrap(~parameter, nrow = 1, scales = "free_y")
 
-gridExtra::grid.arrange(p1, p2, ncol = 1)
+p1 + p2 + plot_layout(ncol = 1, heights = c(1, 1))
 ```
 
 ```{r correlated-w-diagnostics, fig.cap="Diagnostic plots for the MCMC draws from the posterior distribution of the System noise covariance matrix for the simulated correlated model"}
-params = iters %>%
-  mutate(iteration = 1:nrow(iters)) %>%
-  gather(key = parameter, value, -iteration) %>%
-  inner_join(actual_values, by = "parameter") %>%
-  filter(parameter %in% c("W1", "W2", "W4"))
-
 p1 = params %>%
+  filter(parameter %in% paste0("W",c(1,4))) %>%
   ggplot(aes(x = iteration, y = value)) +
   geom_line() +
   geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
   facet_wrap(~parameter, scales = "free_y")
 
 p2 = params %>%
+  filter(parameter %in% paste0("W", c(1,4))) %>%
   group_by(parameter) %>%
   mutate(running_mean = dlm::ergMean(value)) %>%
   ggplot(aes(x = iteration, y = running_mean)) +
@@ -220,5 +224,5 @@ p2 = params %>%
   geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
   facet_wrap(~parameter, nrow = 1, scales = "free_y")
 
-gridExtra::grid.arrange(p1, p2, ncol = 1)
+p1 + p2 + plot_layout(ncol = 1, heights = c(1, 1))
 ```

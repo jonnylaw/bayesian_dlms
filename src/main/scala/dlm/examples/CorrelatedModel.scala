@@ -15,7 +15,7 @@ trait CorrelatedModel {
   val mod2 = polynomial(1)
 
   // combine the models in an outer product
-  val model = Dlm.outerSumModel(mod1, mod2)
+  val model = mod1 |*| mod2
 
   // specify the parameters for the joint model
   val v = diag(DenseVector(1.0, 4.0))
@@ -30,18 +30,21 @@ trait CorrelatedData {
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.
     collect { 
-      case Success(a) => Data(a.head.toInt, DenseVector(a(1).some, a(2).some))
+      case Success(a) => Data(a.head,
+        DenseVector(a.drop(1).take(2).map(_.some).toArray))
     }.
     toArray
 }
 
 object SimulateCorrelated extends App with CorrelatedModel {
-  val sims = Dlm.simulateRegular(0, model, p).
+  val sims = Dlm.simulateRegular(0, model, p, 0.1).
     steps.
     take(1000)
 
   val out = new java.io.File("data/correlated_dlm.csv")
-  val headers = rfc.withHeader("time", "observation_1", "observation_2", "state_1", "state_2")
+  val headers = rfc.withHeader(Seq("time") ++
+    Seq.range(1, 3).map(i => s"observation_$i") ++
+    Seq.range(1, 3).map(i => s"state_$i"): _*)
   val writer = out.asCsvWriter[List[Double]](headers)
 
   def formatData(d: (Data, DenseVector[Double])) = d match {
@@ -62,24 +65,24 @@ object FilterCorrelatedDlm extends App with CorrelatedModel with CorrelatedData 
   val out = new java.io.File("data/correlated_dlm_filtered.csv")
 
   def formatFiltered(f: KalmanFilter.State) = {
-    (f.time, f.mt(0), f.ct.data(0), 
-      f.y.map(_(0)), f.cov.map(_.data(0)))
+    f.time :: DenseVector.vertcat(f.mt, diag(f.ct)).data.toList
   }
 
-  val headers = rfc.withHeader("time", "state_mean", 
-    "state_variance", "one_step_forecast", "one_step_variance")
+  val headers = rfc.withHeader(false)
 
   out.writeCsv(filtered.map(formatFiltered), headers)
 }
 
 object GibbsCorrelated extends App with CorrelatedModel with CorrelatedData {
 
-  val iters = GibbsWishart.sample(model, InverseGamma(1.0, 1.0), InverseWishart(3, DenseMatrix.eye[Double](2)), p, data).
+  val iters = GibbsWishart.sample(model,
+    InverseGamma(3.0, 5.0),
+    InverseWishart(4.0, DenseMatrix.eye[Double](2)), p, data).
     steps.
     take(10000)
 
   val out = new java.io.File("data/correlated_dlm_gibbs.csv")
-  val headers = rfc.withHeader("V1", "V2", "V3", "V4", "W1", "W2", "W3", "W4")
+  val headers = rfc.withHeader(false)
   val writer = out.asCsvWriter[List[Double]](headers)
 
   def formatParameters(p: Parameters) = {
@@ -107,7 +110,7 @@ object FirstOrderLinearTrendDlm extends App {
     c0 = DenseMatrix.eye[Double](3)
   )
 
-  val sims = Dlm.simulateRegular(0, composedModel, p).
+  val sims = Dlm.simulateRegular(0, composedModel, p, 1.0).
     steps.
     take(1000)
 

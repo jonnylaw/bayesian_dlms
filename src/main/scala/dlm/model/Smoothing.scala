@@ -75,22 +75,6 @@ object Smoothing {
     at1:        DenseVector[Double], 
     rt1:        DenseMatrix[Double])
 
-  /**
-    * Copies the lower triangular portion of a matrix to the upper triangle
-    */
-  def makeSymmetric(m: DenseMatrix[Double]): DenseMatrix[Double] = {
-    val n = m.cols
-    DenseMatrix.tabulate(n, n){ case (i, j) =>
-      if (i > j) {
-        m(i, j)
-      } else if (i < j) {
-        m(j, i)
-      } else {
-        m(i, i)
-      }
-    }
-  }
-
   def step(
     mod:      Model, 
     w:        DenseMatrix[Double])
