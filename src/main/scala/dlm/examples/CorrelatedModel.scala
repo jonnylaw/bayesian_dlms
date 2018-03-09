@@ -30,10 +30,9 @@ trait CorrelatedData {
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.
     collect { 
-      case Success(a) => Data(a.head,
-        DenseVector(a.drop(1).take(2).map(_.some).toArray))
+      case Success(a) => Data(a.head, DenseVector(a(1).some, a(2).some))
     }.
-    toArray
+    toVector
 }
 
 object SimulateCorrelated extends App with CorrelatedModel {
@@ -74,7 +73,6 @@ object FilterCorrelatedDlm extends App with CorrelatedModel with CorrelatedData 
 }
 
 object GibbsCorrelated extends App with CorrelatedModel with CorrelatedData {
-
   val iters = GibbsWishart.sample(model,
     InverseGamma(3.0, 5.0),
     InverseWishart(4.0, DenseMatrix.eye[Double](2)), p, data).
@@ -131,14 +129,18 @@ object FirstOrderLinearTrendDlm extends App {
 }
 
 object SusteInvestment extends App with CorrelatedModel {
-    val data: Array[Data] = scala.io.Source.fromFile("data/invest2.dat").
-      getLines.
-      map(_.split(",")).
-      zipWithIndex.
-      map { case (x, i) => 
-        Data(i + 1960, DenseVector(x(0).toDouble.some, x(1).toDouble.some))
-      }.
-      toArray
+  val rawData = Paths.get("data/invest2.dat")
+  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
+  val data = reader.
+    collect {
+      case Success(a) => Data(0.0, DenseVector(a(0).some, a(1).some))
+    }.
+    toVector.
+    zipWithIndex.
+    map { case (d, i) =>
+      d.copy(time = i + 1960.0)
+    }.
+    toVector
 
   def alpha(a: Double, b: Double) = {
     (2 * b + a * a ) / b

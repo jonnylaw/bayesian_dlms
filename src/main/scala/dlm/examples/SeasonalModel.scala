@@ -31,7 +31,7 @@ trait SeasonalData {
     collect { 
       case Success(a) => Data(a.head, DenseVector(a(1).some))
     }.
-    toArray
+    toVector
 }
 
 /**
@@ -161,7 +161,7 @@ object SampleStates extends App with SeasonalModel with SeasonalData {
   /**
     * Select only the nth state
     */
-  def formatState(n: Int)(s: Array[(Double, DenseVector[Double])]) = {
+  def formatState(n: Int)(s: Vector[(Double, DenseVector[Double])]) = {
     val state: List[List[Double]] = s.map(_._2.data.toList).toList.transpose
     state(n)
   }
@@ -171,33 +171,6 @@ object SampleStates extends App with SeasonalModel with SeasonalData {
   // write iters to file
   while (iters.hasNext) {
     writer.write(formatState(1)(iters.next))
-  }
-
-  writer.close()
-}
-
-/**
-  * Using the Metropolis alogrithm to determine the parameters of the simulated Seasonal Model
-  */
-object SeasonalMetropolis extends App with SeasonalModel with SeasonalData {
-  val prior = (p: Parameters) => 0.0
-
-  val iters = Metropolis.dlm(mod, data, 
-    Metropolis.symmetricProposal(1e-2), prior, p).
-    steps.
-    take(100000)
-
-  val out = new java.io.File("data/seasonal_dlm_metropolis.csv")
-  val headers = rfc.withHeader("V", "W1", "W2", "W3", "W4", "W5", "W6", "W7")
-  val writer = out.asCsvWriter[List[Double]](headers)
-
-  def formatParameters(p: Parameters) = {
-    DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
-  }
-
-  // write iters to file
-  while (iters.hasNext) {
-    writer.write(formatParameters(iters.next.parameters))
   }
 
   writer.close()

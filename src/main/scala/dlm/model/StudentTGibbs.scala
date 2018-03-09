@@ -84,16 +84,13 @@ object StudentTGibbs {
 
     val (at, rt) = KalmanFilter.advanceState(mod.g, params.m0, 
       params.c0, 0, params.w)
-
-    val init = KalmanFilter.State(
-      observations.map(_.time).min - 1, 
-      params.m0, params.c0, at, rt, None, None)
+    val init = KalmanFilter.initialiseState(mod, params, observations)
 
     // fold over the list of variances and the observations
     val filtered = ps.zip(observations).
       scanLeft(init){ case (s, (p, y)) => kalmanStep(p)(s, y) }
 
-    Rand.always(Smoothing.sample(mod, filtered.toArray, params.w).toVector)
+    Rand.always(Smoothing.sample(mod, filtered, params.w).toVector)
   }
 
   /**
@@ -119,7 +116,7 @@ object StudentTGibbs {
 
     for {
       latentState <- sampleState(state.variances, state.p, dlm, data)
-      newW <- GibbsSampling.sampleSystemMatrix(priorW, mod.g, latentState.toArray)
+      newW <- GibbsSampling.sampleSystemMatrix(priorW, mod.g, latentState)
       variances <- sampleVariances(data, mod.f, latentState, dof, state.p.v(0,0))
       scale <- sampleScaleT(variances, dof)
     } yield State(

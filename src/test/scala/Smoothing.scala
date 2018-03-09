@@ -20,7 +20,7 @@ trait SmoothedData {
     c0 = DenseMatrix(1.0)
   )
 
-  val data = Array(
+  val data = Vector(
     Data(1.0, DenseVector(Some(4.5))),
     Data(2.0, DenseVector(Some(3.0))),
     Data(3.0, DenseVector(Some(6.3))),

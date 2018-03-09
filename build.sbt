@@ -1,10 +1,10 @@
-scalaVersion in ThisBuild := "2.11.11"
+scalaVersion in ThisBuild := "2.12.1"
 
 name := "bayesian_dlms"
 
 organization := "com.github.jonnylaw"
 
-version := "0.3.2"
+version := "0.3.1"
 
 scalacOptions ++= Seq(
   "-encoding", "UTF-8",   // source files are in UTF-8
@@ -32,7 +32,7 @@ scalacOptions ++= Seq(
 libraryDependencies ++= Seq(
   "org.scalanlp"        %% "breeze"             % "0.13.2",
   "org.scalanlp"        %% "breeze-natives"     % "0.13.2",
-  "org.typelevel"       %% "cats-core"          % "1.0.0-RC2",
+  "org.typelevel"       %% "cats-core"          % "1.0.1",
   "com.nrinaudo"        %% "kantan.csv-cats"    % "0.3.0",
   "org.scalatest"       %% "scalatest"          % "3.0.4"  % "test"
 )
