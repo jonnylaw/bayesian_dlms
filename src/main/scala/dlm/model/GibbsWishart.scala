@@ -1,7 +1,7 @@
 package dlm.model
 
 import breeze.stats.distributions._
-import breeze.linalg._
+import breeze.linalg.{DenseMatrix, DenseVector}
 import Dlm._
 
 /**
@@ -15,7 +15,7 @@ object GibbsWishart {
   def sampleSystemMatrix(
     priorW: InverseWishart,
     g:      Double => DenseMatrix[Double], 
-    state:  Array[(Double, DenseVector[Double])]) = {
+    state:  Vector[(Double, DenseVector[Double])]) = {
 
     val n = state.size - 1
     val sortedState = state.sortBy(_._1)
@@ -44,7 +44,7 @@ object GibbsWishart {
     mod:          Model, 
     priorV:       InverseGamma,
     priorW:       InverseWishart, 
-    observations: Array[Data])(state: GibbsSampling.State) = {
+    observations: Vector[Data])(state: GibbsSampling.State) = {
 
     for {
       system <- sampleSystemMatrix(priorW, mod.g, state.state)
@@ -66,7 +66,7 @@ object GibbsWishart {
     priorV:       InverseGamma, 
     priorW:       InverseWishart, 
     initParams:   Parameters, 
-    observations: Array[Data]) = {
+    observations: Vector[Data]) = {
 
     val initState = Smoothing.ffbs(mod, observations, initParams).draw
     val init = GibbsSampling.State(initParams, initState)

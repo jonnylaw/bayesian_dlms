@@ -25,7 +25,7 @@ trait StudenttData {
     collect { 
       case Success(a) => Dlm.Data(a.head, DenseVector(Some(a(1))))
     }.
-    toArray
+    toVector
 }
 
 object SimulateStudentT extends App with StudenttDglm {
@@ -111,7 +111,7 @@ object StudentTPG extends App with StudenttDglm with StudenttData {
   )
 
   def mcmcStep(state: State) = for {
-    newW <- GibbsSampling.sampleSystemMatrix(priorW, model.g, state.s.toArray)
+    newW <- GibbsSampling.sampleSystemMatrix(priorW, model.g, state.s.toVector)
     propV <- Metropolis.proposeDiagonalMatrix(0.01)(state.p.v)
     (ll, latentState) <- ParticleGibbsAncestor.filter(n, params.copy(v = propV), 
       model, data.toList)(state.s)

@@ -2,7 +2,6 @@ package dlm.examples
 
 import dlm.model._
 import Dlm._
-import GibbsSampling._
 import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.distributions.{Gaussian, MarkovChain, Rand}
 import java.nio.file.Paths
@@ -30,7 +29,7 @@ trait SimulatedData {
     collect { 
       case Success(a) => Data(a._1, DenseVector(a._2.some))
     }.
-    toArray
+    toVector
 }
 
 object SimulateDlm extends App with FirstOrderDlm {
@@ -60,7 +59,7 @@ object FilterDlm extends App with FirstOrderDlm with SimulatedData {
   val out = new java.io.File("data/first_order_dlm_filtered.csv")
 
   def formatFiltered(f: KalmanFilter.State) = {
-    (f.time, f.mt(0), f.ct.data(0), f.y.map(_(0)), f.cov.map(_.data(0)))
+    (f.time, f.mt(0), f.ct.data(0), f.ft.map(_(0)), f.qt.map(_.data(0)))
   }
   val headers = rfc.withHeader("time", "state_mean", "state_variance", "one_step_forecast", "one_step_variance")
 
@@ -81,7 +80,7 @@ object SmoothDlm extends App with FirstOrderDlm with SimulatedData {
 }
  
 object GibbsParameters extends App with FirstOrderDlm with SimulatedData {
-  val iters = sample(mod, InverseGamma(4.0, 9.0), InverseGamma(6.0, 5.0), p, data).
+  val iters = GibbsSampling.sample(mod, InverseGamma(4.0, 9.0), InverseGamma(6.0, 5.0), p, data).
     steps.
     take(10000)
 
@@ -102,7 +101,6 @@ object GibbsParameters extends App with FirstOrderDlm with SimulatedData {
 
 /**
   * Run Particle Gibbs Sampling on the first order DLM
-  * Recreate Figure 2 from Lindsten 14
   */
 object ParticleGibbsFo extends App with FirstOrderDlm with SimulatedData {
   // choose number of particles and sample an initial state

@@ -30,9 +30,9 @@ trait CorrelatedData {
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.
     collect { 
-      case Success(a) => Data(a.head.toInt, DenseVector(a(1).some, a(2).some))
+      case Success(a) => Data(a.head, DenseVector(a(1).some, a(2).some))
     }.
-    toArray
+    toVector
 }
 
 object SimulateCorrelated extends App with CorrelatedModel {
@@ -63,7 +63,7 @@ object FilterCorrelatedDlm extends App with CorrelatedModel with CorrelatedData 
 
   def formatFiltered(f: KalmanFilter.State) = {
     (f.time, f.mt(0), f.ct.data(0), 
-      f.y.map(_(0)), f.cov.map(_.data(0)))
+      f.ft.map(_(0)), f.qt.map(_.data(0)))
   }
 
   val headers = rfc.withHeader("time", "state_mean", 
@@ -128,14 +128,18 @@ object FirstOrderLinearTrendDlm extends App {
 }
 
 object SusteInvestment extends App with CorrelatedModel {
-    val data: Array[Data] = scala.io.Source.fromFile("data/invest2.dat").
-      getLines.
-      map(_.split(",")).
-      zipWithIndex.
-      map { case (x, i) => 
-        Data(i + 1960, DenseVector(x(0).toDouble.some, x(1).toDouble.some))
-      }.
-      toArray
+  val rawData = Paths.get("data/invest2.dat")
+  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
+  val data = reader.
+    collect {
+      case Success(a) => Data(0.0, DenseVector(a(0).some, a(1).some))
+    }.
+    toVector.
+    zipWithIndex.
+    map { case (d, i) =>
+      d.copy(time = i + 1960.0)
+    }.
+    toVector
 
   def alpha(a: Double, b: Double) = {
     (2 * b + a * a ) / b

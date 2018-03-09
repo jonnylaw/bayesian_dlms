@@ -118,7 +118,7 @@ object ParticleGibbsAncestor extends App {
   def missingState(x: DenseVector[Double], y: DenseVector[Option[Double]]) = {
     val indices = KalmanFilter.indexNonMissing(y)
     val xa = x.data
-    DenseVector(indices map (i => xa(i)))
+    DenseVector(indices.map(i => xa(i)).toArray)
   }
 
 /**

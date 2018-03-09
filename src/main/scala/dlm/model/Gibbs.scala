@@ -8,7 +8,7 @@ import breeze.stats.distributions.{Rand, MarkovChain, Gamma}
 object GibbsSampling extends App {
   case class State(
     p:     Parameters, 
-    state: Array[(Double, DenseVector[Double])]
+    state: Vector[(Double, DenseVector[Double])]
   )
 
   /**
@@ -21,8 +21,8 @@ object GibbsSampling extends App {
     */
   def observationSquaredDifference(
     f:            Double => DenseMatrix[Double],
-    state:        Array[(Double, DenseVector[Double])],
-    observations: Array[Data]) = {
+    state:        Vector[(Double, DenseVector[Double])],
+    observations: Vector[Data]) = {
 
     val sortedState = state.sortBy(_._1)
     val sortedObservations = observations.sortBy(_.time).map(_.observation)
@@ -36,7 +36,7 @@ object GibbsSampling extends App {
     val flatObservations = sortedObservations map (KalmanFilter.flattenObs)
 
     (flatObservations, ft).zipped.
-      map { case (y, fr) => (y - fr) *:* (y - fr)}.
+      map { case (y, fr) => (y - fr) *:* (y - fr) }.
       reduce(_ + _)
   }
 
@@ -51,8 +51,8 @@ object GibbsSampling extends App {
   def sampleObservationMatrix(
     prior:        InverseGamma,
     f:            Double => DenseMatrix[Double],
-    state:        Array[(Double, DenseVector[Double])],
-    observations: Array[Data]): Rand[DenseMatrix[Double]] = {
+    state:        Vector[(Double, DenseVector[Double])],
+    observations: Vector[Data]): Rand[DenseMatrix[Double]] = {
 
     val ssy = observationSquaredDifference(f, state, observations)
 
@@ -82,7 +82,7 @@ object GibbsSampling extends App {
   def sampleSystemMatrix(
     prior: InverseGamma,
     g:     Double => DenseMatrix[Double],
-    state: Array[(Double, DenseVector[Double])]): Rand[DenseMatrix[Double]] = {
+    state: Vector[(Double, DenseVector[Double])]): Rand[DenseMatrix[Double]] = {
     
     val sortedState = state.sortBy(_._1)
     val times = sortedState.map(_._1)
@@ -116,7 +116,7 @@ object GibbsSampling extends App {
     mod:          Model, 
     priorV:       InverseGamma,
     priorW:       InverseGamma, 
-    observations: Array[Data])(gibbsState: State) = {
+    observations: Vector[Data])(gibbsState: State) = {
 
     for {
       obs <- sampleObservationMatrix(priorV, mod.f, gibbsState.state, observations)
@@ -140,7 +140,7 @@ object GibbsSampling extends App {
     priorV:       InverseGamma, 
     priorW:       InverseGamma, 
     initParams:   Parameters, 
-    observations: Array[Data]) = {
+    observations: Vector[Data]) = {
 
     val initState = Smoothing.ffbs(mod, observations, initParams).draw
     val init = State(initParams, initState)
@@ -150,7 +150,7 @@ object GibbsSampling extends App {
 
   def metropStep(
     mod:          Model, 
-    observations: Array[Data],
+    observations: Vector[Data],
     proposal:     Parameters => Rand[Parameters]) = {
 
     MarkovChain.Kernels.metropolis(proposal)(KalmanFilter.logLikelihood(mod, observations))
@@ -161,7 +161,7 @@ object GibbsSampling extends App {
     mod:          Model, 
     priorV:       InverseGamma,
     priorW:       InverseGamma, 
-    observations: Array[Data])(gibbsState: State) = {
+    observations: Vector[Data])(gibbsState: State) = {
 
     for {
       obs <- sampleObservationMatrix(priorV, mod.f, gibbsState.state, observations)
@@ -178,7 +178,7 @@ object GibbsSampling extends App {
     priorV:       InverseGamma, 
     priorW:       InverseGamma, 
     initParams:   Parameters, 
-    observations: Array[Data]) = {
+    observations: Vector[Data]) = {
 
     val initState = Smoothing.ffbs(mod, observations, initParams).draw
     val init = State(initParams, initState)

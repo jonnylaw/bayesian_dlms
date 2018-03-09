@@ -73,6 +73,7 @@ object Metropolis {
 
   /**
     * A Single Step without acceptance ratio
+    * this requires re-evaluating the likelihood at each step
     */
   def step[A](
     proposal:   A => Rand[A],
@@ -80,21 +81,12 @@ object Metropolis {
     likelihood: A => Double
   )(state: (A, Double)) = {
 
-    for {
-      propP <- proposal(state._1)
-      prop_ll = likelihood(propP) + prior(propP)
-      a = prop_ll - state._2
-      u <- Uniform(0, 1)
-      next = if (log(u) < a) {
-        (propP, prop_ll)
-      } else {
-        state
-      }
-    } yield next
+    MarkovChain.Kernels.metropolis(proposal)((a: A) => prior(a) + likelihood(a))
   }
 
   /**
     * Metropolis kernel without re-evaluating the likelihood from the previous time step
+    * and keeping track of the acceptance ratio
     */
   def mStep[A](
     proposal:   A => Rand[A],
@@ -120,7 +112,7 @@ object Metropolis {
     */
   def dlm(
     mod:          Model,
-    observations: Array[Data],
+    observations: Vector[Data],
     proposal:     Parameters => Rand[Parameters],
     prior:        Parameters => Double,
     initP:        Parameters
@@ -131,9 +123,12 @@ object Metropolis {
   }
 
 
+  /**
+    * Use particle marginal metropolis algorithm
+    */
   def dglm(
     mod:          Dglm.Model,
-    observations: Array[Data],
+    observations: Vector[Data],
     proposal:     Parameters => Rand[Parameters],
     prior:        Parameters => Double,
     initP:        Parameters,
@@ -172,7 +167,7 @@ object MetropolisHastings {
     */
   def dlm(
     mod:          Model,
-    observations: Array[Data],
+    observations: Vector[Data],
     proposal:     Parameters => ContinuousDistr[Parameters],
     prior:        Parameters => Double,
     initP:        Parameters
@@ -195,7 +190,7 @@ object MetropolisHastings {
     */
   def pmmh(
     mod:          Dglm.Model,
-    observations: Array[Data],
+    observations: Vector[Data],
     proposal:     Parameters => ContinuousDistr[Parameters],
     prior:        Parameters => Double,
     initP:        Parameters,

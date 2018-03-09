@@ -58,7 +58,7 @@ object Smoothing {
     */
   def backwardsSmoother(
     mod:      Model)
-    (kfState: Array[KalmanFilter.State]) = {
+    (kfState: Vector[KalmanFilter.State]) = {
 
     val sortedState = kfState.sortWith(_.time > _.time)
     val last = sortedState.head
@@ -126,7 +126,7 @@ object Smoothing {
 
   def sample(
     mod:     Model,
-    kfState: Array[KalmanFilter.State], 
+    kfState: Vector[KalmanFilter.State], 
     w:       DenseMatrix[Double]) = {
 
     // sort the state in reverse order
@@ -148,7 +148,7 @@ object Smoothing {
     */
   def ffbs(
     mod:          Model,
-    observations: Array[Data],
+    observations: Vector[Data],
     p:            Dlm.Parameters) = {
 
     val filtered = KalmanFilter.filter(mod, observations, p)

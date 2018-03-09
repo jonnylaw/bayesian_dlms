@@ -136,7 +136,7 @@ object ParticleFilter {
     */
   def likelihood(
     mod:          Model, 
-    observations: Array[Data], 
+    observations: Vector[Data], 
     n:            Int)(
     p:            Dlm.Parameters) = {
 

@@ -2,7 +2,6 @@ package dlm.examples
 
 import dlm.model._
 import Dlm._
-import MetropolisHastings._
 import GibbsSampling._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions.{Gaussian, Rand}
@@ -30,7 +29,7 @@ trait SimulatedSecondOrderData {
     collect { 
       case Success(a) => Data(a.head, DenseVector(Some(a(1))))
     }.
-    toArray
+    toVector
 }
 
 object SimulateSecondOrderDlm extends App with DlmModel {
@@ -106,12 +105,18 @@ object GibbsSecondOrder extends App with DlmModel with SimulatedSecondOrderData 
 }
 
 object GibbsInvestParameters extends App with DlmModel {
-  val data: Array[Data] = scala.io.Source.fromFile("data/invest2.dat").
-    getLines.
-    map(_.split(",")).
+  val rawData = Paths.get("data/invest2.dat")
+  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
+  val data = reader.
+    collect {
+      case Success(a) => Data(0.0, DenseVector(Some(a(1).toDouble / 1000.0)))
+    }.
+    toVector.
     zipWithIndex.
-    map { case (x, i) => Data(i + 1960, DenseVector(Some(x(1).toDouble / 1000.0))) }.
-    toArray
+    map { case (d, i) =>
+      d.copy(time = i + 1960.0)
+    }.
+    toVector
 
   val priorV = InverseGamma(40.0, 10.0)
   val priorW = InverseGamma(40.0, 10.0)

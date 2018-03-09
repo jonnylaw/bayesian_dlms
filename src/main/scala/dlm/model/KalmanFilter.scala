@@ -23,8 +23,8 @@ object KalmanFilter {
     ct:   DenseMatrix[Double],
     at:   DenseVector[Double],
     rt:   DenseMatrix[Double],
-    y:    Option[DenseVector[Double]],
-    cov:  Option[DenseMatrix[Double]],
+    ft:    Option[DenseVector[Double]],
+    qt:  Option[DenseMatrix[Double]],
     ll:   Double
   )
 
@@ -45,7 +45,7 @@ object KalmanFilter {
     dt: Double, 
     w:  DenseMatrix[Double]) = {
     if (dt == 0) {
-      (mt, rt)
+      (mt, ct)
     } else {
       val at = g(dt) * mt
       val rt = g(dt) * ct * g(dt).t + w * dt
@@ -75,10 +75,11 @@ object KalmanFilter {
     * @param y a vector of observations possibly containing missing data
     * @return a vector containing the indices of non-missing observations
     */
-  def indexNonMissing[A](y: DenseVector[Option[A]]): Array[Int] = {
+  def indexNonMissing[A](y: DenseVector[Option[A]]): Vector[Int] = {
     y.data.map(_.isDefined).
       zipWithIndex.
       map { case (b, i) => if (b) Some(i) else None }.
+      toVector.
       flatten
   }
 
@@ -220,20 +221,26 @@ object KalmanFilter {
     State(y.time, mt, ct, at, rt, Some(ft), Some(qt), ll)
   }
 
+    /**
+    * Initialise the state of the Kalman Filter
+    */
+  def initialiseState(mod: Model, p: Parameters, obs: Vector[Data]) = {
+
+    val (at, rt) = advanceState(mod.g, p.m0, p.c0, 0.0, p.w)
+    State(obs.head.time - 1.0, p.m0, p.c0, at, rt, None, None, 0.0)
+  }
+
   /**
     * Run the Kalman Filter over an array of data
     */
   def filter(
     mod:          Model, 
-    observations: Array[Data], 
+    observations: Vector[Data], 
     p:            Parameters) = {
-    val (at: DenseVector[Double], rt: DenseMatrix[Double]) = 
-      advanceState(mod.g, p.m0, p.c0, 0, p.w)
-    val init = State(
-      observations.map(_.time).min - 1, 
-      p.m0, p.c0, at, rt, None, None, 0.0)
 
-    observations.scanLeft(init)(step(mod, p))
+    val sortedObs = observations.sortBy(_.time)
+    val init = initialiseState(mod, p, sortedObs)
+    sortedObs.scanLeft(init)(step(mod, p))
   }
 
   /**
@@ -241,18 +248,11 @@ object KalmanFilter {
     */
   def logLikelihood(
     mod: Model, 
-    observations: Array[Data])
+    observations: Vector[Data])
     (p: Parameters): Double = {
 
-    val (at, rt) = advanceState(mod.g, p.m0, p.c0, 0, p.w)
-    val init = State(
-      observations.map(_.time).min - 1,
-      p.m0,
-      p.c0,
-      at,
-      rt,
-      None, None, 0.0)
-
+    val sortedObs = observations.sortBy(_.time)
+    val init = initialiseState(mod, p, sortedObs)
     observations.foldLeft(init)(step(mod, p)).ll
   }
 }

@@ -38,7 +38,7 @@ class KfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matchers w
   val mod = Dlm.polynomial(2)
 
   def observations(p: Parameters) = 
-    Dlm.simulateRegular(0, mod, p).steps.take(100).map(_._1).toArray
+    Dlm.simulateRegular(0, mod, p).steps.take(100).map(_._1).toVector
 
   property("Kalman Filter State should be one length observations + 1") {
     forAll (params) { p =>
@@ -71,7 +71,7 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     c0 = diag(DenseVector(1.0, 1.0))
   )
 
-  val data = Array(
+  val data = Vector(
     Data(1.0, DenseVector(Some(4.5), Some(4.5))),
     Data(2.0, DenseVector(Some(3.0), Some(3.0))),
     Data(3.0, DenseVector(Some(6.3), Some(6.3))), 
@@ -111,8 +111,8 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(filterOne.at === DenseVector(1.8, 1.8))
     assert(filterOne.rt === diag(DenseVector(2.2, 2.2)))
 
-    assert(filterOne.y.get === DenseVector(1.8, 1.8))
-    assert(filterOne.cov.get === diag(DenseVector(5.2, 5.2)))
+    assert(filterOne.ft.get === DenseVector(1.8, 1.8))
+    assert(filterOne.qt.get === diag(DenseVector(5.2, 5.2)))
 
     assert(filterOne.mt === DenseVector(2.307692, 2.307692))
     assert(filterOne.ct === diag(DenseVector(1.269231, 1.269231)))
@@ -124,8 +124,8 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(filterTwo.at === DenseVector(2.307692, 2.307692))
     assert(filterTwo.rt === diag(DenseVector(2.269231, 2.269231)))
 
-    assert(filterTwo.y.get === DenseVector(2.307692, 2.307692))
-    assert(filterTwo.cov.get === diag(DenseVector(5.269231, 5.269231)))
+    assert(filterTwo.ft.get === DenseVector(2.307692, 2.307692))
+    assert(filterTwo.qt.get === diag(DenseVector(5.269231, 5.269231)))
 
     assert(filterTwo.mt === DenseVector(4.027007, 4.027007))
     assert(filterTwo.ct === diag(DenseVector(1.291971, 1.291971)))
@@ -137,8 +137,8 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(filterThree.at === DenseVector(4.027007, 4.027007))
     assert(filterThree.rt === diag(DenseVector(2.291971, 2.291971)))
 
-    assert(filterThree.y.get === DenseVector(4.027007, 4.027007))
-    assert(filterThree.cov.get === diag(DenseVector(5.291971, 5.291971)))
+    assert(filterThree.ft.get === DenseVector(4.027007, 4.027007))
+    assert(filterThree.qt.get === diag(DenseVector(5.291971, 5.291971)))
 
     assert(filterThree.mt === DenseVector(4.027007, 4.027007))
     assert(filterThree.ct === diag(DenseVector(2.291971, 2.291971)))
@@ -150,8 +150,8 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(filterFour.at === DenseVector(4.027007, 4.027007))
     assert(filterFour.rt === diag(DenseVector(3.291971, 3.291971)))
 
-    assert(filterFour.y.get === DenseVector(4.027007, 4.027007))
-    assert(filterFour.cov.get === diag(DenseVector(6.291971, 6.291971)))
+    assert(filterFour.ft.get === DenseVector(4.027007, 4.027007))
+    assert(filterFour.qt.get === diag(DenseVector(6.291971, 6.291971)))
 
     assert(filterFour.mt === DenseVector(7.204408, 4.027007))
     assert(filterFour.ct === diag(DenseVector(1.569606, 3.291971)))
@@ -163,8 +163,8 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(filterFive.at === DenseVector(7.204408, 4.027007))
     assert(filterFive.rt === diag(DenseVector(3.569606, 5.291971)))
 
-    assert(filterFive.y.get === DenseVector(7.204408, 4.027007))
-    assert(filterFive.cov.get === diag(DenseVector(6.569606, 8.291971)))
+    assert(filterFive.ft.get === DenseVector(7.204408, 4.027007))
+    assert(filterFive.qt.get === diag(DenseVector(6.569606, 8.291971)))
 
     // calculate the update 
     // assert(filterFive.mt === 11.54883)
