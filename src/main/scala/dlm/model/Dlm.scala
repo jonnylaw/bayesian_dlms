@@ -266,6 +266,12 @@ object Dlm {
 
   /**
     * Forecast a DLM from a state
+    * @param mod a DLM
+    * @param mt the posterior mean of the state at time t (start of forecast)
+    * @param ct the posterior variance of the state at time t (start of forecast)
+    * @param time the starting time of the forecast
+    * @param p the parameters of the DLM
+    * @return a Stream of forecasts
     */
   def forecast(
     mod:  Model, 

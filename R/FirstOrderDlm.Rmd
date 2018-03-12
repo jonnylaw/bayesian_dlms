@@ -35,10 +35,10 @@ val p = Dlm.Parameters(
   c0 = DenseMatrix(1.0)
 )
 
-val data = Dlm.simulateRegular(0, mod, p).
+val data = Dlm.simulateRegular(0, mod, p, 1.0).
   steps.
   take(1000).
-  toArray
+  toVector
 ```
 
 The value `mod` is the `case class` called `Model` containing the definition of the observation and system matrices. These observation matrix, `f`, is a function from `(t: Double) => DenseMatrix[Double]` and the system evolution matrix `g` is a function from `(dt: Double) => DenseMatrix[Double]`. The function `Dlm.polynomial(1)` is equivalent to writing:

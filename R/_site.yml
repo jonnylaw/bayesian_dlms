@@ -1,4 +1,5 @@
 name: "bayesian_dlms"
+output_dir: "../docs"
 navbar:
   title: "Bayesian Inference for DLMs"
   left:
@@ -12,8 +13,8 @@ navbar:
         href: kalman_filter.html
       - text: "Bootstrap Particle Filter"
         href: particle_filter.html
-      - text: "Particle Gibbs"
-        href: particle_gibbs.html
+#      - text: "Particle Gibbs"
+#        href: particle_gibbs_sampling.html
     - text: "Parameter Learning"
       menu:
       - text: "Gibbs Sampling"
@@ -36,7 +37,6 @@ navbar:
         href: student_t_filtering.html
       - text: "Spain Investment Data"
         href: spain_investment_data.html
-output_dir: ../docs
 output:
   html_document:
     theme: cosmo

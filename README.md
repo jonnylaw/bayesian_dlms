@@ -8,7 +8,7 @@ Bayesian Inference for Dynamic Linear Models (DLMs)
 This package is crossbuilt for Scala 2.11.11 and Scala 2.12.1. To install using sbt add this to your `build.sbt`:
 
 ```scala
-libraryDependencies += "com.github.jonnylaw" %% "bayesian_dlms" % "0.3.2"
+libraryDependencies += "com.github.jonnylaw" %% "bayesian_dlms" % "0.3.1"
 ```
 
 Check out the [documentation](https://jonnylaw.github.io/bayesian_dlms/).
@@ -26,7 +26,7 @@ Harrison, Jeff, and Mike West. "Bayesian forecasting & dynamic models." [Springe
 # Features  
 
 * Building univariate and multivariate D(G)LMs
-* Support for irregularly observed and explicitly missing data
+* Support for irregularly observed and missing data
 * Kalman Filter
 * Backwards Smoothing
 * Forward-Filtering Backward Sampling (FFBS)
@@ -40,4 +40,3 @@ Harrison, Jeff, and Mike West. "Bayesian forecasting & dynamic models." [Springe
 # Upcoming Features
 
 * Matrix Normal Model
-* Partial Observations of Multivariate Time Series

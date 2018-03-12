@@ -22,8 +22,8 @@ object KalmanFilter {
     ct:   DenseMatrix[Double],
     at:   DenseVector[Double],
     rt:   DenseMatrix[Double],
-    ft:    Option[DenseVector[Double]],
-    qt:  Option[DenseMatrix[Double]],
+    ft:   Option[DenseVector[Double]],
+    qt:   Option[DenseMatrix[Double]],
     ll:   Double
   )
 
@@ -151,18 +151,19 @@ object KalmanFilter {
     * @return the posterior mean and variance of the latent state at time t
     */
   def updateState(
-    f:         Double => DenseMatrix[Double],
-    at:        DenseVector[Double],
-    rt:        DenseMatrix[Double],
-    d:         Data, 
-    v:         DenseMatrix[Double]) = {
+    f:  Double => DenseMatrix[Double],
+    at: DenseVector[Double],
+    rt: DenseMatrix[Double],
+    d:  Data, 
+    v:  DenseMatrix[Double],
+    ll: Double) = {
     
     val y = flattenObs(d.observation)
     // perform one step prediction
     val (ft, qt) = oneStepPrediction(f, at, rt, d.time, v)
 
     if (y.data.isEmpty) {
-      (ft, qt, at, rt)
+      (ft, qt, at, rt, ll)
     } else {
       val vm = missingV(v, d.observation)
       val fm = missingF(f, d.time, d.observation)
@@ -180,9 +181,9 @@ object KalmanFilter {
       val diff = (identity - kalman_gain * fm.t)
       val covariance = diff * rt * diff.t + kalman_gain * vm * kalman_gain.t
 
-      // val newll = ll + conditionalLikelihood(predicted, predcov, y)
+      val newll = ll + conditionalLikelihood(predicted, predcov, y)
 
-      (ft, qt, mt1, covariance)
+      (ft, qt, mt1, covariance, ll)
     }
   }
 
@@ -213,9 +214,9 @@ object KalmanFilter {
 
     val dt = y.time - state.time
     val (at, rt) = advanceState(mod.g, state.mt, state.ct, dt, p.w)
-    val (ft, qt, mt, ct) = updateState(mod.f, at, rt, y, p.v)
+    val (ft, qt, mt, ct, ll) = updateState(mod.f, at, rt, y, p.v, state.ll)
 
-    State(y.time, mt, ct, at, rt, Some(ft), Some(qt))
+    State(y.time, mt, ct, at, rt, Some(ft), Some(qt), ll)
   }
 
     /**

@@ -38,7 +38,7 @@ class KfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matchers w
   val mod = Dlm.polynomial(2)
 
   def observations(p: Parameters) = 
-    Dlm.simulateRegular(0, mod, p).steps.take(100).map(_._1).toVector
+    Dlm.simulateRegular(0, mod, p, 1.0).steps.take(100).map(_._1).toVector
 
   property("Kalman Filter State should be one length observations + 1") {
     forAll (params) { p =>

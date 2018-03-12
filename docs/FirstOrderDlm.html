@@ -225,9 +225,6 @@ $(document).ready(function () {
     <li>
       <a href="particle_filter.html">Bootstrap Particle Filter</a>
     </li>
-    <li>
-      <a href="particle_gibbs.html">Particle Gibbs</a>
-    </li>
   </ul>
 </li>
 <li class="dropdown">
@@ -312,10 +309,10 @@ X_0 &amp;\sim \mathcal{N}(m_0, C_0).
   c0 = <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>)
 )
 
-<span class="kw">val</span> data = Dlm.<span class="fu">simulateRegular</span>(<span class="dv">0</span>, mod, p).
+<span class="kw">val</span> data = Dlm.<span class="fu">simulateRegular</span>(<span class="dv">0</span>, mod, p, <span class="fl">1.0</span>).
   steps.
   <span class="fu">take</span>(<span class="dv">1000</span>).
-  toArray</code></pre></div>
+  toVector</code></pre></div>
 <p>The value <code>mod</code> is the <code>case class</code> called <code>Model</code> containing the definition of the observation and system matrices. These observation matrix, <code>f</code>, is a function from <code>(t: Double) =&gt; DenseMatrix[Double]</code> and the system evolution matrix <code>g</code> is a function from <code>(dt: Double) =&gt; DenseMatrix[Double]</code>. The function <code>Dlm.polynomial(1)</code> is equivalent to writing:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">Dlm.<span class="fu">Model</span>(
   f = (t: Double) =&gt; <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>), 

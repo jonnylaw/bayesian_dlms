@@ -225,9 +225,6 @@ $(document).ready(function () {
     <li>
       <a href="particle_filter.html">Bootstrap Particle Filter</a>
     </li>
-    <li>
-      <a href="particle_gibbs.html">Particle Gibbs</a>
-    </li>
   </ul>
 </li>
 <li class="dropdown">
@@ -317,16 +314,12 @@ Y_t &amp;= F \textbf{x}_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
     <span class="fu">diag</span>(<span class="fu">DenseVector</span>(<span class="fl">100.0</span>, <span class="fl">100.0</span>))
   )
 
-<span class="kw">val</span> data = Dlm.<span class="fu">simulateRegular</span>(<span class="dv">0</span>, mod, p).
+<span class="kw">val</span> data = Dlm.<span class="fu">simulateRegular</span>(<span class="dv">0</span>, mod, p, <span class="fl">1.0</span>).
   steps.
   <span class="fu">take</span>(<span class="dv">1000</span>).
-  toArray</code></pre></div>
-<div class="figure">
-<img src="second_order_dlm_files/figure-html/second-order-simulated-1.png" alt="Simulated values from the Second Order DLM with parameters, $(V, W,     extbf{m}_0, C_0) = (3.0,    extrm{diag}(2.0, 1.0), (0.0, 0.0),  extrm{diag}(100.0, 100.0))$" width="672" />
-<p class="caption">
-Simulated values from the Second Order DLM with parameters, <span class="math inline">\((V, W, extbf{m}_0, C_0) = (3.0, extrm{diag}(2.0, 1.0), (0.0, 0.0), extrm{diag}(100.0, 100.0))\)</span>
-</p>
-</div>
+  toVector</code></pre></div>
+<p>The figure below shows simulated values from the Second Order DLM with parameters, <span class="math inline">\((V, W, \textbf{m}_0, C_0) = (3.0, \operatorname{diag}(2.0, 1.0), (0.0, 0.0), \operatorname{diag}(100.0, 100.0))\)</span></p>
+<p><img src="second_order_dlm_files/figure-html/second-order-simulated-1.png" width="672" /></p>
 </div>
 <div id="filtered" class="section level1">
 <h1>Filtered</h1>
@@ -348,14 +341,78 @@ Filtered State of the second order model, with 90% probability intervals
     <span class="fu">InverseGamma</span>(<span class="fl">5.0</span>, <span class="fl">8.0</span>), 
     p, 
     data.<span class="fu">map</span>(_._<span class="dv">1</span>))</code></pre></div>
-<pre><code>##        V               W1               W2        
-##  Min.   :1.850   Min.   :0.7802   Min.   :0.7099  
-##  1st Qu.:2.792   1st Qu.:1.5999   1st Qu.:1.0273  
-##  Median :2.991   Median :1.9401   Median :1.1170  
-##  Mean   :2.987   Mean   :1.9919   Mean   :1.1279  
-##  3rd Qu.:3.186   3rd Qu.:2.3262   3rd Qu.:1.2179  
-##  Max.   :4.153   Max.   :4.4945   Max.   :1.9773</code></pre>
-<p><img src="second_order_dlm_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">gibbs_iters =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../data/second_order_dlm_gibbs.csv&quot;</span>)
+
+actual_values =<span class="st"> </span><span class="kw">tibble</span>(
+  <span class="dt">Parameter =</span> <span class="kw">c</span>(<span class="st">&quot;V&quot;</span>, <span class="st">&quot;W1&quot;</span>, <span class="st">&quot;W2&quot;</span>),
+  <span class="dt">actual_value =</span> <span class="kw">c</span>(<span class="fl">3.0</span>, <span class="fl">2.0</span>, <span class="fl">1.0</span>)
+)
+
+gibbs_iters <span class="op">%&gt;%</span>
+<span class="st">  </span><span class="kw">gather</span>(<span class="dt">key =</span> <span class="st">&quot;Parameter&quot;</span>, value) <span class="op">%&gt;%</span>
+<span class="st">  </span><span class="kw">group_by</span>(Parameter) <span class="op">%&gt;%</span>
+<span class="st">  </span><span class="kw">summarise</span>(<span class="dt">mean =</span> <span class="kw">mean</span>(value), <span class="dt">lower =</span> <span class="kw">quantile</span>(value, <span class="dt">probs =</span> <span class="fl">0.025</span>), 
+            <span class="dt">upper =</span> <span class="kw">quantile</span>(value, <span class="dt">probs =</span> <span class="fl">0.975</span>), <span class="dt">sd =</span> <span class="kw">sd</span>(value)) <span class="op">%&gt;%</span>
+<span class="st">  </span><span class="kw">inner_join</span>(actual_values) <span class="op">%&gt;%</span>
+<span class="st">  </span>knitr<span class="op">::</span><span class="kw">kable</span>(<span class="dt">caption =</span> <span class="st">&quot;Summary Statistics of the parameters of the second order DLM&quot;</span>, <span class="dt">digits =</span> <span class="dv">2</span>)</code></pre></div>
+<table>
+<caption>Summary Statistics of the parameters of the second order DLM</caption>
+<thead>
+<tr class="header">
+<th align="left">Parameter</th>
+<th align="right">mean</th>
+<th align="right">lower</th>
+<th align="right">upper</th>
+<th align="right">sd</th>
+<th align="right">actual_value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">V</td>
+<td align="right">3.06</td>
+<td align="right">2.43</td>
+<td align="right">3.66</td>
+<td align="right">0.31</td>
+<td align="right">3</td>
+</tr>
+<tr class="even">
+<td align="left">W1</td>
+<td align="right">2.12</td>
+<td align="right">1.17</td>
+<td align="right">3.43</td>
+<td align="right">0.59</td>
+<td align="right">2</td>
+</tr>
+<tr class="odd">
+<td align="left">W2</td>
+<td align="right">0.98</td>
+<td align="right">0.75</td>
+<td align="right">1.26</td>
+<td align="right">0.13</td>
+<td align="right">1</td>
+</tr>
+</tbody>
+</table>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">params =<span class="st"> </span><span class="kw">ggs</span>(<span class="kw">mcmc</span>(gibbs_iters))
+
+p1 =<span class="st"> </span>params <span class="op">%&gt;%</span>
+<span class="st">  </span><span class="kw">inner_join</span>(actual_values) <span class="op">%&gt;%</span>
+<span class="st">  </span><span class="kw">ggplot</span>(<span class="kw">aes</span>(<span class="dt">x =</span> Iteration, <span class="dt">y =</span> value)) <span class="op">+</span>
+<span class="st">  </span><span class="kw">geom_line</span>() <span class="op">+</span>
+<span class="st">  </span><span class="kw">geom_hline</span>(<span class="kw">aes</span>(<span class="dt">yintercept =</span> actual_value), <span class="dt">colour =</span> <span class="st">&quot;#ff0000&quot;</span>) <span class="op">+</span>
+<span class="st">  </span><span class="kw">facet_wrap</span>(<span class="op">~</span>Parameter, <span class="dt">scales =</span> <span class="st">&quot;free_y&quot;</span>)
+
+p2 =<span class="st"> </span>params <span class="op">%&gt;%</span><span class="st"> </span>
+<span class="st">  </span><span class="kw">ggs_autocorrelation</span>()
+
+p1 <span class="op">+</span><span class="st"> </span>p2 <span class="op">+</span><span class="st"> </span><span class="kw">plot_layout</span>(<span class="dt">ncol =</span> <span class="dv">1</span>)</code></pre></div>
+<div class="figure">
+<img src="second_order_dlm_files/figure-html/second-order-diagnostics-1.png" alt="Diagnostic plots of the parameter posterior distributions for the second order DLM (Top) Traceplots (Bottom) Autocorrelation" width="672" />
+<p class="caption">
+Diagnostic plots of the parameter posterior distributions for the second order DLM (Top) Traceplots (Bottom) Autocorrelation
+</p>
+</div>
 </div>
 
 

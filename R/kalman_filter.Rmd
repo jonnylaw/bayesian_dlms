@@ -27,7 +27,7 @@ In order to illustrate the Kalman Filter implementation in Scala, we consider a 
 
 ```tut:silent
 import dlm.model._
-import breeze.linalg.{DenseMatrix, DenseVector, diag}
+import breeze.linalg.{DenseMatrix, DenseVector}
 
 val mod = Dlm.polynomial(1)
 val p = Dlm.Parameters(
@@ -37,10 +37,10 @@ val p = Dlm.Parameters(
   c0 = DenseMatrix(1.0)
 )
 
-val data = Dlm.simulateRegular(0, mod, p).
+val data = Dlm.simulateRegular(0, mod, p, 1.0).
   steps.
   take(1000).
-  toArray
+  toVector
 ```
 
 1) The prior at time $t + 1$ is implemented in the `KalmanFilter` object as `advanceState`

@@ -225,9 +225,6 @@ $(document).ready(function () {
     <li>
       <a href="particle_filter.html">Bootstrap Particle Filter</a>
     </li>
-    <li>
-      <a href="particle_gibbs.html">Particle Gibbs</a>
-    </li>
   </ul>
 </li>
 <li class="dropdown">
@@ -337,7 +334,7 @@ Y_t &amp;= F \textbf{x}_t + \textbf{v}_t, \quad v_t \sim \textrm{MVN}(0, V), \\
 <span class="kw">val</span> mod1 = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>)
 <span class="kw">val</span> mod2 = Dlm.<span class="fu">polynomial</span>(<span class="dv">2</span>)</code></pre></div>
 <p>The models can now be composed using the outer sum function:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> breeze.<span class="fu">linalg</span>._
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> breeze.<span class="fu">linalg</span>.{diag, DenseMatrix, DenseVector}
 
 <span class="kw">val</span> composedModel = mod1 |*| mod2
 
@@ -348,10 +345,10 @@ Y_t &amp;= F \textbf{x}_t + \textbf{v}_t, \quad v_t \sim \textrm{MVN}(0, V), \\
   c0 = DenseMatrix.<span class="fu">eye</span>[Double](<span class="dv">3</span>)
 )</code></pre></div>
 <p>Then we can simulate observations from the <code>composedModel</code>:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> sims = Dlm.<span class="fu">simulateRegular</span>(<span class="dv">0</span>, composedModel, p).
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> sims = Dlm.<span class="fu">simulateRegular</span>(<span class="dv">0</span>, composedModel, p, <span class="fl">1.0</span>).
   steps.
   <span class="fu">take</span>(<span class="dv">1000</span>).
-  toArray</code></pre></div>
+  toVector</code></pre></div>
 <p>The figure below shows a simulation from this composed model:</p>
 <p><img src="CorrelatedModel_files/figure-html/correlated-simulated-1.png" width="672" /></p>
 </div>
@@ -361,7 +358,7 @@ Y_t &amp;= F \textbf{x}_t + \textbf{v}_t, \quad v_t \sim \textrm{MVN}(0, V), \\
 <p>For simplicity of exposition we consider the outer sum of two first order DLMs. given by the following equation:</p>
 <p><span class="math display">\[\begin{align*}
 \begin{pmatrix}y_{1,t} \\ y_{2,t}\end{pmatrix} &amp;= \begin{pmatrix}1 &amp; 0 \\ 0 &amp; 1\end{pmatrix}\begin{pmatrix}x_{1,t} \\ x_{2,t}\end{pmatrix} + \begin{pmatrix}v_{1,t} \\ v_{2,t} \end{pmatrix}, \qquad \textbf{v} \sim \textrm{MVN}\left(0, \begin{pmatrix}V_1 &amp; 0 \\ 0 &amp; V_2\end{pmatrix}\right), \\
-\begin{pmatrix}x_{1,t} \\ x_{2,t} \end{pmatrix} &amp;= \begin{pmatrix}1 &amp; 0 \\ 0 &amp; 1\end{pmatrix} \begin{pmatrix}x_{1,t-1} \\ x_{2,t-1} \end{pmatrix} + \begin{pmatrix} w_1 \\ w_2 \end{pmatrix}, \qquad \textbf{v} \sim \textrm{MVN}\left(0, \begin{pmatrix}W_1 &amp; W_2 \\ W_3 &amp; W_4\end{pmatrix}\right), \\
+\begin{pmatrix}x_{1,t} \\ x_{2,t} \end{pmatrix} &amp;= \begin{pmatrix}1 &amp; 0 \\ 0 &amp; 1\end{pmatrix} \begin{pmatrix}x_{1,t-1} \\ x_{2,t-1} \end{pmatrix} + \begin{pmatrix} w_1 \\ w_2 \end{pmatrix}, \qquad \textbf{v} \sim \textrm{MVN}\left(0, \begin{pmatrix}W_1 &amp; W_2 \\ W_4 &amp; W_4\end{pmatrix}\right), \\
 \textbf{x}_0 &amp;\sim \textrm{MVN}(m_0, C_0).
 \end{align*}\]</span></p>
 <p>A simulation from this model is presented in the figure below:</p>

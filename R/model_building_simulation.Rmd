@@ -79,7 +79,7 @@ val p = Dlm.Parameters(
 Then we can simulate from the model:
 
 ```tut:silent
-val data = Dlm.simulateRegular(0, linear, p).
+val data = Dlm.simulateRegular(0, linear, p, 1.0).
   steps.
   take(1000)
 ```

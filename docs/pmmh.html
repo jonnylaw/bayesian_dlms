@@ -225,9 +225,6 @@ $(document).ready(function () {
     <li>
       <a href="particle_filter.html">Bootstrap Particle Filter</a>
     </li>
-    <li>
-      <a href="particle_gibbs.html">Particle Gibbs</a>
-    </li>
   </ul>
 </li>
 <li class="dropdown">
@@ -299,10 +296,10 @@ $(document).ready(function () {
 <span class="kw">import</span> dlm.<span class="fu">model</span>._
 
 scala&gt; <span class="kw">val</span> model = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>)
-model: dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Model</span> = <span class="fu">Model</span>(&lt;function1&gt;,&lt;function1&gt;)
+model: dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Model</span> = <span class="fu">Model</span>(dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">4249</span>/<span class="dv">161693113</span>@5ad77a95,dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">4250</span>/<span class="dv">1349266236</span>@6a06d391)
 
 scala&gt; <span class="kw">val</span> dglm = Dglm.<span class="fu">poisson</span>(model)
-dglm: dlm.<span class="fu">model</span>.<span class="fu">Dglm</span>.<span class="fu">Model</span> = <span class="fu">Model</span>(&lt;function2&gt;,&lt;function1&gt;,&lt;function1&gt;,&lt;function1&gt;)</code></pre></div>
+dglm: dlm.<span class="fu">model</span>.<span class="fu">Dglm</span>.<span class="fu">Model</span> = <span class="fu">Model</span>(dlm.<span class="fu">model</span>.<span class="fu">Dglm</span>$$$Lambda$<span class="dv">4315</span>/<span class="dv">1885905800</span>@6a7914f7,dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">4249</span>/<span class="dv">161693113</span>@5ad77a95,dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">4250</span>/<span class="dv">1349266236</span>@6a06d391,dlm.<span class="fu">model</span>.<span class="fu">Dglm</span>$$$Lambda$<span class="dv">4316</span>/<span class="dv">604109953</span>@<span class="dv">57495596</span>)</code></pre></div>
 <p>Assume we have some observations of a process which can be modelled using the specified model:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> observations = <span class="co">// some observations</span></code></pre></div>
 <p>Then we need to define the proposal function, <code>def proposal: Parameters =&gt; Rand[Parameters]</code>. A symmetric proposal distribution is implemented in the <code>Metropolis</code> object. This proposal distribution is simply a Normal centered at the previous value of the parameters. In the case of the non-negative parameters, <span class="math inline">\(V\)</span>, <span class="math inline">\(W\)</span> and <span class="math inline">\(C_0\)</span> the parameter is multiplied by the exponential of a Normal random number.</p>
@@ -311,8 +308,7 @@ dglm: dlm.<span class="fu">model</span>.<span class="fu">Dglm</span>.<span class
 proposal: dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Parameters</span> =&gt; breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Rand</span>[dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Parameters</span>]</code></pre></div>
 <p>Then we need to specify a prior distribution for the parameters, which encapsulates our prior beliefs about the parameters.</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">def</span> <span class="fu">prior</span>(p: Dlm.<span class="fu">Parameters</span>): Double = ???</code></pre></div>
-<p>Then we must specify the initial value of the parameters to start the MCMC.</p>
-<p>The PMMH algorithm is implemented in the package, using the bootstrap particle filter:</p>
+<p>Then we must specify the initial value of the parameters to start the MCMC, this can be a sample from the prior distribution. The PMMH algorithm is available to use in the Bayesian DLM Scala library, using the bootstrap particle filter to estimate the likelihood:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = MetropolisHastings.<span class="fu">pmmh</span>(
   dglm, 
   observations,

@@ -40,9 +40,7 @@ Then we need to specify a prior distribution for the parameters, which encapsula
 def prior(p: Dlm.Parameters): Double = ???
 ```
 
-Then we must specify the initial value of the parameters to start the MCMC.
-
-The PMMH algorithm is implemented in the package, using the bootstrap particle filter:
+Then we must specify the initial value of the parameters to start the MCMC, this can be a sample from the prior distribution. The PMMH algorithm is available to use in the Bayesian DLM Scala library, using the bootstrap particle filter to estimate the likelihood:
 
 ```scala
 val iters = MetropolisHastings.pmmh(

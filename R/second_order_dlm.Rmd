@@ -5,6 +5,9 @@ title: "Second Order DLM"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(cache=TRUE, message=FALSE, warning=FALSE)
 library(tidyverse)
+library(patchwork)
+library(coda)
+library(ggmcmc)
 ```
 
 # Simulate Data
@@ -38,17 +41,19 @@ val mod = Dlm.polynomial(2)
     diag(DenseVector(100.0, 100.0))
   )
 
-val data = Dlm.simulateRegular(0, mod, p).
+val data = Dlm.simulateRegular(0, mod, p, 1.0).
   steps.
   take(1000).
-  toArray
+  toVector
 ```
 
-```{r second-order-simulated, message=FALSE, echo=FALSE, fig.cap="Simulated values from the Second Order DLM with parameters, $(V, W, \textbf{m}_0, C_0) = (3.0, \textrm{diag}(2.0, 1.0), (0.0, 0.0), \textrm{diag}(100.0, 100.0))$"}
+The figure below shows simulated values from the Second Order DLM with parameters, $(V, W, \textbf{m}_0, C_0) = (3.0, \operatorname{diag}(2.0, 1.0), (0.0, 0.0), \operatorname{diag}(100.0, 100.0))$
+
+```{r second-order-simulated, message=FALSE, echo=FALSE}
 data = read_csv("../data/second_order_dlm.csv")
 
 data %>%
-  filter(time < 100) %>%
+  filter(time < 10) %>%
   gather(key, value, -time) %>%
   ggplot(aes(x = time, y = value, colour = key)) +
   geom_line() +
@@ -93,49 +98,36 @@ val iters = GibbsSampling.sample(
     data.map(_._1))
 ```
 
-```{r gibbs_sampling, message=FALSE, echo=FALSE}
+```{r gibbs_sampling_second_order}
 gibbs_iters = read_csv("../data/second_order_dlm_gibbs.csv")
 
 actual_values = tibble(
-  parameter = c("V", "W1", "W2"),
+  Parameter = c("V", "W1", "W2"),
   actual_value = c(3.0, 2.0, 1.0)
 )
 
-summary(gibbs_iters)
+gibbs_iters %>%
+  gather(key = "Parameter", value) %>%
+  group_by(Parameter) %>%
+  summarise(mean = mean(value), lower = quantile(value, probs = 0.025), 
+            upper = quantile(value, probs = 0.975), sd = sd(value)) %>%
+  inner_join(actual_values) %>%
+  knitr::kable(caption = "Summary Statistics of the parameters of the second order DLM", digits = 2)
 ```
 
-```{r helper_functions, echo=FALSE}
-thin = function(df, n) {
-  df[seq(from = 1, to = nrow(df), by = n),]
-}
-
-drop = function(df, n) {
-  df[-(1:n),]
-}
-```
-
-```{r, echo=FALSE}
-params = gibbs_iters %>%
-  mutate(iteration = 1:nrow(gibbs_iters)) %>%
-  thin(2) %>%
-  drop(2000) %>%
-  gather(key = parameter, value, -iteration) %>%
-  inner_join(actual_values, by = "parameter")
+```{r second-order-diagnostics, fig.cap="Diagnostic plots of the parameter posterior distributions for the second order DLM (Top) Traceplots (Bottom) Autocorrelation"}
+params = ggs(mcmc(gibbs_iters))
 
 p1 = params %>%
-  ggplot(aes(x = iteration, y = value)) +
+  inner_join(actual_values) %>%
+  ggplot(aes(x = Iteration, y = value)) +
   geom_line() +
   geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~parameter, scales = "free_y")
+  facet_wrap(~Parameter, scales = "free_y")
 
-p2 = params %>%
-  group_by(parameter) %>%
-  mutate(running_mean = dlm::ergMean(value)) %>%
-  ggplot(aes(x = iteration, y = running_mean)) +
-  geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~parameter, nrow = 1, scales = "free_y")
+p2 = params %>% 
+  ggs_autocorrelation()
 
-gridExtra::grid.arrange(p1, p2, ncol = 1)
+p1 + p2 + plot_layout(ncol = 1)
 ```
 

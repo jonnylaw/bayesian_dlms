@@ -31,7 +31,7 @@ val data = reader.
   collect { 
     case Success(a) => Dlm.Data(a.head.toInt, DenseVector(Some(a(1))))
   }.
-  toArray
+  toVector
 ```
 
 Then calculate the mean value of the MCMC parameters, assuming that the parameters have been written to a CSV called `seasonal_dlm_gibbs.csv` with eight columns, $V, W_1,\dots,W_7$:
