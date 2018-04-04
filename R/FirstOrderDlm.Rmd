@@ -72,7 +72,7 @@ We can perform recursive filtering using the Kalman Filter to learn about the va
 
 The result of filtering the simulated observations is plotted below, with 90% probability intervals. The system and observation variances, $W_t$ and $V_t$ are assumed to be constant in time and known.
 
-To perform Kalman Filtering on an `Array` of `Data`, we simply discard the state from the simulated data and pass it into the `kalmanFilter` function:
+To perform Kalman Filtering on a `Vector` of `Data`, we simply discard the state from the simulated data and pass it into the `KalmanFilter.filter` function:
 
 ```tut:silent
 val filtered = KalmanFilter.filter(mod, data.map(_._1), p)

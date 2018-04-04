@@ -21,8 +21,8 @@ object Smoothing {
     */
   def smoothStep(
     mod:     Model)
-    (state:  SmoothingState,
-    kfState: KalmanFilter.State) = {
+    (kfState: KalmanFilter.State,
+    state:    SmoothingState) = {
 
     // extract elements from kalman state
     val time = kfState.time
@@ -54,35 +54,32 @@ object Smoothing {
     * for all time
     * @param mod a DLM model specification
     * @param kfState the output of a Kalman Filter
-    * @return
+    * @return 
     */
   def backwardsSmoother(
     mod:      Model)
     (kfState: Vector[KalmanFilter.State]) = {
 
-    val sortedState = kfState.sortWith(_.time > _.time)
-    val last = sortedState.head
+    val last = kfState.last
     val lastTime = last.time
     val init = SmoothingState(lastTime, last.mt, last.ct, last.at, last.rt)
 
-    sortedState.tail.scanLeft(init)(smoothStep(mod)).
-      sortBy(_.time)
+    kfState.init.scanRight(init)(smoothStep(mod))
   }
 
   case class SamplingState(
-    time:       Double, 
-    sample:     DenseVector[Double],
-    at1:        DenseVector[Double], 
-    rt1:        DenseMatrix[Double])
+    time:   Double, 
+    sample: DenseVector[Double],
+    at1:    DenseVector[Double], 
+    rt1:    DenseMatrix[Double])
 
   def step(
     mod:      Model, 
     w:        DenseMatrix[Double])
-    (state:   Smoothing.SamplingState, 
-     kfState: KalmanFilter.State) = {
+    (kfState: KalmanFilter.State,
+     state:   Smoothing.SamplingState) = {
 
     // extract elements from kalman state
-    val time = kfState.time
     val dt = state.time - kfState.time
     val mt = kfState.mt
     val ct = kfState.ct
@@ -102,8 +99,8 @@ object Smoothing {
     val covariance = diff * ct * diff.t + cgrinv * w * dt * cgrinv.t
     val r = (covariance + covariance.t) /:/ 2.0
 
-    Smoothing.SamplingState(kfState.time, 
-      MultivariateGaussianSvd(mean, r).draw, 
+    Smoothing.SamplingState(kfState.time,
+      MultivariateGaussianSvd(mean, r).draw,
       kfState.at, 
       kfState.rt)
   }
@@ -113,18 +110,15 @@ object Smoothing {
     kfState: Vector[KalmanFilter.State], 
     w:       DenseMatrix[Double]) = {
 
-    // sort the state in reverse order
-    val sortedState = kfState.sortWith(_.time > _.time)
-
     // extract the final state
-    val last = sortedState.head
+    val last = kfState.last
     val lastTime = last.time
     val lastState = MultivariateGaussianSvd(last.mt, last.ct).draw
     val initState = Smoothing.SamplingState(lastTime, lastState, last.at, last.rt)
 
-    sortedState.tail.
-      scanLeft(initState)(step(mod, w)).
-      sortBy(_.time).map(a => (a.time, a.sample))
+    kfState.init.
+      scanRight(initState)(step(mod, w)).
+      map(a => (a.time, a.sample))
   }
 
   /**

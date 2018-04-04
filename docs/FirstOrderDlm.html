@@ -268,6 +268,9 @@ $(document).ready(function () {
       <a href="student_t_filtering.html">Student's t-distributed DLM</a>
     </li>
     <li>
+      <a href="ar1.html">Autoregressive Model</a>
+    </li>
+    <li>
       <a href="spain_investment_data.html">Spain Investment Data</a>
     </li>
   </ul>
@@ -330,7 +333,7 @@ X_0 &amp;\sim \mathcal{N}(m_0, C_0).
 <li>State update given the new observation, <span class="math inline">\(y_{t+1}\)</span> is <span class="math inline">\(\mathcal{N}(m_{t+1}, C_{t+1})\)</span> where <span class="math inline">\(m_{t+1} = a_t + K_t e_t\)</span>, <span class="math inline">\(C_t = (I - K_t * F_t)R_t(I - K_t * F_t) + K_tV_tK_t\)</span> and <span class="math inline">\(K_t = R_t * F_t^T * Q^{-1}\)</span>, <span class="math inline">\(e_t = y_t - f_t\)</span></li>
 </ol>
 <p>The result of filtering the simulated observations is plotted below, with 90% probability intervals. The system and observation variances, <span class="math inline">\(W_t\)</span> and <span class="math inline">\(V_t\)</span> are assumed to be constant in time and known.</p>
-<p>To perform Kalman Filtering on an <code>Array</code> of <code>Data</code>, we simply discard the state from the simulated data and pass it into the <code>kalmanFilter</code> function:</p>
+<p>To perform Kalman Filtering on a <code>Vector</code> of <code>Data</code>, we simply discard the state from the simulated data and pass it into the <code>KalmanFilter.filter</code> function:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> filtered = KalmanFilter.<span class="fu">filter</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)</code></pre></div>
 <p><img src="FirstOrderDlm_files/figure-html/first-order-filtered-1.png" width="672" /></p>
 <div id="implementation-details" class="section level2">

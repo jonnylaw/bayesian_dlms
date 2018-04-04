@@ -268,6 +268,9 @@ $(document).ready(function () {
       <a href="student_t_filtering.html">Student's t-distributed DLM</a>
     </li>
     <li>
+      <a href="ar1.html">Autoregressive Model</a>
+    </li>
+    <li>
       <a href="spain_investment_data.html">Spain Investment Data</a>
     </li>
   </ul>
@@ -381,7 +384,7 @@ Diagnostic plots for the MCMC chain representing draws from the posterior distri
 <span class="kw">val</span> read = mcmcChain.<span class="fu">asCsvReader</span>[List[Double]](rfc.<span class="fu">withHeader</span>)
 
 <span class="kw">val</span> params: List[Double] = read.
-  collect { <span class="kw">case</span> <span class="fu">Success</span>(a) =&gt; a }.
+  collect { <span class="kw">case</span> <span class="fu">Right</span>(a) =&gt; a }.
   toList.
   transpose.
   <span class="fu">map</span>(a =&gt; <span class="fu">mean</span>(a))

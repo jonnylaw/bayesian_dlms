@@ -14,9 +14,11 @@ object Streaming {
   /**
     * Write a single chain
     * @param iters the iterations of the MCMC chain
-    * @param formatParameters a function to properly format the parameters to write them to a file
+    * @param formatParameters a function to properly format the parameters 
+    * to write them to a file
     * @param file the file to write the parameters to
-    * @param config additional configuration as CsvConfiguration from the kantan CSV package
+    * @param config additional configuration as CsvConfiguration 
+    * from the kantan CSV package
     * @return a Monix Task for writing an iterator to a file
     */
   def writeChain(
@@ -38,11 +40,9 @@ object Streaming {
   /**
     * Read an MCMC Chain into a list of doubles
     */
-  def readMcmcChain(filename: String): Iterator[List[Double]] = {
+  def readMcmcChain(filename: String) = {
     val mcmcChain = Paths.get("data/seasonal_dlm_gibbs.csv")
-      mcmcChain.asCsvReader[List[Double]](rfc.withHeader).
-      collect { case Success(a) => a }.
-      toIterator
+    mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
   }
 
 

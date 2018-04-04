@@ -29,7 +29,7 @@ val rawData = Paths.get("data/seasonal_dlm.csv")
 val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
 val data = reader.
   collect { 
-    case Success(a) => Dlm.Data(a.head.toInt, DenseVector(Some(a(1))))
+    case Right(a) => Dlm.Data(a.head.toInt, DenseVector(Some(a(1))))
   }.
   toVector
 ```
@@ -43,7 +43,7 @@ val mcmcChain = Paths.get("data/seasonal_dlm_gibbs.csv")
 val read = mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
 
 val params: List[Double] = read.
-  collect { case Success(a) => a }.
+  collect { case Right(a) => a }.
   toList.
   transpose.
   map(a => mean(a))

@@ -27,7 +27,7 @@ trait SimulatedData {
   val reader = rawData.asCsvReader[(Double, Double, Double)](rfc.withHeader)
   val data = reader.
     collect { 
-      case Success(a) => Data(a._1, DenseVector(a._2.some))
+      case Right(a) => Data(a._1, DenseVector(a._2.some))
     }.
     toVector
 }

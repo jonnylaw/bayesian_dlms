@@ -11,6 +11,7 @@ import cats.implicits._
 object Metropolis {
   /**
     * State for the Metropolis algorithm
+    * @param 
     */
   case class State[A](parameters: A, ll: Double, accepted: Int)
 
@@ -85,7 +86,8 @@ object Metropolis {
   }
 
   /**
-    * Metropolis kernel without re-evaluating the likelihood from the previous time step
+    * Metropolis kernel without re-evaluating the likelihood
+    * from the previous time step
     * and keeping track of the acceptance ratio
     */
   def mStep[A](

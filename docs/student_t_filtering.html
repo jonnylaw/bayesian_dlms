@@ -268,6 +268,9 @@ $(document).ready(function () {
       <a href="student_t_filtering.html">Student's t-distributed DLM</a>
     </li>
     <li>
+      <a href="ar1.html">Autoregressive Model</a>
+    </li>
+    <li>
       <a href="spain_investment_data.html">Spain Investment Data</a>
     </li>
   </ul>
@@ -388,7 +391,7 @@ p(s^2|y_{1:T}, \textbf{x}_{0:T}, W, V) &amp;= \prod_{t=1}^T\textrm{InverseGamma}
 <p>The prior distribution of the system evolution matrix is Inv-Gamma<span class="math inline">\((21, 2)\)</span>, for a mean of 0.1 and variance 0.19. The prior distribution for <span class="math inline">\(W\)</span> looks like:</p>
 <p><img src="student_t_filtering_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
 <p>In order to run the perform Gibbs sampling on the sampled data, we use the following code:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = StudentTGibbs.<span class="fu">sample</span>(<span class="dv">3</span>, data.<span class="fu">map</span>(_._<span class="dv">1</span>), <span class="fu">InverseGamma</span>(<span class="fl">21.0</span>, <span class="fl">2.0</span>), mod, params)</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = StudentT.<span class="fu">sample</span>(<span class="dv">3</span>, data.<span class="fu">map</span>(_._<span class="dv">1</span>), <span class="fu">InverseGamma</span>(<span class="fl">21.0</span>, <span class="fl">2.0</span>), mod, params)</code></pre></div>
 <p><img src="student_t_filtering_files/figure-html/density_student_t-1.png" width="672" /></p>
 </div>
 </div>

@@ -11,7 +11,7 @@
 
 
 
-<title>Forecasting</title>
+<title>Autoregressive Model</title>
 
 <script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -287,76 +287,73 @@ $(document).ready(function () {
 
 
 
-<h1 class="title toc-ignore">Forecasting</h1>
+<h1 class="title toc-ignore">Autoregressive Model</h1>
 
 </div>
 
 
-<div id="forecasting-using-a-dlm" class="section level1">
-<h1>Forecasting using a DLM</h1>
-<p>Performing forecasting for future observations of the process using a DLM is equivalent to running the Kalman Filter without any observations in the period of the time of interest. The filter must be initialised using the posterior distribution of the latent state at the time of the last observation, <span class="math inline">\(x_T \sim \mathcal{N}(m_T, C_T)\)</span> and the static parameters, <span class="math inline">\(\theta = (V, W)\)</span> have been previously identified using an appropriate parameter learning technique.</p>
-<div id="example-seasonal-model" class="section level2">
-<h2>Example: Seasonal Model</h2>
-<p>Define the seasonal model:</p>
+<div id="simulation" class="section level1">
+<h1>Simulation</h1>
+<p><span class="math display">\[\begin{align}
+Y_t &amp;= x_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
+X_t &amp;= \phi x_{t-1} + w_t, \quad w_t \sim \mathcal{N}(0, W), \\
+X_0 &amp;\sim \mathcal{N}(m_0, C_0).
+\end{align}\]</span></p>
+<p>The code required to simulate from this model is given below:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> dlm.<span class="fu">model</span>._
-<span class="kw">import</span> cats.<span class="fu">implicits</span>._
+<span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
 
-<span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>) |+| Dlm.<span class="fu">seasonal</span>(<span class="dv">24</span>, <span class="dv">3</span>)</code></pre></div>
-<p>Read in some simulated values from the <a href="SeasonalModel.html">seasonal model</a>.</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> breeze.<span class="fu">linalg</span>._
-<span class="kw">import</span> java.<span class="fu">nio</span>.<span class="fu">file</span>.<span class="fu">Paths</span>
-<span class="kw">import</span> kantan.<span class="fu">csv</span>._
-<span class="kw">import</span> kantan.<span class="fu">csv</span>.<span class="fu">ops</span>._
+<span class="kw">val</span> mod = Dlm.<span class="fu">autoregressive</span>(phi = <span class="fl">0.9</span>)
+<span class="kw">val</span> p = Dlm.<span class="fu">Parameters</span>(
+  <span class="fu">DenseMatrix</span>(<span class="fl">4.0</span>), 
+  <span class="fu">DenseMatrix</span>(<span class="fl">2.0</span>), 
+  <span class="fu">DenseVector</span>(<span class="fl">0.0</span>), 
+  <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>))
 
-<span class="kw">val</span> rawData = Paths.<span class="fu">get</span>(<span class="st">&quot;data/seasonal_dlm.csv&quot;</span>)
-<span class="kw">val</span> reader = rawData.<span class="fu">asCsvReader</span>[List[Double]](rfc.<span class="fu">withHeader</span>)
-<span class="kw">val</span> data = reader.
-  collect { 
-    <span class="kw">case</span> <span class="fu">Right</span>(a) =&gt; Dlm.<span class="fu">Data</span>(a.<span class="fu">head</span>.<span class="fu">toInt</span>, <span class="fu">DenseVector</span>(Some(<span class="fu">a</span>(<span class="dv">1</span>))))
-  }.
+<span class="kw">val</span> data = Dlm.<span class="fu">simulateRegular</span>(<span class="dv">0</span>, mod, p, <span class="fl">1.0</span>).
+  steps.
+  <span class="fu">take</span>(<span class="dv">1000</span>).
   toVector</code></pre></div>
-<p>Then calculate the mean value of the MCMC parameters, assuming that the parameters have been written to a CSV called <code>seasonal_dlm_gibbs.csv</code> with eight columns, <span class="math inline">\(V, W_1,\dots,W_7\)</span>:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">mean</span>
-
-<span class="kw">val</span> mcmcChain = Paths.<span class="fu">get</span>(<span class="st">&quot;data/seasonal_dlm_gibbs.csv&quot;</span>)
-<span class="kw">val</span> read = mcmcChain.<span class="fu">asCsvReader</span>[List[Double]](rfc.<span class="fu">withHeader</span>)
-
-<span class="kw">val</span> params: List[Double] = read.
-  collect { <span class="kw">case</span> <span class="fu">Right</span>(a) =&gt; a }.
-  toList.
-  transpose.
-  <span class="fu">map</span>(a =&gt; <span class="fu">mean</span>(a))
-
-<span class="kw">val</span> meanParameters = Dlm.<span class="fu">Parameters</span>(
-  v =  <span class="fu">DenseMatrix</span>(params.<span class="fu">head</span>), 
-  w =  <span class="fu">diag</span>(<span class="fu">DenseVector</span>(params.<span class="fu">tail</span>.<span class="fu">toArray</span>)), 
-  m0 = DenseVector.<span class="fu">zeros</span>[Double](<span class="dv">7</span>),
-  c0 = DenseMatrix.<span class="fu">eye</span>[Double](<span class="dv">7</span>)
- )</code></pre></div>
-<p>When then use these parameters to get the posterior distribution of the final state:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> filtered = KalmanFilter.<span class="fu">filter</span>(mod, data, meanParameters)
-<span class="kw">val</span> (mt, ct, initTime) = filtered.<span class="fu">map</span>(a =&gt; (a.<span class="fu">mt</span>, a.<span class="fu">ct</span>, a.<span class="fu">time</span>)).<span class="fu">last</span></code></pre></div>
-<p>We then initialise the forecast function with state state posterior at the time of the last observation:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> forecasted = Dlm.<span class="fu">forecast</span>(mod, mt, ct, initTime, meanParameters).
-  <span class="fu">take</span>(<span class="dv">100</span>).
-  toList</code></pre></div>
-<p>The results of the forecasting and 95% prediction intervals are below:</p>
-<p><img src="forecasting_files/figure-html/forecast_seasonal_dlm-1.png" width="672" /></p>
+<p>The figure below shows a plot of 100 simulations:</p>
+<p><img src="ar1_files/figure-html/ar1-simulated-1.png" width="672" /></p>
 </div>
+<div id="filtering" class="section level1">
+<h1>Filtering</h1>
+<p>To perform Kalman Filtering on a <code>Vector</code> of <code>Data</code>, we simply discard the state from the simulated data and pass it into the <code>KalmanFilter.filter</code> function:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> filtered = KalmanFilter.<span class="fu">filter</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)</code></pre></div>
+<p><img src="ar1_files/figure-html/ar1-filtered-1.png" width="672" /></p>
 </div>
-<div id="forecasting-using-a-dglm" class="section level1">
-<h1>Forecasting using a DGLM</h1>
-<p>The Kalman Filter can not be applied to state space models with non-Gaussian observation distributions. Particle filtering is commonly used to approximate the filtering distribution using a cloud of <span class="math inline">\(M\)</span> particles. The time series currently has observations at times <span class="math inline">\(t = 1,\dots,T\)</span> and we are interested in an observation <span class="math inline">\(k\)</span> time-steps in the future:</p>
-<ol style="list-style-type: decimal">
-<li>Obtain a sample of the latent state at the time of the final observation, <span class="math inline">\(p(x_T|y_{1:T}, x_{0:{T-1}}, \theta) = \{x_T^{(j)}, j = 1,\dots, M\}\)</span></li>
-<li>Advance the state using the model’s state evolution density, <span class="math inline">\(p(x_{T+k}^{(j)}|x_{T}^{(j)}, W)\)</span>, <span class="math inline">\(j = 1,\dots,M\)</span></li>
-<li>Draw from the observation distribution using each particle as a sample from the latent-state, <span class="math inline">\(p(y^{(j)}_{T+k}|x_{T+k}^{(j)}, V)\)</span></li>
-</ol>
-<p>Summaries of the observation distribution can then be calculated.</p>
-<div id="example-dglm-forecast" class="section level2">
-<h2>Example: DGLM Forecast</h2>
-<p>TODO</p>
-</div>
+<div id="parameter-learning" class="section level1">
+<h1>Parameter Learning</h1>
+<p>The figure below shows the prior distributions for the parameters and the diagnostics from 100,000 iterations of the MCMC algorithm. A Beta prior and proposal is used in a Metropolis-Hastings step to learn the autoregressive parameter <span class="math inline">\(\phi\)</span>.</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+
+<span class="kw">val</span> priorV = <span class="fu">InverseGamma</span>(<span class="fl">5.0</span>, <span class="fl">20.0</span>)
+<span class="kw">val</span> priorW = <span class="fu">InverseGamma</span>(<span class="fl">6.0</span>, <span class="fl">10.0</span>)
+<span class="kw">val</span> priorPhi = <span class="kw">new</span> <span class="fu">Beta</span>(<span class="dv">20</span>, <span class="dv">2</span>)</code></pre></div>
+<p>First we define the prior distributions for the parameters, the prior for V and W are plotted in the Figure below</p>
+<p><img src="ar1_files/figure-html/prior-distributions-1.png" width="672" /></p>
+<p>Next we can use the prior distribution to construct at <code>Dlm.Parameters</code> object which can be drawn from to initialise the Markov chain.</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> prior = <span class="kw">for</span> {
+  v &lt;- priorV
+  w &lt;- priorW
+} <span class="kw">yield</span> Dlm.<span class="fu">Parameters</span>(<span class="fu">DenseMatrix</span>(v), <span class="fu">DenseMatrix</span>(w), p.<span class="fu">m0</span>, p.<span class="fu">c0</span>)</code></pre></div>
+<p>Next we create a single step of the Markov Chain which samples the value of <span class="math inline">\(\phi\)</span> using a Metropolis Hastings step. The function <code>updateModel</code> is used to change the value of the system evolution matrix <span class="math inline">\(G\)</span> to include the new value of the autoregressive parameter <span class="math inline">\(\phi\)</span>.</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> step = (s: (Double, GibbsSampling.<span class="fu">State</span>)) =&gt; <span class="kw">for</span> {
+  newS &lt;- GibbsSampling.<span class="fu">dinvGammaStep</span>(GibbsSampling.<span class="fu">updateModel</span>(mod, s._<span class="dv">1</span>),
+    priorV, priorW, data.<span class="fu">map</span>(_._<span class="dv">1</span>)).<span class="fu">run</span>(s._<span class="dv">2</span>)
+  phi &lt;- GibbsSampling.<span class="fu">samplePhi</span>(priorPhi, <span class="dv">1000</span>, <span class="fl">0.5</span>, newS)(s._<span class="dv">1</span>)
+} <span class="kw">yield</span> (phi, newS)</code></pre></div>
+<p>Next the inital state of the MCMC is created:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> init = <span class="kw">for</span> {
+  p &lt;- prior
+  phi &lt;- priorPhi
+  state &lt;- Smoothing.<span class="fu">ffbs</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)
+} <span class="kw">yield</span> (phi, GibbsSampling.<span class="fu">State</span>(p, state))</code></pre></div>
+<p>Finally we can construct the Markov Chain:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = <span class="fu">MarkovChain</span>(init.<span class="fu">draw</span>)(step).<span class="fu">steps</span>.<span class="fu">take</span>(<span class="dv">100000</span>)</code></pre></div>
+<p>The figure below shows the posterior distributions of the static parameters in the autoregressive DLM. 10,000 iterations are discarded as burnin and 100,000 samples are taken from the Markov Chain.</p>
+<p><img src="ar1_files/figure-html/ar1-parameter-diagnostics-1.png" width="672" /></p>
 </div>
 
 

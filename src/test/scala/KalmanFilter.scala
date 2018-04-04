@@ -10,7 +10,6 @@ import org.scalacheck.Gen
 import org.scalacheck.Arbitrary
 import Arbitrary.arbitrary
 import org.scalactic.Equality
-import org.scalactic.Equality
 
 class KfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
   def linearSystem(dim: Int) = for {

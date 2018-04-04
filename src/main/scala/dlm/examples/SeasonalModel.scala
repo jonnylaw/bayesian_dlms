@@ -29,7 +29,7 @@ trait SeasonalData {
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.
     collect { 
-      case Success(a) => Data(a.head, DenseVector(a(1).some))
+      case Right(a) => Data(a.head, DenseVector(a(1).some))
     }.
     toVector
 }
@@ -125,7 +125,7 @@ object ForecastSeasonal extends App with SeasonalModel with SeasonalData {
   val read = mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
 
   val params: List[Double] = read.
-    collect { case Success(a) => a }.
+    collect { case Right(a) => a }.
     toList.
     transpose.
     map(a => mean(a))

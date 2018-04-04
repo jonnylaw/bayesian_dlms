@@ -211,7 +211,7 @@ ggplot(data = prior_w, aes(x = x)) +
 In order to run the perform Gibbs sampling on the sampled data, we use the following code:
 
 ```tut:silent
-val iters = StudentTGibbs.sample(3, data.map(_._1), InverseGamma(21.0, 2.0), mod, params)
+val iters = StudentT.sample(3, data.map(_._1), InverseGamma(21.0, 2.0), mod, params)
 ```
 
 ```{r density_student_t}

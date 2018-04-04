@@ -1,10 +1,10 @@
-scalaVersion in ThisBuild := "2.12.1"
+scalaVersion in ThisBuild := "2.12.5"
 
 name := "bayesian_dlms"
 
 organization := "com.github.jonnylaw"
 
-version := "0.3.1"
+version := "0.3.2"
 
 scalacOptions ++= Seq(
   "-encoding", "UTF-8",   // source files are in UTF-8
@@ -13,7 +13,7 @@ scalacOptions ++= Seq(
   "-feature",             // warn about misused language features
   "-language:higherKinds",// allow higher kinded types without `import scala.language.higherKinds`
   "-Xlint",               // enable handy linter warnings
-//  "-Xfatal-warnings",     // turn compiler warnings into errors
+  // "-Xfatal-warnings",     // turn compiler warnings into errors
   "-Ypartial-unification", // allow the compiler to unify type constructors of different arities
   "-language:implicitConversions" // allow implicit conversion of DLM -> DGLM
 )
@@ -21,14 +21,14 @@ scalacOptions ++= Seq(
 libraryDependencies ++= Seq(
   "org.scalanlp"        %% "breeze"             % "0.13.2",
   "org.scalanlp"        %% "breeze-natives"     % "0.13.2",
+  "com.nrinaudo"        %% "kantan.csv-cats"    % "0.4.0",
   "org.typelevel"       %% "cats-core"          % "1.0.1",
-  "com.nrinaudo"        %% "kantan.csv-cats"    % "0.3.0",
-  "org.scalatest"       %% "scalatest"          % "3.0.4"  % "test"
+  "org.scalatest"       %% "scalatest"          % "3.0.5"  % "test"
 )
 
 publishMavenStyle := true
 
-crossScalaVersions := Seq("2.11.11","2.12.1")
+crossScalaVersions := Seq("2.11.11","2.12.5")
 
 // Enable Tut for typechecking and running scala documentation
 enablePlugins(TutPlugin)

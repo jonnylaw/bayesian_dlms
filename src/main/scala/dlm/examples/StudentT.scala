@@ -23,7 +23,7 @@ trait StudenttData {
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.
     collect { 
-      case Success(a) => Dlm.Data(a.head, DenseVector(Some(a(1))))
+      case Right(a) => Dlm.Data(a.head, DenseVector(Some(a(1))))
     }.
     toVector
 }
@@ -50,10 +50,11 @@ object SimulateStudentT extends App with StudenttDglm {
 }
 
 /**
-  * Use Kalman Filtering to determine the parameters of the Student's t-distribution DGLM
+  * Use Kalman Filtering to determine the parameters of the 
+  * Student's t-distribution DGLM
   */
 object StudentTGibbsTest extends App with StudenttDglm with StudenttData {
-  val iters = StudentTGibbs.sample(3, data.toVector, 
+  val iters = StudentT.sample(3, data.toVector, 
     InverseGamma(21.0, 2.0), mod, params).
     steps.
     take(10000).
@@ -88,53 +89,4 @@ object StudentTpmmh extends App with StudenttDglm with StudenttData {
   val headers = rfc.withHeader("scale", "W")
   Streaming.writeChain(formatParameters, 
     "data/student_t_dglm_pmmh.csv", headers)(iters)
-}
-
-object StudentTPG extends App with StudenttDglm with StudenttData {
-  val n = 200
-  val model = Dlm.Model(mod.f, mod.g)
-  val initFilter = ParticleFilter.filter(model, data, params, n)
-  val conditionedState = ParticleGibbs.sampleState(
-    initFilter.map(d => d.state.map((d.time, _)).toList).toList, 
-    initFilter.last.weights.toList
-  ).draw
-
-  val priorW = InverseGamma(11.0, 100.0)
-  def priorV(v: DenseMatrix[Double]) = {
-    InverseGamma(11.0, 30.0).logPdf(v(0,0))
-  }
-
-  case class State(
-    s:  List[(Double, DenseVector[Double])],
-    p:  Dlm.Parameters,
-    ll: Double
-  )
-
-  def mcmcStep(state: State) = for {
-    newW <- GibbsSampling.sampleSystemMatrix(priorW, model.g, state.s.toVector)
-    propV <- Metropolis.proposeDiagonalMatrix(0.01)(state.p.v)
-    (ll, latentState) <- ParticleGibbsAncestor.filter(n, params.copy(v = propV), 
-      model, data.toList)(state.s)
-    a = ll + priorV(propV) - state.ll
-    u <- Uniform(0, 1)
-    next = if (math.log(u) < a) {
-      (ll + priorV(propV), propV)
-    } else {
-      (state.ll, state.p.v)
-    }
-  } yield State(latentState, state.p.copy(v = next._2, w = newW), next._1)
-
-  val initState = State(conditionedState, params, -1e99)
-  val iters = MarkovChain(initState)(mcmcStep).
-    steps.
-    map(_.p).
-    take(100000)
-
-  val headers = rfc.withHeader("scale", "W")
-  def formatParameters(p: Dlm.Parameters) = {
-    DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
-  }
-
-  Streaming.writeChain(formatParameters, 
-    "data/student_t_dglm_gibbs_ancestor.csv", headers)(iters)
 }

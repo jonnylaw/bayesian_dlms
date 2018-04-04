@@ -209,7 +209,7 @@ val mcmcChain = Paths.get("data/seasonal_dlm_gibbs.csv")
 val read = mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
 
 val params: List[Double] = read.
-  collect { case Success(a) => a }.
+  collect { case Right(a) => a }.
   toList.
   transpose.
   map(a => mean(a))

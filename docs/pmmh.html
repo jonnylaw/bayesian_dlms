@@ -268,6 +268,9 @@ $(document).ready(function () {
       <a href="student_t_filtering.html">Student's t-distributed DLM</a>
     </li>
     <li>
+      <a href="ar1.html">Autoregressive Model</a>
+    </li>
+    <li>
       <a href="spain_investment_data.html">Spain Investment Data</a>
     </li>
   </ul>
@@ -293,13 +296,16 @@ $(document).ready(function () {
 <p>The algorithm uses an unbiased estimate of the marginal likelihood, <span class="math inline">\(p(y_{1:T} | x_{0:T}, V, W)\)</span> in a <a href="https://en.wikipedia.org/wiki/Metropolis–Hastings_algorithm">Metropolis-Hastings Algorithm</a>. The pseudo marginal likelihood can be calculated using the Particle Filter.</p>
 <p>Firstly define a DGLM:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">import</span> dlm.<span class="fu">model</span>._
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> dlm.<span class="fu">model</span>._
+                        ^
 <span class="kw">import</span> dlm.<span class="fu">model</span>._
 
 scala&gt; <span class="kw">val</span> model = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>)
-model: dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Model</span> = <span class="fu">Model</span>(dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">4249</span>/<span class="dv">161693113</span>@5ad77a95,dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">4250</span>/<span class="dv">1349266236</span>@6a06d391)
+model: dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Model</span> = <span class="fu">Model</span>(dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">4312</span>/<span class="dv">660103611</span>@20a3a112,dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">4313</span>/<span class="dv">1643286645</span>@3151459c)
 
 scala&gt; <span class="kw">val</span> dglm = Dglm.<span class="fu">poisson</span>(model)
-dglm: dlm.<span class="fu">model</span>.<span class="fu">Dglm</span>.<span class="fu">Model</span> = <span class="fu">Model</span>(dlm.<span class="fu">model</span>.<span class="fu">Dglm</span>$$$Lambda$<span class="dv">4315</span>/<span class="dv">1885905800</span>@6a7914f7,dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">4249</span>/<span class="dv">161693113</span>@5ad77a95,dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">4250</span>/<span class="dv">1349266236</span>@6a06d391,dlm.<span class="fu">model</span>.<span class="fu">Dglm</span>$$$Lambda$<span class="dv">4316</span>/<span class="dv">604109953</span>@<span class="dv">57495596</span>)</code></pre></div>
+dglm: dlm.<span class="fu">model</span>.<span class="fu">Dglm</span>.<span class="fu">Model</span> = <span class="fu">Model</span>(dlm.<span class="fu">model</span>.<span class="fu">Dglm</span>$$$Lambda$<span class="dv">4403</span>/<span class="dv">93500526</span>@7c488ad6,dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">4312</span>/<span class="dv">660103611</span>@20a3a112,dlm.<span class="fu">model</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">4313</span>/<span class="dv">1643286645</span>@3151459c,dlm.<span class="fu">model</span>.<span class="fu">Dglm</span>$$$Lambda$<span class="dv">4404</span>/<span class="dv">785237939</span>@53a5acf6)</code></pre></div>
 <p>Assume we have some observations of a process which can be modelled using the specified model:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> observations = <span class="co">// some observations</span></code></pre></div>
 <p>Then we need to define the proposal function, <code>def proposal: Parameters =&gt; Rand[Parameters]</code>. A symmetric proposal distribution is implemented in the <code>Metropolis</code> object. This proposal distribution is simply a Normal centered at the previous value of the parameters. In the case of the non-negative parameters, <span class="math inline">\(V\)</span>, <span class="math inline">\(W\)</span> and <span class="math inline">\(C_0\)</span> the parameter is multiplied by the exponential of a Normal random number.</p>

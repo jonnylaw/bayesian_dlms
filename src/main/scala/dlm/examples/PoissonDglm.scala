@@ -25,7 +25,7 @@ trait PoissonData {
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.
     collect { 
-      case Success(a) => Dlm.Data(a.head, DenseVector(a(1).some))
+      case Right(a) => Dlm.Data(a.head, DenseVector(a(1).some))
     }.
     toVector
 }
@@ -54,68 +54,68 @@ object SimulatePoissonDglm extends App with PoissonDglm {
 /**
   * Use Particle Gibbs to determine the parameters of the poisson DGLM
   */
-object PoissonDglmGibbs extends App with PoissonDglm with PoissonData {
-  val n = 200
-  val model = Dlm.Model(mod.f, mod.g)
-  val initFilter = ParticleFilter.filter(model, data, params, n)
-  val conditionedState = ParticleGibbs.sampleState(
-    initFilter.map(d => d.state.map((d.time, _)).toList).toList, 
-    initFilter.last.weights.toList
-  ).draw
+// object PoissonDglmGibbs extends App with PoissonDglm with PoissonData {
+//   val n = 200
+//   val model = Dlm.Model(mod.f, mod.g)
+//   val initFilter = ParticleFilter.filter(model, data, params, n)
+//   val conditionedState = ParticleGibbs.sampleState(
+//     initFilter.map(d => d.state.map((d.time, _)).toList).toList, 
+//     initFilter.last.weights.toList
+//   ).draw
 
-  val priorW = InverseGamma(11.0, 1.0)
+//   val priorW = InverseGamma(11.0, 1.0)
 
-  val mcmcStep = (s: List[(Double, DenseVector[Double])], p: Dlm.Parameters) => for {
-    w <- GibbsSampling.sampleSystemMatrix(priorW, model.g, s.toVector)
-    (ll, state) <- ParticleGibbs.filter(n, params, model, data.toList)(s)
-  } yield (state, Dlm.Parameters(p.v, w, p.m0, p.c0))
+//   val mcmcStep = (s: List[(Double, DenseVector[Double])], p: Dlm.Parameters) => for {
+//     w <- GibbsSampling.sampleSystemMatrix(priorW, model.g)
+//     (ll, state) <- ParticleGibbs.filter(n, params, model, data.toList)(s)
+//   } yield (state, Dlm.Parameters(p.v, w, p.m0, p.c0))
 
-  val iters = MarkovChain((conditionedState, params)){ case (x, p) => mcmcStep(x, p) }.
-    steps.
-    map(_._2).
-    take(10000)
+//   val iters = MarkovChain((conditionedState, params)){ case (x, p) => mcmcStep(x, p) }.
+//     steps.
+//     map(_._2).
+//     take(10000)
 
-  val out = new java.io.File("data/poisson_dglm_gibbs.csv")
-  val writer = out.asCsvWriter[Double](rfc.withHeader("W"))
+//   val out = new java.io.File("data/poisson_dglm_gibbs.csv")
+//   val writer = out.asCsvWriter[Double](rfc.withHeader("W"))
 
-  def formatParameters(p: Dlm.Parameters) = {
-    (p.w.data(0))
-  }
+//   def formatParameters(p: Dlm.Parameters) = {
+//     (p.w.data(0))
+//   }
 
-  // write iters to file
-  while (iters.hasNext) {
-    writer.write(formatParameters(iters.next))
-  }
+//   // write iters to file
+//   while (iters.hasNext) {
+//     writer.write(formatParameters(iters.next))
+//   }
 
-  writer.close()
-}
+//   writer.close()
+// }
 
-object PoissonDglmGibbsAncestor extends App with PoissonDglm with PoissonData {
-  val n = 200
-  val model = Dlm.Model(mod.f, mod.g)
-  val initFilter = ParticleFilter.filter(model, data, params, n)
-  val conditionedState = ParticleGibbs.sampleState(
-    initFilter.map(d => d.state.map((d.time, _)).toList).toList, 
-    initFilter.last.weights.toList
-  ).draw
+// object PoissonDglmGibbsAncestor extends App with PoissonDglm with PoissonData {
+//   val n = 200
+//   val model = Dlm.Model(mod.f, mod.g)
+//   val initFilter = ParticleFilter.filter(model, data, params, n)
+//   val conditionedState = ParticleGibbs.sampleState(
+//     initFilter.map(d => d.state.map((d.time, _)).toList).toList, 
+//     initFilter.last.weights.toList
+//   ).draw
 
-  val priorW = InverseGamma(11.0, 1.0)
+//   val priorW = InverseGamma(11.0, 1.0)
 
-  val mcmcStep = (s: List[(Double, DenseVector[Double])], p: Dlm.Parameters) => for {
-    w <- GibbsSampling.sampleSystemMatrix(priorW, model.g, s.toVector)
-    (ll, state) <- ParticleGibbsAncestor.filter(n, params, model, data.toList)(s)
-  } yield (state, Dlm.Parameters(p.v, w, p.m0, p.c0))
+//   val mcmcStep = (s: List[(Double, DenseVector[Double])], p: Dlm.Parameters) => for {
+//     w <- GibbsSampling.sampleSystemMatrix(priorW, model.g)
+//     (ll, state) <- ParticleGibbsAncestor.filter(n, params, model, data.toList)(s)
+//   } yield (state, Dlm.Parameters(p.v, w, p.m0, p.c0))
 
-  val iters = MarkovChain((conditionedState, params)){ case (x, p) => mcmcStep(x, p) }.
-    steps.
-    map(_._2).
-    take(10000)
+//   val iters = MarkovChain((conditionedState, params)){ case (x, p) => mcmcStep(x, p) }.
+//     steps.
+//     map(_._2).
+//     take(10000)
 
-  val headers = rfc.withHeader("W")
-  def formatParameters(p: Dlm.Parameters) = {
-    List(p.w.data(0))
-  }
+//   val headers = rfc.withHeader("W")
+//   def formatParameters(p: Dlm.Parameters) = {
+//     List(p.w.data(0))
+//   }
 
-  Streaming.writeChain(formatParameters, 
-    "data/poisson_dglm_gibbs_ancestor.csv", headers)(iters)
-}
+//   Streaming.writeChain(formatParameters, 
+//     "data/poisson_dglm_gibbs_ancestor.csv", headers)(iters)
+// }

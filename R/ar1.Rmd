@@ -1,0 +1,174 @@
+---
+title: "Autoregressive Model"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(coda)
+library(ggmcmc)
+library(patchwork)
+library(latex2exp)
+theme_set(theme_minimal())
+```
+
+# Simulation
+
+$$\begin{align}
+Y_t &= x_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
+X_t &= \phi x_{t-1} + w_t, \quad w_t \sim \mathcal{N}(0, W), \\
+X_0 &\sim \mathcal{N}(m_0, C_0).
+\end{align}$$
+
+The code required to simulate from this model is given below:
+
+```tut:silent
+import dlm.model._
+import breeze.linalg.{DenseMatrix, DenseVector, diag}
+
+val mod = Dlm.autoregressive(phi = 0.9)
+val p = Dlm.Parameters(
+  DenseMatrix(4.0), 
+  DenseMatrix(2.0), 
+  DenseVector(0.0), 
+  DenseMatrix(1.0))
+
+val data = Dlm.simulateRegular(0, mod, p, 1.0).
+  steps.
+  take(1000).
+  toVector
+```
+
+The figure below shows a plot of 100 simulations:
+
+```{r ar1-simulated}
+data = read_csv("../data/ar_dlm.csv")
+
+data %>%
+  gather(key, value, -time) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+    theme(legend.position = "bottom") +
+    labs(title = "Simulated values from AR(1) DLM",
+         subtitle = TeX("$\\phi = 0.9$, $W = 2$, V = 4$"))
+```
+
+# Filtering
+
+To perform Kalman Filtering on a `Vector` of `Data`, we simply discard the state from the simulated data and pass it into the `KalmanFilter.filter` function:
+
+```tut:silent
+val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
+```
+
+```{r ar1-filtered}
+filtered= read_csv("../data/ar_dlm_filtered.csv")
+
+filtered %>%
+  mutate(lower = qnorm(p = 0.005, mean = state_mean, sd = sqrt(state_variance)),
+         upper = qnorm(p = 0.995, mean = state_mean, sd = sqrt(state_variance))) %>%
+  inner_join(data) %>%
+  gather(key, value, state_mean, observation) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3, colour = NA) +
+    labs(title = "Filtered state for the AR(1) DLM")
+```
+
+# Parameter Learning
+
+The figure below shows the prior distributions for the parameters and the diagnostics from 100,000 iterations of the MCMC algorithm. A Beta prior and proposal is used in a Metropolis-Hastings step to learn the autoregressive parameter $\phi$.
+
+```tut:silent
+import breeze.stats.distributions._
+
+val priorV = InverseGamma(5.0, 20.0)
+val priorW = InverseGamma(6.0, 10.0)
+val priorPhi = new Beta(20, 2)
+```
+
+First we define the prior distributions for the parameters, the prior for V and W are plotted in the Figure below
+
+```{r prior-distributions}
+plot_density = function(pdf, mode, scale, range = c(-10, 10), title) {
+  x = seq(range[1], range[2], length.out = 1000)
+  density = pdf(x, mode, scale)
+  qplot(x = x, y = density, geom = "line", xlim = range, main = title)
+}
+v = plot_density(MCMCpack::dinvgamma, 5, 20, range = c(0, 10),
+                         title = TeX("Prior distribution of $V$"))
+
+w = plot_density(MCMCpack::dinvgamma, 6, 10, range = c(0, 6), 
+                   title = TeX("Prior distribution of $W$"))
+
+phi = plot_density(dbeta, 20, 2, range = c(0, 1), title = TeX("Prior distribution of $\\phi$"))
+
+phi + v + w + plot_layout(ncol = 1)
+```
+
+Next we can use the prior distribution to construct at `Dlm.Parameters` object which can be drawn from to initialise the Markov chain.
+
+```tut:silent
+val prior = for {
+  v <- priorV
+  w <- priorW
+} yield Dlm.Parameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)
+```
+
+Next we create a single step of the Markov Chain which samples the value of $\phi$ using a Metropolis Hastings step. The function `updateModel` is used to change the value of the system evolution matrix $G$ to include the new value of the autoregressive parameter $\phi$. 
+
+```tut:silent
+val step = (s: (Double, GibbsSampling.State)) => for {
+  newS <- GibbsSampling.dinvGammaStep(GibbsSampling.updateModel(mod, s._1),
+    priorV, priorW, data.map(_._1)).run(s._2)
+  phi <- GibbsSampling.samplePhi(priorPhi, 1000, 0.5, newS)(s._1)
+} yield (phi, newS)
+```
+
+Next the inital state of the MCMC is created:
+
+```tut:silent
+val init = for {
+  p <- prior
+  phi <- priorPhi
+  state <- Smoothing.ffbs(mod, data.map(_._1), p)
+} yield (phi, GibbsSampling.State(p, state))
+```
+
+Finally we can construct the Markov Chain:
+
+```tut:silent
+val iters = MarkovChain(init.draw)(step).steps.take(100000)
+```
+
+```{r actual_parameters_ar1}
+actual_params = tibble(
+  Parameter = c("Phi", "V", "W"),
+  actual_value = c(0.9, 4.0, 2.0)
+)
+```
+
+The figure below shows the posterior distributions of the static parameters in the autoregressive DLM. 10,000 iterations are discarded as burnin and 100,000 samples are taken from the Markov Chain.
+
+```{r ar1-parameter-diagnostics}
+chain = read_csv("../data/ar_dlm_gibbs.csv", col_names = c("Phi", "V", "W"), skip = 10000)
+
+params = chain %>%
+  add_column(Iteration = 1:nrow(chain)) %>%
+  gather(key = Parameter, value, -Iteration) %>%
+  inner_join(actual_params)
+
+p1 = ggplot(params, aes(x = value)) +
+  geom_density() +
+  geom_vline(aes(xintercept = actual_value), linetype = "dashed") +
+  facet_wrap(~Parameter, scales = "free", ncol = 1)
+
+p2 = params %>%
+  group_by(Parameter) %>%
+  do(ac(.$value, 50)) %>%
+  ggplot(aes(x = Lag, weight = Autocorrelation)) +
+  geom_bar() +
+  facet_wrap(~Parameter, ncol = 1)
+
+p1 + p2
+```

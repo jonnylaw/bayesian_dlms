@@ -4,7 +4,6 @@ import Dglm._
 import breeze.linalg.DenseVector
 import breeze.stats.distributions.{Multinomial, Rand}
 import cats.implicits._
-import cats.data.Reader
 import math.{exp, log}
 import breeze.stats.mean
 import ParticleFilter._
@@ -89,10 +88,10 @@ object ParticleGibbs {
     * a single state path deterministically chosen to be the final path
     */
   def filter(
-    n:             Int, 
-    p:             Dlm.Parameters, 
-    mod:           Model, 
-    obs:           List[Data])(state: List[(Double, DenseVector[Double])]): Rand[(Double, List[(Double, DenseVector[Double])])] = {
+    n:   Int, 
+    p:   Dlm.Parameters, 
+    mod: Model, 
+    obs: List[Data])(state: List[(Double, DenseVector[Double])]) = {
 
     val firstTime = obs.map(d => d.time).min
     val x0 = initState(p).sample(n-1).toList.map(x => (firstTime - 1, x))

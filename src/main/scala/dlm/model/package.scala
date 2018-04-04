@@ -1,10 +1,8 @@
 package dlm
 
 import breeze.linalg.{DenseVector, DenseMatrix}
-import breeze.stats.mean
-import breeze.stats.distributions._
+import breeze.stats.distributions.Rand
 import cats._
-import dlm.model.Dlm._
 
 package object model {
   /**
@@ -13,10 +11,13 @@ package object model {
     */
   implicit def dlm2dglm(dlmModel: Dlm.Model): Dglm.Model = {
     Dglm.Model(
-      (x: DenseVector[Double], v: DenseMatrix[Double]) => MultivariateGaussianSvd(x, v),
-      dlmModel.f,
-      dlmModel.g,
-      (v: DenseMatrix[Double]) => (x: DenseVector[Double], y: DenseVector[Double]) => MultivariateGaussianSvd(x, v).logPdf(y)
+      (x: DenseVector[Double], v: DenseMatrix[Double]) =>
+        MultivariateGaussianSvd(x, v),
+        dlmModel.f,
+        dlmModel.g,
+      (v: DenseMatrix[Double]) =>
+      (x: DenseVector[Double], y: DenseVector[Double]) =>
+        MultivariateGaussianSvd(x, v).logPdf(y)
     )
   }
 

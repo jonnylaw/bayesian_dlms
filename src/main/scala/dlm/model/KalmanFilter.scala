@@ -1,8 +1,7 @@
 package dlm.model
 
-import breeze.linalg.{DenseMatrix, diag, DenseVector, inv}
+import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.distributions._
-import scala.math.{exp, log}
 import Dlm._
 
 object KalmanFilter {
@@ -183,7 +182,7 @@ object KalmanFilter {
 
       val newll = ll + conditionalLikelihood(predicted, predcov, y)
 
-      (ft, qt, mt1, covariance, ll)
+      (ft, qt, mt1, covariance, newll)
     }
   }
 
@@ -236,9 +235,8 @@ object KalmanFilter {
     observations: Vector[Data], 
     p:            Parameters) = {
 
-    val sortedObs = observations.sortBy(_.time)
-    val init = initialiseState(mod, p, sortedObs)
-    sortedObs.scanLeft(init)(step(mod, p))
+    val init = initialiseState(mod, p, observations)
+    observations.scanLeft(init)(step(mod, p))
   }
 
   /**
@@ -249,8 +247,7 @@ object KalmanFilter {
     observations: Vector[Data])
     (p: Parameters): Double = {
 
-    val sortedObs = observations.sortBy(_.time)
-    val init = initialiseState(mod, p, sortedObs)
+    val init = initialiseState(mod, p, observations)
     observations.foldLeft(init)(step(mod, p)).ll
   }
 }

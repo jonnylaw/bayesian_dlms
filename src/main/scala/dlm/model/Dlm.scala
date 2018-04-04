@@ -95,6 +95,7 @@ object Dlm {
 
   /**
     * A first order regression model with intercept
+    * @param x an array of covariates 
     */
   def regression(x: Array[DenseVector[Double]]): Model = {
 
@@ -103,7 +104,23 @@ object Dlm {
           val m = 1 + x(t.toInt).size
           new DenseMatrix(m, 1, 1.0 +: x(t.toInt).data)
       },
-      (t: Double) => DenseMatrix.eye[Double](2)
+      (dt: Double) => DenseMatrix.eye[Double](2)
+    )
+  }
+
+  /**
+    * Define a discrete time univariate first order autoregressive model
+    * @param phi a sequence of autoregressive parameters of length equal
+    * to the order of the autoregressive state
+    */
+  def autoregressive(phi: Double*): Model = {
+    Model(
+      (t: Double) => {
+        val m = DenseMatrix.zeros[Double](phi.size, 1)
+        m(0,0) = 1.0
+        m
+      },
+      (dt: Double) => new DenseMatrix(phi.size, 1, phi.toArray)
     )
   }
 

@@ -27,7 +27,7 @@ trait SimulatedSecondOrderData {
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.
     collect { 
-      case Success(a) => Data(a.head, DenseVector(Some(a(1))))
+      case Right(a) => Data(a.head, DenseVector(Some(a(1))))
     }.
     toVector
 }
@@ -109,7 +109,7 @@ object GibbsInvestParameters extends App with DlmModel {
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.
     collect {
-      case Success(a) => Data(0.0, DenseVector(Some(a(1).toDouble / 1000.0)))
+      case Right(a) => Data(0.0, DenseVector(Some(a(1).toDouble / 1000.0)))
     }.
     toVector.
     zipWithIndex.

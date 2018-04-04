@@ -4,7 +4,6 @@ import dlm.model._
 import cats.implicits._
 import Dlm._
 import breeze.linalg._
-import breeze.stats.distributions._
 import java.nio.file.Paths
 import kantan.csv._
 import kantan.csv.ops._
@@ -30,7 +29,7 @@ trait CorrelatedData {
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.
     collect { 
-      case Success(a) => Data(a.head, DenseVector(a(1).some, a(2).some))
+      case Right(a) => Data(a.head, DenseVector(a(1).some, a(2).some))
     }.
     toVector
 }
@@ -133,7 +132,7 @@ object SusteInvestment extends App with CorrelatedModel {
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.
     collect {
-      case Success(a) => Data(0.0, DenseVector(a(0).some, a(1).some))
+      case Right(a) => Data(0.0, DenseVector(a(0).some, a(1).some))
     }.
     toVector.
     zipWithIndex.

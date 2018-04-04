@@ -2,10 +2,12 @@ package dlm.model
 
 import breeze.stats.distributions._
 import breeze.linalg.{DenseMatrix, DenseVector}
+import cats.data.Kleisli
 import Dlm._
 
 /**
-  * This class learns a correlated system matrix using the InverseWishart prior on the system noise matrix
+  * This class learns a correlated system matrix
+  *  using the InverseWishart prior on the system noise matrix
   */
 object GibbsWishart {
 
@@ -14,18 +16,17 @@ object GibbsWishart {
     */
   def sampleSystemMatrix(
     priorW: InverseWishart,
-    g:      Double => DenseMatrix[Double], 
-    state:  Vector[(Double, DenseVector[Double])]) = {
+    g:      Double => DenseMatrix[Double])
+    (s:     GibbsSampling.State) = {
 
-    val n = state.size - 1
-    val sortedState = state.sortBy(_._1)
-    val times = sortedState.map(_._1)
+    val n = s.state.size - 1
+    val times = s.state.map(_._1)
     val deltas = GibbsSampling.diff(times)
-    val advanceState = (deltas, sortedState.init.map(_._2)).
+    val advanceState = (deltas, s.state.init.map(_._2)).
       zipped.
       map { case (dt, x) => g(dt) * x }
 
-    val stateMean = sortedState.map(_._2).tail
+    val stateMean = s.state.map(_._2).tail
 
     val squaredSum = (deltas zip stateMean zip advanceState).
       map { case ((dt, mt), at) => (mt - at) * (mt - at).t /:/ dt }.
@@ -34,7 +35,9 @@ object GibbsWishart {
     val dof = priorW.nu + n
     val scale = priorW.psi + squaredSum
 
-    InverseWishart(dof, scale)
+    for {
+      newW <- InverseWishart(dof, scale)
+    } yield s.copy(p = s.p.copy(w = newW))
   }
 
   /**
@@ -44,22 +47,22 @@ object GibbsWishart {
     mod:          Model, 
     priorV:       InverseGamma,
     priorW:       InverseWishart, 
-    observations: Vector[Data])(state: GibbsSampling.State) = {
+    observations: Vector[Data]) = {
 
-    for {
-      system <- sampleSystemMatrix(priorW, mod.g, state.state)
-      latentState <- Smoothing.ffbs(mod, observations, state.p.copy(w = system))
-      obs <- GibbsSampling.sampleObservationMatrix(priorV, mod.f, latentState, observations)
-      p = Parameters(obs, system, state.p.m0, state.p.c0)
-    } yield GibbsSampling.State(p, latentState)
+    Kleisli(sampleSystemMatrix(priorW, mod.g)) compose
+      Kleisli(GibbsSampling.ffbs(mod, observations)) compose
+      Kleisli(GibbsSampling.sampleObservationMatrix(priorV, mod.f, observations))
   }
 
   /**
-    * Do some gibbs samples
+    * Perofrm Gibbs Sampling using an Inverse Wishart distribution for the system
+    * noise matrix
     * @param mod a DLM model specification
     * @param priorV the prior on the observation noise matrix
-    * @param priorW the prior distribution on the system covariance matrix
-    * @param initParams 
+    * @param priorW the Inverse Wishart prior distribution on the system
+    * covariance matrix
+    * @param initParams the intial parameters of the Markov Chain
+    * @param observations a vector of time series observations
     */
   def sample(
     mod:          Model, 
@@ -71,6 +74,6 @@ object GibbsWishart {
     val initState = Smoothing.ffbs(mod, observations, initParams).draw
     val init = GibbsSampling.State(initParams, initState)
 
-    MarkovChain(init)(wishartStep(mod, priorV, priorW, observations))
+    MarkovChain(init)(wishartStep(mod, priorV, priorW, observations).run)
   }
 }
