@@ -23,7 +23,8 @@ libraryDependencies ++= Seq(
   "org.scalanlp"        %% "breeze-natives"     % "0.13.2",
   "com.nrinaudo"        %% "kantan.csv-cats"    % "0.4.0",
   "org.typelevel"       %% "cats-core"          % "1.0.1",
-  "org.scalatest"       %% "scalatest"          % "3.0.5"  % "test"
+  "org.scalatest"       %% "scalatest"          % "3.0.5"  % "test",
+  "org.scalacheck"      %% "scalacheck"         % "1.13.4" % "test"
 )
 
 publishMavenStyle := true

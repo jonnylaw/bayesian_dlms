@@ -8,6 +8,7 @@ import breeze.linalg._
 case class MultivariateGaussianSvd(
   mu:  DenseVector[Double], 
   cov: DenseMatrix[Double])(implicit rand: RandBasis = Rand) extends ContinuousDistr[DenseVector[Double]] {
+
   private val root = eigSym(cov)
 
   /**
@@ -34,7 +35,7 @@ case class MultivariateGaussianSvd(
     val centered = x - mu
     val slv = cov \ centered
 
-    -(slv dot centered) / 2.0
+    -(slv dot centered) * 0.5
   }
 
 }

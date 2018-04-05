@@ -35,15 +35,16 @@ object ParticleGibbs {
         val resampledX = resample(s.states.head.toVector, s.weights.toVector)
 
         // advance n-1 states from time t, located at the head of the list
-        val x1 = advanceState(mod.g, d.time, s.states.head.map(_._2), p).draw
+        val x1 = advanceState(mod.g, d.time, resampledX.map(_._2).toList, p).draw
 
-        State(x1.map(x => (d.time, x)) :: s.states, List.fill(x1.size - 1)(1.0 / x1.size), s.ll)
+        State(x1.map(x => (d.time, x)) :: s.states,
+          List.fill(x1.size - 1)(1.0 / x1.size), s.ll)
       } else {
         // resample using the previous weights
-        val resampled = resample(s.states.head.toVector, s.weights.toVector).toList
+        val resampledX = resample(s.states.head.toVector, s.weights.toVector).toList
 
         // advance n-1 resampled states from time t
-        val x1 = advanceState(mod.g, d.time, resampled.map(_._2), p).draw
+        val x1 = advanceState(mod.g, d.time, resampledX.map(_._2), p).draw
 
         // concat conditioned state and advanced state
         val x: List[DenseVector[Double]] = (conditionedState :: x1)

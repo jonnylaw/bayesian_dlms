@@ -1,21 +1,21 @@
 import dlm.model._
-import breeze.linalg.{DenseMatrix, DenseVector, cond, diag}
-import breeze.stats.distributions.{ChiSquared, Gamma, StudentsT}
-import breeze.stats.covmat
-import breeze.stats.{meanAndVariance, variance, mean}
+import breeze.linalg._
+import breeze.stats.distributions._
+import breeze.stats.meanAndVariance
 import org.scalatest._
 import prop._
-import org.scalacheck.Gen
 import org.scalactic.Equality
+import org.scalacheck.Gen
 import Dglm._
 
 trait BreezeGenerators {
-  val denseVector = (n: Int) => Gen.containerOfN[Array, Double](n, Gen.choose(-10.0, 10.0)).
+  val denseVector = (n: Int) =>
+    Gen.containerOfN[Array, Double](n, Gen.choose(-10.0, 10.0)).
     map(a => DenseVector(a))
 
-  val denseMatrix = (n: Int) => Gen.containerOfN[Array, Double](n * n, Gen.choose(-10.0, 10.0)).
+  val denseMatrix = (n: Int) =>
+    Gen.containerOfN[Array, Double](n * n, Gen.choose(-10.0, 10.0)).
     map(a => new DenseMatrix(n, n, a))
-
 
   /**
     * Simulate a positive definite matrix with a given condition number
@@ -69,9 +69,9 @@ trait BreezeGenerators {
 //         val n = 10000000
 //         val g = InverseGamma(shape, scale)
 //         val samples = g.sample(n)
-
-//         assert(g.mean === mean(samples) +- (0.1 * g.mean) )
-//         assert(g.variance === variance(samples) +- (0.1 * g.variance))
+//         val mv = meanAndVariance(samples)
+//         assert(g.mean === mv.mean +- (0.1 * g.mean) )
+//         assert(g.variance === mv.variance +- (0.1 * g.variance))
 //       }
 //     }
 //   }
@@ -115,7 +115,7 @@ trait BreezeGenerators {
 // class MvnDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {  
 //   property("MVN distribution") {
 //     forAll(symmetricPosDefMatrix(2, 1000)) { cov =>
-//       implicit val tol = 1e-1
+//       implicit val tol = 1.0
 //       val n = 1000000
 //       val mvn = MultivariateGaussianSvd(DenseVector.zeros[Double](2), cov)
 //       val samples = mvn.sample(n)
@@ -124,6 +124,18 @@ trait BreezeGenerators {
 
 //       assert(mvn.mean === sampleMean)
 //       assert(mvn.variance === sampleCovariance)
+//     }
+//   }
+
+//   property("MVN SVD should calculate the same log-likelihood as Cholesky") {
+//     forAll(symmetricPosDefMatrix(2, 1000)) { cov =>
+//       implicit val tol = 1e-2
+//       val zero = DenseVector.zeros[Double](2)
+//       val y = DenseVector(1.0, 2.0)
+//       val svd = MultivariateGaussian(zero, cov).pdf(y)
+//       val chol = MultivariateGaussianSvd(zero, cov).pdf(y)
+
+//       assert(svd === chol)
 //     }
 //   }
 // }

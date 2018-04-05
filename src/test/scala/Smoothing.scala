@@ -1,14 +1,8 @@
 import dlm.model._
 import Dlm._
-import breeze.linalg.{DenseMatrix, DenseVector, diag, inv}
-import breeze.stats.distributions.{ChiSquared, Gamma}
-import breeze.stats.covmat
-import breeze.stats.{meanAndVariance, variance, mean}
+import breeze.linalg.{DenseMatrix, DenseVector}
 import org.scalatest._
 import prop._
-import org.scalacheck.Gen
-import org.scalacheck.Arbitrary
-import Arbitrary.arbitrary
 import org.scalactic.Equality
 
 trait SmoothedData {
