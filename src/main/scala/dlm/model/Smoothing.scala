@@ -1,8 +1,8 @@
 package dlm.model
 
 import Dlm._
-import breeze.linalg.{inv, DenseVector, DenseMatrix}
-import breeze.stats.distributions.{MultivariateGaussian, Rand}
+import breeze.linalg.{DenseVector, DenseMatrix}
+import breeze.stats.distributions.Rand
 
 object Smoothing {
   case class SmoothingState(
@@ -123,6 +123,9 @@ object Smoothing {
 
   /**
     * Forward filtering backward sampling for a DLM
+    * @param mod the DLM
+    * @param observations a list of observations
+    * @param p parametes of the DLM
     */
   def ffbs(
     mod:          Model,

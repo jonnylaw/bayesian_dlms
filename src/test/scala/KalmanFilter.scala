@@ -75,7 +75,7 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
 
   val y1 = data.head
   val (a1, r1) = KalmanFilter.advanceState(model.g, p.m0, p.c0, 1, p.w)
-  val (f1, q1, m1, c1, _) = KalmanFilter.updateState(model.f, a1, r1, y1, p.v, 0.0)
+  val (f1, q1, m1, c1) = KalmanFilter.updateState(model.f, a1, r1, y1, p.v)
   val e1 = KalmanFilter.flattenObs(y1.observation) - f1
   val k1 = r1 * inv(q1)
 
@@ -97,7 +97,7 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(c1 === r1 - k1 * r1)
   }
 
-  val state1 = KalmanFilter.State(1, m1, c1, a1, r1, Some(f1), Some(q1), 0.0)
+  val state1 = KalmanFilter.State(1, m1, c1, a1, r1, Some(f1), Some(q1))
   val filterOne = KalmanFilter.step(model, p)(state1, data(1))
 
   test("time step 2") {

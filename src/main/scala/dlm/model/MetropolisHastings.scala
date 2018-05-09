@@ -1,12 +1,11 @@
 package dlm.model
 
-import breeze.linalg.{DenseMatrix, diag, DenseVector, inv}
+import breeze.linalg.{DenseMatrix, diag, DenseVector}
 import breeze.stats.distributions._
 import scala.math.log
 import breeze.numerics.exp
-import cats.{Monad, Applicative}
+import cats.Applicative
 import Dlm._
-import cats.implicits._
 
 object Metropolis {
   /**
@@ -110,7 +109,8 @@ object Metropolis {
   }
 
   /**
-    * Run the metropolis algorithm for a DLM, using the kalman filter to calculate the likelihood
+    * Run the metropolis algorithm for a DLM, 
+    * using the kalman filter to calculate the likelihood
     */
   def dlm(
     mod:          Model,

@@ -4,8 +4,6 @@ import dlm.model._
 import Dlm._
 import GibbsSampling._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
-import breeze.stats.distributions.{Gaussian, Rand}
-import math.{log, exp}
 import java.nio.file.Paths
 import cats.implicits._
 import kantan.csv._

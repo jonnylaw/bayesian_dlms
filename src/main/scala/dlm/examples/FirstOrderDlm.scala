@@ -3,9 +3,8 @@ package dlm.examples
 import dlm.model._
 import Dlm._
 import breeze.linalg.{DenseMatrix, DenseVector}
-import breeze.stats.distributions.{Gaussian, MarkovChain, Rand}
+import breeze.stats.distributions.MarkovChain
 import java.nio.file.Paths
-import java.io.File
 import cats.implicits._
 import kantan.csv._
 import kantan.csv.ops._
@@ -62,6 +61,20 @@ object FilterDlm extends App with FirstOrderDlm with SimulatedData {
     (f.time, f.mt(0), f.ct.data(0), f.ft.map(_(0)), f.qt.map(_.data(0)))
   }
   val headers = rfc.withHeader("time", "state_mean", "state_variance", "one_step_forecast", "one_step_variance")
+
+  out.writeCsv(filtered.map(formatFiltered), headers)
+}
+
+object FilterSvd extends App with FirstOrderDlm with SimulatedData {
+  val filtered = SvdFilter.filter(mod, data, p)
+
+  val out = new java.io.File("data/first_order_dlm_svd_filtered.csv")
+
+  def formatFiltered(f: SvdFilter.State) = {
+    val ct = f.uc * f.dc * f.uc.t
+    List(f.time, f.mt(0), ct(0,0))
+  }
+  val headers = rfc.withHeader("time", "state_mean", "state_variance")
 
   out.writeCsv(filtered.map(formatFiltered), headers)
 }

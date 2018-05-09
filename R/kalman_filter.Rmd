@@ -2,6 +2,12 @@
 title: "Kalman Filtering"
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE, message=FALSE, warning=FALSE, echo=FALSE)
+library(tidyverse)
+library(patchwork)
+```
+
 Dynamic Linear Models have a linear Gaussian latent-state and observation model which is amenable to exact filtering because of special properties of the Gaussian distribution. This means the distribution of the latent-state ($p(\textbf{x}_{0:T}|y_{1:T}, \theta)$) can be learned about exactly, this distribution is commonly called the filtering distribution. Suppose a time-dependent process is observed discretely at times $t = 1,\dots,T$, then a general DLM for this process can be written as:
 
 $$\begin{aligned}
@@ -89,6 +95,33 @@ filtered %>%
   ggtitle("Kalman Filtered")
 ```
 
+## Filter Stability
+
+Numerical stability is important when implementing the Kalman Filter. One way of improving the stability of the filter is to use a square root filter, a further improvement is found by using the Singular Value Decomposition as detailed in https://arxiv.org/abs/1611.03686.
+
+In order to run Singular Value Decomposition filter use:
+
+```tut:silent
+val filtered = SvdFilter.filter(mod, data.map(_._1), p)
+```
+
+The figure below shows the SVD filter ran on the first order DLM example.
+
+```{r filter-svd, echo=FALSE}
+filtered_svd = read_csv("../data/first_order_dlm_svd_filtered.csv")
+
+filtered_svd %>%
+  inner_join(data, by = "time") %>%
+  mutate(upper = qnorm(p = 0.95, mean = state_mean, sd = sqrt(state_variance))) %>%
+  mutate(lower = qnorm(p = 0.05, mean = state_mean, sd = sqrt(state_variance))) %>%
+  gather(key, value, state_mean, state) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  geom_line(aes(x = time, y = lower), linetype = 3, colour = "#000000") +
+  geom_line(aes(x = time, y = upper), linetype = 3, colour = "#000000") +
+  theme(legend.position = "bottom") +
+  ggtitle("Kalman Filtered")
+```
 
 ## Other Filters
 

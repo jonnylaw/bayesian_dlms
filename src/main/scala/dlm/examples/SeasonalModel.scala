@@ -2,12 +2,9 @@ package dlm.examples
 
 import dlm.model._
 import Dlm._
-import GibbsSampling._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
-import breeze.stats.distributions.{Gamma, Gaussian, Rand, RandBasis}
-import breeze.numerics.exp
+import breeze.stats.distributions.RandBasis
 import breeze.stats.mean
-import cats.Applicative
 import cats.implicits._
 import java.nio.file.Paths
 import kantan.csv._
