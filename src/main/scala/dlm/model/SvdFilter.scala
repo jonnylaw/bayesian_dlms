@@ -41,7 +41,7 @@ object SvdFilter {
   ): (DenseVector[Double], DenseVector[Double], DenseMatrix[Double]) = {
     
     val at = g(dt) * mt
-    val rt = DenseMatrix.vertcat(dc * (g(dt) * uc).t, sqrtW)
+    val rt = DenseMatrix.vertcat(diag(dc) * (g(dt) * uc).t, sqrtW)
     val root = svd(rt)
     val ur = root.rightVectors
     val dr = root.singularValues
@@ -53,6 +53,7 @@ object SvdFilter {
     f:    Double => DenseMatrix[Double],
     at:   DenseVector[Double],
     time: Double) = {
+
     f(time).t * at
   }
 
@@ -65,13 +66,14 @@ object SvdFilter {
     ft:       DenseVector[Double],
     d:        Dlm.Data
   ) = {
-    val rInv = dr.map(1.0 / _)
-    val gain = svd(DenseMatrix.vertcat(sqrtVInv * f(d.time) * ur, diag(rInv)))
-    val uc = ur * gain.rightVectors
+    val drInv = dr.map(1.0 / _)
+    val gain = svd(DenseMatrix.vertcat(sqrtVInv * f(d.time).t * ur, diag(drInv)))
+    val uc = ur * gain.rightVectors.t
 
     val dc = gain.singularValues.map(1.0 / _)
     val et = KalmanFilter.flattenObs(d.observation) - ft
-    val mt = at + (diag(dc) * uc.t).t * (diag(dc) * uc.t) * f(d.time) * sqrtVInv.t * sqrtVInv * et
+    val fv = f(d.time) * sqrtVInv.t * sqrtVInv
+    val mt = at + (diag(dc) * uc.t).t * (diag(dc) * uc.t) * fv * et
 
     (mt, dc, uc)
   }
@@ -110,17 +112,38 @@ object SvdFilter {
       at, dr, ur, ft)
   }
 
+  /**
+    * Calculate the square root inverse of a matrix using the Eigenvalue
+    * decomposition of a matrix
+    * @param m a symmetric positive definite matrix
+    * @return the square root inverse of the matrix
+    */
+  def sqrtInvSym(m: DenseMatrix[Double]) = {
+
+    val root = eigSym(m)
+    val d = root.eigenvalues
+    val dInv = d.map(e => 1.0 / math.sqrt(e))
+    diag(dInv) * root.eigenvectors
+  }
+
+  /**
+    * Calculate the square root of a symmetric matrix using eigenvalue
+    * decomposition
+    * @param m a symmetric positive definite matrix
+    * @return the square root of a matrix
+    */
+  def sqrtSym(m: DenseMatrix[Double]) = {
+    val root = eigSym(m)
+    diag(root.eigenvalues.map(math.sqrt)) * root.eigenvectors
+  }
+
   def filter(
     mod: Dlm.Model,
     ys:  Vector[Dlm.Data],
     p:   Dlm.Parameters) = {
 
-    val rootV = eigSym(p.v)
-    val invdV = rootV.eigenvalues.map(v => 1.0 / math.sqrt(v))
-    val sqrtVinv = invdV * rootV.eigenvectors
-
-    val rootW = eigSym(p.w)
-    val sqrtW = rootW.eigenvalues.map(math.sqrt) * rootW.eigenvectors
+    val sqrtVinv = sqrtInvSym(p.v)
+    val sqrtW = sqrtSym(p.w)
     val init = initialiseState(mod, p, ys, sqrtW)
 
     ys.scanLeft(init)(filterStep(mod, p, sqrtVinv, sqrtW))

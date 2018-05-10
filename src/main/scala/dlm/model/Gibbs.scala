@@ -159,21 +159,15 @@ object GibbsSampling extends App {
     MarkovChain.Kernels.metropolisHastings(proposal)(pos)
   }
 
-  // def samplePhiDirichlet(
-  //   prior: Dirichlet[Vector[Double], Int],
-  //   state:  Vector[(Double, DenseVector[Double])],
-  //   lambda: Double,
-  //   tau:    Double) = ???
-
   /**
-    * 
+    * Perform forward filtering backward sampling
     */
   def ffbs(
     mod:          Model, 
     observations: Vector[Data])(s: State) = {
 
     for {
-      newState <- Smoothing.ffbs(mod, observations, s.p)
+      newState <- SvdSampler.ffbs(mod, observations, s.p)
     } yield s.copy(state = newState)
   }
 

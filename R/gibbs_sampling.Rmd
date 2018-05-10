@@ -71,4 +71,5 @@ Now in order to perform gibbs sampling, we alternate between drawing values of $
 
 ## Forward Filtering Backward Sampling
 
-TODO
+Can be implemented using SVD
+

@@ -20,7 +20,7 @@ second_order:
 	sbt ";runMain dlm.examples.SimulateSecondOrderDlm; runMain dlm.examples.FilterSecondOrderDlm; runMain dlm.examples.GibbsSecondOrder"
 
 first_order: 
-	sbt ";runMain dlm.examples.SimulateDlm;runMain dlm.examples.FilterDlm; runMain dlm.examples.SmoothDlm; runMain dlm.examples.GibbsParameters"
+	sbt ";runMain dlm.examples.SimulateDlm; runMain dlm.examples.FilterSvd; runMain dlm.examples.SmoothDlm; runMain dlm.examples.GibbsParameters"
 
 seasonal: 
 	sbt ";runMain dlm.examples.SimulateSeasonalDlm; runMain dlm.examples.SmoothSeasonalDlm; runMain dlm.examples.FilterSeasonalDlm; runMain dlm.examples.ForecastSeasonal; runMain dlm.examples.SeasonalGibbsSampling"

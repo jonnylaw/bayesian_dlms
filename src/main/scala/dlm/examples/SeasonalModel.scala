@@ -59,18 +59,18 @@ object SimulateSeasonalDlm extends App with SeasonalModel {
   * Filter the seasonal DLM
   */
 object FilterSeasonalDlm extends App with SeasonalModel with SeasonalData {
-  val filtered = KalmanFilter.filter(mod, data, p)
+  val filtered = SvdFilter.filter(mod, data, p)
 
   val out = new java.io.File("data/seasonal_filtered.csv")
 
-  def formatFiltered(f: KalmanFilter.State) = {
-    f.time.toDouble +: DenseVector.vertcat(f.mt, diag(f.ct)).data.toList
+  def formatFiltered(f: SvdFilter.State) = {
+    val ct = f.uc * diag(f.dc) * f.uc.t
+    f.time.toDouble +: DenseVector.vertcat(f.mt, diag(ct)).data.toList
   }
 
-  val headers = rfc.withHeader("time", "state_mean_1", "state_mean_2", "state_mean_3", "state_mean_4", 
-    "state_mean_5", "state_mean_6", "state_mean_7",
-    "state_variance_1", "state_variance_2", "state_variance_3", 
-    "state_variance_4", "state_variance_5", "state_variance_6", "state_variance_7")
+  val hs = Seq("time") ++ (1 to 7).map(i => s"state_mean_$i") ++
+    (1 to 7).map(i => s"state_variance_$i")
+  val headers = rfc.withHeader(hs: _*)
 
   out.writeCsv(filtered.map(formatFiltered), headers)
 }
