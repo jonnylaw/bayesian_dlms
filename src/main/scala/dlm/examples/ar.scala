@@ -2,12 +2,10 @@ package dlm.examples
 
 import dlm.model._
 import Dlm._
-import breeze.linalg.{DenseMatrix, DenseVector}
-import breeze.stats.distributions.{Gaussian, MarkovChain, Rand, Beta}
+import breeze.linalg.{DenseMatrix, DenseVector, diag}
+import breeze.stats.distributions.{MarkovChain, Beta}
 import java.nio.file.Paths
-import java.io.File
 import cats.implicits._
-import cats.data.Kleisli
 import kantan.csv._
 import kantan.csv.ops._
 
@@ -52,15 +50,16 @@ object SimulateArDlm extends App with ArDlm {
 }
 
 object FilterArDlm extends App with ArDlm with ArData {
-  val filtered = KalmanFilter.filter(mod, data, p)
+  val filtered = SvdFilter.filter(mod, data, p)
 
   val out = new java.io.File("data/ar_dlm_filtered.csv")
 
-  def formatFiltered(f: KalmanFilter.State) = {
-    (f.time, f.mt(0), f.ct.data(0), f.ft.map(_(0)), f.qt.map(_.data(0)))
+  def formatFiltered(f: SvdFilter.State) = {
+    val ct = f.uc * diag(f.dc) * f.uc.t
+    (f.time, f.mt(0), ct(0, 0), f.ft(0))
   }
   val headers = rfc.withHeader("time", "state_mean", "state_variance",
-    "one_step_forecast", "one_step_variance")
+    "one_step_forecast")
 
   out.writeCsv(filtered.map(formatFiltered), headers)
 }

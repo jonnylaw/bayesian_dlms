@@ -52,12 +52,13 @@ object SimulateSecondOrderDlm extends App with DlmModel {
 }
 
 object FilterSecondOrderDlm extends App with DlmModel with SimulatedSecondOrderData {
-  val filtered = KalmanFilter.filter(mod, data, p)
+  val filtered = SvdFilter.filter(mod, data, p)
 
   val out = new java.io.File("data/second_order_dlm_filtered.csv")
 
-  def formatFiltered(f: KalmanFilter.State) = {
-    f.time.toDouble +: DenseVector.vertcat(f.mt, diag(f.ct)).data.toList
+  def formatFiltered(f: SvdFilter.State) = {
+    val ct = f.uc * diag(f.dc) * f.uc.t
+    f.time.toDouble +: DenseVector.vertcat(f.mt, diag(ct)).data.toList
   }
 
   val headers = rfc.withHeader("time", "state_mean_1", "state_mean_2", "state_variance_1", "state_variance_2")

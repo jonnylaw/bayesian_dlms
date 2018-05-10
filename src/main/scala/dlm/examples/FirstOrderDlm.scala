@@ -2,8 +2,8 @@ package dlm.examples
 
 import dlm.model._
 import Dlm._
-import breeze.linalg.{DenseMatrix, DenseVector}
-import breeze.stats.distributions.MarkovChain
+import breeze.linalg.{DenseMatrix, DenseVector, diag}
+import breeze.stats.distributions.{MarkovChain, RandBasis}
 import java.nio.file.Paths
 import cats.implicits._
 import kantan.csv._
@@ -15,8 +15,8 @@ trait FirstOrderDlm {
     g = (t: Double) => DenseMatrix((1.0))
   )
   val p = Dlm.Parameters(
+    DenseMatrix(2.0), 
     DenseMatrix(3.0), 
-    DenseMatrix(1.0), 
     DenseVector(0.0), 
     DenseMatrix(1.0))
 }
@@ -53,28 +53,15 @@ object SimulateDlm extends App with FirstOrderDlm {
 }
 
 object FilterDlm extends App with FirstOrderDlm with SimulatedData {
-  val filtered = KalmanFilter.filter(mod, data, p)
+  val filtered = SvdFilter.filter(mod, data, p)
 
   val out = new java.io.File("data/first_order_dlm_filtered.csv")
 
-  def formatFiltered(f: KalmanFilter.State) = {
-    (f.time, f.mt(0), f.ct.data(0), f.ft.map(_(0)), f.qt.map(_.data(0)))
+  def formatFiltered(f: SvdFilter.State) = {
+    val ct = f.uc * diag(f.dc) * f.uc.t
+    List(f.time, f.mt(0), ct(0,0), f.ft(0))
   }
   val headers = rfc.withHeader("time", "state_mean", "state_variance", "one_step_forecast", "one_step_variance")
-
-  out.writeCsv(filtered.map(formatFiltered), headers)
-}
-
-object FilterSvd extends App with FirstOrderDlm with SimulatedData {
-  val filtered = SvdFilter.filter(mod, data, p)
-
-  val out = new java.io.File("data/first_order_dlm_svd_filtered.csv")
-
-  def formatFiltered(f: SvdFilter.State) = {
-    val ct = f.uc * f.dc * f.uc.t
-    List(f.time, f.mt(0), ct(0,0))
-  }
-  val headers = rfc.withHeader("time", "state_mean", "state_variance")
 
   out.writeCsv(filtered.map(formatFiltered), headers)
 }
@@ -91,17 +78,37 @@ object SmoothDlm extends App with FirstOrderDlm with SimulatedData {
   out.writeCsv(smoothed.map(formatSmoothed),
     rfc.withHeader("time", "smoothed_mean", "smoothed_variance"))
 }
+
+object SampleStates extends App with FirstOrderDlm with SimulatedData {
+  implicit val basis = RandBasis.withSeed(7)
+
+  val svdSampled = SvdSampler.ffbs(mod, data, p).sample(1000)
+  val meanStateSvd = SvdSampler.meanState(svdSampled)
+  val outSvd = new java.io.File("data/first_order_state_svd_sample.csv")
+
+  outSvd.writeCsv(meanStateSvd, rfc.withHeader("time", "sampled_mean"))
+
+  val sampled = Smoothing.ffbs(mod, data, p).sample(1000)
+  val meanState = SvdSampler.meanState(sampled)
+  val out = new java.io.File("data/first_order_state_sample.csv")
+
+  out.writeCsv(meanState, rfc.withHeader("time", "sampled_mean"))
+}
  
 object GibbsParameters extends App with FirstOrderDlm with SimulatedData {
-  val iters = GibbsSampling.sample(mod, InverseGamma(4.0, 9.0), InverseGamma(6.0, 5.0), p, data).
+  val priorV = InverseGamma(4.0, 6.0)
+  val priorW = InverseGamma(6.0, 15.0)
+
+  val iters = GibbsSampling.sample(mod, priorV, priorW, p, data).
     steps.
-    take(10000)
+    take(100000).
+    drop(10000)
 
   val out = new java.io.File("data/first_order_dlm_gibbs.csv")
-  val writer = out.asCsvWriter[(Double, Double, Double, Double)](rfc.withHeader("V", "W", "m0", "c0"))
+  val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W"))
 
   def formatParameters(p: Parameters) = {
-    (p.v.data(0), p.w.data(0), p.m0.data(0), p.c0.data(0))
+    List(p.v.data(0), p.w.data(0))
   }
 
   // write iters to file

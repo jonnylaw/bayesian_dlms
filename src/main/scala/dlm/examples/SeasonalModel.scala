@@ -134,8 +134,11 @@ object ForecastSeasonal extends App with SeasonalModel with SeasonalData {
     p.c0)
 
   // get the posterior distribution of the final state
-  val filtered = KalmanFilter.filter(mod, data, meanParameters)
-  val (mt, ct, initTime) = filtered.map(a => (a.mt, a.ct, a.time)).last
+  val filtered = SvdFilter.filter(mod, data, meanParameters)
+  val (mt, ct, initTime) = filtered.map { a =>
+    val ct = a.uc * diag(a.dc) * a.uc.t
+    (a.mt, ct, a.time)
+  }.last
   
   val forecasted = Dlm.forecast(mod, mt, ct, initTime, meanParameters).
     take(100).
@@ -149,8 +152,8 @@ object ForecastSeasonal extends App with SeasonalModel with SeasonalData {
 /**
   * Sample the state using FFBS algorithm
   */
-object SampleStates extends App with SeasonalModel with SeasonalData {
-  val iters = Iterator.fill(10000)(Smoothing.ffbs(mod, data, p).draw)
+object SampleStatesSeasonal extends App with SeasonalModel with SeasonalData {
+  val sampled = Smoothing.ffbs(mod, data, p).sample(10000)
 
   val out = new java.io.File("data/seasonal_dlm_state_2_samples.csv")
   val writer = out.asCsvWriter[List[Double]](rfc.withoutHeader)
@@ -164,11 +167,5 @@ object SampleStates extends App with SeasonalModel with SeasonalData {
   }
 
   val headers = rfc.withHeader(false)
-
-  // write iters to file
-  while (iters.hasNext) {
-    writer.write(formatState(1)(iters.next))
-  }
-
-  writer.close()
+  out.writeCsv(sampled.map(formatState(1)), headers)
 }

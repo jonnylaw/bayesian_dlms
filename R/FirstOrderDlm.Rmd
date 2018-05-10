@@ -7,6 +7,8 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 library(tidyverse)
 library(coda)
 library(ggmcmc)
+library(patchwork)
+library(latex2exp)
 
 theme_set(theme_minimal())
 ```
@@ -29,8 +31,8 @@ import breeze.linalg.{DenseMatrix, DenseVector, diag}
 
 val mod = Dlm.polynomial(1)
 val p = Dlm.Parameters(
-  v = DenseMatrix(3.0),
-  w = DenseMatrix(1.0),
+  v = DenseMatrix(2.0),
+  w = DenseMatrix(3.0),
   m0 = DenseVector(0.0),
   c0 = DenseMatrix(1.0)
 )
@@ -59,7 +61,9 @@ data %>%
   gather(key, value, -time) %>%
   ggplot(aes(x = time, y = value, colour = key)) +
   geom_line() +
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom") +
+    labs(title = "Simulated values from the first order DLM",
+         subtitle = TeX("$$W = 3$, V = 2$"))
 ```
 
 # Kalman Filtering
@@ -79,7 +83,7 @@ val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
 ```
 
 ```{r first-order-filtered}
-filtered = read_csv("../data/first_order_dlm_svd_filtered.csv")
+filtered = read_csv("../data/first_order_dlm_filtered.csv")
 
 filtered %>%
   inner_join(data, by = "time") %>%
@@ -139,6 +143,34 @@ smoothed %>%
        subtitle = "Actual state and smoothed state, with associated 95% intervals")
 ```
 
+# Sample State
+
+The FFBS algorithm is used to sample from the full conditional $p(X_{0:T}|y_{1:T}, \psi)$. The figure below shows the mean and credible intervals for the sampled state using the FFBS algorithm:
+
+```{r svd-sampled}
+svd_sampled = read_csv("../data/first_order_state_svd_sample.csv")
+sampled = read_csv("../data/first_order_state_sample.csv")
+
+p1 = sampled %>%
+  inner_join(data, by = "time") %>%
+  gather(key, value, -time, -observation) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  labs(title = "Mean State Sample") +
+  theme(legend.position = "top")
+
+p2 = svd_sampled %>%
+  inner_join(data, by = "time") %>%
+  gather(key, value, -time, -observation) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  theme(legend.position = "none") +
+  labs(title = "Mean State Sampled using SVD")
+
+p1 | p2
+```
+
+
 # Gibbs Sampling
 
 In order to perform Gibbs Sampling, we must have access to full conditional distributions for sampling from.
@@ -158,18 +190,32 @@ val iters = GibbsSampling.sample(
 
 `iters` are a Process[Parameters], which represents a Markov Chain. This can be converted into an iterator by calling `steps` then the appropriate amount of iterations can be taken from the MCMC. The Figure below shows diagnostic plots for the MCMC chain.
 
+```{r}
+actual_values = tibble(
+  Parameter = c("W", "V"),
+  actual_value = c(3.0, 2.0)
+)
+```
+
 ```{r first-order-gibbs}
 gibbs_iters = read_csv("../data/first_order_dlm_gibbs.csv")
 
-chain = mcmc(gibbs_iters[-c(1:1000),]) %>%
+chain = mcmc(gibbs_iters[seq(1, nrow(gibbs_iters), by = 10),]) %>%
   ggs() %>%
   filter(Parameter %in% c("V", "W"))
 
-p1 = ggs_traceplot(chain) + facet_wrap(~Parameter, ncol = 2, scales = "free_y")
+p1 = chain %>%
+  inner_join(actual_values) %>%
+  ggplot(aes(x = Iteration, y = value)) +
+  geom_line() +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000", linetype = "dashed") +
+  facet_wrap(~Parameter, scales = "free_y", ncol = 2)
 
-p2 = ggs_running(chain) + theme(legend.position = "none") + facet_wrap(~Parameter, ncol = 2, scales = "free_y")
+p2 = ggs_autocorrelation(chain)
 
-p3 = ggs_autocorrelation(chain)
+p3 = ggs_density(chain) +
+  geom_vline(data = actual_values, aes(xintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~Parameter, scales = "free", ncol = 2)
 
-gridExtra::grid.arrange(p1, p2, p3, ncol = 1)
+p1 / p2 / p3
 ```

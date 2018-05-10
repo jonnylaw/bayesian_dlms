@@ -20,7 +20,7 @@ second_order:
 	sbt ";runMain dlm.examples.SimulateSecondOrderDlm; runMain dlm.examples.FilterSecondOrderDlm; runMain dlm.examples.GibbsSecondOrder"
 
 first_order: 
-	sbt ";runMain dlm.examples.SimulateDlm; runMain dlm.examples.FilterSvd; runMain dlm.examples.SmoothDlm; runMain dlm.examples.GibbsParameters"
+	sbt ";runMain dlm.examples.SimulateDlm; runMain dlm.examples.FilterDlm; runMain dlm.examples.SmoothDlm; runMain dlm.examples.SampleStates; runMain dlm.examples.GibbsParameters"
 
 seasonal: 
 	sbt ";runMain dlm.examples.SimulateSeasonalDlm; runMain dlm.examples.SmoothSeasonalDlm; runMain dlm.examples.FilterSeasonalDlm; runMain dlm.examples.ForecastSeasonal; runMain dlm.examples.SeasonalGibbsSampling"
@@ -30,3 +30,6 @@ student_t:
 
 ar1:
 	sbt ";runMain dlm.examples.SimulateArDlm; runMain dlm.examples.FilterArDlm; runMain dlm.examples.ParametersAr"
+
+filtering:
+	sbt ";runMain dlm.examples.FilterArDlm; runMain dlm.examples.FilterCorrelatedDlm; ;runMain dlm.examples.FilterDlm; runMain dlm.examples.FilterSeasonalDlm; runMain dlm.examples.FilterSecondOrderDlm"

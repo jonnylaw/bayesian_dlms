@@ -6,6 +6,7 @@ title: "Seasonal DLM"
 library(tidyverse)
 library(coda) 
 library(ggmcmc)
+library(patchwork)
 knitr::opts_chunk$set(cache=TRUE, message=FALSE, warning=FALSE, echo=FALSE)
 theme_set(theme_minimal())
 ```
@@ -101,11 +102,11 @@ val filtered = KalmanFilter.filter(mod, sims.map(_._1), p)
 ```{r filtered-seasonal}
 filtered = read_csv("../data/seasonal_filtered.csv")
 
-filtered[-1,] %>%
+filtered %>%
   inner_join(sims, by = "time") %>%
   filter(time > 900) %>%
-  mutate(upper = qnorm(p = 0.95, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
-  mutate(lower = qnorm(p = 0.05, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
+  mutate(upper = qnorm(p = 0.975, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
+  mutate(lower = qnorm(p = 0.025, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
   gather(key, value, state_mean_2, state2) %>%
   ggplot(aes(x = time, y = value, colour = key)) +
   geom_line() +
@@ -113,7 +114,7 @@ filtered[-1,] %>%
   geom_line(aes(x = time, y = upper), linetype = 3, colour = "#000000") +
   theme(legend.position = "bottom") +
   labs(title = "Kalman Filtering the Seasonal Model",
-       subtitle = "Mean of the Filtering Distribution overlayed with the actual simulated state with 90% probability intervals")
+       subtitle = "Mean of the Filtering Distribution overlayed with the actual simulated state with 95% probability intervals")
 ```
 
 # Smoothing
@@ -144,7 +145,7 @@ smoothed %>%
 
 ## Parameter Learning using Gibbs Sampling
 
-```{r parameter_values, echo=FALSE}
+```{r parameter_values}
 actual_values = tibble(
   Parameter = c("V", paste0("W", 1:7)),
   actual_value = c(1.0, 0.01, 0.2, 0.4, 0.5, 0.2, 0.1, 0.4)
@@ -164,7 +165,7 @@ val iters = GibbsSampling.sample(
 
 The diagnostic plots are below:
 
-```{r seasonal-v-diagnostics, echo=FALSE, fig.cap="Traceplot and autocorrelation for posterior distribution of the observation variance parameter, $V$"}
+```{r seasonal-v-diagnostics}
 iters = read_csv("../data/seasonal_dlm_gibbs.csv")
 
 params = ggs(mcmc(iters))
@@ -174,13 +175,19 @@ p1 = params %>%
   inner_join(actual_values) %>%
   ggplot(aes(x = Iteration, y = value)) +
   geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000")
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  labs(title = "Diagnostic plots for the observation variance parameter, V", 
+       subtitle = "(Top) Traceplot (Middle) autocorrelation (Bottom) Empirical Posterior Density")
 
 p2 = params %>%
   filter(Parameter == "V") %>%
   ggs_autocorrelation()
 
-gridExtra::grid.arrange(p1, p2, ncol = 1)
+p3 = params %>%
+  filter(Parameter == "V") %>%
+  ggs_density()
+
+p1 / p2 / p3
 ```
 
 ```{r seasonal-w-diagnostics, echo=FALSE, fig.cap="Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated seasonal model"}

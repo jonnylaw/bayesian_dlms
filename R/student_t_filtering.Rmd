@@ -1,4 +1,4 @@
-0---
+---
 title: "Student’s t-distributed DLM"
 output: html_document
 ---
@@ -82,8 +82,6 @@ p3 = ggs_running(parameters) +
 
 gridExtra::grid.arrange(p1, p2, p3, ncol = 1)
 ```
-
-<!-- Now, using Particle Gibbs with Ancestor resampling: -->
 
 ```{r pg-ar, eval=FALSE}
 chain = read_csv("../data/student_t_dglm_gibbs_ancestor.csv")

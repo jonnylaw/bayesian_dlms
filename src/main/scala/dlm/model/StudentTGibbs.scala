@@ -3,7 +3,7 @@ package dlm.model
 import Dlm._
 import cats.data.Kleisli
 import cats.implicits._
-import breeze.linalg.{DenseVector, diag, DenseMatrix}
+import breeze.linalg.{DenseVector, DenseMatrix}
 import breeze.stats.distributions.{Rand, MarkovChain, Gamma}
 
 object StudentT {

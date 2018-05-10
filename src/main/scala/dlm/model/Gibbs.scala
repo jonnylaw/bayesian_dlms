@@ -12,6 +12,13 @@ object GibbsSampling extends App {
     state: Vector[(Double, DenseVector[Double])]
   )
 
+  def innerJoin[A, B](xs: Seq[A], ys: Seq[B])(pred: (A, B) => Boolean): Seq[(A, B)] = {
+    for {
+      x <- xs
+      y <- ys if pred(x, y)
+    } yield (x, y)
+  }
+
   /**
     * Calculate the sum of squared differences between the one step forecast and the actual observation for each time
     * sum((y_t - f_t)^2)
@@ -25,7 +32,7 @@ object GibbsSampling extends App {
     state:        Vector[(Double, DenseVector[Double])],
     observations: Vector[Data]) = {
 
-    val ft = state.tail.zip(observations).
+    val ft = innerJoin(state, observations)((s, d) => s._1 == d.time).
       map { case ((time, x), y) => 
         val fm = KalmanFilter.missingF(f, time, y.observation)
         fm.t * x
@@ -65,15 +72,6 @@ object GibbsSampling extends App {
   }
 
   /**
-    * Calculate the lagged difference between items in a Seq
-    * @param xs a sequence of numeric values
-    * @return a sequence of numeric values containing the once lagged difference
-    */
-  def diff[A](xs: Seq[A])(implicit A: Numeric[A]): Seq[A] = {
-    (xs, xs.tail).zipped.map { case (x, x1) => A.minus(x1, x) }
-  }
-
-  /**
     * Sample the diagonal system matrix for an irregularly observed 
     * DLM
     */
@@ -81,18 +79,15 @@ object GibbsSampling extends App {
     prior: InverseGamma,
     g:     Double => DenseMatrix[Double])(s: State) = {
     
-    val times = s.state.map(_._1)
-    val deltas = diff(times)
-    val advanceState = (deltas, s.state.init.map(_._2)).
-      zipped.
-      map { case (dt, x) => g(dt) * x }
-
-    val stateMean = s.state.map(_._2).tail
+    val stateMean = s.state.tail
 
     // take the squared difference of x_t - g * x_{t-1} for t = 1 ... 0
     // add them all up
-    val squaredSum = (deltas zip stateMean zip advanceState).
-      map { case ((dt, mt), at) => ((mt - at) *:* (mt - at)) / dt }.
+    val squaredSum = stateMean.zip(stateMean.tail).
+    map { case (mt, mt1) =>
+      val dt = mt1._1 - mt._1
+      val diff = (mt1._2 - g(dt) * mt._2)
+      (diff *:* diff) / dt }.
       reduce(_ + _)
 
     val shape = prior.shape + (s.state.size - 1) * 0.5
@@ -168,7 +163,7 @@ object GibbsSampling extends App {
 
     for {
       newState <- SvdSampler.ffbs(mod, observations, s.p)
-    } yield s.copy(state = newState)
+    } yield s.copy(state = newState.sortBy(_._1))
   }
 
   /**

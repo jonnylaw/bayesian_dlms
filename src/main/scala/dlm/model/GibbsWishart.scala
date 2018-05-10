@@ -1,7 +1,7 @@
 package dlm.model
 
 import breeze.stats.distributions._
-import breeze.linalg.{DenseMatrix, DenseVector}
+import breeze.linalg.DenseMatrix
 import cats.data.Kleisli
 import Dlm._
 
@@ -20,16 +20,13 @@ object GibbsWishart {
     (s:     GibbsSampling.State) = {
 
     val n = s.state.size - 1
-    val times = s.state.map(_._1)
-    val deltas = GibbsSampling.diff(times)
-    val advanceState = (deltas, s.state.init.map(_._2)).
-      zipped.
-      map { case (dt, x) => g(dt) * x }
+    val stateMean = s.state
 
-    val stateMean = s.state.map(_._2).tail
-
-    val squaredSum = (deltas zip stateMean zip advanceState).
-      map { case ((dt, mt), at) => (mt - at) * (mt - at).t /:/ dt }.
+    val squaredSum = (stateMean.init zip stateMean.tail).
+      map { case (mt, mt1) =>
+        val dt = mt1._1 - mt._1
+        val centered = (mt1._2 - g(dt) * mt._2)
+        (centered * centered.t) /:/ dt }.
       reduce(_ + _)
 
     val dof = priorW.nu + n

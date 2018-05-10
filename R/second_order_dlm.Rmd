@@ -53,7 +53,7 @@ The figure below shows simulated values from the Second Order DLM with parameter
 data = read_csv("../data/second_order_dlm.csv")
 
 data %>%
-  filter(time < 10) %>%
+  # filter(time < 10) %>%
   gather(key, value, -time) %>%
   ggplot(aes(x = time, y = value, colour = key)) +
   geom_line() +
@@ -73,7 +73,7 @@ filtered = read_csv("../data/second_order_dlm_filtered.csv")
 
 filtered %>%
   inner_join(data, by = "time") %>%
-  filter(time < 100) %>%
+  filter(time > 900) %>%
   mutate(upper = qnorm(p = 0.95, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
   mutate(lower = qnorm(p = 0.05, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
   gather(key, value, state_mean_2, state_2) %>%

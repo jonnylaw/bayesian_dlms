@@ -306,8 +306,8 @@ import breeze.linalg.{DenseMatrix, DenseVector, diag}
 
 val mod = Dlm.polynomial(1)
 val p = Dlm.Parameters(
-  v = DenseMatrix(3.0),
-  w = DenseMatrix(1.0),
+  v = DenseMatrix(2.0),
+  w = DenseMatrix(3.0),
   m0 = DenseVector(0.0),
   c0 = DenseMatrix(1.0)
 )
@@ -358,6 +358,11 @@ H_t &amp;= C_t - C_t G^T_{t + 1} R_{t+1}^{-1} (R_{t+1} - S_{t+1})R_{t+1}^{-1} G_
 \end{align*}
 \]</span></p>
 <p><img src="FirstOrderDlm_files/figure-html/first-order-smoothed-1.png" width="672" /></p>
+</div>
+<div id="sample-state" class="section level1">
+<h1>Sample State</h1>
+<p>The FFBS algorithm is used to sample from the full conditional <span class="math inline">\(p(X_{0:T}|y_{1:T}, \psi)\)</span>. The figure below shows the mean and credible intervals for the sampled state using the FFBS algorithm:</p>
+<p><img src="FirstOrderDlm_files/figure-html/svd-sampled-1.png" width="672" /></p>
 </div>
 <div id="gibbs-sampling" class="section level1">
 <h1>Gibbs Sampling</h1>

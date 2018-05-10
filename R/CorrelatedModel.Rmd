@@ -140,7 +140,7 @@ filtered = read_csv("../data/correlated_dlm_filtered.csv",
 
 filtered %>%
   inner_join(data, by = "time") %>%
-  filter(time > 50) %>%
+  filter(time > 90) %>%
   mutate(lower = qnorm(p = 0.05, mean = state_2_mean, sd = sqrt(variance_2))) %>%
   mutate(upper = qnorm(p = 0.95, mean = state_2_mean, sd = sqrt(variance_2))) %>%
   gather(key, value, contains("state_2")) %>%
@@ -171,7 +171,7 @@ val iters = GibbsSampling.sample(
     sims.map(_._1))
 ```
 
-```{r correlated-v-diagnostics, fig.cap="Diagnostic plots for the MCMC draws from the posterior distribution of the non-zero diagonal elements of the Observation noise covariance matrix for the simulated correlated model"}
+```{r correlated-v-diagnostics}
 iters = read_csv("../data/correlated_dlm_gibbs.csv", col_names = c(paste0("V", 1:4), paste0("W", 1:4)))
 
 actual_values = tibble(
@@ -192,27 +192,41 @@ p1 = params %>%
   ggplot(aes(x = Iteration, y = value)) +
   geom_line() +
   geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~Parameter, scales = "free_y")
+  facet_wrap(~Parameter, scales = "free_y") +
+  labs(title = "Diagnostic plots for the Observation noise covariance matrix",
+       subtitle = "(Top) Traceplots (Middle) Autocorrelation (Bottom) Empirical density")
 
 p2 = params %>% 
   filter(Parameter %in% c("V1", "V4")) %>%
   ggs_autocorrelation()
 
-p1 + p2 + plot_layout(ncol = 1, heights = c(1, 1))
+p3 = params %>% 
+  filter(Parameter %in% c("V1", "V4")) %>%
+  ggs_density() +
+  facet_wrap(~Parameter, ncol = 2, scales = "free")
+
+p1 / p2 / p3
 ```
 
-```{r correlated-w-diagnostics, fig.cap="Diagnostic plots for the MCMC draws from the posterior distribution of the System noise covariance matrix for the simulated correlated model"}
+```{r correlated-w-diagnostics}
 p1 = params %>%
   filter(Parameter %in% paste0("W",c(1,2,4))) %>%
   inner_join(actual_values) %>%
   ggplot(aes(x = Iteration, y = value)) +
   geom_line() +
   geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~Parameter, scales = "free_y")
+  facet_wrap(~Parameter, scales = "free_y") +
+  labs(title = "Diagnostic plots for the System noise covariance matrix",
+       subtitle = "(Top) Traceplots (Middle) Autocorrelation (Bottom) Empirical density")
 
 p2 = params %>%
   filter(Parameter %in% paste0("W", c(1,2,4))) %>%
   ggs_autocorrelation()
 
-p1 + p2 + plot_layout(ncol = 1, heights = c(1, 1))
+p3 = params %>% 
+  filter(Parameter %in% paste0("W", c(1,2,4))) %>%
+  ggs_density() +
+  facet_wrap(~Parameter, ncol = 2, scales = "free")
+
+p1 / p2 / p3
 ```

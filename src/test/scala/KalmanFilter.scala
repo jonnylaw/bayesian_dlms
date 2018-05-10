@@ -82,6 +82,7 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
   // tolerance
   implicit val tol = 1e-4
 
+
   test("advance state for first order model should be a1 = m0, R1 = C0 + W") {
     assert(a1 === p.m0)
     assert(r1 === p.c0 + p.w)

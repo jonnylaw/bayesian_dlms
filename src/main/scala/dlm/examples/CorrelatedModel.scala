@@ -58,12 +58,13 @@ object SimulateCorrelated extends App with CorrelatedModel {
 }
 
 object FilterCorrelatedDlm extends App with CorrelatedModel with CorrelatedData {
-  val filtered = KalmanFilter.filter(model, data, p)
+  val filtered = SvdFilter.filter(model, data, p)
 
   val out = new java.io.File("data/correlated_dlm_filtered.csv")
 
-  def formatFiltered(f: KalmanFilter.State) = {
-    f.time :: DenseVector.vertcat(f.mt, diag(f.ct)).data.toList
+  def formatFiltered(f: SvdFilter.State) = {
+    val ct = f.uc * diag(f.dc) * f.uc.t
+    f.time :: DenseVector.vertcat(f.mt, diag(ct)).data.toList
   }
 
   val headers = rfc.withHeader(false)

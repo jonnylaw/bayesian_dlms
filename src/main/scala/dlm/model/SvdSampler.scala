@@ -1,6 +1,6 @@
 package dlm.model
 
-import breeze.linalg.{DenseVector, DenseMatrix, diag, svd, eigSym}
+import breeze.linalg.{DenseVector, DenseMatrix, diag, svd}
 import breeze.stats.distributions.{Gaussian, Rand}
 
 /**
@@ -20,7 +20,7 @@ object SvdSampler {
     val dt = theta._1 - st.time
     val dcInv = st.dc.map(1.0 / _)
     val root = svd(DenseMatrix.vertcat(sqrtWInv * mod.g(dt) * st.uc, diag(dcInv)))
-    val uh = st.uc * root.rightVectors
+    val uh = st.uc * root.rightVectors.t
     val dh = root.singularValues.map(1.0 / _)
 
     val gWinv = mod.g(dt).t * sqrtWInv.t * sqrtWInv
@@ -44,7 +44,7 @@ object SvdSampler {
     u:  DenseMatrix[Double]) = {
 
     val z = DenseVector.rand(mu.size, Gaussian(0, 1))
-    mu + u * (diag(d.map(math.sqrt)) * z)
+    mu + u * (diag(d.mapValues(math.sqrt)) * z)
   }
 
   /**
@@ -71,4 +71,15 @@ object SvdSampler {
     val filtered = SvdFilter.filter(mod, ys, p)
     Rand.always(sample(mod, p.w, filtered))
   }
+
+  def meanState(sampled: Seq[Seq[(Double, DenseVector[Double])]]) = {
+    sampled.
+      transpose.
+      map(s => (s.head._1, s.map(_._2).reduce(_ + _) /:/ sampled.size.toDouble)).
+      map { case (t, s) => List(t, s(0)) }
+  }
+
+  def intervalState(
+    sampled: Seq[Seq[(Double, DenseVector[Double])]],
+    interval: Double = 0.95): Seq[(Double, (DenseVector[Double], DenseVector[Double]))] = ???
 }

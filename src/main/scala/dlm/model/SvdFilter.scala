@@ -5,7 +5,6 @@ import breeze.linalg.{DenseVector, DenseMatrix, eigSym, diag, svd}
 /**
   * Perform the Kalman Filter by updating the value of the Singular Value Decomp.
   * of the state covariance matrix, C = UDU^T
-  * TODO: Implement support for partially missing data
   */
 object SvdFilter {
   case class State(
@@ -29,7 +28,7 @@ object SvdFilter {
     * of the posterior covariance matrix at the previous time
     * @param uc the unitary matrix containing the eigen vectors of the posterior
     * covariance matrix at the previous time step
-    * 
+    * @return
     */
   def advanceState(
     g:     Double => DenseMatrix[Double],
@@ -38,15 +37,19 @@ object SvdFilter {
     dc:    DenseVector[Double],
     uc:    DenseMatrix[Double],
     sqrtW: DenseMatrix[Double]
-  ): (DenseVector[Double], DenseVector[Double], DenseMatrix[Double]) = {
+  ) = {
     
-    val at = g(dt) * mt
-    val rt = DenseMatrix.vertcat(diag(dc) * (g(dt) * uc).t, sqrtW)
-    val root = svd(rt)
-    val ur = root.rightVectors
-    val dr = root.singularValues
+    if (dt == 0) {
+      (mt, dc, uc)
+    } else {
+      val at = g(dt) * mt
+      val rt = DenseMatrix.vertcat(diag(dc) * (g(dt) * uc).t, sqrtW *:* math.sqrt(dt))
+      val root = svd(rt)
+      val ur = root.rightVectors.t
+      val dr = root.singularValues
 
-    (at, dr, ur)
+      (at, dr, ur)
+    }
   }
 
   def oneStepForecast(
@@ -57,25 +60,42 @@ object SvdFilter {
     f(time).t * at
   }
 
+  def oneStepMissing(
+    fm: DenseMatrix[Double],
+    at: DenseVector[Double]) = {
+
+    fm.t * at
+  }
+
   def updateState(
     at:       DenseVector[Double],
     dr:       DenseVector[Double],
     ur:       DenseMatrix[Double],
     sqrtVInv: DenseMatrix[Double],
     f:        Double => DenseMatrix[Double],
-    ft:       DenseVector[Double],
     d:        Dlm.Data
   ) = {
-    val drInv = dr.map(1.0 / _)
-    val gain = svd(DenseMatrix.vertcat(sqrtVInv * f(d.time).t * ur, diag(drInv)))
-    val uc = ur * gain.rightVectors.t
+    val yt = KalmanFilter.flattenObs(d.observation)
 
-    val dc = gain.singularValues.map(1.0 / _)
-    val et = KalmanFilter.flattenObs(d.observation) - ft
-    val fv = f(d.time) * sqrtVInv.t * sqrtVInv
-    val mt = at + (diag(dc) * uc.t).t * (diag(dc) * uc.t) * fv * et
+    if (yt.data.isEmpty) {
+      (at, dr, ur)
+    } else {
 
-    (mt, dc, uc)
+      val vm = KalmanFilter.missingV(sqrtVInv, d.observation)
+      val fm = KalmanFilter.missingF(f, d.time, d.observation)
+      val ft = oneStepMissing(fm, at)
+
+      val drInv = dr.map(1.0 / _)
+      val gain = svd(DenseMatrix.vertcat(vm * fm.t * ur, diag(drInv)))
+      val uc = ur * gain.rightVectors.t
+
+      val dc = gain.singularValues.map(1.0 / _)
+      val et = yt - ft
+      val fv = fm * vm.t * vm
+      val mt = at + (diag(dc) * uc.t).t * (diag(dc) * uc.t) * fv * et
+
+      (mt, dc, uc)
+    }
   }
 
   def filterStep(
@@ -87,8 +107,8 @@ object SvdFilter {
 
     val dt = y.time - s.time
     val (at, dr, ur) = advanceState(mod.g, dt, s.mt, s.dc, s.uc, sqrtW)
-    val ft = oneStepForecast(mod.f, at, y.time)
-    val (mt, dc, uc) = updateState(at, dr, ur, sqrtVInv, mod.f, ft, y)
+    val ft = oneStepForecast(mod.f, at, y.time) // could add Qt here
+    val (mt, dc, uc) = updateState(at, dr, ur, sqrtVInv, mod.f, y)
 
     State(y.time, mt, dc, uc, at, dr, ur, ft)
   }
@@ -108,7 +128,7 @@ object SvdFilter {
       root.eigenvalues, root.eigenvectors, sqrtW)
     val ft = oneStepForecast(mod.f, at, t0)
 
-    State(t0, p.m0, root.eigenvalues, root.eigenvectors,
+    State(t0 - 1, p.m0, root.eigenvalues, root.eigenvectors,
       at, dr, ur, ft)
   }
 
