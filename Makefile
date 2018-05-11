@@ -1,4 +1,4 @@
-site: correlated second_order first_order seasonal knit_site
+simulations: correlated second_order seasonal student_t ar1 poisson_dglm
 
 knit_site:
 	sbt "tut"
@@ -14,6 +14,7 @@ poisson_dglm:
 	sbt ";runMain dlm.examples.SimulatePoissonDglm; runMain dlm.examples.PoissonDglmGibbs; runMain dlm.examples.PoissonDglmGibbsAncestor"
 
 correlated:
+	mkdir -p data
 	sbt ";runMain dlm.examples.FirstOrderLinearTrendDlm; runMain dlm.examples.SimulateCorrelated; runMain dlm.examples.FilterCorrelatedDlm; runMain dlm.examples.GibbsCorrelated"
 
 second_order: 

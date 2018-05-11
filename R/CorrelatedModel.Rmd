@@ -7,6 +7,7 @@ library(tidyverse)
 library(patchwork)
 library(ggmcmc)
 library(coda)
+library(latex2exp)
 knitr::opts_chunk$set(cache=TRUE, echo=FALSE, message=FALSE, warning=FALSE)
 theme_set(theme_minimal())
 ```
@@ -127,7 +128,9 @@ data %>%
   gather(key, value, contains("observation")) %>%
   ggplot(aes(x = time, y = value)) +
   geom_line() +
-  facet_wrap(~key, scales = "free_y", ncol = 1)
+  facet_wrap(~key, scales = "free_y", ncol = 1) +
+  labs(title = "Simulated values from  a correlated DLM",
+       subtitle = TeX("$V = diag(1, 4), W_{11} = 0.75, W_{22} = 1.25, W_{21} = 0.5$"))
 ```
 
 # Kalman Filtering
@@ -203,7 +206,7 @@ p2 = params %>%
 p3 = params %>% 
   filter(Parameter %in% c("V1", "V4")) %>%
   ggs_density() +
-  facet_wrap(~Parameter, ncol = 2, scales = "free")
+  facet_wrap(~Parameter, ncol = 2, scales = "free_x")
 
 p1 / p2 / p3
 ```
@@ -226,7 +229,7 @@ p2 = params %>%
 p3 = params %>% 
   filter(Parameter %in% paste0("W", c(1,2,4))) %>%
   ggs_density() +
-  facet_wrap(~Parameter, ncol = 2, scales = "free")
+  facet_wrap(~Parameter, ncol = 3, scales = "free_x", strip.position = "right")
 
 p1 / p2 / p3
 ```

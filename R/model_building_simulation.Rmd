@@ -4,7 +4,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 library(tidyverse)
 theme_set(theme_minimal())
 ```
@@ -84,7 +84,7 @@ val data = Dlm.simulateRegular(0, linear, p, 1.0).
   take(1000)
 ```
 
-```{r first-order-simulated, message=FALSE, warning=FALSE, echo=FALSE}
+```{r first-order-simulated}
 data = read_csv("../data/first_order_dlm.csv")
 
 data %>%

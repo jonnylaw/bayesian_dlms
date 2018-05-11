@@ -24,7 +24,7 @@ object SvdSampler {
     val dh = root.singularValues.map(1.0 / _)
 
     val gWinv = mod.g(dt).t * sqrtWInv.t * sqrtWInv
-    val h = st.mt + (dh * uh.t).t * (dh * uh.t) * gWinv * (theta._2 - st.at)
+    val h = st.mt + (diag(dh) * uh.t).t * (diag(dh) * uh.t) * gWinv * (theta._2 - st.at)
 
     (st.time, rnorm(h, dh, uh))
   }

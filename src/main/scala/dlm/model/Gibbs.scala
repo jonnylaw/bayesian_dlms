@@ -12,38 +12,28 @@ object GibbsSampling extends App {
     state: Vector[(Double, DenseVector[Double])]
   )
 
-  def innerJoin[A, B](xs: Seq[A], ys: Seq[B])(pred: (A, B) => Boolean): Seq[(A, B)] = {
-    for {
-      x <- xs
-      y <- ys if pred(x, y)
-    } yield (x, y)
-  }
-
   /**
-    * Calculate the sum of squared differences between the one step forecast and the actual observation for each time
+    * Calculate the sum of squared differences between the 
+    * one step forecast and the actual observation for each time
     * sum((y_t - f_t)^2)
     * @param f the observation matrix, a function from time => DenseMatrix[Double]
     * @param state an array containing the state sampled from the backward sampling algorithm
     * @param observations an array containing the actual observations of the data
-    * @return the sum of squared differences between the one step forecast and the actual observation for each time
+    * @return the sum of squared differences between the one step forecast 
+    * and the actual observation for each time
     */
   def observationSquaredDifference(
     f:            Double => DenseMatrix[Double],
     state:        Vector[(Double, DenseVector[Double])],
     observations: Vector[Data]) = {
 
-    val ft = innerJoin(state, observations)((s, d) => s._1 == d.time).
+    (state.tail zip observations).
       map { case ((time, x), y) => 
         val fm = KalmanFilter.missingF(f, time, y.observation)
-        fm.t * x
-      }
-
-    val flatObservations = observations.map(_.observation).
-      map(KalmanFilter.flattenObs)
-
-    (flatObservations, ft).zipped.
-      map { case (y, fr) => (y - fr) *:* (y - fr) }.
-      reduce(_ + _)
+        val yt = KalmanFilter.flattenObs(y.observation)
+        (yt - fm.t * x) *:* (yt - fm.t * x)
+      }.
+      reduce(_ * _)
   }
 
   /**
@@ -113,7 +103,7 @@ object GibbsSampling extends App {
     phi:    DenseVector[Double]): Double = {
 
     val n = state.length
-    val ssa = (state zip state.tail).
+    val ssa = (state.init zip state.tail).
       map { case (at, at1) => at1._2 - phi * at._2 }.
       map (x =>  x * x).
       reduce(_ + _)
@@ -162,7 +152,7 @@ object GibbsSampling extends App {
     observations: Vector[Data])(s: State) = {
 
     for {
-      newState <- SvdSampler.ffbs(mod, observations, s.p)
+      newState <- Smoothing.ffbs(mod, observations, s.p)
     } yield s.copy(state = newState.sortBy(_._1))
   }
 
