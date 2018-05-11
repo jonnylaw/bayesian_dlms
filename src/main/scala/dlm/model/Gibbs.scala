@@ -201,7 +201,7 @@ object GibbsSampling extends App {
     initParams:   Parameters, 
     observations: Vector[Data]) = {
 
-    val initState = Smoothing.ffbs(mod, observations, initParams).draw
+    val initState = SvdSampler.ffbs(mod, observations, initParams).draw
     val init = State(initParams, initState)
 
     MarkovChain(init)(dinvGammaStep(mod, priorV, priorW, observations).run)

@@ -1,8 +1,8 @@
 package dlm.model
 
-import breeze.linalg.{DenseMatrix, diag, DenseVector, inv}
+import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.distributions._
-import scala.math.{exp, log, sin, cos, sqrt}
+import scala.math.{sin, cos}
 import cats.implicits._
 
 object Dlm {
@@ -10,6 +10,19 @@ object Dlm {
     * A single observation of a model
     */
   case class Data(time: Double, observation: DenseVector[Option[Double]])
+
+  /**
+    * Parameters of a DLM
+    */
+  case class Parameters(
+    v:  DenseMatrix[Double], 
+    w:  DenseMatrix[Double], 
+    m0: DenseVector[Double],
+    c0: DenseMatrix[Double]
+  ) {
+    def map(f: Double => Double) = 
+      Parameters(v.map(f), w.map(f), m0.map(f), c0.map(f))
+  }
 
   /**
     * Definition of a DLM
@@ -62,18 +75,6 @@ object Dlm {
     )
   }
 
-  /**
-    * Parameters of a DLM
-    */
-  case class Parameters(
-    v:  DenseMatrix[Double], 
-    w:  DenseMatrix[Double], 
-    m0: DenseVector[Double],
-    c0: DenseMatrix[Double]
-  ) {
-    def map(f: Double => Double) = 
-      Parameters(v.map(f), w.map(f), m0.map(f), c0.map(f))
-  }
 
   /**
     * A polynomial model

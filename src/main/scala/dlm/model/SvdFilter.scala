@@ -5,6 +5,7 @@ import breeze.linalg.{DenseVector, DenseMatrix, eigSym, diag, svd}
 /**
   * Perform the Kalman Filter by updating the value of the Singular Value Decomp.
   * of the state covariance matrix, C = UDU^T
+  * https://arxiv.org/pdf/1611.03686.pdf
   */
 object SvdFilter {
   case class State(
