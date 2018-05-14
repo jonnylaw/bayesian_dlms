@@ -52,23 +52,20 @@ class SvdKfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matcher
   }
 }
 
-class SvdFilterTest extends FlatSpec with Matchers with BreezeGenerators {
-  val model = Dlm.polynomial(1) |*| Dlm.polynomial(1)
+class SvdFilterSamplerTest extends FlatSpec with Matchers with BreezeGenerators {
+  val model = Dlm.seasonal(24, 1)
   val p = Dlm.Parameters(
-    v = diag(DenseVector(3.0, 3.0)),
+    v = diag(DenseVector(3.0)),
     w = diag(DenseVector(1.0, 1.0)),
     m0 = DenseVector.fill(2)(0.0),
     c0 = diag(DenseVector(1.0, 1.0))
   )
 
-  val data = Vector(
-    Dlm.Data(1.0, DenseVector(Some(4.5), Some(4.5))),
-    Dlm.Data(2.0, DenseVector(Some(3.0), Some(3.0))),
-    Dlm.Data(3.0, DenseVector(Some(6.3), Some(6.3))), 
-    Dlm.Data(4.0, DenseVector[Option[Double]](None, None)),
-    Dlm.Data(5.0, DenseVector(Some(10.1), None)),// partially observed
-    Dlm.Data(7.0, DenseVector(Some(15.2), Some(15.2)))
-  )
+  val data = Dlm.simulateRegular(0, model, p, 1.0).
+    steps.
+    take(100).
+    toVector.
+    map(_._1)
 
   // tolerance
   implicit val tol = 1e-2
@@ -76,5 +73,14 @@ class SvdFilterTest extends FlatSpec with Matchers with BreezeGenerators {
   val filtered = KalmanFilter.filter(model, data, p)
   val svdFiltered = SvdFilter.filter(model, data, p)
 
-  filtered.map(_.mt) should contain allElementsOf (svdFiltered.map(_.mt))
+  "Svd Filter" should "produce the same filtered state as the Kalman Filter" in {
+    filtered.map(_.mt) should contain allElementsOf (svdFiltered.map(_.mt))
+  }
+
+  "Svd Sampler" should "produce the same size state as smoothing sampler" in {
+    val sampled = Smoothing.sample(model, filtered, p.w)
+    val svdSampled = SvdSampler.sample(model, p.w, svdFiltered)
+
+    assert(sampled.map(_._2.size) == svdSampled.map(_._2.size))
+  }
 }

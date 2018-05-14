@@ -37,12 +37,14 @@ object GibbsSampling extends App {
   }
 
   /**
-    * Sample the (diagonal) observation noise covariance matrix from an Inverse Gamma distribution
-    * @param prior an Inverse Gamma prior distribution for each variance element of the observation matrix
+    * Sample the (diagonal) observation noise covariance matrix 
+    * from an Inverse Gamma distribution
+    * @param prior an Inverse Gamma prior distribution for each
+    * variance element of the observation matrix
     * @param mod the DLM specification
     * @param state a sample of the DLM state
     * @param observations the observed values of the time series
-    * @return the posterior distribution over the diagonal observation matrix  
+    * @return the posterior distribution over the diagonal observation matrix
     */
   def sampleObservationMatrix(
     prior:        InverseGamma,
@@ -69,11 +71,9 @@ object GibbsSampling extends App {
     prior: InverseGamma,
     g:     Double => DenseMatrix[Double])(s: State) = {
     
-    val stateMean = s.state.tail
-
     // take the squared difference of x_t - g * x_{t-1} for t = 1 ... 0
     // add them all up
-    val squaredSum = stateMean.zip(stateMean.tail).
+    val squaredSum = s.state.init.zip(s.state.tail).
     map { case (mt, mt1) =>
       val dt = mt1._1 - mt._1
       val diff = (mt1._2 - g(dt) * mt._2)
