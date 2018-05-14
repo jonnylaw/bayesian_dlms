@@ -2,10 +2,10 @@ import dlm.model._
 import org.scalatest._
 import prop._
 import org.scalactic.Equality
-import breeze.linalg.{diag, DenseVector, svd, eigSym}
+import breeze.linalg.{diag, DenseVector, svd, eigSym, inv}
 
 class SvdKfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
-   property("Square of square root matrix") {
+   property("Square of square root matrix is the matrix") {
     forAll (symmetricPosDefMatrix(2, 100)) { m =>
       implicit val tol = 1e-4
 
@@ -15,9 +15,21 @@ class SvdKfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matcher
     }
   }
 
-  property("SVD is u * diag(d) * u.t") {
+  property("sqrtInvSym works") {
     forAll (symmetricPosDefMatrix(2, 100)) { m =>
       implicit val tol = 1e-4
+
+      val sqrt = SvdFilter.sqrtInvSym(m)
+
+      assert(m === inv(sqrt.t * sqrt))
+    }
+  }
+
+  property("SVD of symmetric matrix is u * diag(d) * u.t") {
+    forAll (symmetricPosDefMatrix(3, 100)) { m =>
+      implicit val tol = 1e-4
+      println("Matrix: ")
+      println(m)
 
       val root = svd(m)
       val u = root.rightVectors.t
@@ -27,7 +39,7 @@ class SvdKfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matcher
     }
   }
 
-  property("Eigenvalue decomposition is U * diag(d) * U") {
+  property("Eigenvalue decomposition is U * diag(d) * U.t") {
     forAll (symmetricPosDefMatrix(2, 100)) { m =>
       implicit val tol = 1e-4
 

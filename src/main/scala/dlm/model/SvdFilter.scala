@@ -20,11 +20,6 @@ object SvdFilter {
   )
 
   /**
-    * Make an m x n matrix with singular values on the leading diagonal
-    */
-  def makeDMatrix(d: DenseVector[Double]): DenseMatrix[Double] = ???
-
-  /**
     * Perform the time update by advancing the mean and covariance to the time
     * of the next observation
     * @param g the system evolution matrix
@@ -49,8 +44,8 @@ object SvdFilter {
       (mt, dc, uc)
     } else {
       val at = g(dt) * mt
-      val rt = diag(dc) * uc.t * g(dt).t
-      val root = svd(DenseMatrix.vertcat(rt, sqrtW *:* math.sqrt(dt)))
+      val rt = DenseMatrix.vertcat(diag(dc) * (g(dt) * uc).t, sqrtW *:* math.sqrt(dt))
+      val root = svd(rt)
       val ur = root.rightVectors.t
       val dr = root.singularValues
 
@@ -86,6 +81,7 @@ object SvdFilter {
     if (yt.data.isEmpty) {
       (at, dr, ur)
     } else {
+
       val vm = KalmanFilter.missingV(sqrtVInv, d.observation)
       val fm = KalmanFilter.missingF(f, d.time, d.observation)
       val ft = oneStepMissing(fm, at)
@@ -133,7 +129,7 @@ object SvdFilter {
       root.eigenvalues, root.eigenvectors, sqrtW)
     val ft = oneStepForecast(mod.f, at, t0)
 
-    State(t0 - 1, p.m0, root.eigenvalues.map(math.sqrt), root.eigenvectors,
+    State(t0 - 1, p.m0, root.eigenvalues, root.eigenvectors,
       at, dr, ur, ft)
   }
 

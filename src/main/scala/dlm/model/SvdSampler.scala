@@ -21,10 +21,11 @@ object SvdSampler {
     val dcInv = st.dc.map(1.0 / _)
     val root = svd(DenseMatrix.vertcat(sqrtWInv * mod.g(dt) * st.uc, diag(dcInv)))
     val uh = st.uc * root.rightVectors.t
-    val dh = root.singularValues.map(1.0 / _)
+    val dh = root.singularValues
 
-    val gWinv = mod.g(dt).t * sqrtWInv.t * sqrtWInv
-    val h = st.mt + (diag(dh) * uh.t).t * (diag(dh) * uh.t) * gWinv * (theta._2 - st.at)
+    val gWinv = mod.g(dt).t * (sqrtWInv.t * sqrtWInv * dt)
+    val h = st.mt + (diag(dh) * uh.t).t * (diag(dh) * uh.t) *
+      gWinv * (theta._2 - st.at)
 
     (st.time, rnorm(h, dh, uh))
   }
