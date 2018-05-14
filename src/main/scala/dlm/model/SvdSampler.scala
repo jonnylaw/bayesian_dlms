@@ -33,10 +33,10 @@ object SvdSampler {
     * Simulate from a normal distribution given the right vectors and
     * singular values of the covariance matrix
     * @param mu the mean of the multivariate normal distribution
-    * @param d the singular values (equivalent to the eigenvalues) of the 
+    * @param d the square root of the diagonal in the SVD of the Error covariance matrix C_t
     * @param u the right vectors of the SVDfilter
     * @return a DenseVector sampled from the Multivariate Normal distribution with
-    * mean mu and covariance u d u^T
+    * mean mu and covariance u d^2 u^T
     */
   def rnorm(
     mu: DenseVector[Double],
@@ -44,7 +44,7 @@ object SvdSampler {
     u:  DenseMatrix[Double]) = {
 
     val z = DenseVector.rand(mu.size, Gaussian(0, 1))
-    mu + u * (diag(d.mapValues(math.sqrt)) * z)
+    mu + u * (diag(d) * z)
   }
 
   /**

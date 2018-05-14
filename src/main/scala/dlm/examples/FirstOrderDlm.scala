@@ -15,8 +15,8 @@ trait FirstOrderDlm {
     g = (t: Double) => DenseMatrix((1.0))
   )
   val p = Dlm.Parameters(
-    DenseMatrix(2.0), 
-    DenseMatrix(3.0), 
+    v = DenseMatrix(2.0),
+    w = DenseMatrix(3.0), 
     DenseVector(0.0), 
     DenseMatrix(1.0))
 }

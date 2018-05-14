@@ -24,7 +24,7 @@ trait BreezeGenerators {
     if (n > 2) {
       for {
         entries <- Gen.containerOfN[Array, Double](n - 2, Gen.choose(1.0, c))
-        d = DenseVector(Array(1.0, c) ++ entries)
+        d = diag(DenseVector(Array(1.0, c) ++ entries))
         u <- denseVector(n)
         t = 2 / (u.t * u)
         i = DenseMatrix.eye[Double](n)

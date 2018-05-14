@@ -4,7 +4,7 @@ name := "bayesian_dlms"
 
 organization := "com.github.jonnylaw"
 
-version := "0.3.3-SNAPSHOT"
+version := "0.3.2-SNAPSHOT"
 
 scalacOptions ++= Seq(
   "-encoding", "UTF-8",   // source files are in UTF-8

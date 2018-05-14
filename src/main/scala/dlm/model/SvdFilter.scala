@@ -130,7 +130,7 @@ object SvdFilter {
     val root = eigSym(p.c0)
     val t0 = ys.head.time
     val (at, dr, ur) = advanceState(mod.g, 0.0, p.m0,
-      root.eigenvalues, root.eigenvectors, sqrtW)
+      root.eigenvalues.map(math.sqrt), root.eigenvectors, sqrtW)
     val ft = oneStepForecast(mod.f, at, t0)
 
     State(t0 - 1, p.m0, root.eigenvalues.map(math.sqrt), root.eigenvectors,
