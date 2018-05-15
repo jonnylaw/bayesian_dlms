@@ -113,7 +113,7 @@ object StudentT {
 
     for {
       theta <- sampleState(s.variances, dlm, data, p)
-      newW <- GibbsSampling.sampleSystemMatrix(priorW, theta.toArray, mod.g)
+      newW <- GibbsSampling.sampleSystemMatrix(priorW, theta, mod.g)
       vs <- sampleVariances(data, mod.f, dof, theta, p)
       scale <- sampleScaleT(dof, vs)
     } yield State(s.p.copy(v = DenseMatrix(scale), w = newW), vs, theta)

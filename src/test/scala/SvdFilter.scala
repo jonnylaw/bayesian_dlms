@@ -2,7 +2,7 @@ import dlm.model._
 import org.scalatest._
 import prop._
 import org.scalactic.Equality
-import breeze.linalg.{diag, DenseVector, svd, eigSym, inv}
+import breeze.linalg.{diag, DenseVector, DenseMatrix, svd, eigSym, inv}
 import breeze.stats.distributions.MultivariateGaussian
 
 class SvdKfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
@@ -10,7 +10,7 @@ class SvdKfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matcher
     forAll (symmetricPosDefMatrix(2, 100)) { m =>
       implicit val tol = 1e-4
 
-      val sqrt = SvdFilter.sqrtSym(m)
+      val sqrt = SvdFilter.sqrtSvd(m)
 
       assert(m === sqrt.t * sqrt)
     }
@@ -20,13 +20,13 @@ class SvdKfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matcher
     forAll (symmetricPosDefMatrix(2, 100)) { m =>
       implicit val tol = 1e-4
 
-      val sqrt = SvdFilter.sqrtInvSym(m)
+      val sqrt = SvdFilter.sqrtInvSvd(m)
 
       assert(m === inv(sqrt.t * sqrt))
     }
   }
 
-  property("SVD of symmetric matrix is u * diag(d) * u.t") {
+  property("SVD of a symmetric matrix is u * diag(d) * u.t") {
     forAll (symmetricPosDefMatrix(3, 100)) { m =>
       implicit val tol = 1e-4
 
@@ -50,6 +50,18 @@ class SvdKfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matcher
     }
   }
 
+  property("SVD of a matrix U * D * Vt") {
+    forAll (denseMatrix(3, 2)) { m =>
+      implicit val tol = 1e-4
+
+      val root = svd(m)
+      val u = root.leftVectors
+      val vt = root.rightVectors
+
+      assert(m === u * SvdFilter.makeDMatrix(root) * vt)
+    }
+  }
+
   ignore("rnorm should sample from the multivariate normal distribution") {
     forAll (symmetricPosDefMatrix(2, 10)) { m =>
       implicit val tol = 1e-1
@@ -68,17 +80,17 @@ class SvdKfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matcher
 }
 
 class SvdFilterSamplerTest extends FlatSpec with Matchers with BreezeGenerators {
-  val model = Dlm.polynomial(1)
+  val model = Dlm.polynomial(2)
   val p = Dlm.Parameters(
     v = diag(DenseVector(3.0)),
-    w = diag(DenseVector(1.0)),
-    m0 = DenseVector.fill(1)(0.0),
-    c0 = diag(DenseVector(1.0))
+    w = diag(DenseVector(1.0, 2.0)),
+    m0 = DenseVector.fill(2)(0.0),
+    c0 = DenseMatrix.eye[Double](2)
   )
 
   val data = Dlm.simulateRegular(0, model, p, 1.0).
     steps.
-    take(100).
+    take(10).
     toVector.
     map(_._1)
 
@@ -87,7 +99,7 @@ class SvdFilterSamplerTest extends FlatSpec with Matchers with BreezeGenerators 
 
   val filtered = KalmanFilter.filter(model, data, p)
   val svdFiltered = SvdFilter.filter(model, data, p)
-  val covs = svdFiltered.map(s => s.uc * s.dc.t * s.dc * s.uc.t)
+  val covs = svdFiltered.map(s => s.uc * s.dc * s.uc.t)
 
   "Svd Filter" should "produce the same filtered state as the Kalman Filter" in {
     filtered.map(_.mt) should contain allElementsOf (svdFiltered.map(_.mt))
@@ -102,11 +114,11 @@ class SvdFilterSamplerTest extends FlatSpec with Matchers with BreezeGenerators 
     sampled.map(_._1) should contain allElementsOf svdSampled.map(_._1)
   }
 
-  val filterArray = GibbsSampling.filterArray(model, data, p)
-  val covsArray = filterArray.map(s => s.uc * s.dc.t * s.dc * s.uc.t)
+  // val filterArray = GibbsSampling.filterArray(model, data, p)
+  // val covsArray = filterArray.map(s => s.uc * s.dc.t * s.dc * s.uc.t)
 
-  "Filter Array" should "produce the same filtered state as the Kalman Filter" in {
-    filtered.map(_.mt) should contain allElementsOf (filterArray.map(_.mt))
-    filtered.map(_.ct) should contain allElementsOf covsArray
-  }
+  // "Filter Array" should "produce the same filtered state as the Kalman Filter" in {
+  //   filtered.map(_.mt) should contain allElementsOf (filterArray.map(_.mt))
+  //   filtered.map(_.ct) should contain allElementsOf covsArray
+  // }
 }

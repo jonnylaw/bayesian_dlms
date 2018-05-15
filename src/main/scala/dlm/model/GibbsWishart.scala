@@ -18,7 +18,7 @@ object GibbsWishart {
   def sampleSystemMatrix(
     priorW: InverseWishart,
     g:      Double => DenseMatrix[Double],
-    theta:  Array[(Double, DenseVector[Double])]) = {
+    theta:  Vector[(Double, DenseVector[Double])]) = {
 
     val n = theta.size - 1
 
@@ -46,9 +46,9 @@ object GibbsWishart {
 
     for {
       theta <- SvdSampler.ffbs(mod, observations, s.p)
-      newW <- sampleSystemMatrix(priorW, mod.g, theta.toArray)
-      newV <- GibbsSampling.sampleObservationMatrix(priorV, mod.f, observations, theta.toArray)
-    } yield GibbsSampling.State(s.p.copy(v = newV, w = newW), theta.toArray)
+      newW <- sampleSystemMatrix(priorW, mod.g, theta)
+      newV <- GibbsSampling.sampleObservationMatrix(priorV, mod.f, observations, theta)
+    } yield GibbsSampling.State(s.p.copy(v = newV, w = newW), theta)
   }
 
   /**
@@ -69,7 +69,7 @@ object GibbsWishart {
     observations: Vector[Data]) = {
 
     val initState = Smoothing.ffbs(mod, observations, initParams).draw
-    val init = GibbsSampling.State(initParams, initState.toArray)
+    val init = GibbsSampling.State(initParams, initState)
 
     MarkovChain(init)(wishartStep(mod, priorV, priorW, observations))
   }
