@@ -218,7 +218,7 @@ object GibbsSampling extends App {
     observations: Vector[Data]) = { s: State =>
 
     for {
-      theta <- SvdSampler.ffbs(mod, observations, s)
+      theta <- Smoothing.ffbs(mod, observations, s.p)
       newW <- sampleObservationMatrix(priorV, mod.f, observations, theta)
       newV <- sampleSystemMatrix(priorW, theta, mod.g)
     } yield State(s.p.copy(v = newV, w = newW), theta)
