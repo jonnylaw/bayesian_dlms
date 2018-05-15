@@ -8,6 +8,14 @@ import breeze.stats.distributions.{Gaussian, Rand}
   * TODO: Check this
   */
 object SvdSampler {
+  def makeDMatrix(
+    m: Int,
+    n: Int,
+    d: DenseVector[Double]): DenseMatrix[Double] = {
+
+    DenseMatrix.tabulate(m, n){ case (i, j) =>
+      if (i == j) d(i) else 0.0 }
+  }
 
   /**
     * Perform a single step in the backward sampler using the SVD
@@ -24,7 +32,10 @@ object SvdSampler {
     val dh = root.singularValues.map(1.0 / _)
 
     val gWinv = mod.g(dt).t * sqrtWInv.t * sqrtWInv
-    val h = st.mt + (diag(dh) * uh.t).t * (diag(dh) * uh.t) * gWinv * (theta._2 - st.at)
+    val m = root.leftVectors.cols
+    val n = root.rightVectors.cols
+    val dhMat = makeDMatrix(m, n, dh)
+    val h = st.mt + (dhMat * uh.t).t * (dhMat * uh.t) * gWinv * (theta._2 - st.at)
 
     (st.time, rnorm(h, dh, uh))
   }
@@ -56,7 +67,7 @@ object SvdSampler {
     w:   DenseMatrix[Double],
     st:  Vector[SvdFilter.State]): Vector[(Double, DenseVector[Double])] = {
 
-    val sqrtWinv = SvdFilter.sqrtInvSym(w)
+    val sqrtWinv = SvdFilter.sqrtInvSvd(w)
     val lastState = st.last
     val init = (lastState.time, rnorm(lastState.mt, lastState.dc, lastState.uc))
 

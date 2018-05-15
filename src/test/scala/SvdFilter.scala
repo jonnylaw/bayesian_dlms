@@ -9,7 +9,7 @@ class SvdKfSpec extends PropSpec with GeneratorDrivenPropertyChecks with Matcher
     forAll (symmetricPosDefMatrix(2, 100)) { m =>
       implicit val tol = 1e-4
 
-      val sqrt = SvdFilter.sqrtSym(m)
+      val sqrt = SvdFilter.sqrtSvd(m)
 
       assert(m === sqrt.t * sqrt)
     }

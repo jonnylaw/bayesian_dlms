@@ -1,6 +1,6 @@
 package dlm.model
 
-import breeze.linalg.{DenseVector, DenseMatrix, eigSym, diag, svd}
+import breeze.linalg.{DenseVector, DenseMatrix, diag, svd}
 
 /**
   * Perform the Kalman Filter by updating the value of the Singular Value Decomp.
@@ -127,13 +127,13 @@ object SvdFilter {
     ys:  Vector[Dlm.Data],
     sqrtW: DenseMatrix[Double]) = {
 
-    val root = eigSym(p.c0)
+    val root = svd(p.c0)
     val t0 = ys.head.time
     val (at, dr, ur) = advanceState(mod.g, 0.0, p.m0,
-      root.eigenvalues.map(math.sqrt), root.eigenvectors, sqrtW)
+      root.singularValues.map(math.sqrt), root.rightVectors.t, sqrtW)
     val ft = oneStepForecast(mod.f, at, t0)
 
-    State(t0 - 1, p.m0, root.eigenvalues.map(math.sqrt), root.eigenvectors,
+    State(t0 - 1, p.m0, root.singularValues.map(math.sqrt), root.rightVectors.t,
       at, dr, ur, ft)
   }
 
@@ -143,12 +143,12 @@ object SvdFilter {
     * @param m a symmetric positive definite matrix
     * @return the square root inverse of the matrix
     */
-  def sqrtInvSym(m: DenseMatrix[Double]) = {
+  def sqrtInvSvd(m: DenseMatrix[Double]) = {
 
-    val root = eigSym(m)
-    val d = root.eigenvalues
+    val root = svd(m)
+    val d = root.singularValues
     val dInv = d.map(e => 1.0 / math.sqrt(e))
-    diag(dInv) * root.eigenvectors
+    diag(dInv) * root.rightVectors.t
   }
 
   /**
@@ -157,9 +157,9 @@ object SvdFilter {
     * @param m a symmetric positive definite matrix
     * @return the square root of a matrix
     */
-  def sqrtSym(m: DenseMatrix[Double]) = {
-    val root = eigSym(m)
-    diag(root.eigenvalues.map(math.sqrt)) * root.eigenvectors
+  def sqrtSvd(m: DenseMatrix[Double]) = {
+    val root = svd(m)
+    diag(root.singularValues.map(math.sqrt)) * root.rightVectors.t
   }
 
   def filter(
@@ -167,8 +167,8 @@ object SvdFilter {
     ys:  Vector[Dlm.Data],
     p:   Dlm.Parameters) = {
 
-    val sqrtVinv = sqrtInvSym(p.v)
-    val sqrtW = sqrtSym(p.w)
+    val sqrtVinv = sqrtInvSvd(p.v)
+    val sqrtW = sqrtSvd(p.w)
     val init = initialiseState(mod, p, ys, sqrtW)
 
     ys.scanLeft(init)(filterStep(mod, p, sqrtVinv, sqrtW))
