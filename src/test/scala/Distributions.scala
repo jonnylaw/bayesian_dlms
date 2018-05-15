@@ -13,9 +13,9 @@ trait BreezeGenerators {
     Gen.containerOfN[Array, Double](n, Gen.choose(-10.0, 10.0)).
     map(a => DenseVector(a))
 
-  val denseMatrix = (n: Int) =>
+  val denseMatrix = (n: Int, m: Int) =>
     Gen.containerOfN[Array, Double](n * n, Gen.choose(-10.0, 10.0)).
-    map(a => new DenseMatrix(n, n, a))
+    map(a => new DenseMatrix(n, m, a))
 
   /**
     * Simulate a positive definite matrix with a given condition number

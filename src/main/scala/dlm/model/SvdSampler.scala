@@ -9,18 +9,6 @@ import breeze.stats.distributions.{Gaussian, Rand}
   */
 object SvdSampler {
   /**
-    * Make a m x n matrix with singular values on the leading diagonal
-    */
-  def makeDMatrix(
-    m: Int,
-    n: Int,
-    d: DenseVector[Double]): DenseMatrix[Double] = {
-
-    DenseMatrix.tabulate(m, n){ case (i, j) =>
-      if (i == j) d(i) else 0.0 }
-  }
-
-  /**
     * Perform a single step in the backward sampler using the SVD
     */
   def step(
@@ -31,14 +19,12 @@ object SvdSampler {
 
     val dt = theta._1 - st.time
     val dcInv = st.dc.map(1.0 / _)
-    val root = svd(DenseMatrix.vertcat(sqrtWInv * mod.g(dt) * st.uc, diag(dcInv)))
+    val root = svd(DenseMatrix.vertcat(sqrtWInv * mod.g(dt) * st.uc, dcInv))
     val uh = st.uc * root.rightVectors.t
     val dh = root.singularValues.map(1.0 / _)
 
     val gWinv = mod.g(dt).t * sqrtWInv.t * sqrtWInv
-    val m = root.leftVectors.cols
-    val n = root.rightVectors.cols
-    val dhMat = makeDMatrix(m, n, dh)
+    val dhMat = SvdFilter.makeDMatrix(root).map(1.0 / _)
     val h = st.mt + (dhMat * uh.t).t * (dhMat * uh.t) * gWinv * (theta._2 - st.at)
 
     (st.time, rnorm(h, dh, uh).draw)
@@ -79,7 +65,7 @@ object SvdSampler {
 
     val sqrtWinv = SvdFilter.sqrtInvSvd(w)
     val lastState = st.last
-    val init = (lastState.time, rnorm(lastState.mt, lastState.dc, lastState.uc).draw)
+    val init = (lastState.time, rnorm(lastState.mt, diag(lastState.dc), lastState.uc).draw)
 
     st.init.scanRight(init)(step(mod, sqrtWinv))
   }

@@ -124,7 +124,7 @@ object GibbsSampling extends App {
     mod: Model,
     phi: Double*): Model = {
 
-    mod.copy(g = (dt: Double) => new DenseMatrix(phi.size, 1, phi))
+    mod.copy(g = (dt: Double) => new DenseMatrix(phi.size, 1, phi.toArray))
   }
 
   /**
@@ -156,8 +156,8 @@ object GibbsSampling extends App {
     p:   Dlm.Parameters
   ): Array[SvdFilter.State] = {
 
-    val sqrtVinv = SvdFilter.sqrtInvSym(p.v)
-    val sqrtW = SvdFilter.sqrtSym(p.w)
+    val sqrtVinv = SvdFilter.sqrtInvSvd(p.v)
+    val sqrtW = SvdFilter.sqrtSvd(p.w)
     val st = Array.ofDim[SvdFilter.State](ys.length + 1)
     st(0) = SvdFilter.initialiseState(mod, p, ys, sqrtW)
 
@@ -173,16 +173,16 @@ object GibbsSampling extends App {
     */
   def sampleArray(
     mod:      Dlm.Model,
-    w:        DenseMatrix[Double]
+    w:        DenseMatrix[Double],
     filtered: Array[SvdFilter.State]
   ) = {
 
-    val sqrtWinv = SvdFilter.sqrtInvSym(w)
+    val sqrtWinv = SvdFilter.sqrtInvSvd(w)
     val lastState = filtered.last
     val n = filtered.size
     val st = Array.ofDim[(Double, DenseVector[Double])](n)
     st(n-1) = (lastState.time,
-      SvdSampler.rnorm(lastState.mt, lastState.dc, lastState.uc).draw)
+      SvdSampler.rnorm(lastState.mt, diag(lastState.dc), lastState.uc).draw)
 
     cfor(n - 2)(_ >= 0, _ - 1) { i =>
       st(i) = SvdSampler.step(mod, sqrtWinv)(filtered(i), st(i+1))
@@ -218,7 +218,7 @@ object GibbsSampling extends App {
     observations: Vector[Data]) = { s: State =>
 
     for {
-      theta <- SvdSampler.ffbs(mod, observations, s)
+      theta <- SvdSampler.ffbs(mod, observations, s.p)
       newW <- sampleObservationMatrix(priorV, mod.f, observations, theta)
       newV <- sampleSystemMatrix(priorW, theta, mod.g)
     } yield State(s.p.copy(v = newV, w = newW), theta)

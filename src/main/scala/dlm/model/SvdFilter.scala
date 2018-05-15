@@ -11,13 +11,23 @@ object SvdFilter {
   case class State(
     time: Double,
     mt:   DenseVector[Double],
-    dc:   DenseVector[Double],
+    dc:   DenseMatrix[Double],
     uc:   DenseMatrix[Double],
     at:   DenseVector[Double],
-    dr:   DenseVector[Double],
+    dr:   DenseMatrix[Double],
     ur:   DenseMatrix[Double],
     ft:   DenseVector[Double]
   )
+
+  def makeDMatrix(
+    root: svd.SVD[DenseMatrix[Double], DenseVector[Double]]) = {
+    val m = root.leftVectors.cols
+    val n = root.rightVectors.cols
+    val d = root.singularValues
+
+    DenseMatrix.tabulate(m, n){ case (i, j) =>
+      if (i == j) d(i) else 0.0 }
+  }
 
   /**
     * Perform the time update by advancing the mean and covariance to the time
@@ -35,7 +45,7 @@ object SvdFilter {
     g:     Double => DenseMatrix[Double],
     dt:    Double,
     mt:    DenseVector[Double],
-    dc:    DenseVector[Double],
+    dc:    DenseMatrix[Double],
     uc:    DenseMatrix[Double],
     sqrtW: DenseMatrix[Double]
   ) = {
@@ -44,10 +54,10 @@ object SvdFilter {
       (mt, dc, uc)
     } else {
       val at = g(dt) * mt
-      val rt = DenseMatrix.vertcat(diag(dc) * (g(dt) * uc).t, sqrtW *:* math.sqrt(dt))
+      val rt = DenseMatrix.vertcat(dc * (g(dt) * uc).t, sqrtW *:* math.sqrt(dt))
       val root = svd(rt)
       val ur = root.rightVectors.t
-      val dr = root.singularValues
+      val dr = makeDMatrix(root)
 
       (at, dr, ur)
     }
@@ -70,7 +80,7 @@ object SvdFilter {
 
   def updateState(
     at:       DenseVector[Double],
-    dr:       DenseVector[Double],
+    dr:       DenseMatrix[Double],
     ur:       DenseMatrix[Double],
     sqrtVInv: DenseMatrix[Double],
     f:        Double => DenseMatrix[Double],
@@ -87,13 +97,13 @@ object SvdFilter {
       val ft = oneStepMissing(fm, at)
 
       val drInv = dr.map(1.0 / _)
-      val gain = svd(DenseMatrix.vertcat(vm * fm.t * ur, diag(drInv)))
-      val uc = ur * gain.rightVectors.t
+      val root = svd(DenseMatrix.vertcat(vm * fm.t * ur, drInv))
+      val uc = ur * root.rightVectors.t
 
-      val dc = gain.singularValues.map(1.0 / _)
       val et = yt - ft
       val fv = fm * vm.t * vm
-      val mt = at + (diag(dc) * uc.t).t * (diag(dc) * uc.t) * fv * et
+      val dc = makeDMatrix(root).map(1.0 / _)
+      val mt = at + (dc * uc.t).t * (dc * uc.t) * fv * et
 
       (mt, dc, uc)
     }
@@ -125,12 +135,12 @@ object SvdFilter {
 
     val root = svd(p.c0)
     val t0 = ys.head.time
-    val (at, dr, ur) = advanceState(mod.g, 0.0, p.m0,
-      root.singularValues.map(math.sqrt), root.rightVectors.t, sqrtW)
+    val dc0 = makeDMatrix(root).map(math.sqrt)
+    val uc0 = root.rightVectors.t
+    val (at, dr, ur) = advanceState(mod.g, 0.0, p.m0, dc0, uc0, sqrtW)
     val ft = oneStepForecast(mod.f, at, t0)
 
-    State(t0 - 1, p.m0, root.singularValues.map(math.sqrt), root.rightVectors.t,
-      at, dr, ur, ft)
+    State(t0 - 1, p.m0, dc0, uc0, at, dr, ur, ft)
   }
 
   /**
