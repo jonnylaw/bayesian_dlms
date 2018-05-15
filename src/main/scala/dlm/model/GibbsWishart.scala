@@ -1,8 +1,7 @@
 package dlm.model
 
 import breeze.stats.distributions._
-import breeze.linalg.DenseMatrix
-import cats.data.Kleisli
+import breeze.linalg.{DenseMatrix, DenseVector}
 import Dlm._
 
 /**
@@ -12,17 +11,18 @@ import Dlm._
 object GibbsWishart {
 
   /**
-    * Sample the system covariance matrix using an Inverse Wishart prior on the system covariance matrix
+    * Sample the system covariance matrix using an
+    * Inverse Wishart prior on the system covariance matrix
+    * @param priorW the prior distribution of the System evolution noise matrix
     */
   def sampleSystemMatrix(
     priorW: InverseWishart,
-    g:      Double => DenseMatrix[Double])
-    (s:     GibbsSampling.State) = {
+    g:      Double => DenseMatrix[Double],
+    theta:  Array[(Double, DenseVector[Double])]) = {
 
-    val n = s.state.size - 1
-    val stateMean = s.state
+    val n = theta.size - 1
 
-    val squaredSum = (stateMean.init zip stateMean.tail).
+    val squaredSum = (theta.init zip theta.tail).
       map { case (mt, mt1) =>
         val dt = mt1._1 - mt._1
         val centered = (mt1._2 - g(dt) * mt._2)
@@ -32,9 +32,7 @@ object GibbsWishart {
     val dof = priorW.nu + n
     val scale = priorW.psi + squaredSum
 
-    for {
-      newW <- InverseWishart(dof, scale)
-    } yield s.copy(p = s.p.copy(w = newW))
+    InverseWishart(dof, scale)
   }
 
   /**
@@ -44,11 +42,13 @@ object GibbsWishart {
     mod:          Model, 
     priorV:       InverseGamma,
     priorW:       InverseWishart, 
-    observations: Vector[Data]) = {
+    observations: Vector[Data]) = { s: GibbsSampling.State =>
 
-    Kleisli(sampleSystemMatrix(priorW, mod.g)) compose
-      Kleisli(GibbsSampling.ffbs(mod, observations)) compose
-      Kleisli(GibbsSampling.sampleObservationMatrix(priorV, mod.f, observations))
+    for {
+      theta <- SvdSampler.ffbs(mod, observations, s.p)
+      newW <- sampleSystemMatrix(priorW, mod.g, theta.toArray)
+      newV <- GibbsSampling.sampleObservationMatrix(priorV, mod.f, observations, theta.toArray)
+    } yield GibbsSampling.State(s.p.copy(v = newV, w = newW), theta.toArray)
   }
 
   /**
@@ -69,8 +69,8 @@ object GibbsWishart {
     observations: Vector[Data]) = {
 
     val initState = Smoothing.ffbs(mod, observations, initParams).draw
-    val init = GibbsSampling.State(initParams, initState)
+    val init = GibbsSampling.State(initParams, initState.toArray)
 
-    MarkovChain(init)(wishartStep(mod, priorV, priorW, observations).run)
+    MarkovChain(init)(wishartStep(mod, priorV, priorW, observations))
   }
 }

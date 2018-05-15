@@ -76,7 +76,7 @@ object ParametersAr extends App with ArDlm with ArData {
 
   val step = (s: (Double, GibbsSampling.State)) => for {
     newS <- GibbsSampling.dinvGammaStep(GibbsSampling.updateModel(mod, s._1),
-      priorV, priorW, data).run(s._2)
+      priorV, priorW, data)(s._2)
     phi <- GibbsSampling.samplePhi(priorPhi, 1000, 0.5, newS)(s._1)
   } yield (phi, newS)
 
@@ -84,7 +84,7 @@ object ParametersAr extends App with ArDlm with ArData {
     p <- prior
     phi <- priorPhi
     state <- Smoothing.ffbs(mod, data, p)
-  } yield (phi, GibbsSampling.State(p, state))
+  } yield (phi, GibbsSampling.State(p, state.toArray))
 
   val iters = MarkovChain(init.draw)(step).steps.take(100000)
 

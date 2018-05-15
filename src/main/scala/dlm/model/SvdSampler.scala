@@ -10,31 +10,38 @@ import breeze.stats.distributions.{Gaussian, Rand}
 object SvdSampler {
 
   /**
+    * Make a m x n matrix with singular values on the leading diagonal
+    */
+  def makeDMatrix(m: Int, n: Int, d: DenseVector[Double]): DenseMatrix[Double] = ???
+
+  /**
     * Perform a single step in the backward sampler using the SVD
     */
   def step(
     mod:      Dlm.Model,
     sqrtWInv: DenseMatrix[Double]
-  )(st: SvdFilter.State, theta: (Double, DenseVector[Double])) = {
+  )(st:    SvdFilter.State,
+    theta: (Double, DenseVector[Double])) = {
 
     val dt = theta._1 - st.time
     val dcInv = st.dc.map(1.0 / _)
     val root = svd(DenseMatrix.vertcat(sqrtWInv * mod.g(dt) * st.uc, diag(dcInv)))
     val uh = st.uc * root.rightVectors.t
-    val dh = root.singularValues
+    val dh = root.singularValues.map(1.0 / _)
 
-    val gWinv = mod.g(dt).t * (sqrtWInv.t * sqrtWInv * dt)
+    val gWinv = mod.g(dt).t * (sqrtWInv.t * sqrtWInv)
     val h = st.mt + (diag(dh) * uh.t).t * (diag(dh) * uh.t) *
       gWinv * (theta._2 - st.at)
 
-    (st.time, rnorm(h, dh, uh))
+    (st.time, rnorm(h, dh, uh).draw)
   }
 
   /**
     * Simulate from a normal distribution given the right vectors and
     * singular values of the covariance matrix
     * @param mu the mean of the multivariate normal distribution
-    * @param d the square root of the diagonal in the SVD of the Error covariance matrix C_t
+    * @param d the square root of the diagonal in the SVD of the 
+    * Error covariance matrix C_t
     * @param u the right vectors of the SVDfilter
     * @return a DenseVector sampled from the Multivariate Normal distribution with
     * mean mu and covariance u d^2 u^T
@@ -42,15 +49,20 @@ object SvdSampler {
   def rnorm(
     mu: DenseVector[Double],
     d:  DenseVector[Double],
-    u:  DenseMatrix[Double]) = {
+    u:  DenseMatrix[Double]) = new Rand[DenseVector[Double]] {
 
-    val z = DenseVector.rand(mu.size, Gaussian(0, 1))
-    mu + u * (diag(d) * z)
+    def draw = {
+      val z = DenseVector.rand(mu.size, Gaussian(0, 1))
+      mu + (u * diag(d) * z)
+    }
   }
 
   /**
     * Given a vector containing the SVD filtered results, perform backward sampling
-    * @param
+    * @param mod a DLM specification
+    * @param w the system error matrix
+    * @param st 
+    * @return
     */
   def sample(
     mod: Dlm.Model,
@@ -59,11 +71,14 @@ object SvdSampler {
 
     val sqrtWinv = SvdFilter.sqrtInvSym(w)
     val lastState = st.last
-    val init = (lastState.time, rnorm(lastState.mt, lastState.dc, lastState.uc))
+    val init = (lastState.time, rnorm(lastState.mt, lastState.dc, lastState.uc).draw)
 
     st.init.scanRight(init)(step(mod, sqrtWinv))
   }
 
+  /**
+    * Perform forward filtering backward sampling
+    */
   def ffbs(
     mod: Dlm.Model,
     ys:  Vector[Dlm.Data],

@@ -1,7 +1,6 @@
 package dlm.model
 
 import Dlm._
-import cats.data.Kleisli
 import cats.implicits._
 import breeze.linalg.{DenseVector, DenseMatrix}
 import breeze.stats.distributions.{Rand, MarkovChain, Gamma}
@@ -29,12 +28,14 @@ object StudentT {
   def sampleVariances(
     ys:    Vector[Data],
     f:     Double => DenseMatrix[Double],
-    dof:   Int
-  ) = { (s: State) =>
+    dof:   Int,
+    theta: Vector[(Double, DenseVector[Double])],
+    p:     Parameters
+  ) = { 
 
-    val scale = s.p.v(0, 0)
+    val scale = p.v(0, 0)
     val alpha = (dof + 1) * 0.5
-    val ft = (s.state.tail zip ys).
+    val ft = (theta.tail zip ys).
       map { case ((time, x), y) => 
         val fm = KalmanFilter.missingF(f, time, y.observation) 
         fm.t * x
@@ -50,29 +51,25 @@ object StudentT {
 
     val beta = diff.map(d => (dof * scale * 0.5) + d * 0.5)
 
-    for {
-      vr <- beta traverse (b => InverseGamma(alpha, b): Rand[Double])
-    } yield s.copy(variances = vr)
+    beta traverse (b => InverseGamma(alpha, b): Rand[Double])
   }
 
   /**
     * Sample the (square of the) scale of the Student's t distribution
     * @param dof the degrees of freedom of the Student's t observation distribution
-    * @param s the current state of the MCMC algorithm
+    * @param vs the current sampled scales
     */
   def sampleScaleT(
-    dof: Int)
-    (s:  State) = {
+    dof: Int,
+    variances:  Vector[Double]) = {
 
-    val t = s.variances.size
+    val t = variances.size
   
     val shape = t * dof * 0.5 + 1
-    val rate = dof * 0.5 * s.variances.map(1.0/_).sum
+    val rate = dof * 0.5 * variances.map(1.0/_).sum
     val scale = 1 / rate
 
-    for {
-      newV <- Gamma(shape, scale)
-    } yield s.copy(p = s.p.copy(v = DenseMatrix(newV)))
+    Gamma(shape, scale)
   }
 
   /**
@@ -99,30 +96,9 @@ object StudentT {
     val filtered = (ps zip observations).
       scanLeft(init){ case (s, (p, y)) => kalmanStep(p)(s, y) }
 
-    Rand.always(Smoothing.sample(mod, filtered, params.w).toVector)
+    Rand.always(Smoothing.sample(mod, filtered, params.w))
   }
 
-  def sampleSystemMatrix(
-    mod:    Model,
-    priorW: InverseGamma)
-    (s:     State) = {
-
-    val st = GibbsSampling.State(s.p, s.state)
-
-    for {
-      newS <- GibbsSampling.sampleSystemMatrix(priorW, mod.g)(st)
-    } yield s.copy(p = s.p.copy(w = newS.p.w))
-  }
-
-  def stepState(
-    mod:          Dlm.Model,
-    observations: Vector[Data])
-    (s: State) = {
-
-    for {
-      newState <- sampleState(s.variances, mod, observations, s.p)
-    } yield s.copy(state = newState)
-  }
   /**
     * A single step of the Student t-distribution Gibbs Sampler
     */
@@ -130,13 +106,17 @@ object StudentT {
     dof:    Int, 
     data:   Vector[Data],
     priorW: InverseGamma,
-    mod:    Dglm.Model) = {
+    mod:    Dglm.Model,
+    p:      Dlm.Parameters) = { s: State =>
+
     val dlm = Model(mod.f, mod.g)
 
-    Kleisli(stepState(dlm, data)) compose
-      Kleisli(sampleSystemMatrix(dlm, priorW)) compose
-      Kleisli(sampleVariances(data, mod.f, dof)) compose
-      Kleisli(sampleScaleT(dof))
+    for {
+      theta <- sampleState(s.variances, dlm, data, p)
+      newW <- GibbsSampling.sampleSystemMatrix(priorW, theta.toArray, mod.g)
+      vs <- sampleVariances(data, mod.f, dof, theta, p)
+      scale <- sampleScaleT(dof, vs)
+    } yield State(s.p.copy(v = DenseMatrix(scale), w = newW), vs, theta)
   }
 
   /**
@@ -159,6 +139,6 @@ object StudentT {
     val initState = sampleState(initVariances, dlm, data, params)
     val init = State(params, initVariances, initState.draw)
 
-    MarkovChain(init)(step(dof, data, priorW, mod).run)
+    MarkovChain(init)(step(dof, data, priorW, mod, params))
   }
 }

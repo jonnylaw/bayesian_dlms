@@ -3,7 +3,7 @@ package dlm.examples
 import dlm.model._
 import Dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
-import breeze.stats.distributions.{MarkovChain, RandBasis}
+import breeze.stats.distributions.{RandBasis}
 import java.nio.file.Paths
 import cats.implicits._
 import kantan.csv._
@@ -117,72 +117,4 @@ object GibbsParameters extends App with FirstOrderDlm with SimulatedData {
   }
 
   writer.close()
-}
-
-/**
-  * Run Particle Gibbs Sampling on the first order DLM
-  */
-object ParticleGibbsFo extends App with FirstOrderDlm with SimulatedData {
-  // choose number of particles and sample an initial state
-  val n = 1000
-  val initFilter = ParticleFilter.filter(mod, data, p, n)
-  val conditionedState = ParticleGibbs.sampleState(
-    initFilter.map(d => d.state.map((d.time, _)).toList).toList, 
-    initFilter.last.weights.toList
-  ).draw
-
-  val filter = ParticleGibbs.filter(1000, p, mod, data.toList) _
-  val gibbsFilter = MarkovChain(conditionedState)(x => filter(x).map(_._2)).
-    steps.
-    take(100)
-
-  def writeFiltering(file: String, state: Iterator[List[Double]]) = {
-    val out = new java.io.File(file)
-    val writer = out.asCsvWriter[List[Double]](rfc.withHeader(false))
-
-    while (state.hasNext) {
-      writer.write(state.next)
-    }
-
-    writer.close()
-  }
-
-  def formatState(s: List[(Double, DenseVector[Double])]): List[Double] = {
-    s.map(x => x._2.data.head)
-  }
-
-  writeFiltering("data/particle_gibbs.csv", gibbsFilter.map(formatState))
-}
-
-object ParticleGibbsAncestorFo extends App with FirstOrderDlm with SimulatedData {
-  // choose number of particles and sample an initial state
-  val n = 1000
-  val initFilter = ParticleFilter.filter(mod, data, p, n)
-  val conditionedState = ParticleGibbs.sampleState(
-    initFilter.map(d => d.state.map((d.time, _)).toList).toList, 
-    initFilter.last.weights.toList
-  ).draw
-
-  val filter = ParticleGibbsAncestor.filter(n, p, mod, data.toList) _
-  val ancestorFilter = MarkovChain(conditionedState)(x => filter(x).map(_._2)).
-    steps.
-    take(100)
-
-  def writeFiltering(file: String, state: Iterator[List[Double]]) = {
-    val out = new java.io.File(file)
-    val writer = out.asCsvWriter[List[Double]](rfc.withHeader(false))
-
-    while (state.hasNext) {
-      writer.write(state.next)
-    }
-
-    writer.close()
-  }
-
-  def formatState(s: List[(Double, DenseVector[Double])]): List[Double] = {
-    s.map(x => x._2.data.head)
-  }
-
-  writeFiltering("data/particle_gibbs_ancestor.csv", 
-    ancestorFilter.map(formatState))
 }

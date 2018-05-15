@@ -215,9 +215,13 @@ val iters = StudentT.sample(3, data.map(_._1), InverseGamma(21.0, 2.0), mod, par
 ```{r density_student_t}
 chain = read_csv("../data/student_t_dglm_gibbs.csv")
 
-parameters = chain[-c(1:1000),] %>% mcmc() %>% ggs()
+parameters = chain[-c(1:1000),] %>% 
+  mcmc() %>% 
+  ggs()
 
-p1 = ggs_traceplot(parameters) + facet_wrap(~Parameter, strip.position = "right", scales = "free_y")
+p1 = ggs_traceplot(parameters) + 
+  facet_wrap(~Parameter, strip.position = "right", scales = "free_y")
+
 p2 = ggs_autocorrelation(parameters)
 p3 = ggs_running(parameters) +
   facet_wrap(~Parameter, strip.position = "right", scales = "free_y") + 

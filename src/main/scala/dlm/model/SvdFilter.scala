@@ -99,7 +99,7 @@ object SvdFilter {
     }
   }
 
-  def filterStep(
+  def step(
     mod:      Dlm.Model,
     p:        Dlm.Parameters,
     sqrtVInv: DenseMatrix[Double],
@@ -125,8 +125,9 @@ object SvdFilter {
 
     val root = eigSym(p.c0)
     val t0 = ys.head.time
-    val (at, dr, ur) = advanceState(mod.g, 0.0, p.m0,
-      root.eigenvalues.map(math.sqrt), root.eigenvectors, sqrtW)
+    val uc = root.eigenvectors.t
+    val dc = root.eigenvalues.map(math.sqrt)
+    val (at, dr, ur) = advanceState(mod.g, 0.0, p.m0, dc, uc, sqrtW)
     val ft = oneStepForecast(mod.f, at, t0)
 
     State(t0 - 1, p.m0, root.eigenvalues, root.eigenvectors,
@@ -167,7 +168,7 @@ object SvdFilter {
     val sqrtW = sqrtSym(p.w)
     val init = initialiseState(mod, p, ys, sqrtW)
 
-    ys.scanLeft(init)(filterStep(mod, p, sqrtVinv, sqrtW))
+    ys.scanLeft(init)(step(mod, p, sqrtVinv, sqrtW))
   }
 }
 
