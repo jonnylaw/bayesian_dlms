@@ -167,7 +167,7 @@ p2 = svd_sampled %>%
   theme(legend.position = "none") +
   labs(title = "Mean State Sampled using SVD")
 
-p1 | p2
+p1 / p2
 ```
 
 

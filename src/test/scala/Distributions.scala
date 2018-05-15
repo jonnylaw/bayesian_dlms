@@ -1,7 +1,7 @@
 import dlm.model._
 import breeze.linalg._
 import breeze.stats.distributions._
-import breeze.stats.meanAndVariance
+import breeze.stats.{meanAndVariance, variance}
 import org.scalatest._
 import prop._
 import org.scalactic.Equality
@@ -45,7 +45,7 @@ trait BreezeGenerators {
     def areEqual(x: DenseMatrix[Double], b: Any) = b match {
       case y: DenseMatrix[Double] =>
         x.data.zip(y.data).
-          forall { case (a, b) => math.abs(a - b) < tol  } &&
+          forall { case (a, b) => math.abs(a - b) < tol } &&
         y.cols == x.cols &&
         y.rows == x.rows
       case _ => false
@@ -62,80 +62,80 @@ trait BreezeGenerators {
   }
 }
 
-// class InverseGammaDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
-//   property("Inverse Gamma Distribution") {
-//     forAll(smallDouble, smallDouble) { (shape: Double, scale: Double) =>
-//       whenever (shape > 2.0 && scale > 1.0) {
-//         val n = 10000000
-//         val g = InverseGamma(shape, scale)
-//         val samples = g.sample(n)
-//         val mv = meanAndVariance(samples)
-//         assert(g.mean === mv.mean +- (0.1 * g.mean) )
-//         assert(g.variance === mv.variance +- (0.1 * g.variance))
-//       }
-//     }
-//   }
-// }
+class InverseGammaDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
+  property("Inverse Gamma Distribution") {
+    forAll(smallDouble, smallDouble) { (shape: Double, scale: Double) =>
+      whenever (shape > 2.0 && scale > 1.0) {
+        val n = 10000000
+        val g = InverseGamma(shape, scale)
+        val samples = g.sample(n)
+        val mv = meanAndVariance(samples)
 
-// class InverseWishartDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators { 
-//   property("Inverse Wishart Distribution") {
-//     forAll(symmetricPosDefMatrix(2, 100)) { (psi: DenseMatrix[Double]) =>
-//       implicit val tol = 1.0
-//       val n = 100000
-//       val w = InverseWishart(5.0, psi)
-//       val samples = w.sample(n)
+        assert(g.mean === mv.mean +- (0.1 * g.mean) )
+      }
+    }
+  }
+}
 
-//       assert(w.mean === (samples.reduce(_ + _) / samples.length.toDouble))
-//     }
-//   }
-// }
+class InverseWishartDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators { 
+  ignore("Inverse Wishart Distribution") {
+    forAll(symmetricPosDefMatrix(2, 100)) { (psi: DenseMatrix[Double]) =>
+      implicit val tol = 1.0
+      val n = 100000
+      val w = InverseWishart(5.0, psi)
+      val samples = w.sample(n)
 
-// class WishartDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
-//   property("Wishart Distribution") {
-//     forAll(symmetricPosDefMatrix(2, 100)) { scale =>
-//       implicit val tol = 1.0
-//       val n = 1000000
-//       val nu = 5.0
-//       val w = Wishart(nu, scale)
+      assert(w.mean === (samples.reduce(_ + _) / samples.length.toDouble))
+    }
+  }
+}
 
-//       //    val samples = Vector.fill(n)(w.drawNaive())
-//       val samples = w.sample(n)
-//       val sampleMean = samples.reduce(_ + _) / n.toDouble
-//       val varianceOne = variance(samples.map(w => w(0,0)))
-//       val chiSqMean = ChiSquared(nu).mean * scale(0,0)
-//       val chiSqVar = ChiSquared(nu).variance * scale(0,0) * scale(0,0)
+class WishartDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
+  ignore("Wishart Distribution") {
+    forAll(symmetricPosDefMatrix(2, 100)) { scale =>
+      implicit val tol = 1.0
+      val n = 1000000
+      val nu = 5.0
+      val w = Wishart(nu, scale)
 
-//       assert(w.mean === sampleMean)
-//       assert(sampleMean(0, 0) === chiSqMean +- (0.1 * chiSqMean))
-//       assert(varianceOne === chiSqVar +- (0.1 * chiSqVar))
-//     }
-//   }
-// }
+      //    val samples = Vector.fill(n)(w.drawNaive())
+      val samples = w.sample(n)
+      val sampleMean = samples.reduce(_ + _) / n.toDouble
+      val varianceOne = variance(samples.map(w => w(0,0)))
+      val chiSqMean = ChiSquared(nu).mean * scale(0,0)
+      val chiSqVar = ChiSquared(nu).variance * scale(0,0) * scale(0,0)
 
-// class MvnDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {  
-//   property("MVN distribution") {
-//     forAll(symmetricPosDefMatrix(2, 1000)) { cov =>
-//       implicit val tol = 1.0
-//       val n = 1000000
-//       val mvn = MultivariateGaussianSvd(DenseVector.zeros[Double](2), cov)
-//       val samples = mvn.sample(n)
+      assert(w.mean === sampleMean)
+      assert(sampleMean(0, 0) === chiSqMean +- (0.1 * chiSqMean))
+      assert(varianceOne === chiSqVar +- (0.1 * chiSqVar))
+    }
+  }
+}
+
+class MvnDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {  
+  ignore("MVN distribution") {
+    forAll(symmetricPosDefMatrix(2, 1000)) { cov =>
+      implicit val tol = 1.0
+      val n = 1000000
+      val mvn = MultivariateGaussianSvd(DenseVector.zeros[Double](2), cov)
+      val samples = mvn.sample(n)
       
-//       val (sampleMean, sampleCovariance)  = meanCovSamples(samples)
+      val (sampleMean, sampleCovariance) = meanCovSamples(samples)
 
-//       assert(mvn.mean === sampleMean)
-//       assert(mvn.variance === sampleCovariance)
-//     }
-//   }
+      assert(mvn.mean === sampleMean)
+      assert(mvn.variance === sampleCovariance)
+    }
+  }
 
-//   property("MVN SVD should calculate the same log-likelihood as Cholesky") {
-//     forAll(symmetricPosDefMatrix(2, 1000)) { cov =>
-//       implicit val tol = 1e-2
-//       val zero = DenseVector.zeros[Double](2)
-//       val y = DenseVector(1.0, 2.0)
-//       val svd = MultivariateGaussian(zero, cov).pdf(y)
-//       val chol = MultivariateGaussianSvd(zero, cov).pdf(y)
+  ignore("MVN SVD should calculate the same log-likelihood as Cholesky") {
+    forAll(symmetricPosDefMatrix(2, 1000)) { cov =>
+      implicit val tol = 1e-2
+      val zero = DenseVector.zeros[Double](2)
+      val y = DenseVector(1.0, 2.0)
+      val svd = MultivariateGaussian(zero, cov).pdf(y)
+      val chol = MultivariateGaussianSvd(zero, cov).pdf(y)
 
-//       assert(svd === chol)
-//     }
-//   }
-// }
+      assert(svd === chol)
+    }
+  }
+}
