@@ -332,7 +332,7 @@ Y_t &amp;= F \textbf{x}_t + \textbf{v}_t, \quad v_t \sim \textrm{MVN}(0, V), \\
 0 &amp; 0 &amp; 1
 \end{pmatrix}.\]</span></p>
 <p>In order to compose these two models in the Scala package, we first define the two models:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> dlm.<span class="fu">model</span>._
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> core.<span class="fu">dlm</span>.<span class="fu">model</span>._
 
 <span class="kw">val</span> mod1 = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>)
 <span class="kw">val</span> mod2 = Dlm.<span class="fu">polynomial</span>(<span class="dv">2</span>)</code></pre></div>
@@ -384,18 +384,8 @@ Y_t &amp;= F \textbf{x}_t + \textbf{v}_t, \quad v_t \sim \textrm{MVN}(0, V), \\
     <span class="fu">InverseGamma</span>(<span class="fl">3.0</span>, <span class="fl">3.0</span>), 
     p, 
     sims.<span class="fu">map</span>(_._<span class="dv">1</span>))</code></pre></div>
-<div class="figure">
-<img src="CorrelatedModel_files/figure-html/correlated-v-diagnostics-1.png" alt="Diagnostic plots for the MCMC draws from the posterior distribution of the non-zero diagonal elements of the Observation noise covariance matrix for the simulated correlated model" width="672" />
-<p class="caption">
-Diagnostic plots for the MCMC draws from the posterior distribution of the non-zero diagonal elements of the Observation noise covariance matrix for the simulated correlated model
-</p>
-</div>
-<div class="figure">
-<img src="CorrelatedModel_files/figure-html/correlated-w-diagnostics-1.png" alt="Diagnostic plots for the MCMC draws from the posterior distribution of the System noise covariance matrix for the simulated correlated model" width="672" />
-<p class="caption">
-Diagnostic plots for the MCMC draws from the posterior distribution of the System noise covariance matrix for the simulated correlated model
-</p>
-</div>
+<p><img src="CorrelatedModel_files/figure-html/correlated-v-diagnostics-1.png" width="672" /></p>
+<p><img src="CorrelatedModel_files/figure-html/correlated-w-diagnostics-1.png" width="672" /></p>
 </div>
 </div>
 

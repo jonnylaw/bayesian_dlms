@@ -11,7 +11,7 @@ Performing forecasting for future observations of the process using a DLM is equ
 Define the seasonal model:
 
 ```tut:silent
-import dlm.model._
+import core.dlm.model._
 import cats.implicits._
 
 val mod = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
@@ -25,7 +25,7 @@ import java.nio.file.Paths
 import kantan.csv._
 import kantan.csv.ops._
 
-val rawData = Paths.get("data/seasonal_dlm.csv")
+val rawData = Paths.get("core/data/seasonal_dlm.csv")
 val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
 val data = reader.
   collect { 
@@ -39,7 +39,7 @@ Then calculate the mean value of the MCMC parameters, assuming that the paramete
 ```tut:silent
 import breeze.stats.mean
 
-val mcmcChain = Paths.get("data/seasonal_dlm_gibbs.csv")
+val mcmcChain = Paths.get("core/data/seasonal_dlm_gibbs.csv")
 val read = mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
 
 val params: List[Double] = read.
@@ -74,8 +74,8 @@ val forecasted = Dlm.forecast(mod, mt, ct, initTime, meanParameters).
 The results of the forecasting and 95% prediction intervals are below:
 
 ```{r forecast_seasonal_dlm, echo=FALSE, message=FALSE, warning=FALSE}
-sims = read_csv("../data/seasonal_dlm.csv")
-forecast = read_csv("../data/seasonal_model_forecast.csv")
+sims = read_csv("../core/data/seasonal_dlm.csv")
+forecast = read_csv("../core/data/seasonal_model_forecast.csv")
 
 forecast %>%
   mutate(upper = qnorm(p = 0.95, mean = forecast, sd = sqrt(variance)),

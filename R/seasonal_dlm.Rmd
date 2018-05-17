@@ -6,21 +6,22 @@ title: "Seasonal DLM"
 library(tidyverse)
 library(coda) 
 library(ggmcmc)
+library(patchwork)
 knitr::opts_chunk$set(cache=TRUE, message=FALSE, warning=FALSE, echo=FALSE)
 theme_set(theme_minimal())
 ```
 
 # Simulate From a Seasonal DLM
 
-A seasonal DLM is given by:
+Many time series have a periodic effect which we want to model in order to make more accurate long term forecasts. Environmental processes such as temperature as well as airline sales have periodic effects. With the DLM structure, we can model multiple seasonal effects in a simple way, by specifying a specific structure for the system evolution matrix G. Consider a DLM with observations $y_{1:T}$ and a latent state $x_{0:T}$:
 
 $$\begin{align*}
-Y_t | \textbf{x}_t = F \textbf{x}_t + v_t, \quad v_t \sim \mathcal{N}(0, V) \\
-X_t | \textbf{x}_{t-1} = G \textbf{x}_t + w_t, \quad w_t \sim \mathcal{N}(0, W) \\
-X_y \sim \mathcal{N}(m_0, C_0)
+Y_t | \textbf{x}_t &= F \textbf{x}_t + v_t, &v_t &\sim \mathcal{N}(0, V) \\
+X_t | \textbf{x}_{t-1} &= G \textbf{x}_t + w_t, &w_t &\sim \mathcal{N}(0, W) \\
+X_0 &\sim \mathcal{N}(m_0, C_0)
 \end{align*}$$
 
-Where the system evolution matrix is block diagonal, containing rotation matrices. If we define $T$ to be the period of the seasonality then the frequency is, $\omega = 2\pi/T$, a rotation matrix for the $h^{\textrm{th}}$ harmonic in the system evolution matrix is given by:
+The system noise covariance matrix is $W$ and the measurement error variance is $V$. The system evolution matrix is block diagonal and contains rotation matrices. If we define $T$ to be the period of the seasonality then the frequency is, $\omega = 2\pi/T$, a rotation matrix for the $h^{\textrm{th}}$ harmonic in the system evolution matrix is given by:
 
 $$R(h, \omega) = \begin{pmatrix}\cos(h\omega) & -\sin(h\omega) \\
 \sin(h\omega) & \cos(h\omega) 
@@ -42,13 +43,19 @@ $$F = \begin{pmatrix}1 & 0 & 1 & \dots & 1 & 0 \end{pmatrix}.$$
 We can specify a seasonal model with trend using:
 
 ```tut:silent
-import dlm.model._
+import core.dlm.model._
 import cats.implicits._
 
 val mod = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
 ```
 
-Then we can simulate from the model by supplying parameters and use the provided simulate function:
+This model has 3 harmonics, resulting in a 7-dimensional state space. In order to model additional seasonalities we add more blocks to the block diagonal $G$ matrix with the appropriate period. For instance if we wanted to model weekly seasonality $T = 24 * 7$ then we can add this to the existing model:
+
+```tut:silent
+val weeklyModel = mod |+| Dlm.seasonal(24 * 7, 3)
+```
+
+Then we can simulate from the model by supplying parameters and use the `simulateRegular` function:
 
 ```tut:silent
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
@@ -67,7 +74,7 @@ val sims = Dlm.simulateRegular(0, mod, p, 1.0).
 ```
 
 ```{r simulated-seasonal}
-sims = read_csv("../data/seasonal_dlm.csv")
+sims = read_csv("../core/data/seasonal_dlm.csv")
 
 sims %>%
   ggplot(aes(x = time, y = observation)) +
@@ -99,21 +106,21 @@ val filtered = KalmanFilter.filter(mod, sims.map(_._1), p)
 ```
 
 ```{r filtered-seasonal}
-filtered = read_csv("../data/seasonal_filtered.csv")
+filtered = read_csv("../core/data/seasonal_filtered.csv")
 
 filtered %>%
   inner_join(sims, by = "time") %>%
   filter(time > 900) %>%
-  mutate(upper = qnorm(p = 0.95, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
-  mutate(lower = qnorm(p = 0.05, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
+  mutate(upper = qnorm(p = 0.975, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
+  mutate(lower = qnorm(p = 0.025, mean = state_mean_2, sd = sqrt(state_variance_2))) %>%
   gather(key, value, state_mean_2, state2) %>%
   ggplot(aes(x = time, y = value, colour = key)) +
   geom_line() +
   geom_line(aes(x = time, y = lower), linetype = 3, colour = "#000000") +
   geom_line(aes(x = time, y = upper), linetype = 3, colour = "#000000") +
   theme(legend.position = "bottom") +
-  labs(title = "Kalman Filtering the Seasonal Model", 
-       subtitle = "Mean of the Filtering Distribution overlayed with the actual simulated state with 90% probability intervals")
+  labs(title = "Kalman Filtering the Seasonal Model",
+       subtitle = "Mean of the Filtering Distribution overlayed with the actual simulated state with 95% probability intervals")
 ```
 
 # Smoothing
@@ -125,7 +132,7 @@ val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
 ```
 
 ```{r smoothed-seasonal}
-smoothed = read_csv("../data/seasonal_smoothed.csv")
+smoothed = read_csv("../core/data/seasonal_smoothed.csv")
 
 smoothed %>%
   filter(time < 500) %>%
@@ -144,7 +151,7 @@ smoothed %>%
 
 ## Parameter Learning using Gibbs Sampling
 
-```{r parameter_values, echo=FALSE}
+```{r parameter_values}
 actual_values = tibble(
   Parameter = c("V", paste0("W", 1:7)),
   actual_value = c(1.0, 0.01, 0.2, 0.4, 0.5, 0.2, 0.1, 0.4)
@@ -164,8 +171,8 @@ val iters = GibbsSampling.sample(
 
 The diagnostic plots are below:
 
-```{r seasonal-v-diagnostics, echo=FALSE, fig.cap="Traceplot and autocorrelation for posterior distribution of the observation variance parameter, $V$"}
-iters = read_csv("../data/seasonal_dlm_gibbs.csv")
+```{r seasonal-v-diagnostics}
+iters = read_csv("../core/data/seasonal_dlm_gibbs.csv")
 
 params = ggs(mcmc(iters))
 
@@ -174,13 +181,19 @@ p1 = params %>%
   inner_join(actual_values) %>%
   ggplot(aes(x = Iteration, y = value)) +
   geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000")
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
+  labs(title = "Diagnostic plots for the observation variance parameter, V", 
+       subtitle = "(Top) Traceplot (Middle) autocorrelation (Bottom) Empirical Posterior Density")
 
 p2 = params %>%
   filter(Parameter == "V") %>%
   ggs_autocorrelation()
 
-gridExtra::grid.arrange(p1, p2, ncol = 1)
+p3 = params %>%
+  filter(Parameter == "V") %>%
+  ggs_density()
+
+p1 / p2 / p3
 ```
 
 ```{r seasonal-w-diagnostics, echo=FALSE, fig.cap="Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated seasonal model"}
@@ -197,7 +210,7 @@ params %>%
 
 Forecasting a DLM is equivalent to running the Kalman Filter without any observations at the time of interest. We initialise the forecast by using the posterior distribution of the latent state at the time of the last observation, $x_T \sim \mathcal{N}(m_T, C_T)$ and use the values of the parameters identified using Gibbs sampling.
 
-First we take the mean value of the MCMC parameters, assuming that the parameters have been written to a CSV called `seasonal_dlm_gibbs.csv` with eight columns, $V, W_1,\dots,W_7$:
+First we take the mean of the posterior distribution of the parameters from the the MCMC output. Assuming that the parameters have been written to a CSV called `seasonal_dlm_gibbs.csv` with eight columns, $V, W_1,\dots,W_7$:
 
 ```tut:silent
 import java.nio.file.Paths
@@ -205,33 +218,33 @@ import kantan.csv._
 import kantan.csv.ops._
 import breeze.stats.mean
 
-val mcmcChain = Paths.get("data/seasonal_dlm_gibbs.csv")
+val mcmcChain = Paths.get("core/data/seasonal_dlm_gibbs.csv")
 val read = mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
 
-val params: List[Double] = read.
+val params: List[Double] = read.    
   collect { case Right(a) => a }.
   toList.
   transpose.
   map(a => mean(a))
 
 val meanParameters = Dlm.Parameters(
-  DenseMatrix(params.head), 
-  diag(DenseVector(params.tail.toArray)), 
-  p.m0,
-  p.c0)
+  v = DenseMatrix(params.head), 
+  w = diag(DenseVector(params.tail.toArray)), 
+  m0 = p.m0,
+  c0 = p.c0)
 ```
 
-When then use these parameters to get the posterior distribution of the final state:
+We use these parameters to get the posterior distribution of the final state:
 
 ```tut:silent
 val filtered = KalmanFilter.filter(mod, sims.map(_._1), meanParameters)
 val (mt, ct, initTime) = filtered.map(a => (a.mt, a.ct, a.time)).last
 ```
 
-We then initialise the forecast function with state state posterior at the time of the last observation:
+Then initialise the forecast function with the state posterior at the time of the last observation:
 
 ```tut:silent
-val forecasted = Dlm.forecast(mod, mt, ct, initTime, meanParameters).
+val forecast = Dlm.forecast(mod, mt, ct, initTime, meanParameters).
   take(100).
   toList
 ```
@@ -239,7 +252,7 @@ val forecasted = Dlm.forecast(mod, mt, ct, initTime, meanParameters).
 The mean of the forecast and 99% prediction intervals are below:
 
 ```{r forecast_seasonal_dlm, echo=FALSE, message=FALSE, warning=FALSE}
-forecast = read_csv("../data/seasonal_model_forecast.csv")
+forecast = read_csv("../core/data/seasonal_model_forecast.csv")
 
 forecast %>%
   mutate(upper = qnorm(p = 0.995, mean = forecast, sd = sqrt(variance)),

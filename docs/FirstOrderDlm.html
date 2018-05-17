@@ -301,13 +301,13 @@ X_t &amp;= x_{t-1} + w_t, \quad w_t \sim \mathcal{N}(0, W), \\
 X_0 &amp;\sim \mathcal{N}(m_0, C_0).
 \end{align}\]</span></p>
 <p>The code required to simulate from this model is given below:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> dlm.<span class="fu">model</span>._
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> core.<span class="fu">dlm</span>.<span class="fu">model</span>._
 <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
 
 <span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>)
 <span class="kw">val</span> p = Dlm.<span class="fu">Parameters</span>(
-  v = <span class="fu">DenseMatrix</span>(<span class="fl">3.0</span>),
-  w = <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>),
+  v = <span class="fu">DenseMatrix</span>(<span class="fl">2.0</span>),
+  w = <span class="fu">DenseMatrix</span>(<span class="fl">3.0</span>),
   m0 = <span class="fu">DenseVector</span>(<span class="fl">0.0</span>),
   c0 = <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>)
 )
@@ -358,6 +358,11 @@ H_t &amp;= C_t - C_t G^T_{t + 1} R_{t+1}^{-1} (R_{t+1} - S_{t+1})R_{t+1}^{-1} G_
 \end{align*}
 \]</span></p>
 <p><img src="FirstOrderDlm_files/figure-html/first-order-smoothed-1.png" width="672" /></p>
+</div>
+<div id="sample-state" class="section level1">
+<h1>Sample State</h1>
+<p>The FFBS algorithm is used to sample from the full conditional <span class="math inline">\(p(X_{0:T}|y_{1:T}, \psi)\)</span>. The figure below shows the mean and credible intervals for the sampled state using the FFBS algorithm:</p>
+<p><img src="FirstOrderDlm_files/figure-html/svd-sampled-1.png" width="672" /></p>
 </div>
 <div id="gibbs-sampling" class="section level1">
 <h1>Gibbs Sampling</h1>

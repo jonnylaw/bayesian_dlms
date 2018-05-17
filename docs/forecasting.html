@@ -298,7 +298,7 @@ $(document).ready(function () {
 <div id="example-seasonal-model" class="section level2">
 <h2>Example: Seasonal Model</h2>
 <p>Define the seasonal model:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> dlm.<span class="fu">model</span>._
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> core.<span class="fu">dlm</span>.<span class="fu">model</span>._
 <span class="kw">import</span> cats.<span class="fu">implicits</span>._
 
 <span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>) |+| Dlm.<span class="fu">seasonal</span>(<span class="dv">24</span>, <span class="dv">3</span>)</code></pre></div>
@@ -308,7 +308,7 @@ $(document).ready(function () {
 <span class="kw">import</span> kantan.<span class="fu">csv</span>._
 <span class="kw">import</span> kantan.<span class="fu">csv</span>.<span class="fu">ops</span>._
 
-<span class="kw">val</span> rawData = Paths.<span class="fu">get</span>(<span class="st">&quot;data/seasonal_dlm.csv&quot;</span>)
+<span class="kw">val</span> rawData = Paths.<span class="fu">get</span>(<span class="st">&quot;core/data/seasonal_dlm.csv&quot;</span>)
 <span class="kw">val</span> reader = rawData.<span class="fu">asCsvReader</span>[List[Double]](rfc.<span class="fu">withHeader</span>)
 <span class="kw">val</span> data = reader.
   collect { 
@@ -318,7 +318,7 @@ $(document).ready(function () {
 <p>Then calculate the mean value of the MCMC parameters, assuming that the parameters have been written to a CSV called <code>seasonal_dlm_gibbs.csv</code> with eight columns, <span class="math inline">\(V, W_1,\dots,W_7\)</span>:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">mean</span>
 
-<span class="kw">val</span> mcmcChain = Paths.<span class="fu">get</span>(<span class="st">&quot;data/seasonal_dlm_gibbs.csv&quot;</span>)
+<span class="kw">val</span> mcmcChain = Paths.<span class="fu">get</span>(<span class="st">&quot;core/data/seasonal_dlm_gibbs.csv&quot;</span>)
 <span class="kw">val</span> read = mcmcChain.<span class="fu">asCsvReader</span>[List[Double]](rfc.<span class="fu">withHeader</span>)
 
 <span class="kw">val</span> params: List[Double] = read.

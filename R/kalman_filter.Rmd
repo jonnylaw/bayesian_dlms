@@ -2,6 +2,12 @@
 title: "Kalman Filtering"
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE, message=FALSE, warning=FALSE, echo=FALSE)
+library(tidyverse)
+library(patchwork)
+```
+
 Dynamic Linear Models have a linear Gaussian latent-state and observation model which is amenable to exact filtering because of special properties of the Gaussian distribution. This means the distribution of the latent-state ($p(\textbf{x}_{0:T}|y_{1:T}, \theta)$) can be learned about exactly, this distribution is commonly called the filtering distribution. Suppose a time-dependent process is observed discretely at times $t = 1,\dots,T$, then a general DLM for this process can be written as:
 
 $$\begin{aligned}
@@ -26,7 +32,7 @@ The Kalman filter proceeds as follows, given observations of the process up unti
 In order to illustrate the Kalman Filter implementation in Scala, we consider a first order polynomial DLM, where $F_t = 1$, $G_t = 1$ and the latent-state is one-dimensional:
 
 ```tut:silent
-import dlm.model._
+import core.dlm.model._
 import breeze.linalg.{DenseMatrix, DenseVector}
 
 val mod = Dlm.polynomial(1)
@@ -74,7 +80,7 @@ val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
 The result of filtering the simulated observations is plotted below, with 90% probability intervals. The system and observation variances, $W_t$ and $V_t$ are assumed to be constant in time and known.
 
 ```{r first-order-filtered, message=FALSE, warning=FALSE, echo=FALSE}
-filtered = read_csv("../data/first_order_dlm_filtered.csv")
+filtered = read_csv("../core/data/first_order_dlm_filtered.csv")
 
 filtered %>%
   inner_join(data, by = "time") %>%
@@ -89,6 +95,15 @@ filtered %>%
   ggtitle("Kalman Filtered")
 ```
 
+## Filter Stability
+
+Numerical stability is important when implementing the Kalman Filter. One way of improving the stability of the filter is to use a square root filter, a further improvement is found by using the Singular Value Decomposition as detailed in https://arxiv.org/abs/1611.03686.
+
+In order to run Singular Value Decomposition filter use:
+
+```tut:silent
+val filtered = SvdFilter.filter(mod, data.map(_._1), p)
+```
 
 ## Other Filters
 
