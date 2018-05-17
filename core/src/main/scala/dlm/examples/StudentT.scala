@@ -1,7 +1,6 @@
 package core.dlm.examples
 
 import core.dlm.model._
-import breeze.stats.distributions._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import java.nio.file.Paths
 import cats.implicits._

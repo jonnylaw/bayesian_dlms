@@ -1,7 +1,6 @@
 package core.dlm.model
 
 import breeze.stats.distributions._
-import breeze.linalg._
 import breeze.numerics._
 
 case class ScaledStudentsT(

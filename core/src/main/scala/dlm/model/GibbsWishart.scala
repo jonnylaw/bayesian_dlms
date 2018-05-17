@@ -46,9 +46,10 @@ object GibbsWishart {
 
     for {
       theta <- FilterArray.ffbsSvd(mod, observations, s.p)
-      newW <- sampleSystemMatrix(priorW, mod.g, theta)
-      newV <- GibbsSampling.sampleObservationMatrix(priorV, mod.f, observations, theta)
-    } yield GibbsSampling.State(s.p.copy(v = newV, w = newW), theta)
+      newW <- sampleSystemMatrix(priorW, mod.g, theta.toVector)
+      newV <- GibbsSampling.sampleObservationMatrix(priorV, mod.f,
+        observations, theta.toVector)
+    } yield GibbsSampling.State(s.p.copy(v = newV, w = newW), theta.toVector)
   }
 
   /**
