@@ -22,6 +22,52 @@
 <script src="site_libs/navigation-1.1/tabsets.js"></script>
 
 
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; background-color: #ffffff; color: #1f1c1b; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; background-color: #ffffff; color: #a0a0a0; border-right: 1px solid #a0a0a0; }
+td.sourceCode { padding-left: 5px; }
+pre, code { color: #1f1c1b; background-color: #ffffff; }
+code > span.kw { color: #1f1c1b; font-weight: bold; } /* Keyword */
+code > span.dt { color: #0057ae; } /* DataType */
+code > span.dv { color: #b08000; } /* DecVal */
+code > span.bn { color: #b08000; } /* BaseN */
+code > span.fl { color: #b08000; } /* Float */
+code > span.cn { color: #aa5500; } /* Constant */
+code > span.ch { color: #924c9d; } /* Char */
+code > span.sc { color: #3daee9; } /* SpecialChar */
+code > span.st { color: #bf0303; } /* String */
+code > span.vs { color: #bf0303; } /* VerbatimString */
+code > span.ss { color: #ff5500; } /* SpecialString */
+code > span.im { color: #ff5500; } /* Import */
+code > span.co { color: #898887; } /* Comment */
+code > span.do { color: #607880; } /* Documentation */
+code > span.an { color: #ca60ca; } /* Annotation */
+code > span.cv { color: #0095ff; } /* CommentVar */
+code > span.ot { color: #006e28; } /* Other */
+code > span.fu { color: #644a9b; } /* Function */
+code > span.va { color: #0057ae; } /* Variable */
+code > span.cf { color: #1f1c1b; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #1f1c1b; } /* Operator */
+code > span.bu { color: #644a9b; font-weight: bold; } /* BuiltIn */
+code > span.ex { color: #0095ff; font-weight: bold; } /* Extension */
+code > span.pp { color: #006e28; } /* Preprocessor */
+code > span.at { color: #0057ae; } /* Attribute */
+code > span.re { color: #0057ae; } /* RegionMarker */
+code > span.in { color: #b08000; } /* Information */
+code > span.wa { color: #bf0303; } /* Warning */
+code > span.al { color: #bf0303; font-weight: bold; } /* Alert */
+code > span.er { color: #bf0303; text-decoration: underline; } /* Error */
+code > span. { color: #1f1c1b; } /* Normal */
+</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
 
 
 <style type="text/css">
@@ -255,24 +301,24 @@ x_t &amp;= x_{t-1} + w_t, \qquad w_t \sim \mathcal{N}(0, W), \\
 x_0 &amp;\sim \mathcal{N}(m_0, C_0).
 \end{aligned}\]</span></p>
 <p>The Student’s t model is specified in scala by first specifying a DLM model, which specifys the system and observation matrices (<span class="math inline">\(G_t\)</span> and <span class="math inline">\(F_t\)</span>) then specifying the observation model using the <code>Dglm</code> class:</p>
-<pre class="tut:silent"><code>import dlm.model._
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> core.<span class="fu">dlm</span>.<span class="fu">model</span>._
 
-val dlm = Dlm.polynomial(1)
-val mod = Dglm.studentT(3, dlm)</code></pre>
+<span class="kw">val</span> dlm = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>)
+<span class="kw">val</span> mod = Dglm.<span class="fu">studentT</span>(<span class="dv">3</span>, dlm)</code></pre></div>
 <p>The code below can be used to simulate 1,000 iterations from the Student’s t model.</p>
-<pre class="tut:silent"><code>import breeze.linalg.{DenseVector, DenseMatrix}
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseVector, DenseMatrix}
 
-val params = Dlm.Parameters(
-  DenseMatrix(3.0), 
-  DenseMatrix(0.1), 
-  DenseVector(0.0), 
-  DenseMatrix(1.0))
+<span class="kw">val</span> params = Dlm.<span class="fu">Parameters</span>(
+  <span class="fu">DenseMatrix</span>(<span class="fl">3.0</span>), 
+  <span class="fu">DenseMatrix</span>(<span class="fl">0.1</span>), 
+  <span class="fu">DenseVector</span>(<span class="fl">0.0</span>), 
+  <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>))
 
 
-val data = Dglm.simulate(mod, params).
+<span class="kw">val</span> data = Dglm.<span class="fu">simulate</span>(mod, params).
   steps.
-  take(1000).
-  toVector</code></pre>
+  <span class="fu">take</span>(<span class="dv">1000</span>).
+  toVector</code></pre></div>
 <p>A simulation from the model with <span class="math inline">\(\{s^2, W, m_0, C_0\} = \{3, 0.1, 0, 1\}\)</span> is presented in the figure below:</p>
 <p><img src="student_t_filtering_files/figure-html/plot_student_t-1.png" width="672" /></p>
 <div id="parameter-learning" class="section level2">
@@ -344,7 +390,7 @@ p(s^2|y_{1:T}, \textbf{x}_{0:T}, W, V) &amp;= \prod_{t=1}^T\textrm{InverseGamma}
 <p>The prior distribution of the system evolution matrix is Inv-Gamma<span class="math inline">\((21, 2)\)</span>, for a mean of 0.1 and variance 0.19. The prior distribution for <span class="math inline">\(W\)</span> looks like:</p>
 <p><img src="student_t_filtering_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
 <p>In order to run the perform Gibbs sampling on the sampled data, we use the following code:</p>
-<pre class="tut:silent"><code>val iters = StudentT.sample(3, data.map(_._1), InverseGamma(21.0, 2.0), mod, params)</code></pre>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = StudentT.<span class="fu">sample</span>(<span class="dv">3</span>, data.<span class="fu">map</span>(_._<span class="dv">1</span>), <span class="fu">InverseGamma</span>(<span class="fl">21.0</span>, <span class="fl">2.0</span>), mod, params)</code></pre></div>
 <p><img src="student_t_filtering_files/figure-html/density_student_t-1.png" width="672" /></p>
 </div>
 </div>

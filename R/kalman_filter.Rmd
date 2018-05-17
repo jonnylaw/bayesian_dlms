@@ -32,7 +32,7 @@ The Kalman filter proceeds as follows, given observations of the process up unti
 In order to illustrate the Kalman Filter implementation in Scala, we consider a first order polynomial DLM, where $F_t = 1$, $G_t = 1$ and the latent-state is one-dimensional:
 
 ```tut:silent
-import dlm.model._
+import core.dlm.model._
 import breeze.linalg.{DenseMatrix, DenseVector}
 
 val mod = Dlm.polynomial(1)
@@ -80,7 +80,7 @@ val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
 The result of filtering the simulated observations is plotted below, with 90% probability intervals. The system and observation variances, $W_t$ and $V_t$ are assumed to be constant in time and known.
 
 ```{r first-order-filtered, message=FALSE, warning=FALSE, echo=FALSE}
-filtered = read_csv("../data/first_order_dlm_filtered.csv")
+filtered = read_csv("../core/data/first_order_dlm_filtered.csv")
 
 filtered %>%
   inner_join(data, by = "time") %>%
@@ -103,24 +103,6 @@ In order to run Singular Value Decomposition filter use:
 
 ```tut:silent
 val filtered = SvdFilter.filter(mod, data.map(_._1), p)
-```
-
-The figure below shows the SVD filter ran on the first order DLM example.
-
-```{r filter-svd, echo=FALSE}
-filtered_svd = read_csv("../data/first_order_dlm_svd_filtered.csv")
-
-filtered_svd %>%
-  inner_join(data, by = "time") %>%
-  mutate(upper = qnorm(p = 0.95, mean = state_mean, sd = sqrt(state_variance))) %>%
-  mutate(lower = qnorm(p = 0.05, mean = state_mean, sd = sqrt(state_variance))) %>%
-  gather(key, value, state_mean, state) %>%
-  ggplot(aes(x = time, y = value, colour = key)) +
-  geom_line() +
-  geom_line(aes(x = time, y = lower), linetype = 3, colour = "#000000") +
-  geom_line(aes(x = time, y = upper), linetype = 3, colour = "#000000") +
-  theme(legend.position = "bottom") +
-  ggtitle("Kalman Filtered")
 ```
 
 ## Other Filters

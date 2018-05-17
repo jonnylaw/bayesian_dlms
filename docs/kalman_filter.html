@@ -308,7 +308,7 @@ x_0 &amp;\sim \mathcal{N}(m_0, C_0).
 <div id="first-order-example" class="section level2">
 <h2>First Order Example</h2>
 <p>In order to illustrate the Kalman Filter implementation in Scala, we consider a first order polynomial DLM, where <span class="math inline">\(F_t = 1\)</span>, <span class="math inline">\(G_t = 1\)</span> and the latent-state is one-dimensional:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> dlm.<span class="fu">model</span>._
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> core.<span class="fu">dlm</span>.<span class="fu">model</span>._
 <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
 
 <span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>)
@@ -343,6 +343,12 @@ x_0 &amp;\sim \mathcal{N}(m_0, C_0).
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> filtered = KalmanFilter.<span class="fu">filter</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)</code></pre></div>
 <p>The result of filtering the simulated observations is plotted below, with 90% probability intervals. The system and observation variances, <span class="math inline">\(W_t\)</span> and <span class="math inline">\(V_t\)</span> are assumed to be constant in time and known.</p>
 <p><img src="kalman_filter_files/figure-html/first-order-filtered-1.png" width="672" /></p>
+</div>
+<div id="filter-stability" class="section level2">
+<h2>Filter Stability</h2>
+<p>Numerical stability is important when implementing the Kalman Filter. One way of improving the stability of the filter is to use a square root filter, a further improvement is found by using the Singular Value Decomposition as detailed in <a href="https://arxiv.org/abs/1611.03686" class="uri">https://arxiv.org/abs/1611.03686</a>.</p>
+<p>In order to run Singular Value Decomposition filter use:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> filtered = SvdFilter.<span class="fu">filter</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)</code></pre></div>
 </div>
 <div id="other-filters" class="section level2">
 <h2>Other Filters</h2>

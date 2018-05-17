@@ -27,7 +27,7 @@ x_0 &\sim \mathcal{N}(m_0, C_0).
 The Student's t model is specified in scala by first specifying a DLM model, which specifys the system and observation matrices ($G_t$ and $F_t$) then specifying the observation model using the `Dglm` class:
 
 ```tut:silent
-import dlm.model._
+import core.dlm.model._
 
 val dlm = Dlm.polynomial(1)
 val mod = Dglm.studentT(3, dlm)
@@ -54,7 +54,7 @@ val data = Dglm.simulate(mod, params).
 A simulation from the model with $\{s^2, W, m_0, C_0\} = \{3, 0.1, 0, 1\}$ is presented in the figure below:
 
 ```{r plot_student_t}
-sims = read_csv("../data/student_t_dglm.csv")
+sims = read_csv("../core/data/student_t_dglm.csv")
 
 sims %>%
   gather(key, value, -time) %>%
@@ -70,7 +70,7 @@ sims %>%
 In order to fit the t-distributed state space model to observed data we need to learn the values of the parameters $\psi = \{s^2, W, m_0, C_0\}$. A particle filter can be used to find an (unbiased) estimate of the likelihood, then Metropolis Hastings can be used to learn the posterior distribution of the parameters. Alternatively, Particle Gibbs can be used to sample a value of the state then the conjugate structure of the latent-state with unknown variance, $W$ can be exploited. The scale would then be updated using Metropolis hastings. However, since the Student's t-distrubtion is an Inverse Gamma mixture of normals, we can use the Kalman Filter to sample the value of the state and perform Gibbs sampling for the value of the scale, $s$.
 
 ```{r pmmh-diagnostics, eval=FALSE}
-chain = read_csv("../data/student_t_dglm_pmmh.csv")
+chain = read_csv("../core/data/student_t_dglm_pmmh.csv")
 parameters = chain[-c(1:1000),] %>%
   mcmc() %>% ggs()
 
@@ -84,7 +84,7 @@ gridExtra::grid.arrange(p1, p2, p3, ncol = 1)
 ```
 
 ```{r pg-ar, eval=FALSE}
-chain = read_csv("../data/student_t_dglm_gibbs_ancestor.csv")
+chain = read_csv("../core/data/student_t_dglm_gibbs_ancestor.csv")
 
 parameters = chain[-c(1:1000),] %>% mcmc() %>% ggs()
 
@@ -213,7 +213,7 @@ val iters = StudentT.sample(3, data.map(_._1), InverseGamma(21.0, 2.0), mod, par
 ```
 
 ```{r density_student_t}
-chain = read_csv("../data/student_t_dglm_gibbs.csv")
+chain = read_csv("../core/data/student_t_dglm_gibbs.csv")
 
 parameters = chain[-c(1:1000),] %>% 
   mcmc() %>% 

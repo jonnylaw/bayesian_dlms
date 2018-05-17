@@ -294,13 +294,13 @@ $(document).ready(function () {
 
 <div id="simulate-from-a-seasonal-dlm" class="section level1">
 <h1>Simulate From a Seasonal DLM</h1>
-<p>A seasonal DLM is given by:</p>
+<p>Many time series have a periodic effect which we want to model in order to make more accurate long term forecasts. Environmental processes such as temperature as well as airline sales have periodic effects. With the DLM structure, we can model multiple seasonal effects in a simple way, by specifying a specific structure for the system evolution matrix G. Consider a DLM with observations <span class="math inline">\(y_{1:T}\)</span> and a latent state <span class="math inline">\(x_{0:T}\)</span>:</p>
 <p><span class="math display">\[\begin{align*}
-Y_t | \textbf{x}_t = F \textbf{x}_t + v_t, \quad v_t \sim \mathcal{N}(0, V) \\
-X_t | \textbf{x}_{t-1} = G \textbf{x}_t + w_t, \quad w_t \sim \mathcal{N}(0, W) \\
-X_y \sim \mathcal{N}(m_0, C_0)
+Y_t | \textbf{x}_t &amp;= F \textbf{x}_t + v_t, &amp;v_t &amp;\sim \mathcal{N}(0, V) \\
+X_t | \textbf{x}_{t-1} &amp;= G \textbf{x}_t + w_t, &amp;w_t &amp;\sim \mathcal{N}(0, W) \\
+X_0 &amp;\sim \mathcal{N}(m_0, C_0)
 \end{align*}\]</span></p>
-<p>Where the system evolution matrix is block diagonal, containing rotation matrices. If we define <span class="math inline">\(T\)</span> to be the period of the seasonality then the frequency is, <span class="math inline">\(\omega = 2\pi/T\)</span>, a rotation matrix for the <span class="math inline">\(h^{\textrm{th}}\)</span> harmonic in the system evolution matrix is given by:</p>
+<p>The system noise covariance matrix is <span class="math inline">\(W\)</span> and the measurement error variance is <span class="math inline">\(V\)</span>. The system evolution matrix is block diagonal and contains rotation matrices. If we define <span class="math inline">\(T\)</span> to be the period of the seasonality then the frequency is, <span class="math inline">\(\omega = 2\pi/T\)</span>, a rotation matrix for the <span class="math inline">\(h^{\textrm{th}}\)</span> harmonic in the system evolution matrix is given by:</p>
 <p><span class="math display">\[R(h, \omega) = \begin{pmatrix}\cos(h\omega) &amp; -\sin(h\omega) \\
 \sin(h\omega) &amp; \cos(h\omega) 
 \end{pmatrix}\]</span></p>
@@ -314,11 +314,13 @@ R(1, \omega) &amp; 0 &amp; \dots &amp; \dots &amp; 0 \\
 <p>The observation matrix is <span class="math inline">\(1 \times 2h\)</span> dimensional:</p>
 <p><span class="math display">\[F = \begin{pmatrix}1 &amp; 0 &amp; 1 &amp; \dots &amp; 1 &amp; 0 \end{pmatrix}.\]</span></p>
 <p>We can specify a seasonal model with trend using:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> dlm.<span class="fu">model</span>._
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> core.<span class="fu">dlm</span>.<span class="fu">model</span>._
 <span class="kw">import</span> cats.<span class="fu">implicits</span>._
 
 <span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>) |+| Dlm.<span class="fu">seasonal</span>(<span class="dv">24</span>, <span class="dv">3</span>)</code></pre></div>
-<p>Then we can simulate from the model by supplying parameters and use the provided simulate function:</p>
+<p>This model has 3 harmonics, resulting in a 7-dimensional state space. In order to model additional seasonalities we add more blocks to the block diagonal <span class="math inline">\(G\)</span> matrix with the appropriate period. For instance if we wanted to model weekly seasonality <span class="math inline">\(T = 24 * 7\)</span> then we can add this to the existing model:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> weeklyModel = mod |+| Dlm.<span class="fu">seasonal</span>(<span class="dv">24</span> * <span class="dv">7</span>, <span class="dv">3</span>)</code></pre></div>
+<p>Then we can simulate from the model by supplying parameters and use the <code>simulateRegular</code> function:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
 
 <span class="kw">val</span> p = Dlm.<span class="fu">Parameters</span>(
@@ -357,12 +359,7 @@ R(1, \omega) &amp; 0 &amp; \dots &amp; \dots &amp; 0 \\
     p, 
     sims.<span class="fu">map</span>(_._<span class="dv">1</span>))</code></pre></div>
 <p>The diagnostic plots are below:</p>
-<div class="figure">
-<img src="seasonal_dlm_files/figure-html/seasonal-v-diagnostics-1.png" alt="Traceplot and autocorrelation for posterior distribution of the observation variance parameter, $V$" width="672" />
-<p class="caption">
-Traceplot and autocorrelation for posterior distribution of the observation variance parameter, <span class="math inline">\(V\)</span>
-</p>
-</div>
+<p><img src="seasonal_dlm_files/figure-html/seasonal-v-diagnostics-1.png" width="672" /></p>
 <div class="figure">
 <img src="seasonal_dlm_files/figure-html/seasonal-w-diagnostics-1.png" alt="Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated seasonal model" width="672" />
 <p class="caption">
@@ -374,31 +371,31 @@ Diagnostic plots for the MCMC chain representing draws from the posterior distri
 <div id="forecast-dlm" class="section level1">
 <h1>Forecast DLM</h1>
 <p>Forecasting a DLM is equivalent to running the Kalman Filter without any observations at the time of interest. We initialise the forecast by using the posterior distribution of the latent state at the time of the last observation, <span class="math inline">\(x_T \sim \mathcal{N}(m_T, C_T)\)</span> and use the values of the parameters identified using Gibbs sampling.</p>
-<p>First we take the mean value of the MCMC parameters, assuming that the parameters have been written to a CSV called <code>seasonal_dlm_gibbs.csv</code> with eight columns, <span class="math inline">\(V, W_1,\dots,W_7\)</span>:</p>
+<p>First we take the mean of the posterior distribution of the parameters from the the MCMC output. Assuming that the parameters have been written to a CSV called <code>seasonal_dlm_gibbs.csv</code> with eight columns, <span class="math inline">\(V, W_1,\dots,W_7\)</span>:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> java.<span class="fu">nio</span>.<span class="fu">file</span>.<span class="fu">Paths</span>
 <span class="kw">import</span> kantan.<span class="fu">csv</span>._
 <span class="kw">import</span> kantan.<span class="fu">csv</span>.<span class="fu">ops</span>._
 <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">mean</span>
 
-<span class="kw">val</span> mcmcChain = Paths.<span class="fu">get</span>(<span class="st">&quot;data/seasonal_dlm_gibbs.csv&quot;</span>)
+<span class="kw">val</span> mcmcChain = Paths.<span class="fu">get</span>(<span class="st">&quot;core/data/seasonal_dlm_gibbs.csv&quot;</span>)
 <span class="kw">val</span> read = mcmcChain.<span class="fu">asCsvReader</span>[List[Double]](rfc.<span class="fu">withHeader</span>)
 
-<span class="kw">val</span> params: List[Double] = read.
+<span class="kw">val</span> params: List[Double] = read.    
   collect { <span class="kw">case</span> <span class="fu">Right</span>(a) =&gt; a }.
   toList.
   transpose.
   <span class="fu">map</span>(a =&gt; <span class="fu">mean</span>(a))
 
 <span class="kw">val</span> meanParameters = Dlm.<span class="fu">Parameters</span>(
-  <span class="fu">DenseMatrix</span>(params.<span class="fu">head</span>), 
-  <span class="fu">diag</span>(<span class="fu">DenseVector</span>(params.<span class="fu">tail</span>.<span class="fu">toArray</span>)), 
-  p.<span class="fu">m0</span>,
-  p.<span class="fu">c0</span>)</code></pre></div>
-<p>When then use these parameters to get the posterior distribution of the final state:</p>
+  v = <span class="fu">DenseMatrix</span>(params.<span class="fu">head</span>), 
+  w = <span class="fu">diag</span>(<span class="fu">DenseVector</span>(params.<span class="fu">tail</span>.<span class="fu">toArray</span>)), 
+  m0 = p.<span class="fu">m0</span>,
+  c0 = p.<span class="fu">c0</span>)</code></pre></div>
+<p>We use these parameters to get the posterior distribution of the final state:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> filtered = KalmanFilter.<span class="fu">filter</span>(mod, sims.<span class="fu">map</span>(_._<span class="dv">1</span>), meanParameters)
 <span class="kw">val</span> (mt, ct, initTime) = filtered.<span class="fu">map</span>(a =&gt; (a.<span class="fu">mt</span>, a.<span class="fu">ct</span>, a.<span class="fu">time</span>)).<span class="fu">last</span></code></pre></div>
-<p>We then initialise the forecast function with state state posterior at the time of the last observation:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> forecasted = Dlm.<span class="fu">forecast</span>(mod, mt, ct, initTime, meanParameters).
+<p>Then initialise the forecast function with the state posterior at the time of the last observation:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> forecast = Dlm.<span class="fu">forecast</span>(mod, mt, ct, initTime, meanParameters).
   <span class="fu">take</span>(<span class="dv">100</span>).
   toList</code></pre></div>
 <p>The mean of the forecast and 99% prediction intervals are below:</p>

@@ -15,7 +15,7 @@ theme_set(theme_bw())
 This example is reproduced from [DLMs with R](https://www.springer.com/us/book/9780387772370), Section 4.5.1.
 
 ```{r read_investment_data}
-data = read_csv("../data/invest2.dat", col_names = c("Denmark", "Spain"))
+data = read_csv("../core/data/invest2.dat", col_names = c("Denmark", "Spain"))
 
 data %>%
   mutate(time = 1960:(1960 + nrow(data) - 1)) %>%
@@ -110,7 +110,7 @@ gridExtra::grid.arrange(p1, p2, ncol = 1)
 The posterior densities summarised from 12,000 MCMC draws are plotted below:
 
 ```{r read_iters}
-gibbs_iters = read_csv("../data/gibbs_spain_investment.csv")
+gibbs_iters = read_csv("../core/data/gibbs_spain_investment.csv")
 ```
 
 

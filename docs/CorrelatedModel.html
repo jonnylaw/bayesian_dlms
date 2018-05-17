@@ -22,6 +22,52 @@
 <script src="site_libs/navigation-1.1/tabsets.js"></script>
 
 
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; background-color: #ffffff; color: #1f1c1b; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; background-color: #ffffff; color: #a0a0a0; border-right: 1px solid #a0a0a0; }
+td.sourceCode { padding-left: 5px; }
+pre, code { color: #1f1c1b; background-color: #ffffff; }
+code > span.kw { color: #1f1c1b; font-weight: bold; } /* Keyword */
+code > span.dt { color: #0057ae; } /* DataType */
+code > span.dv { color: #b08000; } /* DecVal */
+code > span.bn { color: #b08000; } /* BaseN */
+code > span.fl { color: #b08000; } /* Float */
+code > span.cn { color: #aa5500; } /* Constant */
+code > span.ch { color: #924c9d; } /* Char */
+code > span.sc { color: #3daee9; } /* SpecialChar */
+code > span.st { color: #bf0303; } /* String */
+code > span.vs { color: #bf0303; } /* VerbatimString */
+code > span.ss { color: #ff5500; } /* SpecialString */
+code > span.im { color: #ff5500; } /* Import */
+code > span.co { color: #898887; } /* Comment */
+code > span.do { color: #607880; } /* Documentation */
+code > span.an { color: #ca60ca; } /* Annotation */
+code > span.cv { color: #0095ff; } /* CommentVar */
+code > span.ot { color: #006e28; } /* Other */
+code > span.fu { color: #644a9b; } /* Function */
+code > span.va { color: #0057ae; } /* Variable */
+code > span.cf { color: #1f1c1b; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #1f1c1b; } /* Operator */
+code > span.bu { color: #644a9b; font-weight: bold; } /* BuiltIn */
+code > span.ex { color: #0095ff; font-weight: bold; } /* Extension */
+code > span.pp { color: #006e28; } /* Preprocessor */
+code > span.at { color: #0057ae; } /* Attribute */
+code > span.re { color: #0057ae; } /* RegionMarker */
+code > span.in { color: #b08000; } /* Information */
+code > span.wa { color: #bf0303; } /* Warning */
+code > span.al { color: #bf0303; font-weight: bold; } /* Alert */
+code > span.er { color: #bf0303; text-decoration: underline; } /* Error */
+code > span. { color: #1f1c1b; } /* Normal */
+</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
 
 
 <style type="text/css">
@@ -286,26 +332,26 @@ Y_t &amp;= F \textbf{x}_t + \textbf{v}_t, \quad v_t \sim \textrm{MVN}(0, V), \\
 0 &amp; 0 &amp; 1
 \end{pmatrix}.\]</span></p>
 <p>In order to compose these two models in the Scala package, we first define the two models:</p>
-<pre class="tut:silent"><code>import dlm.model._
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> core.<span class="fu">dlm</span>.<span class="fu">model</span>._
 
-val mod1 = Dlm.polynomial(1)
-val mod2 = Dlm.polynomial(2)</code></pre>
+<span class="kw">val</span> mod1 = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>)
+<span class="kw">val</span> mod2 = Dlm.<span class="fu">polynomial</span>(<span class="dv">2</span>)</code></pre></div>
 <p>The models can now be composed using the outer sum function:</p>
-<pre class="tut:silent"><code>import breeze.linalg.{diag, DenseMatrix, DenseVector}
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> breeze.<span class="fu">linalg</span>.{diag, DenseMatrix, DenseVector}
 
-val composedModel = mod1 |*| mod2
+<span class="kw">val</span> composedModel = mod1 |*| mod2
 
-val p = Dlm.Parameters(
-  v = diag(DenseVector(1.0, 2.0)), 
-  w = diag(DenseVector(2.0, 3.0, 1.0)),
-  m0 = DenseVector.zeros[Double](3), 
-  c0 = DenseMatrix.eye[Double](3)
-)</code></pre>
+<span class="kw">val</span> p = Dlm.<span class="fu">Parameters</span>(
+  v = <span class="fu">diag</span>(<span class="fu">DenseVector</span>(<span class="fl">1.0</span>, <span class="fl">2.0</span>)), 
+  w = <span class="fu">diag</span>(<span class="fu">DenseVector</span>(<span class="fl">2.0</span>, <span class="fl">3.0</span>, <span class="fl">1.0</span>)),
+  m0 = DenseVector.<span class="fu">zeros</span>[Double](<span class="dv">3</span>), 
+  c0 = DenseMatrix.<span class="fu">eye</span>[Double](<span class="dv">3</span>)
+)</code></pre></div>
 <p>Then we can simulate observations from the <code>composedModel</code>:</p>
-<pre class="tut:silent"><code>val sims = Dlm.simulateRegular(0, composedModel, p, 1.0).
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> sims = Dlm.<span class="fu">simulateRegular</span>(<span class="dv">0</span>, composedModel, p, <span class="fl">1.0</span>).
   steps.
-  take(1000).
-  toVector</code></pre>
+  <span class="fu">take</span>(<span class="dv">1000</span>).
+  toVector</code></pre></div>
 <p>The figure below shows a simulation from this composed model:</p>
 <p><img src="CorrelatedModel_files/figure-html/correlated-simulated-1.png" width="672" /></p>
 </div>
@@ -332,12 +378,12 @@ val p = Dlm.Parameters(
 <div id="gibbs-sampling-correlated-model" class="section level2">
 <h2>Gibbs Sampling Correlated Model</h2>
 <p>In order to perform Gibbs Sampling for the Correlated model in Scala:</p>
-<pre class="tut:silent"><code>val iters = GibbsSampling.sample(
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = GibbsSampling.<span class="fu">sample</span>(
     composedModel, 
-    InverseGamma(4.0, 9.0), 
-    InverseGamma(3.0, 3.0), 
+    <span class="fu">InverseGamma</span>(<span class="fl">4.0</span>, <span class="fl">9.0</span>), 
+    <span class="fu">InverseGamma</span>(<span class="fl">3.0</span>, <span class="fl">3.0</span>), 
     p, 
-    sims.map(_._1))</code></pre>
+    sims.<span class="fu">map</span>(_._<span class="dv">1</span>))</code></pre></div>
 <p><img src="CorrelatedModel_files/figure-html/correlated-v-diagnostics-1.png" width="672" /></p>
 <p><img src="CorrelatedModel_files/figure-html/correlated-w-diagnostics-1.png" width="672" /></p>
 </div>

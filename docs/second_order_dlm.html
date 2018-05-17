@@ -306,7 +306,7 @@ Y_t &amp;= F \textbf{x}_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
 0 &amp; 1
 \end{pmatrix}.\]</span></p>
 <p>In order to examine the properties of this model, first we can simulate a time series of values from it:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> dlm.<span class="fu">model</span>._
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> core.<span class="fu">dlm</span>.<span class="fu">model</span>._
 <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
 
 <span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">2</span>)
@@ -344,7 +344,7 @@ Filtered State of the second order model, with 90% probability intervals
     <span class="fu">InverseGamma</span>(<span class="fl">5.0</span>, <span class="fl">8.0</span>), 
     p, 
     data.<span class="fu">map</span>(_._<span class="dv">1</span>))</code></pre></div>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">gibbs_iters =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../data/second_order_dlm_gibbs.csv&quot;</span>)
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">gibbs_iters =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../core/data/second_order_dlm_gibbs.csv&quot;</span>)
 
 actual_values =<span class="st"> </span><span class="kw">tibble</span>(
   <span class="dt">Parameter =</span> <span class="kw">c</span>(<span class="st">&quot;V&quot;</span>, <span class="st">&quot;W1&quot;</span>, <span class="st">&quot;W2&quot;</span>),
@@ -373,26 +373,26 @@ gibbs_iters <span class="op">%&gt;%</span>
 <tbody>
 <tr class="odd">
 <td align="left">V</td>
+<td align="right">2.85</td>
+<td align="right">2.26</td>
 <td align="right">3.40</td>
-<td align="right">2.79</td>
-<td align="right">4.02</td>
-<td align="right">0.31</td>
+<td align="right">0.29</td>
 <td align="right">3</td>
 </tr>
 <tr class="even">
 <td align="left">W1</td>
-<td align="right">2.08</td>
-<td align="right">1.12</td>
-<td align="right">3.20</td>
-<td align="right">0.54</td>
+<td align="right">1.81</td>
+<td align="right">0.97</td>
+<td align="right">3.01</td>
+<td align="right">0.53</td>
 <td align="right">2</td>
 </tr>
 <tr class="odd">
 <td align="left">W2</td>
-<td align="right">0.85</td>
-<td align="right">0.65</td>
-<td align="right">1.08</td>
-<td align="right">0.11</td>
+<td align="right">0.95</td>
+<td align="right">0.73</td>
+<td align="right">1.20</td>
+<td align="right">0.12</td>
 <td align="right">1</td>
 </tr>
 </tbody>
