@@ -1,6 +1,4 @@
 .ensime
-*.csv
-*.dat
 **/target
 tut/*
 src/main/scala/target/*

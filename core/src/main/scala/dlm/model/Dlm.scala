@@ -1,4 +1,4 @@
-package core.dlm.model
+ackage core.dlm.model
 
 import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.distributions._
