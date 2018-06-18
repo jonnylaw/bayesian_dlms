@@ -3,6 +3,7 @@ package benchmark.bench
 import org.openjdk.jmh.annotations.{Benchmark, State, Scope}
 import core.dlm.model._
 import breeze.linalg._
+import cats.implicits._
 
 object KalmanFilterBenchmark {
 
@@ -32,18 +33,23 @@ class KalmanFilterBenchmark {
     KalmanFilter.filter(mod.model, mod.data, mod.p)
   }
 
-  @Benchmark
-  def svdFilter(mod: ModelState) = {
-    SvdFilter.filter(mod.model, mod.data, mod.p)
-  }
+  // @Benchmark
+  // def svdFilter(mod: ModelState) = {
+  //   SvdFilter.filter(mod.model, mod.data, mod.p)
+  // }
+
+  // @Benchmark
+  // def arrayFilterSvd(mod: ModelState) = {
+  //   FilterArray.filterSvd(mod.model, mod.data, mod.p)
+  // }
+
+  // @Benchmark
+  // def arrayFilter(mod: ModelState) = {
+  //   FilterArray.filterNaive(mod.model, mod.data, mod.p)
+  // }
 
   @Benchmark
-  def arrayFilterSvd(mod: ModelState) = {
-    FilterArray.filterSvd(mod.model, mod.data, mod.p)
-  }
-
-  @Benchmark
-  def arrayFilter(mod: ModelState) = {
-    FilterArray.filterNaive(mod.model, mod.data, mod.p)
+  def genFilter(mod: ModelState) = {
+    KalmanFilter.genFilter(mod.model, mod.data, mod.p)
   }
 }

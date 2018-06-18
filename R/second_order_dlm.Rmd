@@ -53,10 +53,11 @@ The figure below shows simulated values from the Second Order DLM with parameter
 data = read_csv("../core/data/second_order_dlm.csv")
 
 data %>%
-  filter(time < 10) %>%
+  filter(time < 100) %>%
   gather(key, value, -time) %>%
   ggplot(aes(x = time, y = value, colour = key)) +
   geom_line() +
+  facet_wrap(~key, scales = "free", ncol = 1, strip.position = "right") +
   theme(legend.position = "bottom")
 ```
 

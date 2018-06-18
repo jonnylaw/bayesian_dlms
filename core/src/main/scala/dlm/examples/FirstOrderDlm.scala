@@ -67,7 +67,7 @@ object FilterDlm extends App with FirstOrderDlm with SimulatedData {
 }
 
 object SmoothDlm extends App with FirstOrderDlm with SimulatedData {
-  val filtered = KalmanFilter.filter(mod, data, p)
+  val filtered = KalmanFilter.genFilter(mod, data, p)
   val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
 
   val out = new java.io.File("core/data/first_order_dlm_smoothed.csv")

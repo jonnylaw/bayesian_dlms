@@ -2,10 +2,14 @@ package core.dlm.examples
 
 import core.dlm.model._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
+import breeze.stats.distributions.Poisson
 import java.nio.file.Paths
 import cats.implicits._
 import kantan.csv._
 import kantan.csv.ops._
+import akka.actor.ActorSystem
+import akka.stream._
+import scaladsl._
 
 trait StudenttDglm {
   val dlm = Dlm.polynomial(1)
@@ -53,19 +57,21 @@ object SimulateStudentT extends App with StudenttDglm {
   * Student's t-distribution DGLM
   */
 object StudentTGibbs extends App with StudenttDglm with StudenttData {
-  val iters = StudentT.sample(3, data.toVector, 
-    InverseGamma(21.0, 2.0), mod, params).
-    steps.
-    take(10000).
-    map(_.p)
+  implicit val system = ActorSystem("student-t-gibbs")
+  implicit val materializer = ActorMaterializer()
 
-  def formatParameters(p: Dlm.Parameters) = {
-    DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
+  val priorW = InverseGamma(21.0, 2.0)
+  val priorNu = Poisson(3)
+  val propNu = (nu: Int) => NegativeBinomial(nu, 0.01)
+
+  val iters = StudentT.sample(data.toVector, priorW, priorNu, propNu, mod, params)
+
+  def format(s: StudentT.State): List[Double] = {
+    s.nu.toDouble :: DenseVector.vertcat(diag(s.p.v), diag(s.p.w)).data.toList
   }
 
-  val headers = rfc.withHeader("scale", "W")
-  Streaming.writeChain(formatParameters, 
-    "core/data/student_t_dglm_gibbs.csv", headers)(iters)
+  Streaming.writeParallelChain(iters, 2, 10000, "core/data/student_t_dglm_gibbs", format).
+    runWith(Sink.onComplete(_ => system.terminate()))
 }
 
 object StudentTpmmh extends App with StudenttDglm with StudenttData {

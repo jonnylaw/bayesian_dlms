@@ -2,6 +2,7 @@ package core.dlm.model
 
 import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.distributions._
+import cats.Traverse
 import cats.implicits._
 import Dlm._
 
@@ -219,7 +220,7 @@ object KalmanFilter {
   }
 
   /**
-    * Run the Kalman Filter over an array of data
+    * Run the Kalman Filter over a vector of data
     */
   def filter(
     mod:          Model, 
@@ -228,6 +229,34 @@ object KalmanFilter {
 
     val init = initialiseState(mod, p, observations)
     observations.scanLeft(init)(step(mod, p))
+  }
+
+  /**
+    * Traverse with state 
+    */
+  def scan[T[_]: Traverse, A, B](xs: T[A], zero: B, f: (B, A) => B): T[B] = {
+    def run(a: A): cats.data.State[B, B] =
+      for {
+        prev <- cats.data.State.get[B]
+        next =  f(prev, a)
+        _    <- cats.data.State.set(next)
+      } yield next
+
+    xs.traverse(run).runA(zero).value
+  }
+
+  /**
+    * Perform the Kalman Filter on a traversable collection
+    */
+  def genFilter[T[_]: Traverse](
+    mod: Model,
+    ys:  T[Data],
+    p:   Parameters) = {
+
+    val (at, rt) = advanceState(mod.g, p.m0, p.c0, 0.0, p.w)
+    val init = State(0.0, p.m0, p.c0, at, rt, None, None)
+
+    scan(ys, init, step(mod, p))
   }
 
   /**

@@ -34,15 +34,7 @@ object Smoothing {
 
     val cgrinv = (rt1.t \ (mod.g(dt) * ct.t)).t
 
-    // calculate the updated mean 
     val mean = mt + cgrinv * (state.mean - at1)
-
-    // val n = w.cols
-    // val identity = DenseMatrix.eye[Double](n)
-    // val diff = identity - cgrinv * mod.g(dt)
-    // val covariance = diff * ct * diff.t + cgrinv * w * dt * cgrinv.t
-
-    // calculate the updated covariance
     val covariance = ct - cgrinv * (rt1 - state.covariance) * cgrinv
 
     SmoothingState(time, mean, covariance, kfState.at, kfState.rt)

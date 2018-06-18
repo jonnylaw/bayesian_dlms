@@ -5,10 +5,12 @@ import Dlm.Parameters
 import java.nio.file.Paths
 import kantan.csv._
 import kantan.csv.ops._
+import scala.concurrent.Future
+import akka.stream._
+import akka.stream.scaladsl._
+import akka.NotUsed
+import akka.util.ByteString
 
-/**
-  * Utility class for parallelism and IO
-  */
 object Streaming {
   /**
     * Write a single chain
@@ -52,5 +54,49 @@ object Streaming {
     params.
       transpose.
       map(a => breeze.stats.mean(a))
+  }
+
+  /**
+    * Create an Akka stream from a Markov Chain
+    */
+  def streamChain[A](
+    chain:  breeze.stats.distributions.Process[A],
+    nIters: Int): Source[A, NotUsed] = {
+
+    Source.fromIterator(() => chain.steps.take(nIters))
+  }
+
+  def writeChain[A](
+    filename: String,
+    format:   A => List[Double]
+  ): Sink[A, Future[IOResult]] = {
+
+    Flow[A].
+      map(a => ByteString(format(a).mkString(", ") + "\n")).
+      toMat(FileIO.toPath(Paths.get(filename)))(Keep.right)
+  }
+
+  /**
+    * Given a single MCMC, write different realisations using 
+    * the same initial parameters
+    * @param nChains the number of parallel chains
+    * @param nIters the number of iterations
+    * @param filename the prefix of the filename
+    * @param format a function to format each row of the CSV output
+    */
+  def writeParallelChain[A](
+    chain:    breeze.stats.distributions.Process[A],
+    nChains:  Int,
+    nIters:   Int,
+    filename: String,
+    format:   A => List[Double]
+  )(implicit m: Materializer): Source[IOResult, NotUsed] = {
+
+    Source((0 until nChains)).
+      mapAsync(nChains){ i =>
+
+      streamChain(chain, nIters).
+        runWith(writeChain(s"${filename}_$i.csv", format))
+      }
   }
 }

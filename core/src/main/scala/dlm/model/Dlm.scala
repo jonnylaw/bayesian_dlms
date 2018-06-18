@@ -1,4 +1,4 @@
-ackage core.dlm.model
+package core.dlm.model
 
 import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.distributions._
@@ -184,6 +184,30 @@ object Dlm {
     )
   }
 
+  def stepState(
+    x: DenseVector[Double],
+    w: DenseMatrix[Double],
+    g: Double => DenseMatrix[Double],
+    dt: Double) = {
+
+    for {
+      w <- MultivariateGaussianSvd(DenseVector.zeros[Double](w.cols), w * dt)
+      x1 = g(dt) * x + w
+    } yield x1
+  }
+
+  def observation(
+    x: DenseVector[Double],
+    v: DenseMatrix[Double],
+    f: Double => DenseMatrix[Double],
+    time: Double) = {
+
+    for {
+      v <- MultivariateGaussianSvd(DenseVector.zeros[Double](v.cols), v)
+      y = f(time).t * x + v
+    } yield y
+  }
+
   /**
     * Simulate a single step from a DLM, used in simulateRegular
     * @param mod a DLM model
@@ -198,12 +222,9 @@ object Dlm {
     time: Double, 
     p:    Parameters,
     dt:   Double): Rand[(Data, DenseVector[Double])] = {
-
     for {
-      w <- MultivariateGaussianSvd(DenseVector.zeros[Double](p.w.cols), p.w * dt)
-      v <- MultivariateGaussianSvd(DenseVector.zeros[Double](p.v.cols), p.v)
-      x1 = mod.g(dt) * x + w
-      y = mod.f(time).t * x1 + v
+      x1 <- stepState(x, p.w, mod.g, dt)
+      y <- observation(x, p.v, mod.g, time)
     } yield (Data(time, y.map(_.some)), x1)
   }
 
