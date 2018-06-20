@@ -1,6 +1,6 @@
 package core.dlm.model
 
-import breeze.linalg.{DenseVector, DenseMatrix, diag}
+import breeze.linalg.{DenseVector, diag}
 import breeze.stats.distributions._
 // import breeze.numerics.{log, exp}
 import cats.implicits._
@@ -35,7 +35,7 @@ object DlmSv {
       wt <- MultivariateGaussian(
         DenseVector.zeros[Double](p.dlm.w.cols), p.dlm.w)
       at <- (a zip p.sv) traverse { case (ai, pi) =>
-        StochasticVolatility.stepState(pi, ai, 1.0) }
+        StochasticVolatility.stepState(pi, ai, 1.0): Rand[Double] }
       vt <- at traverse (StochasticVolatility.observation)
       xt = dlm.g(1.0) * x + wt
       y = dlm.f(time).t * xt + DenseVector(vt.toArray)
@@ -101,77 +101,95 @@ object DlmSv {
     }
   }
 
-  /**
-    * Sample multiple independent log-volatility states representing the
-    * time varying diagonal covariance matrix in a multivariate DLM
-    * @param vs the value of the variances
-    * @param alphas the current log-volatility
-    * @param params the parameters of the DLM SV model
-    */
-  def sampleStates(
-    vs:     Vector[(Double, DenseVector[Double])],
-    alphas: Vector[(Double, DenseVector[Double])],
-    params: Parameters): Vector[(Double, DenseVector[Double])] = {
-
-    val times = vs.map(_._1)
-
-    val res: Vector[Vector[Double]] = for {
-      ((v, a), ps) <- vs.map(_._2.data.toVector.map(_.some)).transpose.
-      zip(alphas.map(_._2.data.toVector).transpose).
-      zip(params.sv)
-      a1 = StochasticVolatility.sampleState(times zip v, times zip a, ps)
-    } yield a1.draw.map(_._2)
-
-    times zip res.transpose.map(x => DenseVector(x.toArray))
-  }
-
-  /**
-    * Sample the latent-state of the DLM
-    * @param vs the current value of the variances
-    * @param ys 
-    */
-  def ffbs(
-    vs:     Vector[(Double, DenseVector[Double])],
-    ys:     Vector[Dlm.Data],
-    params: Dlm.Parameters,
-    mod:    Dlm.Model
-  ) = {
-
-    // create a list of parameters with the variance in them
-    val ps = vs.map { case (t, vi) => params.copy(v = diag(vi)) }
-
-    def kalmanStep(p: Dlm.Parameters) = KalmanFilter.step(mod, p) _
-
-    val (at, rt) = KalmanFilter.advanceState(mod.g, params.m0, 
-      params.c0, 0, params.w)
-    val init = KalmanFilter.initialiseState(mod, params, ys)
-
-    // fold over the list of variances and the observations
-    val filtered = (ps zip ys).
-      scanLeft(init){ case (s, (p, y)) => kalmanStep(p)(s, y) }
-
-    Rand.always(Smoothing.sample(mod, filtered, params.w))
-  }
 
   /**
     * Calculate y_t - F_t x_t
     */
   def takeMean(
-    dlm:   Dlm.Model,
-    theta: Vector[(Double, DenseVector[Double])],
-    ys:    Vector[Dlm.Data]) = {
+    dlm:    Dlm.Model,
+    thetas: Vector[(Double, DenseVector[Double])],
+    ys:     Vector[Dlm.Data]) = {
 
     for {
-      (d, x) <- ys zip theta.map(_._2)
+      (d, x) <- ys zip thetas.tail.map(_._2)
       fm = KalmanFilter.missingF(dlm.f, d.time, d.observation)
       y = KalmanFilter.flattenObs(d.observation)
     } yield (d.time, y - fm.t * x)
   }
 
+  /**
+    * Sample multiple independent log-volatility states representing the
+    * time varying diagonal covariance matrix in a multivariate DLM
+    * @param ys the value of the observation
+    * @param 
+    * @param alphas the current log-volatility
+    * @param params the parameters of the DLM SV model
+    */
+  def sampleStates(
+    ys:     Vector[Dlm.Data],
+    thetas: Vector[(Double, DenseVector[Double])],
+    mod:    Dlm.Model,
+    alphas: Vector[(Double, DenseVector[Double])],
+    params: Parameters): Rand[Vector[(Double, DenseVector[Double])]] = {
+
+    val times = alphas.map(_._1)
+    val vs = takeMean(mod, thetas, ys)
+
+    val res: Vector[Vector[Double]] = for {
+      ((v, a), ps) <- vs.map(_._2.data.toVector.map(_.some)).transpose.
+        zip(alphas.map(_._2.data.toVector).transpose).
+        zip(params.sv)
+      a1 = StochasticVolatility.sampleState(times zip v, times zip a, ps)
+    } yield a1.draw.map(_._2)
+
+    Rand.always(times zip res.transpose.map(x => DenseVector(x.toArray)))
+  }
+
+  /**
+    * 
+    */
+  def sampleVolatilityParams(
+    priorPhi:      ContinuousDistr[Double],
+    priorSigmaEta: InverseGamma,
+    alphas:        Vector[(Double, DenseVector[Double])],
+    params:        Parameters): Vector[StochasticVolatility.Parameters] = {
+
+    val times = alphas.map(_._1)
+
+    for {
+      (as, ps) <- alphas.map(_._2.data.toVector).transpose zip params.sv
+      newPhi = StochasticVolatility.samplePhi(0.05, 100, priorPhi, ps, times zip as)(ps.phi).draw
+      newSigma = StochasticVolatility.sampleSigma(priorSigmaEta, ps, times zip as).draw
+    } yield StochasticVolatility.Parameters(newPhi, 0.0, newSigma)
+  }
+
+  /**
+    * Sample the latent-state of the DLM
+    * @param vs the current value of the variances
+    * @param ys the current
+    */
+  def ffbs(
+    vs:     Vector[(Double, DenseVector[Double])],
+    ys:     Vector[Dlm.Data],
+    params: Dlm.Parameters,
+    mod:    Dlm.Model) = {
+
+    // create a list of parameters with the variance for each time in them
+    val ps = vs.map { case (t, vi) => params.copy(v = diag(vi)) }
+
+    val init = SvdFilter.initialiseState(mod, params, ys)
+
+    // fold over the list of variances and the observations
+    val filtered = (ps zip ys).
+      scanLeft(init){ case (s, (p, y)) => SvdFilter.step(mod, p)(s, y) }
+
+    SvdSampler.sample(mod, params.w, filtered)
+  }
+
   def initialiseVariances(p: Int, n: Int) = 
     for {
       t <- Vector.range(1, n)
-      x = DenseVector.rand(p, Gaussian(0.0, 1.0))
+      x = DenseVector.rand(p, InverseGamma(1.0, 0.01))
     } yield (t.toDouble, x)
 
   case class State(
@@ -179,29 +197,54 @@ object DlmSv {
     thetas: Vector[(Double, DenseVector[Double])],
     params: Parameters)
 
+  /**
+    * Initialise the state of the MCMC for the DLM SV model
+    */
   def initialiseState(
     params: Parameters,
     ys:     Vector[Dlm.Data],
     mod:    Dlm.Model): Rand[State] = {
 
     val vs = initialiseVariances(ys.head.observation.size, ys.size + 1)
+
     // extract the times and states individually
     val times = ys.map(_.time)
     val yse = ys.map(_.observation.data.toVector).transpose
 
     for {
-      theta <- ffbs(vs, ys, params.dlm, mod)
       alphas <- (params.sv zip yse).
         traverse { case (pi, y) => StochasticVolatility.initialState(pi, (times zip y)) }
+      theta = ffbs(vs, ys, params.dlm, mod)
     } yield State(combineStates(alphas), theta, params)
   }
 
+  /**
+    * Exponentiate the log-volatilities to get the variance of the univariate DLM
+    * @param alphas the log-volatility
+    */
+  def getVariances(alphas: Vector[(Double, DenseVector[Double])]) = {
+    alphas map { case (t, x) => (t, x map math.exp) }
+  }
+
+  /**
+    * Perform a single step in the MCMC sampler for the DLM SV Model
+    */
   def step(
     priorW:        InverseGamma,
     priorPhi:      Beta,
     priorSigmaEta: InverseGamma,
     ys:            Vector[Dlm.Data],
-    mod:           Dlm.Model)(s: State): Rand[State] = ???
+    mod:           Dlm.Model)(s: State): Rand[State] = {
+
+    val vs = getVariances(s.alphas)
+
+    for {
+      alphas <- sampleStates(ys, s.thetas, mod, s.alphas, s.params)
+      pvs = sampleVolatilityParams(priorPhi, priorSigmaEta, alphas, s.params)
+      theta = ffbs(vs, ys, s.params.dlm, mod)
+      newW <- GibbsSampling.sampleSystemMatrix(priorW, theta, mod.g)
+    } yield State(alphas, theta, Parameters(s.params.dlm.copy(w = newW), pvs))
+  }
 
   /**
     * Gibbs sampling for the DLM SV Model

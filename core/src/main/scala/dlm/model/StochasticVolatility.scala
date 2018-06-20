@@ -27,14 +27,14 @@ object StochasticVolatility {
   def observation(at: Double): Rand[Double] = 
     Gaussian(0.0, 1).map(s => s * exp(at * 0.5))
 
-  def stepState(p: Parameters, at: Double) = 
-    Gaussian(p.mu + p.phi * (at - p.mu), p.sigmaEta)
+  def stepState(p: Parameters, at: Double, dt: Double): ContinuousDistr[Double] = 
+    Gaussian(p.mu + p.phi * (at - p.mu), p.sigmaEta * math.sqrt(dt))
 
   def simStep(
     time:  Double,
     p:     Parameters)(state: Double) = {
     for {
-      x <- stepState(p, state)
+      x <- stepState(p, state, 1.0)
       y <- observation(x)
     } yield (time, y.some, x)
   }
@@ -50,7 +50,7 @@ object StochasticVolatility {
   /**
     * Sample the indices for the mixture model
     * @param ys a collection of observations
-    * @param xs the latent log-volatility
+    * @param alphas the latent log-volatility
     */
   def sampleKt(
     ys:     Vector[(Double, Option[Double])],

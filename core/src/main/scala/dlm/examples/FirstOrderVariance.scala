@@ -1,78 +1,80 @@
-// package core.dlm.examples
+package core.dlm.examples
 
-// import core.dlm.model._
-// import breeze.linalg.{DenseMatrix, DenseVector}
-// import breeze.stats.distributions._
-// import java.nio.file.Paths
-// import cats.implicits._
-// import kantan.csv._
-// import kantan.csv.ops._
+import core.dlm.model._
+import breeze.linalg.{DenseMatrix, DenseVector}
+import breeze.stats.distributions._
+import java.nio.file.Paths
+import cats.implicits._
+import kantan.csv._
+import kantan.csv.ops._
 
-// trait FirstOrderDlmVariance {
-//   val mod = Dlm.polynomial(1)
+trait FirstOrderDlmVariance {
+  val mod = Dlm.polynomial(1)
 
-//   val dlmP = Dlm.Parameters(
-//     v = DenseMatrix(2.0),
-//     w = DenseMatrix(3.0), 
-//     DenseVector(0.0), 
-//     DenseMatrix(1.0))
+  val dlmP = Dlm.Parameters(
+    v = DenseMatrix(2.0),
+    w = DenseMatrix(3.0), 
+    DenseVector(0.0), 
+    DenseMatrix(1.0))
 
-//   val p = StochasticVolatility.Parameters(dlmP, Vector(0.8), Vector(0.2))
-// }
+  val p = DlmSv.Parameters(dlmP, Vector(StochasticVolatility.Parameters(0.8, 0.0, 0.2)))
+}
 
-// trait SimulatedFoDlmVar {
-//   val rawData = Paths.get("core/data/first_order_dlm_var.csv")
-//   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
-//   val data = reader.
-//     collect { 
-//       case Right(a) => Dlm.Data(a.head, DenseVector(a(1).some))
-//     }.
-//     toVector
-// }
+trait SimulatedFoDlmVar {
+  val rawData = Paths.get("core/data/first_order_dlm_var.csv")
+  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
+  val data = reader.
+    collect { 
+      case Right(a) => Dlm.Data(a.head, DenseVector(a(1).some))
+    }.
+    toVector
+}
 
-// object SimulateVarianceDlm extends App with FirstOrderDlmVariance {
-//   val sims = StochasticVolatility.simulate(mod, p, 1).
-//     steps.
-//     take(300)
+object SimulateVarianceDlm extends App with FirstOrderDlmVariance {
+  val sims = DlmSv.simulate(mod, p, 1).
+    steps.
+    take(1000)
 
-//   val out = new java.io.File("core/data/first_order_dlm_var.csv")
-//   val headers = rfc.withHeader("time", "observation", "state", "log-variance")
-//   val writer = out.asCsvWriter[List[Double]](headers)
+  val out = new java.io.File("core/data/first_order_dlm_var.csv")
+  val headers = rfc.withHeader("time", "observation", "state", "log-variance")
+  val writer = out.asCsvWriter[List[Double]](headers)
 
-//   def formatData(d: (Dlm.Data, DenseVector[Double], DenseVector[Double])) = d match {
-//     case (Dlm.Data(t, y), x, a) =>
-//       t :: KalmanFilter.flattenObs(y).data.toList ::: x.data.toList ::: a.data.toList
-//   }
+  def formatData(d: (Dlm.Data, DenseVector[Double], Vector[Double])) = d match {
+    case (Dlm.Data(t, y), x, a) =>
+      t :: KalmanFilter.flattenObs(y).data.toList ::: x.data.toList ::: a.toList
+  }
 
-//   while (sims.hasNext) {
-//     writer.write(formatData(sims.next))
-//   }
+  while (sims.hasNext) {
+    writer.write(formatData(sims.next))
+  }
 
-//   writer.close()
-// }
+  writer.close()
+}
 
-// object ParametersFirstOrderVariance
-//     extends App with FirstOrderDlmVariance with SimulatedFoDlmVar {
+object ParametersFirstOrderVariance
+    extends App with FirstOrderDlmVariance with SimulatedFoDlmVar {
 
-//   val priorSigma = InverseGamma(10, 1)
-//   val priorPhi = new Beta(5, 2)
-//   val priorW = InverseGamma(3, 3)
+  val priorSigma = InverseGamma(1, 0.01)
+  val priorPhi = new Beta(5, 2)
+  val priorW = InverseGamma(1, 0.01)
 
-//   val iters = StochasticVolatility.sample(priorSigma, priorPhi, priorW, p, data, mod).
-//     steps.take(10000).map(_.p)
+  val iters = DlmSv.sample(priorSigma, priorPhi, priorW, data, mod, p).
+    steps.take(100000).map(_.params).map(formatParameters)
 
-//   // write iters to file
-//   val headers = rfc.withHeader("W", "phi", "sigma")
-//   val out = new java.io.File("core/data/first_order_dlm_var_params.csv")
-//   val writer = out.asCsvWriter[List[Double]](headers)
+  iters.foreach(println)
 
-//   def formatParameters(p: StochasticVolatility.Parameters): List[Double] = {
-//     p.dlm.w.data(0) :: p.phi.head :: p.sigma.head :: Nil
-//   }
+  // write iters to file
+  val headers = rfc.withHeader("W", "phi", "sigmaEta")
+  val out = new java.io.File("core/data/first_order_dlm_var_params.csv")
+  val writer = out.asCsvWriter[List[Double]](headers)
 
-//   while (iters.hasNext) {
-//     writer.write(formatParameters(iters.next))
-//   }
+  def formatParameters(p: DlmSv.Parameters): List[Double] = {
+    p.dlm.w.data(0) :: p.sv.head.phi :: p.sv.head.sigmaEta :: Nil
+  }
 
-//   writer.close()
-// }
+  while (iters.hasNext) {
+    writer.write(iters.next)
+  }
+
+  writer.close()
+}

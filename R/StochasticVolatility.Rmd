@@ -41,7 +41,7 @@ val data = StochasticVolatility.simulate(0, mod, p, 1.0).
 
 The figure below shows a plot of 100 simulations from a first order DLM with a time varying variance.
 
-```{r first-order-simulated}
+```{r stochastic-volatility-simulated}
 data = read_csv("../core/data/sv_sims.csv")
 
 data %>%
@@ -50,11 +50,11 @@ data %>%
   geom_line() +
   theme(legend.position = "bottom") +
     labs(title = "Simulated values from the first order DLM with Dynamic Variance",
-         subtitle = TeX("$W = 3$, $\\phi = 0.8$, $\\sigma = 0.2$")) +
+         subtitle = TeX("$\\phi = 0.8$, $\\sigma = 0.2$")) +
     facet_wrap(~key, ncol = 1, scales = "free_y")
 ```
 
-```{r first-order-simulated}
+```{r stochastic-volatility-parameters}
 iters = read_csv("../core/data/sv_params.csv")
 
 burn = 1e4
@@ -74,3 +74,41 @@ p3 = ggs_density(params) + facet_wrap(~Parameter, ncol = 2)
 p1 / p2 / p3
 ```
 
+## Heteroskedastic First Order DLM 
+
+```{r dlm-sv-plot}
+sims = read_csv("../core/data/first_order_dlm_var.csv")
+
+sims %>%
+  gather(key, value, -time) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  theme(legend.position = "bottom") +
+    labs(title = "Simulated values from the first order DLM with Dynamic Variance",
+         subtitle = TeX("$W = 3$, $\\phi = 0.8$, $\\sigma = 0.2$")) +
+    facet_wrap(~key, ncol = 1, scales = "free_y")
+```
+
+```{r dlm-sv-parameters}
+iters = read_csv("../core/data/first_order_dlm_var_params.csv")
+
+burn = 1e3
+thin = 2
+params = ggs(mcmc(iters[seq(burn, to = nrow(iters), by = thin),]))
+
+p1 = params %>%
+  ggplot(aes(x = Iteration, y = value)) +
+  geom_line() +
+  facet_wrap(~Parameter, scales = "free_y")
+
+p2 = params %>% 
+  ggs_autocorrelation()
+
+p3 = ggs_density(params) + facet_wrap(~Parameter, ncol = 3)
+
+p1 / p2 / p3
+```
+
+```{r}
+
+```
