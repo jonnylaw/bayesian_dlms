@@ -11,26 +11,26 @@ clean_site:
 	mkdir docs
 
 poisson_dglm:
-	sbt ";core/runMain core.dlm.examples.SimulatePoissonDglm; core/runMain core.dlm.examples.PoissonDglmGibbs"
+	sbt ";examples/runMain core.dlm.examples.SimulatePoissonDglm; examples/runMain core.dlm.examples.PoissonDglmGibbs"
 
 correlated:
 	mkdir -p data
-	sbt ";core/runMain core.dlm.examples.FirstOrderLinearTrendDlm; core/runMain core.dlm.examples.SimulateCorrelated; core/runMain core.dlm.examples.FilterCorrelatedDlm; core/runMain core.dlm.examples.GibbsCorrelated"
+	sbt ";examples/runMain core.dlm.examples.FirstOrderLinearTrendDlm; examples/runMain core.dlm.examples.SimulateCorrelated; examples/runMain core.dlm.examples.FilterCorrelatedDlm; examples/runMain core.dlm.examples.GibbsCorrelated"
 
 second_order: 
-	sbt ";core/runMain core.dlm.examples.SimulateSecondOrderDlm; core/runMain core.dlm.examples.FilterSecondOrderDlm; core/runMain core.dlm.examples.GibbsSecondOrder; core/runMain core.dlm.examples.GibbsInvestParameters"
+	sbt ";examples/runMain core.dlm.examples.SimulateSecondOrderDlm; examples/runMain core.dlm.examples.FilterSecondOrderDlm; examples/runMain core.dlm.examples.GibbsSecondOrder; examples/runMain core.dlm.examples.GibbsInvestParameters"
 
 first_order: 
-	sbt ";core/runMain core.dlm.examples.SimulateDlm; core/runMain core.dlm.examples.FilterDlm; core/runMain core.dlm.examples.SmoothDlm; core/runMain core.dlm.examples.SampleStates; core/runMain core.dlm.examples.GibbsParameters"
+	sbt ";examples/runMain core.dlm.examples.SimulateDlm; examples/runMain core.dlm.examples.FilterDlm; examples/runMain core.dlm.examples.SmoothDlm; examples/runMain core.dlm.examples.SampleStates; examples/runMain core.dlm.examples.GibbsParameters"
 
 seasonal: 
-	sbt ";core/runMain core.dlm.examples.SimulateSeasonalDlm; core/runMain core.dlm.examples.SmoothSeasonalDlm; core/runMain core.dlm.examples.FilterSeasonalDlm; core/runMain core.dlm.examples.SeasonalGibbsSampling; core/runMain core.dlm.examples.ForecastSeasonal"
+	sbt ";examples/runMain core.dlm.examples.SimulateSeasonalDlm; examples/runMain core.dlm.examples.SmoothSeasonalDlm; examples/runMain core.dlm.examples.FilterSeasonalDlm; examples/runMain core.dlm.examples.SeasonalGibbsSampling; examples/runMain core.dlm.examples.ForecastSeasonal"
 
 student_t:
-	sbt ";core/runMain core.dlm.examples.SimulateStudentT; core/runMain core.dlm.examples.StudentTGibbs; core/runMain core.dlm.examples.StudentTpmmh;core/runMain core.dlm.examples.StudentTPG"
+	sbt ";examples/runMain core.dlm.examples.SimulateStudentT; examples/runMain core.dlm.examples.StudentTGibbs; examples/runMain core.dlm.examples.StudentTpmmh;examples/runMain core.dlm.examples.StudentTPG"
 
 ar1:
-	sbt ";core/runMain core.dlm.examples.SimulateArDlm; core/runMain core.dlm.examples.FilterArDlm; core/runMain core.dlm.examples.ParametersAr"
+	sbt ";examples/runMain core.dlm.examples.SimulateArDlm; examples/runMain core.dlm.examples.FilterArDlm; examples/runMain core.dlm.examples.ParametersAr"
 
 filtering:
-	sbt ";core/runMain core.dlm.examples.FilterArDlm; core/runMain core.dlm.examples.FilterCorrelatedDlm; ;core/runMain core.dlm.examples.FilterDlm; core/runMain core.dlm.examples.FilterSeasonalDlm; core/runMain core.dlm.examples.FilterSecondOrderDlm"
+	sbt ";examples/runMain core.dlm.examples.FilterArDlm; examples/runMain core.dlm.examples.FilterCorrelatedDlm; ;examples/runMain core.dlm.examples.FilterDlm; examples/runMain core.dlm.examples.FilterSeasonalDlm; examples/runMain core.dlm.examples.FilterSecondOrderDlm"

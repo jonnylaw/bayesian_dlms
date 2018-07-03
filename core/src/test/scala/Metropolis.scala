@@ -4,12 +4,15 @@ import org.scalatest._
 import prop._
 import org.scalactic.Equality
 
-class MetropolisHastings extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
-  def diagonalMatrix(n: Int) = 
+class MetropolisHastings
+    extends PropSpec
+    with GeneratorDrivenPropertyChecks
+    with Matchers
+    with BreezeGenerators {
+  def diagonalMatrix(n: Int) =
     for {
       a <- smallDouble
     } yield diag(DenseVector.fill(n)(a))
-
 
   property("Propose Matrix Should be positive definite") {
     forAll(diagonalMatrix(2)) { (m: DenseMatrix[Double]) =>
@@ -21,4 +24,3 @@ class MetropolisHastings extends PropSpec with GeneratorDrivenPropertyChecks wit
     }
   }
 }
-

@@ -1,28 +1,24 @@
 package core.dlm.model
 
-import Dlm._
 import breeze.linalg.{DenseVector, DenseMatrix}
 import breeze.stats.distributions.Rand
+import cats.implicits._
 
 object Smoothing {
-  case class SmoothingState(
-    time:       Double, 
-    mean:       DenseVector[Double], 
-    covariance: DenseMatrix[Double], 
-    at1:        DenseVector[Double], 
-    rt1:        DenseMatrix[Double])
+  case class SmoothingState(time: Double,
+                            mean: DenseVector[Double],
+                            covariance: DenseMatrix[Double],
+                            at1: DenseVector[Double],
+                            rt1: DenseMatrix[Double])
 
   /**
     * A single step in the backwards smoother
     * Requires that a Kalman Filter has been run on the model
     * @param mod a DLM model specification
     * @param state the state at time t + 1
-    * @return 
+    * @return
     */
-  def smoothStep(
-    mod:     Model)
-    (kfState: KalmanFilter.State,
-    state:    SmoothingState) = {
+  def smoothStep(mod: DlmModel)(kfState: KfState, state: SmoothingState) = {
 
     // extract elements from kalman state
     val time = kfState.time
@@ -46,30 +42,27 @@ object Smoothing {
     * for all time
     * @param mod a DLM model specification
     * @param kfState the output of a Kalman Filter
-    * @return 
+    * @return
     */
-  def backwardsSmoother(
-    mod:      Model)
-    (kfState: Vector[KalmanFilter.State]) = {
+  def backwardsSmoother(mod: DlmModel)(kfState: Vector[KfState]) = {
 
     val last = kfState.last
     val lastTime = last.time
     val init = SmoothingState(lastTime, last.mt, last.ct, last.at, last.rt)
 
-    kfState.init.scanRight(init)(smoothStep(mod))
+    kfState.scanRight(init)(smoothStep(mod))
   }
 
-  case class SamplingState(
-    time:   Double, 
-    sample: DenseVector[Double],
-    at1:    DenseVector[Double], 
-    rt1:    DenseMatrix[Double])
+  case class SamplingState(time: Double,
+                           sample: DenseVector[Double],
+                           at1: DenseVector[Double],
+                           rt1: DenseMatrix[Double])
 
   def step(
-    mod:      Model, 
-    w:        DenseMatrix[Double])
-    (kfState: KalmanFilter.State,
-     state:   Smoothing.SamplingState) = {
+    mod: DlmModel,
+    w: DenseMatrix[Double])
+    (kfState: KfState,
+     state: Smoothing.SamplingState) = {
 
     // extract elements from kalman state
     val dt = state.time - kfState.time
@@ -92,27 +85,28 @@ object Smoothing {
     val r = (covariance + covariance.t) /:/ 2.0
 
     Smoothing.SamplingState(kfState.time,
-      MultivariateGaussianSvd(mean, r).draw,
-      kfState.at, 
-      kfState.rt)
+                            MultivariateGaussianSvd(mean, r).draw,
+                            kfState.at,
+                            kfState.rt)
   }
 
-  def initialise(filtered: Vector[KalmanFilter.State]) = {
+  def initialise(filtered: Vector[KfState]) = {
     val last = filtered.last
     val lastState = MultivariateGaussianSvd(last.mt, last.ct).draw
     Smoothing.SamplingState(last.time, lastState, last.at, last.rt)
   }
 
   def sample(
-    mod:      Model,
-    filtered: Vector[KalmanFilter.State], 
-    w:        DenseMatrix[Double]) = {
+    mod: DlmModel,
+    filtered: Vector[KfState],
+    w: DenseMatrix[Double],
+    backStep: (KfState, Smoothing.SamplingState) => Smoothing.SamplingState) = {
 
     def initState = initialise(filtered)
-   
-    filtered.init.
-      scanRight(initState)(step(mod, w)).
-      map(a => (a.time, a.sample))
+
+    filtered.init
+      .scanRight(initState)(backStep)
+      .map(a => (a.time, a.sample))
   }
 
   /**
@@ -122,11 +116,23 @@ object Smoothing {
     * @param p parametes of the DLM
     */
   def ffbs(
-    mod:          Model,
-    observations: Vector[Data],
-    p:            Dlm.Parameters) = {
+    mod: DlmModel,
+    observations: Vector[Dlm.Data],
+    advState: (KfState, Double) => KfState,
+    backStep: (KfState, Smoothing.SamplingState) => Smoothing.SamplingState,
+    p: DlmParameters) = {
 
-    val filtered = KalmanFilter.filter(mod, observations, p)
-    Rand.always(sample(mod, filtered, p.w))
+    val filtered = KalmanFilter.filter(mod, observations, p, advState)
+    Rand.always(sample(mod, filtered, p.w, backStep))
+  }
+
+  def ffbsDlm(
+    mod: DlmModel,
+    ys: Vector[Dlm.Data],
+    p: DlmParameters) = {
+
+    Smoothing.ffbs(mod, ys,
+      KalmanFilter.advanceState(p, mod.g),
+      Smoothing.step(mod, p.w), p)
   }
 }

@@ -10,12 +10,14 @@ import Dglm._
 
 trait BreezeGenerators {
   val denseVector = (n: Int) =>
-    Gen.containerOfN[Array, Double](n, Gen.choose(-10.0, 10.0)).
-    map(a => DenseVector(a))
+    Gen
+      .containerOfN[Array, Double](n, Gen.choose(-10.0, 10.0))
+      .map(a => DenseVector(a))
 
   val denseMatrix = (n: Int, m: Int) =>
-    Gen.containerOfN[Array, Double](n * n, Gen.choose(-10.0, 10.0)).
-    map(a => new DenseMatrix(n, m, a))
+    Gen
+      .containerOfN[Array, Double](n * n, Gen.choose(-10.0, 10.0))
+      .map(a => new DenseMatrix(n, m, a))
 
   /**
     * Simulate a positive definite matrix with a given condition number
@@ -41,43 +43,51 @@ trait BreezeGenerators {
 
   val smallDouble = Gen.choose(2.0, 10.0)
 
-  implicit def matrixeq(implicit tol: Double) = new Equality[DenseMatrix[Double]] {
-    def areEqual(x: DenseMatrix[Double], b: Any) = b match {
-      case y: DenseMatrix[Double] =>
-        x.data.zip(y.data).
-          forall { case (a, b) => math.abs(a - b) < tol } &&
-        y.cols == x.cols &&
-        y.rows == x.rows
-      case _ => false
+  implicit def matrixeq(implicit tol: Double) =
+    new Equality[DenseMatrix[Double]] {
+      def areEqual(x: DenseMatrix[Double], b: Any) = b match {
+        case y: DenseMatrix[Double] =>
+          x.data.zip(y.data).forall { case (a, b) => math.abs(a - b) < tol } &&
+            y.cols == x.cols &&
+            y.rows == x.rows
+        case _ => false
+      }
     }
-  }
 
-  implicit def vectoreq(implicit tol: Double) = new Equality[DenseVector[Double]] {
-    def areEqual(x: DenseVector[Double], b: Any) = b match {
-      case y: DenseVector[Double] =>
-        x.data.zip(y.data).
-          forall { case (a, b) => math.abs(a - b) < tol }
-      case _ => false
+  implicit def vectoreq(implicit tol: Double) =
+    new Equality[DenseVector[Double]] {
+      def areEqual(x: DenseVector[Double], b: Any) = b match {
+        case y: DenseVector[Double] =>
+          x.data.zip(y.data).forall { case (a, b) => math.abs(a - b) < tol }
+        case _ => false
+      }
     }
-  }
 }
 
-class InverseGammaDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
+class InverseGammaDistribution
+    extends PropSpec
+    with GeneratorDrivenPropertyChecks
+    with Matchers
+    with BreezeGenerators {
   ignore("Inverse Gamma Distribution") {
     forAll(smallDouble, smallDouble) { (shape: Double, scale: Double) =>
-      whenever (shape > 2.0 && scale > 1.0) {
+      whenever(shape > 2.0 && scale > 1.0) {
         val n = 10000000
         val g = InverseGamma(shape, scale)
         val samples = g.sample(n)
         val mv = meanAndVariance(samples)
 
-        assert(g.mean === mv.mean +- (0.1 * g.mean) )
+        assert(g.mean === mv.mean +- (0.1 * g.mean))
       }
     }
   }
 }
 
-class InverseWishartDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators { 
+class InverseWishartDistribution
+    extends PropSpec
+    with GeneratorDrivenPropertyChecks
+    with Matchers
+    with BreezeGenerators {
   ignore("Inverse Wishart Distribution") {
     forAll(symmetricPosDefMatrix(2, 100)) { (psi: DenseMatrix[Double]) =>
       implicit val tol = 1.0
@@ -90,7 +100,11 @@ class InverseWishartDistribution extends PropSpec with GeneratorDrivenPropertyCh
   }
 }
 
-class WishartDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
+class WishartDistribution
+    extends PropSpec
+    with GeneratorDrivenPropertyChecks
+    with Matchers
+    with BreezeGenerators {
   ignore("Wishart Distribution") {
     forAll(symmetricPosDefMatrix(2, 100)) { scale =>
       implicit val tol = 1.0
@@ -101,9 +115,9 @@ class WishartDistribution extends PropSpec with GeneratorDrivenPropertyChecks wi
       //    val samples = Vector.fill(n)(w.drawNaive())
       val samples = w.sample(n)
       val sampleMean = samples.reduce(_ + _) / n.toDouble
-      val varianceOne = variance(samples.map(w => w(0,0)))
-      val chiSqMean = ChiSquared(nu).mean * scale(0,0)
-      val chiSqVar = ChiSquared(nu).variance * scale(0,0) * scale(0,0)
+      val varianceOne = variance(samples.map(w => w(0, 0)))
+      val chiSqMean = ChiSquared(nu).mean * scale(0, 0)
+      val chiSqVar = ChiSquared(nu).variance * scale(0, 0) * scale(0, 0)
 
       assert(w.mean === sampleMean)
       assert(sampleMean(0, 0) === chiSqMean +- (0.1 * chiSqMean))
@@ -112,14 +126,18 @@ class WishartDistribution extends PropSpec with GeneratorDrivenPropertyChecks wi
   }
 }
 
-class MvnDistribution extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {  
+class MvnDistribution
+    extends PropSpec
+    with GeneratorDrivenPropertyChecks
+    with Matchers
+    with BreezeGenerators {
   ignore("MVN distribution") {
     forAll(symmetricPosDefMatrix(2, 1000)) { cov =>
       implicit val tol = 1.0
       val n = 1000000
       val mvn = MultivariateGaussianSvd(DenseVector.zeros[Double](2), cov)
       val samples = mvn.sample(n)
-      
+
       val (sampleMean, sampleCovariance) = meanCovSamples(samples)
 
       assert(mvn.mean === sampleMean)
@@ -144,7 +162,7 @@ class MvnDistribution extends PropSpec with GeneratorDrivenPropertyChecks with M
 //   property("Negative Binomial Distribution") {
 //     forAll { (alpha: Double, beta: Double) =>
 //       val mean =
-//         val variance = 
+//         val variance =
 //       val n = 10000
 //       val dist = core.dlm.model.NegativeBinomial(nb.mean, nb.variance)
 //       val samples = dist.sample(n)

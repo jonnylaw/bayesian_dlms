@@ -3,9 +3,10 @@ package core.dlm.model
 import breeze.stats.distributions._
 import breeze.linalg._
 
-case class InverseWishart(
-  nu: Double,
-  psi: DenseMatrix[Double])(implicit rand: RandBasis = Rand) extends ContinuousDistr[DenseMatrix[Double]] with Moments[DenseMatrix[Double], DenseMatrix[Double]] {
+case class InverseWishart(nu: Double, psi: DenseMatrix[Double])(
+    implicit rand: RandBasis = Rand)
+    extends ContinuousDistr[DenseMatrix[Double]]
+    with Moments[DenseMatrix[Double], DenseMatrix[Double]] {
 
   val d: Int = psi.cols
 

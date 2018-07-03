@@ -1,64 +1,77 @@
 package core.dlm.model
 
-import Dglm._
 import breeze.linalg.DenseVector
 import breeze.stats.distributions.{Multinomial, Rand}
 import cats.implicits._
+import cats.Traverse
 import math.{exp, log}
 import breeze.stats.mean
 import ParticleFilter._
 import Dlm.Data
 
+case class PgState(conditionedState: Map[Double, DenseVector[Double]],
+                   states: List[List[(Double, DenseVector[Double])]],
+                   weights: List[Double],
+                   ll: Double)
+
 /**
-  * Particle Gibbs Sampler for A Dynamic Generalised Linear Model
+  * Particle Gibbs Sampler for A Dynamic Generalised Linear DglmModel
   */
 object ParticleGibbs {
-  case class State(
-    states:  List[List[(Double, DenseVector[Double])]],
-    weights: List[Double],
-    ll:      Double)
+  def initialiseState[T[_]: Traverse](
+    n: Int,
+    model: DglmModel,
+    p: DlmParameters,
+    ys: T[Data]) = {
 
-  def initState(p: Dlm.Parameters) = {
-    MultivariateGaussianSvd(p.m0, p.c0)
+    val t0 = ys.foldLeft(0.0)((t0, d) => math.min(t0, d.time))
+    val x0 = MultivariateGaussianSvd(p.m0, p.c0)
+      .sample(n - 1)
+      .toList
+      .map(x => (t0 - 1.0, x))
+
+    // run the PF to sample the first conditioned state
+    val st = ParticleFilter.filter(model, ys, p, n)
+    val ws = st.map(_.weights).toList.last
+    val states = st.map(d => d.state.map((d.time, _)).toList).toList
+    val conditionedState =
+      ParticleGibbs.sampleState(states, ws.toList).draw.toMap
+
+    PgState(conditionedState, List(x0), List.fill(n - 1)(1.0 / n), 0.0)
   }
 
-  def step(
-    mod: Model,
-    p:   Dlm.Parameters) = (s: State, a: (Data, DenseVector[Double])) => a match {
+  def step(mod: DglmModel, p: DlmParameters)(s: PgState, d: Data): PgState = {
 
-    case (d, conditionedState) =>
+    val y = KalmanFilter.flattenObs(d.observation)
+    // resample using the previous weights
+    val resampledX = resample(s.states.head.toVector, s.weights.toVector)
 
-      val y = KalmanFilter.flattenObs(d.observation)
+    // advance n-1 states from time t, located at the head of the list
+    val x1 =
+      advanceState(mod, d.time, resampledX.map(_._2).toList, p).draw.map(x =>
+        (d.time, x))
 
-      if (y.data.isEmpty) {
-        // resample using the previous weights
-        val resampledX = resample(s.states.head.toVector, s.weights.toVector)
+    if (y.data.isEmpty) {
+      PgState(s.conditionedState,
+              x1 :: s.states,
+              List.fill(x1.size - 1)(1.0 / x1.size),
+              s.ll)
+    } else {
+      // concat conditioned state at current time and advanced state
+      val cond: (Double, DenseVector[Double]) =
+        (d.time, s.conditionedState.getOrElse(d.time, x1.head._2))
+      val x = cond :: x1
 
-        // advance n-1 states from time t, located at the head of the list
-        val x1 = advanceState(mod.g, d.time, resampledX.map(_._2).toList, p).draw
+      // calculate weights of all n states at time t
+      val w = calcWeights(mod, d.time, x.map(_._2), d.observation, p)
 
-        State(x1.map(x => (d.time, x)) :: s.states,
-          List.fill(x1.size - 1)(1.0 / x1.size), s.ll)
-      } else {
-        // resample using the previous weights
-        val resampledX = resample(s.states.head.toVector, s.weights.toVector).toList
+      // calculate updated pseudo log-likelihood
+      val max = w.max
+      val w1 = w map (a => exp(a - max))
+      val ll = s.ll + max + log(mean(w1))
 
-        // advance n-1 resampled states from time t
-        val x1 = advanceState(mod.g, d.time, resampledX.map(_._2), p).draw
-
-        // concat conditioned state and advanced state
-        val x: List[DenseVector[Double]] = (conditionedState :: x1)
-
-        // calculate weights of all n states at time t
-        val w = calcWeights(mod, d.time, x, d.observation, p)
-
-        // log-sum-exp and calculate log-likelihood
-        val max = w.max
-        val w1 = w map (a => exp(a - max))
-        val ll = s.ll + max + log(mean(w1))
-
-        State(x1.map(x => (d.time, x)) :: s.states, w1.tail, ll)
-      }
+      PgState(s.conditionedState, x1 :: s.states, w1.tail, ll)
+    }
   }
 
   /**
@@ -69,8 +82,8 @@ object ParticleGibbs {
     * @return a single path
     */
   def sampleState(
-    states:  List[List[(Double, DenseVector[Double])]], 
-    weights: List[Double]): Rand[List[(Double, DenseVector[Double])]]  = {
+      states: List[List[(Double, DenseVector[Double])]],
+      weights: List[Double]): Rand[List[(Double, DenseVector[Double])]] = {
     for {
       k <- Multinomial(DenseVector(weights.toArray))
       x = states.transpose
@@ -78,30 +91,23 @@ object ParticleGibbs {
   }
 
   /**
-    * Run the Particle Gibbs Filter, given a samples value of the state
-    * @param n the number of particles in the filter
-    * @param p the parameters used to run the filter
-    * @param conditionalLl conditional likelihood of the observations given a value of the state
-    * @param state the conditioned upon state
-    * @param mod the specification of the system evolution matrix, G and observation matrix F
-    * @param obs a list of observations
-    * @return a tuple containing the log-likelihood of the parameters given the observations and 
-    * a single state path deterministically chosen to be the final path
+    * Perform the PG filter
     */
-  def filter(
-    n:   Int, 
-    p:   Dlm.Parameters, 
-    mod: Model, 
-    obs: List[Data])(state: List[(Double, DenseVector[Double])]) = {
+  def filter[T[_]: Traverse](n: Int,
+                             model: DglmModel,
+                             ys: T[Dlm.Data],
+                             p: DlmParameters): PgState = {
 
-    val firstTime = obs.map(d => d.time).min
-    val x0 = initState(p).sample(n-1).toList.map(x => (firstTime - 1, x))
-    val init = State(List(x0), List.fill(n - 1)(1.0 / n), 0.0)
+    val init = initialiseState(n, model, p, ys)
+    ys.foldLeft(init)(step(model, p))
+  }
 
-    val filtered = (obs, state.map(_._2)).
-      zipped.
-      foldLeft(init)(step(mod, p))
+  /**
+    * Sample the conditioned state from the Particle Gibbs Sampler
+    */
+  def sample(n: Int, p: DlmParameters, mod: DglmModel, ys: List[Data]) = {
 
+    val filtered = filter(n, mod, ys, p)
     sampleState(filtered.states, filtered.weights) map ((filtered.ll, _))
   }
 }

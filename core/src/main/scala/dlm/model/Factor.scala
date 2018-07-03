@@ -16,12 +16,37 @@
 //   * Model a large covariance matrix using a factor structure
 //   * Note: This framework currently can't handle partially missing observations
 //   */
-// object FactorStochasticVolatility {
+// object FactorSv {
 //   /**
-//     * Encode partially missing data as totally missing in order to 
+//     * Factor Stochastic Volatility Parameters for a model with k factors and p time series, 
+//     * k << p
+//     * @param v the variance of the measurement error
+//     * @param beta the factor loading matrix, p x k
+//     * @param factorParams a vector of length k containing the ISV parameters for the factors 
+//     */
+//   case class Parameters(
+//     v:            Double,
+//     beta:         DenseMatrix[Double],
+//     factorParams: Vector[SvParameters]
+//   )
+
+//   /**
+//     * The state of the Gibbs Sampler
+//     * @param p the current sample of the fsv parameters
+//     * @param factors the current sample of the time series of factors, k x n dimensional
+//     * @param volatility the current sample of the time series of variances, k x n dimensional
+//     */
+//   case class State(
+//     p:          FactorSv.Parameters,
+//     factors:    Vector[(Double, Option[DenseVector[Double]])],
+//     volatility: Vector[(Double, DenseVector[Double])]
+//   )
+
+//   /**
+//     * Encode partially missing data as totally missing in order to
 //     * sample the factors
 //     * @param obs a vector of observations
-//     * @return 
+//     * @return
 //     */
 //   def encodePartiallyMissing(
 //     obs: Vector[Dlm.Data]): Vector[(Double, Option[DenseVector[Double]])] = {
@@ -35,12 +60,12 @@
 
 //   /**
 //     * Sample the factors from a multivariate gaussian
-//     * 
+//     *
 //     * @param beta the current value of the factor loading matrix
 //     * @param observations the observations of the time series
 //     * @param volatility the current value of the volatility
 //     * @param sigmaY the value of the observation variance
-//     * @return 
+//     * @return
 //     */
 //   def sampleFactors(
 //     observations: Vector[Dlm.Data],
@@ -54,7 +79,7 @@
 //     // sample factors independently
 //     val res = for {
 //       ((time, ys), at) <- obs zip volatility
-//       fVar = diag(exp(-at.sample))
+//       fVar = diag(exp(-at._2))
 //       prec = fVar + (beta.t * precY * beta)
 //       mean = ys.map(y => prec \ (beta.t * (precY * y)))
 //       sample = mean map (m => rnorm(m, prec).draw)
@@ -64,9 +89,9 @@
 //   }
 
 //   /**
-//     * Select the ith observation from a vector of data representing a 
+//     * Select the ith observation from a vector of data representing a
 //     * multivariate time series
-//     * @param y a vector of data 
+//     * @param y a vector of data
 //     * @param i the index of the observation to select
 //     * @return a vector containing the ith observation of a multivariate time series
 //     */
@@ -85,7 +110,7 @@
 //     obs:  Vector[Option[Double]]): DenseVector[Double] = {
 
 //     (obs zip facs).
-//       map { 
+//       map {
 //         case (Some(y), f) => f * y
 //         case  (None, f) => DenseVector.zeros[Double](f.size)
 //       }.
@@ -108,7 +133,7 @@
 //       mean + (vt.t * diag(dInv) * z)
 //     }
 //   }
-// z
+
 //   /**
 //     * The rows, i = 1,...,p of a k-factor model of Beta can be updated with Gibbs step
 //     * The prior specification is b_ij ~ N(0, C0) i > j, b_ii = 1, b_ij = 0 for j > i
@@ -118,7 +143,7 @@
 //     * @param sigma the variance of the measurement error
 //     * @param i the row number
 //     * @param k the total number of factors in the model
-//     * @return the full conditional distribution of the 
+//     * @return the full conditional distribution of the
 //     */
 //   def sampleBetaRow(
 //     prior:        Gaussian,
@@ -164,7 +189,7 @@
 //     * @return a p x k matrix with 1s on leading diagonal
 //     */
 //   def makeBeta(p: Int, k: Int): DenseMatrix[Double] = {
-//     DenseMatrix.tabulate(p, k) { case (i, j) => 
+//     DenseMatrix.tabulate(p, k) { case (i, j) =>
 //       if (i == j) {
 //         1.0
 //       } else {
@@ -173,10 +198,14 @@
 //     }
 //   }
 
+//   def flattenFactors(fs: Vector[(Double, Option[DenseVector[Double]])]) = {
+//     fs.map { case (t, fs) => fs.map((t, _)) }.flatten
+//   }
+
 //   /**
 //     * Sample a value of beta using the function sampleBetaRow
 //     * @param prior the prior distribution to be used for each element of beta
-//     * @param observations a time series containing the 
+//     * @param observations a time series containing the
 //     * @param p the dimension of a single observation vector
 //     * @param k the dimension of the latent-volatilities
 //     * @return
@@ -199,5 +228,168 @@
 //       }}
 
 //     Rand.always(s.copy(p = s.p.copy(beta = newbeta)))
+//   }
+
+//   /**
+//     * Extract a single state from a vector of states
+//     * @param s the combined state
+//     * @param i the position of the state to extract
+//     * @return the extracted state
+//     */
+//   def extractState(
+//     vs: Vector[(Double, DenseVector[Double])],
+//     i: Int): Vector[(Double, Double)] =
+//     vs.map { case (t, x) => (t, x(i)) }
+
+
+//   /**
+//     * Extract the ith factor from a multivariate vector of factors
+//     */
+//   def extractFactors(
+//     fs: Vector[(Double, Option[DenseVector[Double]])],
+//     i:  Int): Vector[(Double, Option[Double])] = {
+
+//     fs map { case (t, fo) =>
+//       (t, fo map (f => f(i)))
+//     }
+//   }
+
+//   /**
+//     * Sample each of the factor states and parameters in turn
+//     * @param priorMu a Normal prior for the mean of the AR(1) process
+//     * @param priorSigmaEta an inverse Gamma prior for the variance of the AR(1) process
+//     * @param piorPhi a Beta prior on the mean reversion parameter phi
+//     * @param p an integer specifying the dimension of the observations
+//     * @param s the current state of the MCMC algorithm
+//     * @return 
+//     */
+//   def sampleVolatilityParams(
+//     priorMu:       Gaussian,
+//     priorSigmaEta: InverseGamma,
+//     priorPhi:      Beta,
+//     p:             Int)(s: State) = {
+
+//     val k = s.p.beta.cols
+
+//     val res = for {
+//       i <- Vector.range(0, k)
+//       thisState = extractState(s.volatility, i)
+//       theseParameters = s.p.factorParams(i)
+//       factorState = StochasticVolatility.State(theseParameters, thisState)
+//       theseFactors = extractFactors(s.factors, i)
+//       factor = StochasticVolatility.stepAr(priorSigmaEta,
+//         priorPhi, priorMu, theseFactors)(factorState)
+//     } yield factor
+
+//     for {
+//       res <- res.sequence
+//       params = res.map(_.parameters)
+//       state = res.map(_.state)
+//     } yield State(
+//       s.p.copy(factorParams = params), s.factors, combineStates(state.map(_.toVector)))
+//   }
+
+
+//   def sampleFactorsSt(
+//     ys: Vector[Dlm.Data])
+//     (s: State): Rand[State] = {
+
+//     for {
+//       fs <- sampleFactors(ys, s.p, s.volatility)
+//     } yield s.copy(factors = fs)
+//   }
+
+//   /**
+//     * Gibbs step for the factor stochastic volatility model
+//     */
+//   def sampleStep(
+//     priorBeta:    Gaussian,
+//     priorW:       InverseGamma,
+//     priorMu:      Gaussian,
+//     priorPhi:     Beta,
+//     priorSigma:   InverseGamma,
+//     observations: Vector[Dlm.Data],
+//     p:            Int,
+//     k:            Int) = {
+
+//     Kleisli(sampleFactorsSt(observations)) compose
+//       Kleisli(sampleVolatilityParams(priorMu, priorW, priorPhi, p)) compose
+//       Kleisli(sampleSigma(priorSigma, observations)) compose
+//       Kleisli(sampleBeta(priorBeta, observations, p, k))
+//   }
+
+//   /**
+//     * Initialise the factors
+//     * @param beta the factor loading matrix
+//     * @param observations a vector containing observations of the process
+//     * @param sigmaY The observation error variance
+//     * @return the factors sampled from a multivariate normal distribution
+//     */
+//   def initialiseFactors(
+//     beta:         DenseMatrix[Double],
+//     observations: Vector[Dlm.Data],
+//     sigmaY:       Double) = {
+
+//     val k = beta.cols
+//     val precY = diag(DenseVector.fill(beta.rows)(sigmaY))
+//     val obs = encodePartiallyMissing(observations)
+
+//     // sample factors independently
+//     val res = for {
+//       (time, yt) <- obs
+//       prec = DenseMatrix.eye[Double](k) + (beta.t * precY * beta)
+//       mean = yt map (y => prec \ (beta.t * (precY * y)))
+//       sample = mean map { m => rnorm(m, prec).draw  }
+//     } yield (time, sample)
+
+//     Rand.always(res)
+//   }
+
+//   def initialiseState(
+//     initP:        FactorSv.Parameters,
+//     observations: Vector[Dlm.Data],
+//     k:            Int) = {
+//     // initialise factors
+//     val factors = initialiseFactors(initP.beta, observations, initP.v).draw
+
+//     // initialise the latent state
+//     val initState = for {
+//       i <- Vector.range(0, k)
+//       fps = initP.factorParams(i)
+//       fs = extractFactors(factors, i)
+//       state = StochasticVolatility.initialState(fps, fs.toArray).draw
+//     } yield state
+
+//     State(initP, factors, combineStates(initState.map(_.toVector)))
+//   }
+
+//   /**
+//     * Gibbs sampling for the factor stochastic volatility model
+//     * @param priorBeta the prior for the non-zero elements of the factor loading matrix
+//     * @param priorW the prior for the state evolution noise
+//     * @param priorPhi the prior for the mean reverting factor phi
+//     * @param priorSigma the prior for the variance of the measurement noise
+//     * @param observations a vector of time series results
+//     * @param initP the parameters of the Factor model
+//     * @return a markov chain
+//     */
+//   def sample(    
+//     priorBeta:    Gaussian,
+//     priorW:       InverseGamma,
+//     priorMu:      Gaussian,
+//     priorPhi:     Beta,
+//     priorSigma:   InverseGamma,
+//     observations: Vector[Dlm.Data],
+//     initP:        FactorSv.Parameters): Process[State] = {
+
+//     // specify number of factors and time series
+//     val k = initP.beta.cols
+//     val p = initP.beta.rows
+
+//     // initialise the latent state 
+//     val init = initialiseState(initP, observations, k)
+
+//     MarkovChain(init)(sampleStep(priorBeta, priorW, priorMu, priorPhi,
+//       priorSigma, observations, p, k).run)
 //   }
 // }

@@ -9,18 +9,15 @@ object FfbsBenchmark {
   @State(Scope.Benchmark)
   class ModelState {
     val model = Dlm.polynomial(1)
-    val p = Dlm.Parameters(
+    val p = DlmParameters(
       v = diag(DenseVector(3.0)),
       w = diag(DenseVector(1.0)),
       m0 = DenseVector.fill(1)(0.0),
       c0 = diag(DenseVector(1.0))
     )
 
-    val data = Dlm.simulateRegular(0, model, p, 1.0).
-      steps.
-      take(10).
-      toVector.
-      map(_._1)
+    val data =
+      Dlm.simulateRegular(model, p, 1.0).steps.take(10).toVector.map(_._1)
   }
 }
 

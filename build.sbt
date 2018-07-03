@@ -37,6 +37,8 @@ lazy val commonSettings = Seq(
   }
 )
 
+// scalafmtOnCompile in ThisBuild := true
+
 lazy val core = (project in file("core"))
   .settings(
     commonSettings,
@@ -59,4 +61,16 @@ lazy val core = (project in file("core"))
 lazy val benchmark = project
   .dependsOn(core)
   .enablePlugins(JmhPlugin)
+
+lazy val plot = project
+  .settings(
+    resolvers += Resolver.bintrayRepo("cibotech", "public"),
+    libraryDependencies ++= Seq(
+      "org.scalanlp" %% "breeze"   % "0.13.2",
+      "com.cibo"     %% "evilplot" % "0.3.2"
+    )
+  )
+
+lazy val examples = project
+  .dependsOn(core, plot)
 
