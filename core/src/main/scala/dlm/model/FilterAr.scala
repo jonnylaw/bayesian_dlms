@@ -25,7 +25,7 @@ object FilterAr {
   def backwardStep(
     p:        SvParameters,
   )(filtered: KfState,
-    s:        Smoothing.SamplingState) = {
+    s:        SamplingState) = {
 
     // extract elements from kalman state
     val time = filtered.time
@@ -44,7 +44,7 @@ object FilterAr {
     val cov = diff * ct * diff.t + cgrinv * w * cgrinv.t
     val sample = MultivariateGaussian(mean, cov).draw
 
-    Smoothing.SamplingState(time, sample, filtered.at, filtered.rt)
+    SamplingState(time, sample, filtered.at, filtered.rt)
   }
 
 }

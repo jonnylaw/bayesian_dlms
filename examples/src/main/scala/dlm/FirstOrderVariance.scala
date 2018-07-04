@@ -22,7 +22,7 @@ trait FirstOrderDlmVariance {
 }
 
 trait SimulatedFoDlmVar {
-  val rawData = Paths.get("core/data/first_order_dlm_var.csv")
+  val rawData = Paths.get("examples/data/first_order_dlm_var.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
     case Right(a) => Dlm.Data(a.head, DenseVector(a(1).some))
@@ -32,7 +32,7 @@ trait SimulatedFoDlmVar {
 object SimulateVarianceDlm extends App with FirstOrderDlmVariance {
   val sims = DlmSv.simulate(mod, p, 1).steps.take(1000)
 
-  val out = new java.io.File("core/data/first_order_dlm_var.csv")
+  val out = new java.io.File("examples/data/first_order_dlm_var.csv")
   val headers = rfc.withHeader("time", "observation", "state", "log-variance")
   val writer = out.asCsvWriter[List[Double]](headers)
 
@@ -67,7 +67,7 @@ object ParametersFirstOrderVariance
 
   // write iters to file
   val headers = rfc.withHeader("W", "phi", "sigmaEta")
-  val out = new java.io.File("core/data/first_order_dlm_var_params.csv")
+  val out = new java.io.File("examples/data/first_order_dlm_var_params.csv")
   val writer = out.asCsvWriter[List[Double]](headers)
 
   def formatParameters(p: DlmSv.Parameters): List[Double] = {

@@ -17,7 +17,7 @@ trait PoissonDglm {
 }
 
 trait PoissonData {
-  val rawData = Paths.get("core/data/poisson_dglm.csv")
+  val rawData = Paths.get("examples/data/poisson_dglm.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
     case Right(a) => Dlm.Data(a.head, DenseVector(a(1).some))
@@ -27,7 +27,7 @@ trait PoissonData {
 object SimulatePoissonDglm extends App with PoissonDglm {
   val sims = Dglm.simulateRegular(mod, params, 1.0).steps.take(1000)
 
-  val out = new java.io.File("core/data/poisson_dglm.csv")
+  val out = new java.io.File("examples/data/poisson_dglm.csv")
   val header = rfc.withHeader("time", "observation", "state")
   val writer = out.asCsvWriter[List[Double]](header)
 
@@ -59,7 +59,7 @@ object PoissonDglmGibbs extends App with PoissonDglm with PoissonData {
     .map(_._2)
     .take(10000)
 
-  val out = new java.io.File("core/data/poisson_dglm_gibbs.csv")
+  val out = new java.io.File("examples/data/poisson_dglm_gibbs.csv")
   val writer = out.asCsvWriter[Double](rfc.withHeader("W"))
 
   def formatParameters(p: DlmParameters) = {

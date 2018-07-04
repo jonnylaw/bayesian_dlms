@@ -29,6 +29,27 @@ object SvdFilter extends Filter[SvdState, DlmParameters, DlmModel] {
     }
   }
 
+  def advState(
+    g:     Double => DenseMatrix[Double],
+    dt:    Double,
+    mt:    DenseVector[Double],
+    dc:    DenseVector[Double],
+    uc:    DenseMatrix[Double],
+    w:     DenseMatrix[Double]) = {
+    
+    if (dt == 0) {
+      (mt, dc, uc)
+    } else {
+      val at = g(dt) * mt
+      val rt = DenseMatrix.vertcat(diag(dc) * uc.t * g(dt).t, w *:* math.sqrt(dt))
+      val root = svd(rt)
+      val ur = root.rightVectors.t
+      val dr = root.singularValues
+
+      (at, dr, ur)
+    }
+  }
+
   /**
     * Perform the time update by advancing the mean and covariance to the time
     * of the next observation
@@ -47,37 +68,32 @@ object SvdFilter extends Filter[SvdState, DlmParameters, DlmModel] {
     (s: SvdState,
      dt: Double) = {
 
-    if (dt == 0) {
-      s.copy(at = s.mt, dr = s.dc, ur = s.uc)
-    } else {
-      val rt = DenseMatrix.vertcat(diag(s.dc) * s.uc.t * g(dt).t, p.w *:* math.sqrt(dt))
-      val root = svd(rt)
-
-      s.copy(
-        at = g(dt) * s.mt,
-        dr = root.singularValues,
-        ur = root.rightVectors.t)
-    }
+    val (at, dr, ur) = advState(g, dt, s.mt, s.dc, s.uc, p.w)
+    s.copy(at = at, dr = dr, ur = ur)
   }
 
-  def oneStepForecast(f: Double => DenseMatrix[Double],
-                      at: DenseVector[Double],
-                      time: Double) = {
+  def oneStepForecast(
+    f: Double => DenseMatrix[Double],
+    at: DenseVector[Double],
+    time: Double) = {
 
     f(time).t * at
   }
 
-  def oneStepMissing(fm: DenseMatrix[Double], at: DenseVector[Double]) = {
+  def oneStepMissing(
+    fm: DenseMatrix[Double],
+    at: DenseVector[Double]) = {
 
     fm.t * at
   }
 
-  def updateState(at: DenseVector[Double],
-                  dr: DenseVector[Double],
-                  ur: DenseMatrix[Double],
-                  p: DlmParameters,
-                  f: Double => DenseMatrix[Double],
-                  d: Dlm.Data) = {
+  def updateState(
+    at: DenseVector[Double],
+    dr: DenseVector[Double],
+    ur: DenseMatrix[Double],
+    p: DlmParameters,
+    f: Double => DenseMatrix[Double],
+    d: Dlm.Data) = {
 
     val yt = KalmanFilter.flattenObs(d.observation)
 
@@ -121,22 +137,24 @@ object SvdFilter extends Filter[SvdState, DlmParameters, DlmModel] {
   /**
     * Initialise the state of the SVD Filter
     */
-  def initialiseState[T[_]: Traverse](mod: DlmModel,
-                                      p: DlmParameters,
-                                      ys: T[Dlm.Data]) = {
+  def initialiseState[T[_]: Traverse](
+    mod: DlmModel,
+    p:   DlmParameters,
+    ys:  T[Dlm.Data]) = {
 
     val root = svd(p.c0)
     val t0 = ys.foldLeft(0.0)((t, d) => math.min(t, d.time))
     val dc0 = root.singularValues.map(math.sqrt)
     val uc0 = root.rightVectors.t
+    val (at, dr, ur) = advState(mod.g, 0.0, p.m0, dc0, uc0, p.w)
 
     val ft = oneStepForecast(mod.f, p.m0, t0)
 
-    SvdState(t0 - 1.0, p.m0, dc0, uc0, p.m0, dc0, uc0, ft)
+    SvdState(t0 - 1, p.m0, dc0, uc0, at, dr, ur, ft)
   }
 
   /**
-    * Calculate the square root inverse of a matrix using the Eigenvalue
+    * Calculate the square root inverse of a matrix using the Singular value
     * decomposition of a matrix
     * @param m a symmetric positive definite matrix
     * @return the square root inverse of the matrix
@@ -160,18 +178,13 @@ object SvdFilter extends Filter[SvdState, DlmParameters, DlmModel] {
     diag(root.singularValues.map(math.sqrt)) * root.rightVectors.t
   }
 
-  override def filter[T[_]: Traverse](
-    mod: DlmModel,
-    ys: T[Dlm.Data],
-    p: DlmParameters,
-    advState: (SvdState, Double) => SvdState) = {
-
+  /**
+    * Calculate the roots of the observation and noise matrices
+    */
+  def transformParams(p: DlmParameters): DlmParameters = {
     val sqrtVinv = sqrtInvSvd(p.v)
     val sqrtW = sqrtSvd(p.w)
-    val params = p.copy(v = sqrtVinv, w = sqrtW)
-    val init = initialiseState(mod, params, ys)
-
-    Filter.scan(ys, init, step(mod, params, advState))
+    p.copy(v = sqrtVinv, w = sqrtW)
   }
 
   def filterDlm[T[_]: Traverse](

@@ -5,7 +5,9 @@ import breeze.stats.distributions._
 import breeze.numerics.{log, exp}
 import cats.implicits._
 
-case class SvParameters(phi: Double, mu: Double, sigmaEta: Double)
+case class SvParameters(phi: Double, mu: Double, sigmaEta: Double) {
+  def toList: List[Double] = phi :: mu :: sigmaEta :: Nil
+}
 
 /**
   * Simulate and fit a Stochastic volatility model using a mixture model approximation for
@@ -103,7 +105,7 @@ object StochasticVolatility extends {
     alphas: Vector[(Double, Double)],
     params: SvParameters,
     advState: (KfState, Double) => KfState,
-    backStep: (KfState, Smoothing.SamplingState) => Smoothing.SamplingState) = {
+    backStep: (KfState, SamplingState) => SamplingState) = {
 
     val t0 = ys.head._1
     val dt0 = ys(1)._1 - ys.head._1
@@ -190,8 +192,8 @@ object StochasticVolatility extends {
     * a new state with a new mu sampled from the Gaussian posterior distribution
     */
   def sampleMu(
-    prior: Gaussian,
-    p: SvParameters,
+    prior:  Gaussian,
+    p:      SvParameters,
     alphas: Vector[(Double, Double)]): Rand[Double] = {
 
     val n = alphas.tail.size
@@ -249,7 +251,7 @@ object StochasticVolatility extends {
     params: SvParameters,
     ys: Vector[(Double, Option[Double])],
     advState: (KfState, Double) => KfState,
-    backStep: (KfState, Smoothing.SamplingState) => Smoothing.SamplingState) = {
+    backStep: (KfState, SamplingState) => SamplingState) = {
 
     val yt = transformObservations(ys)
     val (mod, paramsSv) = ar1Dlm(params)

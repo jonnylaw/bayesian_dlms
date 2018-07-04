@@ -85,7 +85,7 @@ val data = Dlm.simulateRegular(0, linear, p, 1.0).
 ```
 
 ```{r first-order-simulated}
-data = read_csv("../core/data/first_order_dlm.csv")
+data = read_csv("../examples/data/first_order_dlm.csv")
 
 data %>%
   gather(key, value, -time) %>%
@@ -105,7 +105,7 @@ Dglm.simulate(poisson, p)
 ```
 
 ```{r poisson-sims, fig.cap="Simulation from the poisson DGLM with $(W, m_0, C_0) = (0.01, 0.0, 1.0)$"}
-data = read_csv("../core/data/poisson_dglm.csv")
+data = read_csv("../examples/data/poisson_dglm.csv")
 
 data %<>%
   gather(key, value, -time) %>%

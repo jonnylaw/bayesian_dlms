@@ -18,7 +18,7 @@ object NoStudentTModel extends App {
   val format = DateTimeFormatter.ISO_DATE_TIME
   implicit val codec: CellCodec[LocalDateTime] = localDateTimeCodec(format)
 
-  val rawData = Paths.get("core/data/training_no.csv")
+  val rawData = Paths.get("examples/data/training_no.csv")
   val reader = rawData.asCsvReader[(LocalDateTime, Double)](rfc.withHeader)
   val data = reader
     .collect {
@@ -55,6 +55,6 @@ object NoStudentTModel extends App {
 
   val headers = rfc.withHeader("scale", "W")
   Streaming.writeChain(formatParameters,
-                       "core/data/no_dglm_exact.csv",
+                       "examples/data/no_dglm_exact.csv",
                        headers)(iters)
 }

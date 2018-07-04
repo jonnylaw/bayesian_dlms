@@ -80,7 +80,7 @@ val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
 The result of filtering the simulated observations is plotted below, with 90% probability intervals. The system and observation variances, $W_t$ and $V_t$ are assumed to be constant in time and known.
 
 ```{r first-order-filtered, message=FALSE, warning=FALSE, echo=FALSE}
-filtered = read_csv("../core/data/first_order_dlm_filtered.csv")
+filtered = read_csv("../examples/data/first_order_dlm_filtered.csv")
 
 filtered %>%
   inner_join(data, by = "time") %>%

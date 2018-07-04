@@ -7,8 +7,8 @@ import breeze.numerics._
 
 object GibbsSampling extends App {
   case class State(
-      p: DlmParameters,
-      state: Vector[(Double, DenseVector[Double])]
+    p: DlmParameters,
+    state: Vector[(Double, DenseVector[Double])]
   )
 
   /**
@@ -136,7 +136,7 @@ object GibbsSampling extends App {
     
     for {
       theta <- Smoothing.ffbs(mod, observations,
-        KalmanFilter.advanceState(s.p, mod.g), Smoothing.step(mod, s.p.w), s.p)
+        KalmanFilter.advanceState(s.p, mod.g), Smoothing.step(mod, s.p), s.p)
       newV <- sampleObservationMatrix(priorV,
                                       mod.f,
                                       observations,
@@ -167,7 +167,7 @@ object GibbsSampling extends App {
     val init = for {
       initState <- Smoothing.ffbs(mod, observations,
         KalmanFilter.advanceState(initParams, mod.g),
-        Smoothing.step(mod, initParams.w), initParams)
+        Smoothing.step(mod, initParams), initParams)
     } yield State(initParams, initState)
 
     MarkovChain(init.draw)(dinvGammaStep(mod, priorV, priorW, observations))
@@ -286,7 +286,7 @@ object GibbsSampling extends App {
     val init = for {
       initState <- Smoothing.ffbs(mod, observations,
         KalmanFilter.advanceState(initParams, mod.g),
-        Smoothing.step(mod, initParams.w), initParams)
+        Smoothing.step(mod, initParams), initParams)
     } yield State(initParams, initState)
 
     MarkovChain(init.draw)(

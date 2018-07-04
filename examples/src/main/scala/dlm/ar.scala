@@ -18,7 +18,7 @@ trait ArDlm {
 }
 
 trait ArData {
-  val rawData = Paths.get("core/data/ar_dlm.csv")
+  val rawData = Paths.get("examples/data/ar_dlm.csv")
   val reader = rawData.asCsvReader[(Double, Double, Double)](rfc.withHeader)
   val data = reader.collect {
     case Right(a) => Data(a._1, DenseVector(a._2.some))
@@ -28,7 +28,7 @@ trait ArData {
 object SimulateArDlm extends App with ArDlm {
   val sims = simulateRegular(mod, p, 1.0).steps.take(1000)
 
-  val out = new java.io.File("core/data/ar_dlm.csv")
+  val out = new java.io.File("examples/data/ar_dlm.csv")
   val headers = rfc.withHeader("time", "observation", "state")
   val writer = out.asCsvWriter[List[Double]](headers)
 
@@ -47,7 +47,7 @@ object SimulateArDlm extends App with ArDlm {
 object FilterArDlm extends App with ArDlm with ArData {
   val filtered = SvdFilter.filterDlm(mod, data, p)
 
-  val out = new java.io.File("core/data/ar_dlm_filtered.csv")
+  val out = new java.io.File("examples/data/ar_dlm_filtered.csv")
 
   def formatFiltered(f: SvdState) = {
     val ct = f.uc * diag(f.dc) * f.uc.t
@@ -86,7 +86,7 @@ object ParametersAr extends App with ArDlm with ArData {
 
   val iters = MarkovChain(init.draw)(step).steps.take(100000)
 
-  val out = new java.io.File("core/data/ar_dlm_gibbs.csv")
+  val out = new java.io.File("examples/data/ar_dlm_gibbs.csv")
   val writer = out.asCsvWriter[List[Double]](rfc.withHeader(false))
 
   def formatParameters(s: (Double, GibbsSampling.State)) = {

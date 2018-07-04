@@ -80,26 +80,25 @@ object Streaming {
     * @param format a function to format each row of the CSV output
     */
   def writeParallelChain[A](
-      chain: breeze.stats.distributions.Process[A],
-      nChains: Int,
-      nIters: Int,
-      filename: String,
-      format: A => List[Double]
-  )(implicit m: Materializer): Source[IOResult, NotUsed] = {
+    chain: breeze.stats.distributions.Process[A],
+    nChains: Int,
+    nIters: Int,
+    filename: String,
+    format: A => List[Double])(implicit m: Materializer): Source[IOResult, NotUsed] = {
 
     Source((0 until nChains)).mapAsync(nChains) { i =>
-      streamChain(chain, nIters).runWith(
-        writeChain(s"${filename}_$i.csv", format))
+      streamChain(chain, nIters).
+        runWith(writeChain(s"${filename}_$i.csv", format))
     }
   }
 
   /**
-    * Filter an iterator to select only every nth iteration
+    * Filter a Stream to select only every nth iteration
     * @param xs an iterator
     * @param n the index of the iterator to select
     */
-  def thin[A](xs: Iterator[A], n: Int): Iterator[A] = {
-    xs.zipWithIndex.
+  def thinChain[A](n: Int) = {
+    Flow[A].zipWithIndex.
       filter { case (a, i) => i % n == 0 }.
       map(_._1)
   }

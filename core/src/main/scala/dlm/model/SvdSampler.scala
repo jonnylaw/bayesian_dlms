@@ -9,9 +9,9 @@ import cats.implicits._
   * TODO: Check this
   */
 object SvdSampler {
-  case class State(time: Double,
-                   theta: DenseVector[Double],
-                   at1: DenseVector[Double])
+case class State(time: Double,
+  theta: DenseVector[Double],
+  at1: DenseVector[Double])
 
   /**
     * Perform a single step in the backward sampler using the SVD
@@ -61,7 +61,7 @@ object SvdSampler {
   }
 
   /**
-    * Perform forward filtering backward sampling
+    * Perform forward filtering backward sampling using the SVD
     */
   def ffbs(
     mod: DlmModel,
@@ -71,6 +71,17 @@ object SvdSampler {
 
     val filtered = SvdFilter.filter(mod, ys, p, advState)
     Rand.always(sample(mod, p.w, filtered))
+  }
+
+  /**
+    * Perform FFBS for a DLM using the SVD
+    */
+  def ffbsDlm(
+    mod: DlmModel,
+    ys: Vector[Dlm.Data],
+    p: DlmParameters) = {
+
+    ffbs(mod, ys, p, SvdFilter.advanceState(p, mod.g))
   }
 
   /**

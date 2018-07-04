@@ -21,7 +21,7 @@ trait StudenttDglm {
 }
 
 trait StudenttData {
-  val rawData = Paths.get("core/data/student_t_dglm.csv")
+  val rawData = Paths.get("examples/data/student_t_dglm.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
     case Right(a) => Dlm.Data(a.head, DenseVector(Some(a(1))))
@@ -31,7 +31,7 @@ trait StudenttData {
 object SimulateStudentT extends App with StudenttDglm {
   val sims = Dglm.simulateRegular(mod, params, 1.0).steps.take(1000)
 
-  val out = new java.io.File("core/data/student_t_dglm.csv")
+  val out = new java.io.File("examples/data/student_t_dglm.csv")
   val header = rfc.withHeader("time", "observation", "state")
   val writer = out.asCsvWriter[List[Double]](header)
 
@@ -70,7 +70,7 @@ object StudentTGibbs extends App with StudenttDglm with StudenttData {
     .writeParallelChain(iters,
                         2,
                         10000,
-                        "core/data/student_t_dglm_gibbs",
+                        "examples/data/student_t_dglm_gibbs",
                         format)
     .runWith(Sink.onComplete(_ => system.terminate()))
 }
@@ -94,6 +94,6 @@ object StudentTpmmh extends App with StudenttDglm with StudenttData {
 
   val headers = rfc.withHeader("scale", "W")
   Streaming.writeChain(formatParameters,
-                       "core/data/student_t_dglm_pmmh.csv",
+                       "examples/data/student_t_dglm_pmmh.csv",
                        headers)(iters)
 }

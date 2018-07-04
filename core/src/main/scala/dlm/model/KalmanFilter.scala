@@ -29,27 +29,6 @@ case class KfState(
 )
 
 object KalmanFilter extends Filter[KfState, DlmParameters, DlmModel] {
-  /**
-    * Advance the state mean and variance to the a-priori
-    * value of the state at time t
-    * @param g the system matrix, a function from a time increment to DenseMatrix
-    * @param s the current state of the Kalman Filter
-    * @param dt the time increment
-    * @return the a-priori mean and covariance of the state at time t
-    */
-  def advanceState(
-    p: DlmParameters,
-    g: Double => DenseMatrix[Double])
-    (s: KfState,
-     dt: Double) = {
-
-    if (dt == 0) {
-      s.copy(at = s.mt, rt = s.ct)
-    } else {
-      s.copy(at = g(dt) * s.mt, rt = g(dt) * s.ct * g(dt).t + p.w * dt)
-    }
-  }
-
   def advState(
     g: Double => DenseMatrix[Double],
     mt: DenseVector[Double],
@@ -66,6 +45,23 @@ object KalmanFilter extends Filter[KfState, DlmParameters, DlmModel] {
     }
   }
 
+  /**
+    * Advance the state mean and variance to the a-priori
+    * value of the state at time t
+    * @param g the system matrix, a function from a time increment to DenseMatrix
+    * @param s the current state of the Kalman Filter
+    * @param dt the time increment
+    * @return the a-priori mean and covariance of the state at time t
+    */
+  def advanceState(
+    p: DlmParameters,
+    g: Double => DenseMatrix[Double])
+    (s: KfState,
+     dt: Double) = {
+
+    val (at, rt) = advState(g, s.mt, s.ct, dt, p.w)
+    s.copy(at = at, rt = rt)
+  }
 
   /**
     * Perform a one-step prediction
@@ -245,6 +241,8 @@ object KalmanFilter extends Filter[KfState, DlmParameters, DlmModel] {
     val init = initialiseState(mod, p, ys)
     ys.foldLeft(init)(step(mod, p, advState)).ll
   }
+
+  def transformParams(p: DlmParameters): DlmParameters = p
 
   def filterDlm[T[_]: Traverse](
     mod: DlmModel,

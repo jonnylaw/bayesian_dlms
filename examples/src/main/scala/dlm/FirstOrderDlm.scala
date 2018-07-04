@@ -21,7 +21,7 @@ trait FirstOrderDlm {
 }
 
 trait SimulatedData {
-  val rawData = Paths.get("core/data/first_order_dlm.csv")
+  val rawData = Paths.get("examples/data/first_order_dlm.csv")
   val reader = rawData.asCsvReader[(Double, Double, Double)](rfc.withHeader)
   val data = reader.collect {
     case Right(a) => Data(a._1, DenseVector(a._2.some))
@@ -31,7 +31,7 @@ trait SimulatedData {
 object SimulateDlm extends App with FirstOrderDlm {
   val sims = simulateRegular(mod, p, 1.0).steps.take(300)
 
-  val out = new java.io.File("core/data/first_order_dlm.csv")
+  val out = new java.io.File("examples/data/first_order_dlm.csv")
   val headers = rfc.withHeader("time", "observation", "state")
   val writer = out.asCsvWriter[List[Double]](headers)
 
@@ -50,7 +50,7 @@ object SimulateDlm extends App with FirstOrderDlm {
 object FilterDlm extends App with FirstOrderDlm with SimulatedData {
   val filtered = SvdFilter.filter(mod, data, p, SvdFilter.advanceState(p, mod.g))
 
-  val out = new java.io.File("core/data/first_order_dlm_filtered.csv")
+  val out = new java.io.File("examples/data/first_order_dlm_filtered.csv")
 
   def formatFiltered(f: SvdState) = {
     val ct = f.uc * diag(f.dc) * f.uc.t
@@ -69,7 +69,7 @@ object SmoothDlm extends App with FirstOrderDlm with SimulatedData {
   val filtered = KalmanFilter.filter(mod, data, p, KalmanFilter.advanceState(p, mod.g))
   val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
 
-  val out = new java.io.File("core/data/first_order_dlm_smoothed.csv")
+  val out = new java.io.File("examples/data/first_order_dlm_smoothed.csv")
 
   def formatSmoothed(s: Smoothing.SmoothingState) =
     (s.time, s.mean(0), s.covariance.data(0))
@@ -83,15 +83,15 @@ object SampleStates extends App with FirstOrderDlm with SimulatedData {
 
   val svdSampled = SvdSampler.ffbs(mod, data, p, SvdFilter.advanceState(p, mod.g)).sample(1000)
   val meanStateSvd = SvdSampler.meanState(svdSampled)
-  val outSvd = new java.io.File("core/data/first_order_state_svd_sample.csv")
+  val outSvd = new java.io.File("examples/data/first_order_state_svd_sample.csv")
 
   outSvd.writeCsv(meanStateSvd, rfc.withHeader("time", "sampled_mean"))
 
   val sampled = Smoothing.ffbs(mod, data,
     KalmanFilter.advanceState(p, mod.g),
-    Smoothing.step(mod, p.w), p).sample(1000)
+    Smoothing.step(mod, p), p).sample(1000)
   val meanState = SvdSampler.meanState(sampled)
-  val out = new java.io.File("core/data/first_order_state_sample.csv")
+  val out = new java.io.File("examples/data/first_order_state_sample.csv")
 
   out.writeCsv(meanState, rfc.withHeader("time", "sampled_mean"))
 }
@@ -113,6 +113,6 @@ object GibbsParameters extends App with FirstOrderDlm with SimulatedData {
   }
 
   Streaming.writeChain(formatParameters,
-                       "core/data/first_order_dlm_gibbs.csv",
+                       "examples/data/first_order_dlm_gibbs.csv",
                        headers)(iters)
 }

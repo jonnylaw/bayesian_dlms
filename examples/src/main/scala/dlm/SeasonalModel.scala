@@ -22,7 +22,7 @@ trait SeasonalModel {
 }
 
 trait SeasonalData {
-  val rawData = Paths.get("core/data/seasonal_dlm.csv")
+  val rawData = Paths.get("examples/data/seasonal_dlm.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
     case Right(a) => Data(a.head, DenseVector(a(1).some))
@@ -35,7 +35,7 @@ trait SeasonalData {
 object SimulateSeasonalDlm extends App with SeasonalModel {
   val sims = simulateRegular(mod, p, 1.0).steps.take(1000)
 
-  val out = new java.io.File("core/data/seasonal_dlm.csv")
+  val out = new java.io.File("examples/data/seasonal_dlm.csv")
   val headers = rfc.withHeader("time",
                                "observation",
                                "state1",
@@ -66,7 +66,7 @@ object FilterSeasonalDlm extends App with SeasonalModel with SeasonalData {
   val filtered = SvdFilter.filter(mod, data, p,
     SvdFilter.advanceState(p, mod.g))
 
-  val out = new java.io.File("core/data/seasonal_filtered.csv")
+  val out = new java.io.File("examples/data/seasonal_filtered.csv")
 
   def formatFiltered(f: SvdState) = {
     val ct = f.uc * diag(f.dc) * f.uc.t
@@ -87,7 +87,7 @@ object SmoothSeasonalDlm extends App with SeasonalModel with SeasonalData {
   val filtered = KalmanFilter.filter(mod, data, p, KalmanFilter.advanceState(p, mod.g))
   val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
 
-  val out = new java.io.File("core/data/seasonal_smoothed.csv")
+  val out = new java.io.File("examples/data/seasonal_smoothed.csv")
 
   def formatSmoothed(s: Smoothing.SmoothingState) =
     s.time.toDouble +: DenseVector
@@ -134,13 +134,13 @@ object SeasonalGibbsSampling extends App with SeasonalModel with SeasonalData {
   }
 
   Streaming.writeChain(formatParameters,
-                       "core/data/seasonal_dlm_gibbs.csv",
+                       "examples/data/seasonal_dlm_gibbs.csv",
                        headers)(iters.map(_.p))
 }
 
 object ForecastSeasonal extends App with SeasonalModel with SeasonalData {
   // read in the parameters from the MCMC chain and caculate the mean
-  val mcmcChain = Paths.get("core/data/seasonal_dlm_gibbs.csv")
+  val mcmcChain = Paths.get("examples/data/seasonal_dlm_gibbs.csv")
   val read = mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
 
   val params: List[Double] =
@@ -162,7 +162,7 @@ object ForecastSeasonal extends App with SeasonalModel with SeasonalData {
   val forecasted =
     Dlm.forecast(mod, mt, ct, initTime, meanParameters).take(100).toList
 
-  val out = new java.io.File("core/data/seasonal_model_forecast.csv")
+  val out = new java.io.File("examples/data/seasonal_model_forecast.csv")
   val headers = rfc.withHeader("time", "forecast", "variance")
   val writer = out.writeCsv(forecasted, headers)
 }
@@ -173,9 +173,9 @@ object ForecastSeasonal extends App with SeasonalModel with SeasonalData {
 object SampleStatesSeasonal extends App with SeasonalModel with SeasonalData {
   val sampled = Smoothing.ffbs(mod, data,
     KalmanFilter.advanceState(p, mod.g),
-    Smoothing.step(mod, p.w), p).sample(10000)
+    Smoothing.step(mod, p), p).sample(10000)
 
-  val out = new java.io.File("core/data/seasonal_dlm_state_2_samples.csv")
+  val out = new java.io.File("examples/data/seasonal_dlm_state_2_samples.csv")
   val writer = out.asCsvWriter[List[Double]](rfc.withoutHeader)
 
   /**

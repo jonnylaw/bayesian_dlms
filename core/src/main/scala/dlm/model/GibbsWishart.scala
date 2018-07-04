@@ -44,7 +44,7 @@ object GibbsWishart {
                   priorW: InverseWishart,
                   observations: Vector[Data]) = { s: GibbsSampling.State =>
     for {
-      theta <- FilterArray.ffbsSvd(mod, observations, s.p)
+      theta <- Smoothing.ffbsDlm(mod, observations, s.p)
       newW <- sampleSystemMatrix(priorW, mod.g, theta.toVector)
       newV <- GibbsSampling.sampleObservationMatrix(priorV,
                                                     mod.f,
@@ -71,7 +71,7 @@ object GibbsWishart {
 
     val initState = Smoothing.ffbs(mod, observations, 
       KalmanFilter.advanceState(initParams, mod.g),
-      Smoothing.step(mod, initParams.w), initParams).draw
+      Smoothing.step(mod, initParams), initParams).draw
     val init = GibbsSampling.State(initParams, initState)
 
     MarkovChain(init)(wishartStep(mod, priorV, priorW, observations))

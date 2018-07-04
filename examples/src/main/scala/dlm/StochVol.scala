@@ -6,8 +6,9 @@ import java.nio.file.Paths
 import cats.implicits._
 import kantan.csv._
 import kantan.csv.ops._
-import plot.{Diagnostics, TimeSeries}
-import com.cibo.evilplot.plot.aesthetics.DefaultTheme._
+import akka.actor.ActorSystem
+import akka.stream._
+import scaladsl._
 
 /**
   * Simulate a stochastic volatility model with an AR(1) latent state
@@ -18,7 +19,7 @@ object SimulateSv extends App {
   val sims = StochasticVolatility.simulate(p).steps.take(300).toVector
 
   // write to file
-  val out = new java.io.File("core/data/sv_sims.csv")
+  val out = new java.io.File("examples/data/sv_sims.csv")
   val headers = rfc.withHeader("time", "observation", "log-variance")
   def formatData(d: (Double, Option[Double], Double)) = d match {
     case (t, y, a) => List(t, y.getOrElse(0.0), a)
@@ -27,9 +28,12 @@ object SimulateSv extends App {
 }
 
 object FitSv extends App {
+  implicit val system = ActorSystem("stochastic_volatility")
+  implicit val materializer = ActorMaterializer()
+
   val p = SvParameters(0.8, 1.0, 0.2)
 
-  val rawData = Paths.get("core/data/sv_sims.csv")
+  val rawData = Paths.get("examples/data/sv_sims.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
     case Right(a) => (a.head, a(1).some)
@@ -41,24 +45,13 @@ object FitSv extends App {
 
   val iters = StochasticVolatility
     .sampleAr(priorSigma, priorPhi, priorMu, p, data)
-    .steps
-    .drop(10000)
-    .take(90000)
-    .map(_.params)
 
-  // write iters to file
-  val headers = rfc.withHeader("phi", "mu", "sigma")
-  val out = new java.io.File("core/data/sv_params.csv")
-  val writer = out.asCsvWriter[Vector[Double]](headers)
-
-  def formatParameters(p: SvParameters): Vector[Double] = {
-    Vector(p.phi, p.mu, p.sigmaEta)
+  def formatParameters(s: StochasticVolatility.State) = {
+    List(s.params.phi, s.params.mu, s.params.sigmaEta)
   }
 
-  while (iters.hasNext) {
-    writer.write(formatParameters(iters.next))
-  }
-
-  writer.close()
+  Streaming.writeParallelChain(
+    iters, 2, 100000, "examples/data/sv_params", formatParameters).
+    runWith(Sink.onComplete(_ => system.terminate()))
 }
 

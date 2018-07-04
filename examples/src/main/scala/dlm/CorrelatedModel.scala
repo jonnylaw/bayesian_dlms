@@ -25,7 +25,7 @@ trait CorrelatedModel {
 }
 
 trait CorrelatedData {
-  val rawData = Paths.get("core/data/correlated_dlm.csv")
+  val rawData = Paths.get("examples/data/correlated_dlm.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
     case Right(a) => Data(a.head, DenseVector(a(1).some, a(2).some))
@@ -35,7 +35,7 @@ trait CorrelatedData {
 object SimulateCorrelated extends App with CorrelatedModel {
   val sims = Dlm.simulateRegular(model, p, 0.1).steps.take(1000)
 
-  val out = new java.io.File("core/data/correlated_dlm.csv")
+  val out = new java.io.File("examples/data/correlated_dlm.csv")
   val headers = rfc.withHeader(
     Seq("time") ++
       Seq.range(1, 3).map(i => s"observation_$i") ++
@@ -60,7 +60,7 @@ object FilterCorrelatedDlm
     with CorrelatedData {
   val filtered = SvdFilter.filter(model, data, p, SvdFilter.advanceState(p, model.g))
 
-  val out = new java.io.File("core/data/correlated_dlm_filtered.csv")
+  val out = new java.io.File("examples/data/correlated_dlm_filtered.csv")
 
   def formatFiltered(f: SvdState) = {
     val ct = f.uc * diag(f.dc) * f.uc.t
@@ -82,7 +82,7 @@ object GibbsCorrelated extends App with CorrelatedModel with CorrelatedData {
     .steps
     .take(10000)
 
-  val out = new java.io.File("core/data/correlated_dlm_gibbs.csv")
+  val out = new java.io.File("examples/data/correlated_dlm_gibbs.csv")
   val headers = rfc.withHeader(false)
   val writer = out.asCsvWriter[List[Double]](headers)
 
@@ -113,7 +113,7 @@ object FirstOrderLinearTrendDlm extends App {
 
   val sims = Dlm.simulateRegular(composedModel, p, 1.0).steps.take(1000)
 
-  val out = new java.io.File("core/data/first_order_and_linear_trend.csv")
+  val out = new java.io.File("examples/data/first_order_and_linear_trend.csv")
   val headers = rfc.withHeader("time",
                                "observation_1",
                                "observation_2",
@@ -135,7 +135,7 @@ object FirstOrderLinearTrendDlm extends App {
 }
 
 object SusteInvestment extends App with CorrelatedModel {
-  val rawData = Paths.get("core/data/invest2.dat")
+  val rawData = Paths.get("examples/data/invest2.dat")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader(false))
   val data = reader
     .collect {
@@ -176,7 +176,7 @@ object SusteInvestment extends App with CorrelatedModel {
     .drop(12000)
     .take(12000)
 
-  val out = new java.io.File("core/data/correlated_investment.csv")
+  val out = new java.io.File("examples/data/correlated_investment.csv")
   val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2"))
 
   def formatParameters(p: DlmParameters) = {

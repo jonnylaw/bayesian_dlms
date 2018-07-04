@@ -26,21 +26,21 @@ class FfbsBenchmark {
 
   @Benchmark
   def naiveFfbs(mod: ModelState) = {
-    Smoothing.ffbs(mod.model, mod.data, mod.p)
+    Smoothing.ffbsDlm(mod.model, mod.data, mod.p)
   }
 
   @Benchmark
   def svdFfbs(mod: ModelState) = {
-    SvdSampler.ffbs(mod.model, mod.data, mod.p)
+    SvdSampler.ffbsDlm(mod.model, mod.data, mod.p)
   }
 
-  @Benchmark
-  def arrayFfbs(mod: ModelState) = {
-    FilterArray.ffbsNaive(mod.model, mod.data, mod.p)
-  }
+  // @Benchmark
+  // def arrayFfbs(mod: ModelState) = {
+  //   FilterArray.ffbsNaive(mod.model, mod.data, mod.p)
+  // }
 
-  @Benchmark
-  def arrayFfbsSvd(mod: ModelState) = {
-    FilterArray.ffbsSvd(mod.model, mod.data, mod.p)
-  }
+  // @Benchmark
+  // def arrayFfbsSvd(mod: ModelState) = {
+  //   FilterArray.ffbsSvd(mod.model, mod.data, mod.p)
+  // }
 }

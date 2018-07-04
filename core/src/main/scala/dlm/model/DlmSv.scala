@@ -131,7 +131,7 @@ object DlmSv {
     alphas: Vector[(Double, DenseVector[Double])],
     params: Parameters,
     advState: SvParameters => (KfState, Double) => KfState,
-    backStep: SvParameters => (KfState, Smoothing.SamplingState) => Smoothing.SamplingState
+    backStep: SvParameters => (KfState, SamplingState) => SamplingState
   ): Rand[Vector[(Double, DenseVector[Double])]] = {
 
     val times = alphas.map(_._1)
@@ -214,7 +214,7 @@ object DlmSv {
     ys: Vector[Dlm.Data],
     mod: DlmModel,
     advState: SvParameters => (KfState, Double) => KfState,
-    backStep: SvParameters => (KfState, Smoothing.SamplingState) => Smoothing.SamplingState
+    backStep: SvParameters => (KfState, SamplingState) => SamplingState
   ): Rand[State] = {
 
     val vs = initialiseVariances(ys.head.observation.size, ys.size + 1)
@@ -250,7 +250,7 @@ object DlmSv {
     ys: Vector[Dlm.Data],
     mod: DlmModel,
     advState: SvParameters => (KfState, Double) => KfState,
-    backStep: SvParameters => (KfState, Smoothing.SamplingState) => Smoothing.SamplingState
+    backStep: SvParameters => (KfState, SamplingState) => SamplingState
   )(s: State): Rand[State] = {
 
     val vs = getVariances(s.alphas)
@@ -281,7 +281,7 @@ object DlmSv {
     mod: DlmModel,
     initP: Parameters,
     advState: SvParameters => (KfState, Double) => KfState,
-    backStep: SvParameters => (KfState, Smoothing.SamplingState) => Smoothing.SamplingState
+    backStep: SvParameters => (KfState, SamplingState) => SamplingState
   ): Process[State] = {
 
     // initialise the latent state

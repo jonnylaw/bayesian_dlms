@@ -42,7 +42,7 @@ val data = StochasticVolatility.simulate(0, mod, p, 1.0).
 The figure below shows a plot of 100 simulations from a first order DLM with a time varying variance.
 
 ```{r stochastic-volatility-simulated}
-data = read_csv("../core/data/sv_sims.csv")
+data = read_csv("../examples/data/sv_sims.csv")
 
 data %>%
   gather(key, value, -time) %>%
@@ -55,15 +55,14 @@ data %>%
 ```
 
 ```{r stochastic-volatility-parameters}
-iters = read_csv("../core/data/sv_params.csv")
+chain1 = read_csv("../examples/data/sv_params_0.csv", col_names = c("phi", "mu", "sigmaEta"))
+chain2 = read_csv("../examples/data/sv_params_1.csv", col_names = c("phi", "mu", "sigmaEta"))
 
-burn = 1e4
-thin = 20
-params = ggs(mcmc(iters[seq(burn, to = nrow(iters), by = thin),-2]))
+params = ggs(mcmc.list(mcmc(chain1), mcmc(chain2)))
 
 p1 = params %>%
-  ggplot(aes(x = Iteration, y = value)) +
-  geom_line() +
+  ggplot(aes(x = Iteration, y = value, colour = key)) +
+  geom_line(alpha = 0.6) +
   facet_wrap(~Parameter, scales = "free_y")
 
 p2 = params %>% 
@@ -76,8 +75,18 @@ p1 / p2 / p3
 
 ## Heteroskedastic First Order DLM 
 
+A stochastic volatility model can be used to model the variance of a dynamic linear model, allowing for heteroskedasticity.
+
+$$\begin{align}
+Y_t &= F_t \theta_t + v_t, v_t &\sim \textrm{ISV}_p(\phi, \mu, \sigma_\eta), \\
+\theta_t &= G_t \theta_{t-1} + w_t &\sim \mathcal{N}(0, W), \\
+\theta_0 &\sim \mathcal{N}(m_0, C_0).
+\end{align}$$
+
+The observation variance matrix is a $p \times p$ diagonal matrix, with time varying variance.
+
 ```{r dlm-sv-plot}
-sims = read_csv("../core/data/first_order_dlm_var.csv")
+sims = read_csv("../examples/data/first_order_dlm_var.csv")
 
 sims %>%
   gather(key, value, -time) %>%
@@ -90,10 +99,10 @@ sims %>%
 ```
 
 ```{r dlm-sv-parameters}
-iters = read_csv("../core/data/first_order_dlm_var_params.csv")
+iters = read_csv("../examples/data/first_order_dlm_var_params.csv")
 
 burn = 1e3
-thin = 2
+thin = 20
 params = ggs(mcmc(iters[seq(burn, to = nrow(iters), by = thin),]))
 
 p1 = params %>%
@@ -106,9 +115,50 @@ p2 = params %>%
 
 p3 = ggs_density(params) + facet_wrap(~Parameter, ncol = 3)
 
-p1 / p2 / p3
+p1 / p2 / p3 + 
 ```
 
-```{r}
+## Factor Stochastic Volatility Model
 
+A factor structure can be used in order to model a full time varying covariance matrix. This reduces the amount of parameters to learn; if the covariance matrix is $p \times p$ and the number of factors used $k$, then the number of parameters to learn in a model with an AR(1) latent-state is $p \times k - \frac{k}{2}(k + 1) + 3k$. If $k << p$ then this results in a much lower dimensional parameter space.
+
+The factor stochastic volatility model is written as:
+
+$$\begin{align}
+	Y_t &= \beta_t f_t + v_t, v_t &\sim \mathcal{N}(0, V), \\
+	f_t &= \exp\left\{ \frac{alpha_t}{2} \right\}, \quad \sigma \sim \mathcal{N}(0, 1), \\
+	\alpha_t &= \phi \alpha_{t-1} + \eta, \quad \eta \sim \mathcal{N}(0, \sigma_\eta), \\
+	\alpha_0 \sim \mathcal{N}(0, \sigma^2/(1-\phi^2)).
+\end{align}$$
+
+```{r fsv-sims}
+sims = read_csv("../examples/data/fsv_sims.csv")
+
+sims %>%
+    gather(key, value, -time) %>%
+    ggplot(aes(x = time, y = value)) +
+    geom_line() +
+    facet_wrap(~key, scales = "free_y")
+```
+
+```{r fsv-diagnostics}
+gibbs_iters = read_csv("../examples/data/
+chain = mcmc(gibbs_iters[seq(1, nrow(gibbs_iters), by = 10),]) %>%
+  ggs() %>%
+  filter(Parameter %in% c("V", "W"))
+
+p1 = chain %>%
+  inner_join(actual_values) %>%
+  ggplot(aes(x = Iteration, y = value)) +
+  geom_line() +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000", linetype = "dashed") +
+  facet_wrap(~Parameter, scales = "free_y", ncol = 2)
+
+p2 = ggs_autocorrelation(chain)
+
+p3 = ggs_density(chain) +
+  geom_vline(data = actual_values, aes(xintercept = actual_value), colour = "#ff0000") +
+  facet_wrap(~Parameter, scales = "free", ncol = 2)
+
+p1 / p2 / p3
 ```

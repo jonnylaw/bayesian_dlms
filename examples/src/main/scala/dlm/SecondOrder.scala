@@ -21,7 +21,7 @@ trait DlmModel {
 }
 
 trait SimulatedSecondOrderData {
-  val rawData = Paths.get("core/data/second_order_dlm.csv")
+  val rawData = Paths.get("examples/data/second_order_dlm.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
     case Right(a) => Data(a.head, DenseVector(Some(a(1))))
@@ -31,7 +31,7 @@ trait SimulatedSecondOrderData {
 object SimulateSecondOrderDlm extends App with DlmModel {
   val sims = simulateRegular(mod, p, 1.0).steps.take(1000)
 
-  val out = new java.io.File("core/data/second_order_dlm.csv")
+  val out = new java.io.File("examples/data/second_order_dlm.csv")
   val headers = rfc.withHeader("time", "observation", "state_1", "state_2")
   val writer = out.asCsvWriter[List[Double]](headers)
 
@@ -54,7 +54,7 @@ object FilterSecondOrderDlm
 
   val filtered = SvdFilter.filterDlm(mod, data, p)
 
-  val out = new java.io.File("core/data/second_order_dlm_filtered.csv")
+  val out = new java.io.File("examples/data/second_order_dlm_filtered.csv")
 
   def formatFiltered(f: SvdState) = {
     val ct = f.uc * (f.dc.t * f.dc) * f.uc.t
@@ -78,7 +78,7 @@ object SmoothSecondOrderDlm
   val filtered = KalmanFilter.filterDlm(mod, data, p)
   val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
 
-  val out = new java.io.File("core/data/second_order_dlm_smoothed.csv")
+  val out = new java.io.File("examples/data/second_order_dlm_smoothed.csv")
 
   def formatSmoothed(s: Smoothing.SmoothingState) =
     (s.time, s.mean(0), s.covariance.data(0))
@@ -97,7 +97,7 @@ object GibbsSecondOrder
   val iters = sample(mod, priorV, priorW, p, data).steps.take(10000)
 
   // write iters to file
-  val out = new java.io.File("core/data/second_order_dlm_gibbs.csv")
+  val out = new java.io.File("examples/data/second_order_dlm_gibbs.csv")
   val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2"))
 
   def formatParameters(p: DlmParameters) = {
@@ -113,7 +113,7 @@ object GibbsSecondOrder
 }
 
 object GibbsInvestParameters extends App with DlmModel {
-  val rawData = Paths.get("core/data/invest2.dat")
+  val rawData = Paths.get("examples/data/invest2.dat")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader(false))
   val data = reader
     .collect {
@@ -142,7 +142,7 @@ object GibbsInvestParameters extends App with DlmModel {
     .drop(12000)
     .take(12000)
 
-  val out = new java.io.File("core/data/gibbs_spain_investment.csv")
+  val out = new java.io.File("examples/data/gibbs_spain_investment.csv")
   val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2"))
 
   def formatParameters(p: DlmParameters) = {

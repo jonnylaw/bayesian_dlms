@@ -33,7 +33,7 @@ object FilterOu {
   def backwardStep(
     p:        SvParameters,
   )(kfState:  KfState,
-    s:        Smoothing.SamplingState): Smoothing.SamplingState = {
+    s:        SamplingState): SamplingState = {
 
     val dt = s.time - kfState.time
     val phi = exp(-p.phi * dt)
@@ -56,6 +56,6 @@ object FilterOu {
     val cov = diff * ct * diff.t + cgrinv * w * cgrinv.t
     val sample = MultivariateGaussian(mean, cov).draw
 
-    Smoothing.SamplingState(time, sample, kfState.at, kfState.rt)
+    SamplingState(time, sample, kfState.at, kfState.rt)
   }
 }

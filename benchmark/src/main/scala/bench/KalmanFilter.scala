@@ -27,26 +27,29 @@ class KalmanFilterBenchmark {
 
   @Benchmark
   def kalmanFilter(mod: ModelState) = {
-    KalmanFilter.filter(mod.model, mod.data, mod.p)
+    KalmanFilter.filterDlm(mod.model, mod.data, mod.p)
   }
 
-  // @Benchmark
-  // def svdFilter(mod: ModelState) = {
-  //   SvdFilter.filter(mod.model, mod.data, mod.p)
-  // }
+  @Benchmark
+  def svdFilter(mod: ModelState) = {
+    SvdFilter.filterDlm(mod.model, mod.data, mod.p)
+  }
 
-  // @Benchmark
-  // def arrayFilterSvd(mod: ModelState) = {
-  //   FilterArray.filterSvd(mod.model, mod.data, mod.p)
-  // }
+  @Benchmark
+  def arrayFilterSvd(mod: ModelState) = {
+    SvdFilter.filterArray(mod.model, mod.data, mod.p,
+      SvdFilter.advanceState(mod.p, mod.model.g))
 
-  // @Benchmark
-  // def arrayFilter(mod: ModelState) = {
-  //   FilterArray.filterNaive(mod.model, mod.data, mod.p)
-  // }
+  }
+
+  @Benchmark
+  def arrayFilter(mod: ModelState) = {
+    KalmanFilter.filterArray(mod.model, mod.data, mod.p,
+      KalmanFilter.advanceState(mod.p, mod.model.g))
+  }
 
   @Benchmark
   def genFilter(mod: ModelState) = {
-    KalmanFilter.filter(mod.model, mod.data, mod.p)
+    KalmanFilter.filterDlm(mod.model, mod.data, mod.p)
   }
 }
