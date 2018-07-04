@@ -7,7 +7,7 @@ import cats.implicits._
 
 /**
   * Model a heteroskedastic time series DLM by modelling the log-variance
-  * as a latent-state
+  * of the observations as a latent-state
   */
 object DlmSv {
   case class Parameters(dlm: DlmParameters,

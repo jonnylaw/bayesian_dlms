@@ -16,7 +16,7 @@ case class SvParameters(phi: Double, mu: Double, sigmaEta: Double) {
   * Y_t = sigma * exp(a_t / 2), sigma ~ N(0, 1)
   * a_t = phi * a_t + eta, eta ~ N(0, sigma_eta)
   */
-object StochasticVolatility extends {
+object StochasticVolatility {
   private val pis = Array(0.0073, 0.1056, 0.00002, 0.044, 0.34, 0.2457, 0.2575)
   private val means = Array(-11.4, -5.24, -9.84, 1.51, -0.65, 0.53, -2.36)
   private val variances = Array(5.8, 2.61, 5.18, 0.17, 0.64, 0.34, 1.26)
