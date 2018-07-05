@@ -13,12 +13,16 @@ case class DlmModel(f: Double => DenseMatrix[Double],
 
   /**
     * Combine two DLMs into a multivariate DLM
-    * @param y another DLM model
-    * @return a DLM model
+    * @param y another DLM 
+    * @return a multivariate DLM
     */
   def |*|(y: DlmModel): DlmModel =
     Dlm.outerSumModel(self, y)
 
+  /**
+    * Combine two univariate DLMs into a rich univariate DLM
+    * @param y another DLM 
+    */
   def |+|(y: DlmModel): DlmModel =
     Dlm.composeModels(self, y)
 }
@@ -256,11 +260,12 @@ object Dlm extends Simulate[DlmModel, DlmParameters, DenseVector[Double]] {
     * @param p the parameters of the DLM
     * @return a Stream of forecasts
     */
-  def forecast(mod: DlmModel,
-               mt: DenseVector[Double],
-               ct: DenseMatrix[Double],
-               time: Double,
-               p: DlmParameters) = {
+  def forecast(
+    mod: DlmModel,
+    mt: DenseVector[Double],
+    ct: DenseMatrix[Double],
+    time: Double,
+    p: DlmParameters) = {
 
     val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, mt, ct, time, p.v)
 

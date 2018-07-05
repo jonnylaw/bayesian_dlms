@@ -2,7 +2,7 @@ lazy val commonSettings = Seq(
   scalaVersion := "2.12.6",
   name := "bayesian_dlms",
   organization := "com.github.jonnylaw",
-  version := "0.3.2",
+  version := "0.4.0",
   scalacOptions ++= Seq(
     "-encoding", "UTF-8",   // source files are in UTF-8
     "-deprecation",         // warn about use of deprecated APIs

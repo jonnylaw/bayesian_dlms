@@ -23,25 +23,31 @@ object GibbsSampling extends App {
     */
   def sampleObservationMatrix(
     prior: InverseGamma,
-    f: Double => DenseMatrix[Double],
-    ys: Vector[Data],
+    f:     Double => DenseMatrix[Double],
+    ys:    Vector[Data],
     theta: Vector[(Double, DenseVector[Double])]): Rand[DenseMatrix[Double]] = {
 
-    val ssy = (theta zip ys)
+    val ssy: DenseVector[Double] = (theta zip ys)
       .map {
         case ((time, x), y) =>
-          val fm = KalmanFilter.missingF(f, time, y.observation)
-          val yt = KalmanFilter.flattenObs(y.observation)
-          (yt - fm.t * x) *:* (yt - fm.t * x)
+          val ft = f(time).t * x
+          val res: Array[Double] = y.observation.data.zipWithIndex.map { 
+            case (Some(y), i) => (y - ft(i)) * (y - ft(i))
+            case _ => 0.0
+          }
+          DenseVector(res)
       }
       .reduce(_ + _)
 
-    val shape = prior.shape + ys.size * 0.5
-    val rate = ssy.map(ss => prior.scale + ss * 0.5)
+    val ns = ys.map(_.observation.data.toVector).transpose.map(_.flatten.size)
+    val shape = ns map (n => prior.shape + n * 0.5)
+    val rate = ssy.data.map(ss => prior.scale + ss * 0.5)
 
-    val res = rate.map(r => InverseGamma(shape, r).draw)
+    val res = for {
+      (r, s) <- rate zip shape
+    } yield InverseGamma(s, r).draw
 
-    Rand.always(diag(res))
+    Rand.always(diag(DenseVector(res)))
   }
 
   /**
@@ -137,10 +143,7 @@ object GibbsSampling extends App {
     for {
       theta <- Smoothing.ffbs(mod, observations,
         KalmanFilter.advanceState(s.p, mod.g), Smoothing.step(mod, s.p), s.p)
-      newV <- sampleObservationMatrix(priorV,
-                                      mod.f,
-                                      observations,
-                                      theta.toVector)
+      newV <- sampleObservationMatrix(priorV, mod.f, observations, theta.toVector)
       newW <- sampleSystemMatrix(priorW, theta.toVector, mod.g)
     } yield State(s.p.copy(v = newV, w = newW), theta.toVector)
   }

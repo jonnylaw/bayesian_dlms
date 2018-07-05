@@ -205,7 +205,7 @@ object DlmFsvSystem {
         priorPhi, priorSigma, factorState(s.theta, dlm.g), d, k)(fs)
       dlmP = toDlmParameters(s.p, p)
       theta <- SvdSampler.ffbsDlm(dlm, ys, dlmP)
-      newV <- Rand.always(1.0) // sampleObservationVariance(priorV, dlm.f, theta, ys)
+      newV <- sampleObservationVariance(priorV, dlm.f, theta, ys)
       newP = s.p.copy(factors = fs1.params, v = newV)
     } yield State(newP, theta, fs1.factors, fs1.volatility)
   }
@@ -213,8 +213,7 @@ object DlmFsvSystem {
   def initialise(
     params: DlmFsvSystem.Parameters,
     ys:     Vector[Dlm.Data],
-    dlm:    DlmModel
-  ) = {
+    dlm:    DlmModel) = {
 
     val k = params.factors.beta.cols
     val p = ys.head.observation.size

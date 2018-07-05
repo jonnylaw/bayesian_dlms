@@ -131,6 +131,7 @@ class MvnDistribution
     with GeneratorDrivenPropertyChecks
     with Matchers
     with BreezeGenerators {
+
   ignore("MVN distribution") {
     forAll(symmetricPosDefMatrix(2, 1000)) { cov =>
       implicit val tol = 1.0

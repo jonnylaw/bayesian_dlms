@@ -118,16 +118,16 @@ object KalmanFilter extends Filter[KfState, DlmParameters, DlmModel] {
     * Perform a one-step prediction taking into account missing data
     * in the observations, this alters the size of the F-matrix
     * @param fm the observation matrix encoded for missing ness
+    * @param vm the observation variance encoded for missingness
     * @param at the a-priori mean state at time t
     * @param rt the a-priori covariance of the state at time t
-    * @param vm the observation variance encoded for missingness
     */
   def oneStepMissing(
-      fm: DenseMatrix[Double],
-      vm: DenseMatrix[Double],
-      at: DenseVector[Double],
-      rt: DenseMatrix[Double]
-  ) = {
+    fm: DenseMatrix[Double],
+    vm: DenseMatrix[Double],
+    at: DenseVector[Double],
+    rt: DenseMatrix[Double]) = {
+
     val ft = fm.t * at
     val qt = fm.t * rt * fm + vm
 

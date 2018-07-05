@@ -8,6 +8,8 @@ import java.nio.file.Paths
 import cats.implicits._
 import kantan.csv._
 import kantan.csv.ops._
+import plot._
+import com.cibo.evilplot.plot.aesthetics.DefaultTheme._
 
 trait FirstOrderDlm {
   val mod = DlmModel(
@@ -29,22 +31,21 @@ trait SimulatedData {
 }
 
 object SimulateDlm extends App with FirstOrderDlm {
-  val sims = simulateRegular(mod, p, 1.0).steps.take(300)
+  val sims = simulateRegular(mod, p, 1.0).
+    steps.take(300).
+    toVector
 
   val out = new java.io.File("examples/data/first_order_dlm.csv")
   val headers = rfc.withHeader("time", "observation", "state")
-  val writer = out.asCsvWriter[List[Double]](headers)
-
   def formatData(d: (Data, DenseVector[Double])) = d match {
     case (Data(t, y), x) =>
       t :: KalmanFilter.flattenObs(y).data.toList ::: x.data.toList
   }
+  out.writeCsv(sims.map(formatData), headers)
 
-  while (sims.hasNext) {
-    writer.write(formatData(sims.next))
-  }
-
-  writer.close()
+  TimeSeries.plotObservations(sims.map(_._1).map(d => (d.time, d.observation)))
+    .render()
+    .write(new java.io.File("figures/first_order.png"))
 }
 
 object FilterDlm extends App with FirstOrderDlm with SimulatedData {

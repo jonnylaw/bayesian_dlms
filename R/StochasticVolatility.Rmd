@@ -58,7 +58,8 @@ data %>%
 chain1 = read_csv("../examples/data/sv_params_0.csv", col_names = c("phi", "mu", "sigmaEta"))
 chain2 = read_csv("../examples/data/sv_params_1.csv", col_names = c("phi", "mu", "sigmaEta"))
 
-params = ggs(mcmc.list(mcmc(chain1), mcmc(chain2)))
+indices = seq(from = 10000, to = nrow(chain1), by = 20)
+params = ggs(mcmc.list(mcmc(chain1[indices,]), mcmc(chain2[indices,])))
 
 p1 = params %>%
   ggplot(aes(x = Iteration, y = value, colour = key)) +
