@@ -17,9 +17,9 @@ case class State(time: Double,
     * Perform a single step in the backward sampler using the SVD
     */
   def step(
-    mod: DlmModel,
-    sqrtWInv: DenseMatrix[Double]
-  )(st: SvdState, ss: State) = {
+    mod:      DlmModel,
+    sqrtWInv: DenseMatrix[Double])
+    (st: SvdState, ss: State) = {
 
     val dt = ss.time - st.time
     val dcInv = st.dc.map(1.0 / _)
@@ -46,31 +46,32 @@ case class State(time: Double,
   /**
     * Given a vector containing the SVD filtered results, perform backward sampling
     * @param mod a DLM specification
-    * @param w the system error matrix
-    * @param st
+    * @param w the square root inverse of the system error matrix
+    * @param st the current state
     * @return
     */
-  def sample(mod: DlmModel,
-             w: DenseMatrix[Double],
-             st: Vector[SvdState]): Vector[(Double, DenseVector[Double])] = {
+  def sample(
+    mod: DlmModel,
+    st:  Vector[SvdState],
+    w:   DenseMatrix[Double]): Vector[(Double, DenseVector[Double])] = {
 
-    val sqrtWinv = SvdFilter.sqrtInvSvd(w)
     val init = initialise(st.toArray)
-
-    st.init.scanRight(init)(step(mod, sqrtWinv)).map(a => (a.time, a.theta))
+    st.init.scanRight(init)(step(mod, w)).map(a => (a.time, a.theta))
   }
 
   /**
-    * Perform forward filtering backward sampling using the SVD
+    * Perform forward filtering backward sampling using
+    * the SVD of the covariance matrix
     */
   def ffbs(
     mod: DlmModel,
-    ys: Vector[Dlm.Data],
-    p: DlmParameters,
+    ys:  Vector[Dlm.Data],
+    p:   DlmParameters,
     advState: (SvdState, Double) => SvdState) = {
 
-    val filtered = SvdFilter.filter(mod, ys, p, advState)
-    Rand.always(sample(mod, p.w, filtered))
+    val ps = SvdFilter.transformParams(p)
+    val filtered = SvdFilter.filterDecomp(mod, ys, ps, advState)
+    Rand.always(sample(mod, filtered, ps.w))
   }
 
   /**
@@ -78,10 +79,11 @@ case class State(time: Double,
     */
   def ffbsDlm(
     mod: DlmModel,
-    ys: Vector[Dlm.Data],
-    p: DlmParameters) = {
+    ys:  Vector[Dlm.Data],
+    p:   DlmParameters) = {
 
-    ffbs(mod, ys, p, SvdFilter.advanceState(p, mod.g))
+    val ps = SvdFilter.transformParams(p)
+    ffbs(mod, ys, ps, SvdFilter.advanceState(ps, mod.g))
   }
 
   /**

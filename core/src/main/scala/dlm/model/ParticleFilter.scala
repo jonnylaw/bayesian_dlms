@@ -126,7 +126,7 @@ object ParticleFilter {
   def filter[T[_]: Traverse](model: DglmModel, ys: T[Data], p: DlmParameters, n: Int): T[PfState] = {
 
     val init = initialiseState(model, p, ys, n)
-    Filter.scan(ys, init, step(model, p))
+    Filter.scanLeft(ys, init, step(model, p))
   }
 
   /**

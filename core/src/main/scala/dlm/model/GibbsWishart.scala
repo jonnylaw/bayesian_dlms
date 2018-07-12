@@ -54,7 +54,7 @@ object GibbsWishart {
   }
 
   /**
-    * Perofrm Gibbs Sampling using an Inverse Wishart distribution for the system
+    * Perform Gibbs Sampling using an Inverse Wishart distribution for the system
     * noise matrix
     * @param mod a DLM model specification
     * @param priorV the prior on the observation noise matrix
@@ -71,7 +71,7 @@ object GibbsWishart {
 
     val initState = Smoothing.ffbs(mod, observations, 
       KalmanFilter.advanceState(initParams, mod.g),
-      Smoothing.step(mod, initParams), initParams).draw
+      Smoothing.step(mod, initParams.w), initParams).draw
     val init = GibbsSampling.State(initParams, initState)
 
     MarkovChain(init)(wishartStep(mod, priorV, priorW, observations))

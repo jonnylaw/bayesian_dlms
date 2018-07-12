@@ -143,14 +143,13 @@ object SvdFilter extends Filter[SvdState, DlmParameters, DlmModel] {
     ys:  T[Dlm.Data]) = {
 
     val root = svd(p.c0)
-    val t0 = ys.foldLeft(0.0)((t, d) => math.min(t, d.time))
+    val t0 = ys.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
     val dc0 = root.singularValues.map(math.sqrt)
     val uc0 = root.rightVectors.t
-    val (at, dr, ur) = advState(mod.g, 0.0, p.m0, dc0, uc0, p.w)
 
-    val ft = oneStepForecast(mod.f, p.m0, t0)
+    val ft = oneStepForecast(mod.f, p.m0, t0.get)
 
-    SvdState(t0 - 1, p.m0, dc0, uc0, at, dr, ur, ft)
+    SvdState(t0.get - 1, p.m0, dc0, uc0, p.m0, dc0, uc0, ft)
   }
 
   /**
@@ -185,6 +184,30 @@ object SvdFilter extends Filter[SvdState, DlmParameters, DlmModel] {
     val sqrtVinv = sqrtInvSvd(p.v)
     val sqrtW = sqrtSvd(p.w)
     p.copy(v = sqrtVinv, w = sqrtW)
+  }
+
+  /**
+    * Perform the SVD Filter on a traversable collection
+    */
+  override def filter[T[_]: Traverse](
+    model: DlmModel,
+    ys:    T[Dlm.Data],
+    p:     DlmParameters,
+    advState: (SvdState, Double) => SvdState): T[SvdState] = {
+
+    val ps = transformParams(p)
+    val init = initialiseState(model, ps, ys)
+    Filter.scanLeft(ys, init, step(model, ps, advState))
+  }
+
+  def filterDecomp[T[_]: Traverse](
+    model: DlmModel,
+    ys:    T[Dlm.Data],
+    p:     DlmParameters,
+    advState: (SvdState, Double) => SvdState): T[SvdState] = {
+
+    val init = initialiseState(model, p, ys)
+    Filter.scanLeft(ys, init, step(model, p, advState))
   }
 
   def filterDlm[T[_]: Traverse](

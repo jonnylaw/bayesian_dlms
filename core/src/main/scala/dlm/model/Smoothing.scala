@@ -61,9 +61,17 @@ object Smoothing {
     kfState.scanRight(init)(smoothStep(mod))
   }
 
+  /**
+    * Perform a single step of the Backward Sampling algorithm for a DLM
+    * @param mod a DLM
+    * @param w the system noise covariance matrix
+    * @param kfState the state at the Kalman Filter at time t
+    * @param state the sampling state at time t + 1
+    * @return a sample from the state
+    */
   def step(
     mod: DlmModel,
-    p:   DlmParameters)
+    w:   DenseMatrix[Double])
     (kfState: KfState,
     state:    SamplingState) = {
 
@@ -81,10 +89,10 @@ object Smoothing {
     val mean = mt + cgrinv * (state.sample - at1)
 
     // calculate the updated covariance
-    val n = p.w.cols
+    val n = mt.size
     val identity = DenseMatrix.eye[Double](n)
     val diff = identity - cgrinv * mod.g(dt)
-    val covariance = diff * ct * diff.t + cgrinv * p.w * dt * cgrinv.t
+    val covariance = diff * ct * diff.t + cgrinv * w * dt * cgrinv.t
     val r = (covariance + covariance.t) /:/ 2.0
 
     SamplingState(kfState.time,
@@ -99,13 +107,12 @@ object Smoothing {
     SamplingState(last.time, lastState, last.at, last.rt)
   }
 
-  /**
+   /**
     * Perform backward sampling using 
     */
   def sample(
     mod: DlmModel,
     filtered: Vector[KfState],
-    w: DenseMatrix[Double],
     backStep: (KfState, SamplingState) => SamplingState) = {
 
     def initState = initialise(filtered)
@@ -150,8 +157,14 @@ object Smoothing {
     p: DlmParameters) = {
 
     val filtered = KalmanFilter.filter(mod, observations, p, advState)
-    Rand.always(sample(mod, filtered, p.w, backStep))
+    Rand.always(sample(mod, filtered, backStep))
   }
+
+  def sampleDlm(
+    mod:      DlmModel,
+    filtered: Vector[KfState],
+    w:        DenseMatrix[Double]) =
+    sample(mod, filtered, Smoothing.step(mod, w))
 
   /**
     * Forward filtering backward sampling for a DLM
@@ -164,8 +177,6 @@ object Smoothing {
     ys: Vector[Dlm.Data],
     p: DlmParameters) = {
 
-    Smoothing.ffbs(mod, ys,
-      KalmanFilter.advanceState(p, mod.g),
-      Smoothing.step(mod, p), p)
+    Smoothing.ffbs(mod, ys, KalmanFilter.advanceState(p, mod.g), Smoothing.step(mod, p.w), p)
   }
 }

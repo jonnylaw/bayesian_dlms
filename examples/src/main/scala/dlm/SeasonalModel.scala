@@ -171,9 +171,7 @@ object ForecastSeasonal extends App with SeasonalModel with SeasonalData {
   * Sample the state using FFBS algorithm
   */
 object SampleStatesSeasonal extends App with SeasonalModel with SeasonalData {
-  val sampled = Smoothing.ffbs(mod, data,
-    KalmanFilter.advanceState(p, mod.g),
-    Smoothing.step(mod, p), p).sample(10000)
+  val sampled = Smoothing.ffbsDlm(mod, data, p).sample(10000)
 
   val out = new java.io.File("examples/data/seasonal_dlm_state_2_samples.csv")
   val writer = out.asCsvWriter[List[Double]](rfc.withoutHeader)

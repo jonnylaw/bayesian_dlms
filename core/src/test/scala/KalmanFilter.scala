@@ -1,6 +1,6 @@
 import core.dlm.model._
 import Dlm._
-import breeze.linalg.{DenseMatrix, DenseVector, diag, inv, svd}
+import breeze.linalg.{DenseMatrix, DenseVector, diag, inv}
 import org.scalatest._
 import prop._
 import org.scalactic.Equality
@@ -57,7 +57,7 @@ class KfSpec
     forAll(params) { p =>
       val data = observations(p)
       val filtered = KalmanFilter.filterDlm(mod, data, p)
-      val sampled = Smoothing.sample(mod, filtered, p.w, Smoothing.step(mod, p))
+      val sampled = Smoothing.sample(mod, filtered, (dt: Double) => p.w *:* dt)
 
       assert(sampled.size === filtered.size)
       assert(sampled.map(_._1) === filtered.map(_.time))

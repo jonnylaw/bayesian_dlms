@@ -16,7 +16,7 @@ import scaladsl._
 object SimulateSv extends App {
   // simulate data
   val p = SvParameters(0.8, 1.0, 0.2)
-  val sims = StochasticVolatility.simulate(p).steps.take(300).toVector
+  val sims = StochasticVolatility.simulate(p).steps.take(3000).toVector
 
   // write to file
   val out = new java.io.File("examples/data/sv_sims.csv")
@@ -43,15 +43,14 @@ object FitSv extends App {
   val priorPhi = new Beta(5, 2)
   val priorMu = Gaussian(0.0, 3.0)
 
-  val iters = StochasticVolatility
-    .sampleAr(priorSigma, priorPhi, priorMu, p, data)
+  val iters = StochasticVolatility.sampleAr(priorSigma, priorPhi, priorMu, p, data)
 
   def formatParameters(s: StochasticVolatility.State) = {
     List(s.params.phi, s.params.mu, s.params.sigmaEta)
   }
 
   Streaming.writeParallelChain(
-    iters, 2, 100000, "examples/data/sv_params", formatParameters).
+    iters, 2, 10000, "examples/data/sv_params", formatParameters).
     runWith(Sink.onComplete(_ => system.terminate()))
 }
 

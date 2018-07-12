@@ -225,8 +225,8 @@ object KalmanFilter extends Filter[KfState, DlmParameters, DlmModel] {
                                       p: DlmParameters,
                                       obs: T[Dlm.Data]): KfState = {
 
-    val t0 = obs.foldLeft(0.0)((t0, d) => math.min(t0, d.time)) - 1.0
-    KfState(t0, p.m0, p.c0, p.m0, p.c0, None, None, 0.0)
+    val t0 = obs.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
+    KfState(t0.get - 1.0, p.m0, p.c0, p.m0, p.c0, None, None, 0.0)
   }
 
   /**

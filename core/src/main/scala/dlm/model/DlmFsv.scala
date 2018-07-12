@@ -61,8 +61,7 @@ object DlmFsv {
     as:  Vector[(Double, DenseVector[Double])],
     xs:  Vector[(Double, DenseVector[Double])],
     dlm: DlmModel,
-    p:   Parameters
-  ) = {
+    p:   Parameters) = {
 
     for {
       (a, x) <- as zip xs

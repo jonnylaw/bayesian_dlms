@@ -88,9 +88,7 @@ object SampleStates extends App with FirstOrderDlm with SimulatedData {
 
   outSvd.writeCsv(meanStateSvd, rfc.withHeader("time", "sampled_mean"))
 
-  val sampled = Smoothing.ffbs(mod, data,
-    KalmanFilter.advanceState(p, mod.g),
-    Smoothing.step(mod, p), p).sample(1000)
+  val sampled = Smoothing.ffbsDlm(mod, data, p).sample(1000)
   val meanState = SvdSampler.meanState(sampled)
   val out = new java.io.File("examples/data/first_order_state_sample.csv")
 

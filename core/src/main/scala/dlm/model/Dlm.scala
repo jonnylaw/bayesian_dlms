@@ -116,8 +116,9 @@ object Dlm extends Simulate[DlmModel, DlmParameters, DenseVector[Double]] {
 
     DlmModel(
       (t: Double) => {
-        val m = 1 + x(t.toInt).size
-        new DenseMatrix(m, 1, 1.0 +: x(t.toInt).data)
+        val index = t.toInt - 1
+        val m = 1 + x(index).size
+        new DenseMatrix(m, 1, 1.0 +: x(index).data)
       },
       (dt: Double) => DenseMatrix.eye[Double](2)
     )
@@ -225,7 +226,7 @@ object Dlm extends Simulate[DlmModel, DlmParameters, DenseVector[Double]] {
       params: DlmParameters): (Dlm.Data, DenseVector[Double]) = {
 
     val x0 = MultivariateGaussianSvd(params.m0, params.c0).draw
-    (Dlm.Data(1.0, DenseVector[Option[Double]](None)), x0)
+    (Dlm.Data(0.0, DenseVector[Option[Double]](None)), x0)
   }
 
   /**

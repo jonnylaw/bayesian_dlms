@@ -1,7 +1,6 @@
 package core.dlm.model
 
-import breeze.stats.distributions.MultivariateGaussian
-import breeze.linalg.DenseMatrix
+import breeze.linalg.{DenseMatrix, diag, svd}
 
 object FilterAr {
   /**
@@ -22,29 +21,55 @@ object FilterAr {
       rt = st.ct map (c => p.phi * p.phi * c + p.sigmaEta * p.sigmaEta))
   }
 
-  def backwardStep(
-    p:        SvParameters,
-  )(filtered: KfState,
-    s:        SamplingState) = {
+  /**
+    * Advance the state mean and variance to the a-priori
+    * value of the state at time t
+    * @param st the kalman filter state
+    * @param dt the time difference between observations (1.0)
+    * @param p the parameters of the SV Model
+    * @return the a-priori mean and covariance of the state at time t
+    */
+  def advanceStateSvd(
+    p:  SvParameters)(
+    st: SvdState,
+    dt: Double): SvdState = {
+    
+    if (dt == 0) {
+      st
+    } else {
+      val identity = DenseMatrix.eye[Double](st.mt.size)
+      val g = identity * p.phi
+      val w = identity * (1 / p.sigmaEta)
+      val rt = DenseMatrix.vertcat(diag(st.dc) * st.uc.t * g.t, w *:* math.sqrt(dt))
+      val root = svd(rt)
 
-    // extract elements from kalman state
-    val time = filtered.time
-    val mt = filtered.mt
-    val ct = filtered.ct
-    val at1 = s.at1
-    val rt1 = s.rt1
-
-    val identity = DenseMatrix.eye[Double](mt.size)
-    val g = identity * p.phi
-    val w = identity * p.sigmaEta * p.sigmaEta
-    val cgrinv = (rt1.t \ (g * ct.t)).t
-    val mean = mt + cgrinv * (s.sample - at1)
-
-    val diff = (identity - cgrinv * g)
-    val cov = diff * ct * diff.t + cgrinv * w * cgrinv.t
-    val sample = MultivariateGaussian(mean, cov).draw
-
-    SamplingState(time, sample, filtered.at, filtered.rt)
+      st.copy(at = st.mt map (m => p.mu + p.phi * (m - p.mu)),
+        dr = root.singularValues,
+        ur = root.rightVectors.t)
+    }
   }
 
+  def backStep(params: SvParameters) = {
+    val (mod, p) = StochasticVolatility.ar1Dlm(params)
+    Smoothing.step(mod, p.w) _
+  }
+
+  def sample(
+    params: SvParameters,
+    filtered: Vector[KfState]) = {
+
+    val (mod, p) = StochasticVolatility.ar1Dlm(params)
+
+    Smoothing.sample(mod, filtered, Smoothing.step(mod, p.w))
+  }
+
+  def sampleSvd(
+    params: SvParameters,
+    filtered: Vector[SvdState]) = {
+
+    val (mod, p) = StochasticVolatility.ar1Dlm(params)
+    val sqrtWInv = SvdFilter.sqrtInvSvd(p.w)
+
+    SvdSampler.sample(mod, filtered, sqrtWInv)
+  }
 }

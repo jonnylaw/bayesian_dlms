@@ -5,7 +5,7 @@ import breeze.linalg.{DenseVector, diag, DenseMatrix, sum, cholesky}
 import breeze.stats.distributions._
 import breeze.numerics._
 
-object GibbsSampling extends App {
+object GibbsSampling {
   case class State(
     p: DlmParameters,
     state: Vector[(Double, DenseVector[Double])]
@@ -142,7 +142,7 @@ object GibbsSampling extends App {
     
     for {
       theta <- Smoothing.ffbs(mod, observations,
-        KalmanFilter.advanceState(s.p, mod.g), Smoothing.step(mod, s.p), s.p)
+        KalmanFilter.advanceState(s.p, mod.g), Smoothing.step(mod, s.p.w), s.p)
       newV <- sampleObservationMatrix(priorV, mod.f, observations, theta.toVector)
       newW <- sampleSystemMatrix(priorW, theta.toVector, mod.g)
     } yield State(s.p.copy(v = newV, w = newW), theta.toVector)
@@ -170,7 +170,7 @@ object GibbsSampling extends App {
     val init = for {
       initState <- Smoothing.ffbs(mod, observations,
         KalmanFilter.advanceState(initParams, mod.g),
-        Smoothing.step(mod, initParams), initParams)
+        Smoothing.step(mod, initParams.w), initParams)
     } yield State(initParams, initState)
 
     MarkovChain(init.draw)(dinvGammaStep(mod, priorV, priorW, observations))
@@ -184,10 +184,7 @@ object GibbsSampling extends App {
     
     for {
       theta <- SvdSampler.ffbs(mod, observations, s.p, SvdFilter.advanceState(s.p, mod.g))
-      newV <- sampleObservationMatrix(priorV,
-                                      mod.f,
-                                      observations,
-                                      theta.toVector)
+      newV <- sampleObservationMatrix(priorV, mod.f, observations, theta.toVector)
       newW <- sampleSystemMatrix(priorW, theta.toVector, mod.g)
     } yield State(s.p.copy(v = newV, w = newW), theta.toVector)
   }
@@ -276,7 +273,9 @@ object GibbsSampling extends App {
   }
 
   /**
-    *
+    * Use metropolis hastings to determine the initial state
+    * distribution x0 ~ N(m0, C0)
+    * And Gibbs sampling for the state and observation variance matrices
     */
   def metropSamples(
     proposal: DlmParameters => Rand[DlmParameters],
@@ -289,7 +288,7 @@ object GibbsSampling extends App {
     val init = for {
       initState <- Smoothing.ffbs(mod, observations,
         KalmanFilter.advanceState(initParams, mod.g),
-        Smoothing.step(mod, initParams), initParams)
+        Smoothing.step(mod, initParams.w), initParams)
     } yield State(initParams, initState)
 
     MarkovChain(init.draw)(

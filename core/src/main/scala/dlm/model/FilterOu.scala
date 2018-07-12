@@ -27,9 +27,6 @@ object FilterOu {
       rt = (identity * exp(-p.phi * dt)) * st.ct + (identity * variance))
   }
 
-  /**
-    * A single step of the backward sampler for the OU process
-    */
   def backwardStep(
     p:        SvParameters,
   )(kfState:  KfState,

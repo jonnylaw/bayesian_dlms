@@ -144,7 +144,7 @@ object StudentT {
       case (s, (p, y)) => kalmanStep(p)(s, y)
     }
 
-    Rand.always(Smoothing.sample(mod, filtered, params.w, Smoothing.step(mod, params)))
+    Rand.always(Smoothing.sampleDlm(mod, filtered, params.w))
   }
 
   /**

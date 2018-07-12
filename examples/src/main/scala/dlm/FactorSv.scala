@@ -90,7 +90,7 @@ object FitFsv extends App {
   }
 
   Streaming.writeParallelChain(
-    iters, 2, 100000, "data/factor_sv_gibbs", formatParameters).
+    iters, 2, 100000, "examples/data/factor_sv_gibbs", formatParameters).
     runWith(Sink.onComplete(_ => system.terminate()))
 }
 

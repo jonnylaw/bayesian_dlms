@@ -341,7 +341,7 @@ object FactorSv {
       theseParameters = s.params.factorParams(i)
       factorState = StochasticVolatility.State(theseParameters, thisState)
       theseFactors = extractFactors(s.factors, i)
-      factor = StochasticVolatility.stepAr(priorSigmaEta,
+      factor = StochasticVolatility.stepArSvd(priorSigmaEta,
         priorPhi, priorMu, theseFactors)(factorState)
     } yield factor
 
@@ -465,8 +465,9 @@ object FactorSv {
       i <- Vector.range(0, k)
       fps = initP.factorParams(i)
       fs = extractFactors(factors, i)
-      state = StochasticVolatility.initialState(fps, fs,
-        FilterAr.advanceState(fps), FilterAr.backwardStep(fps)).draw
+      (mod, p) = StochasticVolatility.ar1Dlm(fps)
+      state = StochasticVolatility.initialState(fps, fs, FilterAr.advanceState(fps),
+        Smoothing.step(mod, p.w)).draw
     } yield state
 
     State(initP, factors, combineStates(initState.map(_.toVector)))

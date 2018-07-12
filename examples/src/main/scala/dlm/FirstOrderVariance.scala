@@ -59,7 +59,7 @@ object ParametersFirstOrderVariance
 
   val iters = DlmSv
     .sample(priorW, priorPhi, priorSigma, data, mod, p,
-      FilterAr.advanceState, FilterAr.backwardStep)
+      FilterAr.advanceState, FilterAr.backStep)
     .steps
     .take(100000)
     .map(_.params)
