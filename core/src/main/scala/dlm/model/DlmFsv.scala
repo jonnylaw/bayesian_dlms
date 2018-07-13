@@ -3,7 +3,7 @@ package core.dlm.model
 import breeze.linalg.{DenseVector, DenseMatrix}
 import breeze.stats.distributions._
 import breeze.numerics.exp
-import cats.Applicative
+//import cats.Applicative
 import cats.implicits._
 
 /**
@@ -130,25 +130,6 @@ object DlmFsv {
   )
 
   /**
-    * Helper function for DLM obs
-    */
-  def dlmMinusFactors(
-    obs:    Dlm.Data,
-    factor: (Double, Option[DenseVector[Double]]),
-    beta:   DenseMatrix[Double]): Dlm.Data = {
-
-    // remove all partially missing data
-    val ys = obs.observation.data.toVector.sequence.map { x =>
-      DenseVector(x.toArray)
-    }
-
-    val observation = Applicative[Option].map2(factor._2, ys){
-      (f, y) => y - beta * f }.map(_.data.toVector).sequence
-
-    Dlm.Data(obs.time, DenseVector(observation.toArray))
-  }
-
-  /**
     * Center the observations to taking away the dynamic mean of the series
     * @param observations a vector of observations
     * @param theta the state representing the evolving mean of the process
@@ -188,29 +169,59 @@ object DlmFsv {
     )
   }
 
-  /**
-    * Calculate the difference between the observations y_t and beta * f_t
-    * @param observations a vector of observations
-    * @param factors a vector of factors
-    * @param beta the value of the factor loading matrix
-    * @return a vector containing the difference between observations and 
-    * beta * f_t
-    */
-  def dlmObs(
-    observations: Vector[Dlm.Data],
-    factors:      Vector[(Double, Option[DenseVector[Double]])],
-    beta:         DenseMatrix[Double]) = {
+  // /**
+  //   * Helper function for DLM obs
+  //   */
+  // def dlmMinusFactors(
+  //   obs:    Dlm.Data,
+  //   factor: (Double, Option[DenseVector[Double]]),
+  //   beta:   DenseMatrix[Double]): Dlm.Data = {
 
-    for {
-      (y, f) <- observations zip factors
-    } yield dlmMinusFactors(y, f, beta)
-  }
+  //   // remove all partially missing data
+  //   val ys = obs.observation.data.toVector.sequence.map { x =>
+  //     DenseVector(x.toArray)
+  //   }
+
+  //   val observation = Applicative[Option].map2(factor._2, ys){
+  //     (f, y) => y - beta * f }.map(_.data.toVector).sequence
+
+  //   Dlm.Data(obs.time, DenseVector(observation.toArray))
+  // }
+
+  // /**
+  //   * Calculate the difference between the observations y_t and beta * f_t
+  //   * @param observations a vector of observations
+  //   * @param factors a vector of factors
+  //   * @param beta the value of the factor loading matrix
+  //   * @return a vector containing the difference between observations and 
+  //   * beta * f_t
+  //   */
+  // def dlmObs(
+  //   observations: Vector[Dlm.Data],
+  //   factors:      Vector[(Double, Option[DenseVector[Double]])],
+  //   beta:         DenseMatrix[Double]) = {
+
+  //   for {
+  //     (y, f) <- observations zip factors
+  //   } yield dlmMinusFactors(y, f, beta)
+  // }
 
   def sampleMeanState(
     dlm: DlmModel,
     ys:  Vector[Dlm.Data],
     p:   DlmParameters,
-    vs:  Vector[DenseMatrix[Double]]): Rand[Vector[(Double, DenseVector[Double])]] = ???
+    vs:  Vector[DenseMatrix[Double]]): Rand[Vector[(Double, DenseVector[Double])]] = {
+
+    val ps = vs map (newV => p.copy(v = newV))
+    val init = KalmanFilter.initialiseState(dlm, p, ys)
+
+    val filtered = (ps zip ys).scanLeft(init) {
+      case (s, (p, y)) => KalmanFilter.step(dlm, p,
+        KalmanFilter.advanceState(p, dlm.g))(s, y)
+    }
+
+    Rand.always(Smoothing.sampleDlm(dlm, filtered.toVector, p.w))
+  }
 
   /**
     * Perform a single step of the Gibbs Sampling algorithm
@@ -234,8 +245,7 @@ object DlmFsv {
     for {
       fs1 <- FactorSv.sampleStep(priorBeta, priorSigmaEta, priorMu, priorPhi, 
         priorSigma, factorObs(observations, s.theta, dlm.f), p, k)(fs)
-      // TODO: Check this - build the variances of DLM
-      vs = fs1.factors map { case (t, fo) => ??? }
+      vs = fs1.volatility map { case (t, a) => beta.t * a * beta + s.p.fsv.v }
       theta <- sampleMeanState(dlm, observations, s.p.dlm, vs)
       newW <- GibbsSampling.sampleSystemMatrix(priorW, theta.toVector, dlm.g)
       newP = DlmFsv.Parameters(s.p.dlm.copy(w = newW), fs1.params)
@@ -263,46 +273,12 @@ object DlmFsv {
 
     // initialise the latent state
     val initFactorState = FactorSv.initialiseStateAr(initP.fsv, observations, k)
-    val factors = initFactorState.factors
-    val dObs = dlmObs(observations, factors, beta)
-    val initDlmState = SvdSampler.ffbsDlm(dlm, dObs, initP.dlm).draw
-    val init = State(initP, initDlmState.toVector, factors, initFactorState.volatility)
+    val vs = initFactorState.volatility map { case (t, a) => beta.t * a * beta + initP.fsv.v }
+    val initDlmState = sampleMeanState(dlm, observations, initP.dlm, vs).draw
+    val init = State(initP, initDlmState.toVector,
+      initFactorState.factors, initFactorState.volatility)
 
     MarkovChain(init)(sampleStep(priorBeta, priorSigmaEta, priorPhi, priorMu,
       priorSigma, priorW, observations, dlm, p, k))
   }
-
-  /**
-    * Sample the factors, mean state and volatility while keeping the parameters constant
-    */
-  // def sampleState(
-  //   ys:   Vector[Dlm.Data],
-  //   dlm:    DlmModel,
-  //   params: DlmFsv.Parameters): Process[State] = {
-
-  //   // specify number of factors and dimension of the observation
-  //   val beta = params.fsv.beta
-  //   val k = beta.cols
-  //   val p = beta.rows
-
-  //   // initialise the latent state
-  //   val initFactorState = FactorSv.initialiseState(params.fsv, ys, k)
-  //   val factors = initFactorState.factors
-  //   val dObs = dlmObs(ys, factors, beta)
-  //   val initDlmState = SvdSampler.ffbs(dlm, dObs, params.dlm).draw
-  //   val init = State(params, initDlmState.toVector, factors, initFactorState.volatility)
-
-  //   def step(s: State) = {
-  //     val fs = buildFactorState(s)
-  //     val dObs = dlmObs(ys, s.factors, beta)
-
-  //     for {
-  //       theta <- SvdSampler.ffbs(dlm, dObs, params.dlm)
-  //       factors <- FactorSv.sampleFactors(factorObs(ys, s.theta, dlm.f), params.fsv, s.volatility)
-  //       vol <- FactorSv.sampleVolatilityParams(p, params.fsv)(fs)
-  //     } yield State(s.p, theta.toVector, factors, vol)
-  //   }
-
-  //   MarkovChain(init)(step)
-  // }
 }

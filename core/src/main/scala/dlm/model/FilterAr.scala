@@ -39,8 +39,8 @@ object FilterAr {
     } else {
       val identity = DenseMatrix.eye[Double](st.mt.size)
       val g = identity * p.phi
-      val w = identity * (1 / p.sigmaEta)
-      val rt = DenseMatrix.vertcat(diag(st.dc) * st.uc.t * g.t, w *:* math.sqrt(dt))
+      val sqrtW = identity * p.sigmaEta
+      val rt = DenseMatrix.vertcat(diag(st.dc) * st.uc.t * g.t, sqrtW *:* math.sqrt(dt))
       val root = svd(rt)
 
       st.copy(at = st.mt map (m => p.mu + p.phi * (m - p.mu)),
@@ -59,7 +59,6 @@ object FilterAr {
     filtered: Vector[KfState]) = {
 
     val (mod, p) = StochasticVolatility.ar1Dlm(params)
-
     Smoothing.sample(mod, filtered, Smoothing.step(mod, p.w))
   }
 
@@ -68,7 +67,7 @@ object FilterAr {
     filtered: Vector[SvdState]) = {
 
     val (mod, p) = StochasticVolatility.ar1Dlm(params)
-    val sqrtW = SvdFilter.sqrtSvd(p.w)
+    val sqrtW = p.w map math.sqrt
 
     SvdSampler.sample(mod, filtered, sqrtW)
   }

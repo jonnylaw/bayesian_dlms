@@ -172,7 +172,7 @@ object StochasticVolatility {
     // create vector of parameters
     val ps = vkt map { newV =>
       val sqrtVinv = 1.0 / math.sqrt(newV)
-      val sqrtW = paramsSv.w map (math.sqrt)
+      val sqrtW = paramsSv.w map math.sqrt
       paramsSv.copy(v = DenseMatrix(sqrtVinv), w = sqrtW)
     }
 

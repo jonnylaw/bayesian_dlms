@@ -16,9 +16,9 @@ theme_set(theme_minimal())
 # Simulation
 
 $$\begin{align}
-	Y_t &= \sigma \exp\left\{ \frac{alpha_t}{2} \right\}, \quad \sigma \sim \mathcal{N}(0, 1), \\
-	\alpha_t &= \phi \alpha_{t-1} + \eta, \quad \eta \sim \mathcal{N}(0, \sigma_\eta), \\
-	\alpha_0 \sim \mathcal{N}(0, \sigma^2/(1-\phi^2)).
+	Y_t &= \sigma_t \exp\left\{ \frac{alpha_t}{2} \right\}, & \sigma_t &\sim \mathcal{N}(0, 1), \\
+	\alpha_t &= \mu + \phi (\alpha_{t-1} - \mu) + \eta_t, & \eta_t &\sim \mathcal{N}(0, \sigma_\eta), \\
+	\alpha_0 &\sim \mathcal{N}(0, \sigma^2/(1-\phi^2)).
 \end{align}$$
 
 ```tut:silent
@@ -68,7 +68,10 @@ p1 = params %>%
     theme(legend.position = "none")
 
 p2 = params %>% 
-  ggs_autocorrelation()
+  filter(Chain == 1) %>%
+  ggs_autocorrelation() +
+  theme(legend.position = "none") +
+  facet_wrap(~Parameter, ncol = 3)
 
 p3 = ggs_density(params) + facet_wrap(~Parameter, ncol = 3, scales = "free")
 
@@ -101,8 +104,8 @@ p1 / p2 / p3
 A stochastic volatility model can be used to model the variance of a dynamic linear model, allowing for heteroskedasticity.
 
 $$\begin{align}
-Y_t &= F_t \theta_t + v_t, v_t &\sim \textrm{ISV}_p(\phi, \mu, \sigma_\eta), \\
-\theta_t &= G_t \theta_{t-1} + w_t &\sim \mathcal{N}(0, W), \\
+Y_t &= F_t \theta_t + v_t, &v_t &\sim \textrm{ISV}_p(\phi, \mu, \sigma_\eta), \\
+\theta_t &= G_t \theta_{t-1} + w_t,& w_t &\sim \mathcal{N}(0, W), \\
 \theta_0 &\sim \mathcal{N}(m_0, C_0).
 \end{align}$$
 
@@ -148,10 +151,18 @@ A factor structure can be used in order to model a full time varying covariance 
 The factor stochastic volatility (FSV) model is written as:
 
 $$\begin{align}
-	Y_t &= \beta_t f_t + v_t, v_t &\sim \mathcal{N}(0, V), \\
-	f_t &= \exp\left\{ \frac{alpha_t}{2} \right\}, \quad \sigma \sim \mathcal{N}(0, 1), \\
-	\alpha_t &= \phi \alpha_{t-1} + \eta, \quad \eta \sim \mathcal{N}(0, \sigma_\eta), \\
-	\alpha_0 \sim \mathcal{N}(0, \sigma^2/(1-\phi^2)).
+	Y_t &= \beta^Tf_t + v_t, &v_t &\sim \mathcal{N}(0, V), \\
+	f_t &= \sigma_t\exp\left\{ \frac{\alpha_t}{2} \right\}, & \sigma_t &\sim \mathcal{N}(0, 1), \\
+	\alpha_t &= \mu + \phi (\alpha_{t-1} - \mu) + \eta_t, & \eta_t &\sim \mathcal{N}(0, \sigma_\eta), \\
+	\alpha_0 &\sim \mathcal{N}(0, \sigma^2/(1-\phi^2)).
+\end{align}$$
+
+Where $V$ is a diagonal $p \times p$ matrix. Then the variance of the observations is:
+
+$$\begin{align}
+\operatorname{Var}(Y_t) &= \operatorname{Var}(\beta^Tf_t + v_t) \\
+&= \beta^T\operatorname{Var}(f_t)\beta + \operatorname{Var}(v_t) + 2\beta^T\operatorname{Cov}(f_t, v_t)\beta \\
+&= \beta^T\exp\left\{\alpha_t\right\}\beta + V ???
 \end{align}$$
 
 ```{r fsv-sims}
