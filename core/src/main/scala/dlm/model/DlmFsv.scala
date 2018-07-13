@@ -18,7 +18,10 @@ object DlmFsv {
     */
   case class Parameters(
     dlm: DlmParameters,
-    fsv:  FactorSv.Parameters)
+    fsv: FactorSv.Parameters) {
+
+    def toList = dlm.toList ::: fsv.toList
+  }
 
   /**
     * Simulate a single step in the DLM FSV model
@@ -98,7 +101,7 @@ object DlmFsv {
     * @param dt the time increment between observations
     * @return a vector of observations
     */
-  def simulateRegular(
+  def simulate(
     dlm: DlmModel,
     p:   Parameters
   ) = {
@@ -146,24 +149,6 @@ object DlmFsv {
   }
 
   /**
-    * Calculate the difference between the observations y_t and beta * f_t
-    * @param observations a vector of observations
-    * @param factors a vector of factors
-    * @param beta the value of the factor loading matrix
-    * @return a vector containing the difference between observations and 
-    * beta * f_t
-    */
-  def dlmObs(
-    observations: Vector[Dlm.Data],
-    factors:      Vector[(Double, Option[DenseVector[Double]])],
-    beta:         DenseMatrix[Double]) = {
-
-    for {
-      (y, f) <- observations zip factors
-    } yield dlmMinusFactors(y, f, beta)
-  }
-
-  /**
     * Center the observations to taking away the dynamic mean of the series
     * @param observations a vector of observations
     * @param theta the state representing the evolving mean of the process
@@ -204,6 +189,30 @@ object DlmFsv {
   }
 
   /**
+    * Calculate the difference between the observations y_t and beta * f_t
+    * @param observations a vector of observations
+    * @param factors a vector of factors
+    * @param beta the value of the factor loading matrix
+    * @return a vector containing the difference between observations and 
+    * beta * f_t
+    */
+  def dlmObs(
+    observations: Vector[Dlm.Data],
+    factors:      Vector[(Double, Option[DenseVector[Double]])],
+    beta:         DenseMatrix[Double]) = {
+
+    for {
+      (y, f) <- observations zip factors
+    } yield dlmMinusFactors(y, f, beta)
+  }
+
+  def sampleMeanState(
+    dlm: DlmModel,
+    ys:  Vector[Dlm.Data],
+    p:   DlmParameters,
+    vs:  Vector[DenseMatrix[Double]]): Rand[Vector[(Double, DenseVector[Double])]] = ???
+
+  /**
     * Perform a single step of the Gibbs Sampling algorithm
     * for the DLM FSV model
     */
@@ -225,8 +234,9 @@ object DlmFsv {
     for {
       fs1 <- FactorSv.sampleStep(priorBeta, priorSigmaEta, priorMu, priorPhi, 
         priorSigma, factorObs(observations, s.theta, dlm.f), p, k)(fs)
-      dObs = dlmObs(observations, s.factors, beta)
-      theta <- SvdSampler.ffbsDlm(dlm, dObs, s.p.dlm)
+      // TODO: Check this - build the variances of DLM
+      vs = fs1.factors map { case (t, fo) => ??? }
+      theta <- sampleMeanState(dlm, observations, s.p.dlm, vs)
       newW <- GibbsSampling.sampleSystemMatrix(priorW, theta.toVector, dlm.g)
       newP = DlmFsv.Parameters(s.p.dlm.copy(w = newW), fs1.params)
     } yield State(newP, theta.toVector, fs1.factors, fs1.volatility)

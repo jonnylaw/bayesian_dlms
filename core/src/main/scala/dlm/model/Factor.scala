@@ -7,7 +7,6 @@ import breeze.linalg.{DenseVector, DenseMatrix, diag, svd}
 import breeze.stats.mean
 import breeze.linalg.svd._
 import cats.implicits._
-import core.dlm.model._
 
 /**
   * Model a large covariance matrix using a factor structure
@@ -25,7 +24,10 @@ object FactorSv {
     v:            Double,
     beta:         DenseMatrix[Double],
     factorParams: Vector[SvParameters]
-  )
+  ) {
+
+    def toList = v :: beta.data.toList ::: factorParams.flatMap(_.toList).toList
+  }
 
   /**
     * The state of the Gibbs Sampler
@@ -435,7 +437,8 @@ object FactorSv {
     sigmaY:       Double) = {
 
     val k = beta.cols
-    val precY = diag(DenseVector.fill(beta.rows)(sigmaY))
+    val p = beta.rows
+    val precY = diag(DenseVector.fill(p)(sigmaY))
     val obs = encodePartiallyMissing(observations)
 
     // sample factors independently

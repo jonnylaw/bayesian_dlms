@@ -1,6 +1,6 @@
 package core.dlm.model
 
-import breeze.linalg.{DenseMatrix, DenseVector}
+import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions._
 import scala.math.{sin, cos}
 //import cats.implicits._
@@ -41,6 +41,8 @@ case class DlmParameters(
 
   def |*|(y: DlmParameters): DlmParameters =
     Dlm.outerSumParameters(self, y)
+
+  def toList = DenseVector.vertcat(diag(v), diag(w), m0, diag(c0)).data.toList
 }
 
 /**

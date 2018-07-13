@@ -138,14 +138,14 @@ p2 = params %>%
 
 p3 = ggs_density(params) + facet_wrap(~Parameter, ncol = 3)
 
-p1 / p2 / p3 + 
+p1 / p2 / p3
 ```
 
 ## Factor Stochastic Volatility Model
 
 A factor structure can be used in order to model a full time varying covariance matrix. This reduces the amount of parameters to learn; if the covariance matrix is $p \times p$ and the number of factors used $k$, then the number of parameters to learn in a model with an AR(1) latent-state is $p \times k - \frac{k}{2}(k + 1) + 3k$. If $k << p$ then this results in a much lower dimensional parameter space.
 
-The factor stochastic volatility model is written as:
+The factor stochastic volatility (FSV) model is written as:
 
 $$\begin{align}
 	Y_t &= \beta_t f_t + v_t, v_t &\sim \mathcal{N}(0, V), \\
@@ -182,6 +182,48 @@ p2 = ggs_autocorrelation(chain)
 p3 = ggs_density(chain) +
   geom_vline(data = actual_values, aes(xintercept = actual_value), colour = "#ff0000") +
   facet_wrap(~Parameter, scales = "free", ncol = 2)
+
+p1 / p2 / p3
+```
+
+## Factor Stochastic Volatility with Dynamic Mean
+
+Factor Stochastic volatility models typically model centered data. Combining the DLM with the FSV model allows us to model multivariate non-centered time series.
+
+```{r dlm-fsv-sims}
+sims = read_csv("../examples/data/dlm_fsv_sims.csv")
+
+sims %>%
+    gather(key, value, -time) %>%
+    ggplot(aes(x = time, y = value)) +
+    geom_line() +
+    facet_wrap(~key, scales = "free_y")
+```
+
+```{r dlm-fsv-params}
+param_names = c(paste0("v", 1:6),
+                paste0("w", 1:6),
+                paste0("m0", 1:6),
+                paste0("c0", 1:6),
+                "sigma",
+                paste0("beta", 1:12),
+                paste0(c("phi", "mu", "sigma_eta"), rep(1:2, each = 3)))
+chain1 = read_csv("../examples/data/dlm_fsv_params_0.csv", col_names = param_names)
+chain2 = read_csv("../examples/data/dlm_fsv_params_1.csv", col_names = param_names)
+
+indices = seq(from = 1, to = nrow(chain1), by = 10)
+params = ggs(mcmc.list(mcmc(chain1[indices,]), mcmc(chain2[indices,])))
+
+p1 = params %>%
+    ggplot(aes(x = Iteration, y = value, colour = as.factor(Chain))) +
+    geom_line(alpha = 0.6) +
+    facet_wrap(~Parameter, scales = "free_y") +
+    theme(legend.position = "none")
+
+p2 = params %>% 
+  ggs_autocorrelation()
+
+p3 = ggs_density(params) + facet_wrap(~Parameter, ncol = 3, scales = "free")
 
 p1 / p2 / p3
 ```

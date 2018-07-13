@@ -148,7 +148,7 @@ object DlmSv {
   }
 
   /**
-    *
+    * 
     */
   def sampleVolatilityParams(
       priorPhi: ContinuousDistr[Double],
