@@ -341,8 +341,7 @@ object FactorSv {
       theseParameters = s.params.factorParams(i)
       factorState = StochasticVolatility.State(theseParameters, thisState)
       theseFactors = extractFactors(s.factors, i)
-      factor = StochasticVolatility.stepArSvd(priorSigmaEta,
-        priorPhi, priorMu, theseFactors)(factorState)
+      factor = StochasticVolatility.stepAr(priorSigmaEta, priorPhi, priorMu, theseFactors)(factorState)
     } yield factor
 
     for {

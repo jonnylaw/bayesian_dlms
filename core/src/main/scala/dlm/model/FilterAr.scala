@@ -68,8 +68,8 @@ object FilterAr {
     filtered: Vector[SvdState]) = {
 
     val (mod, p) = StochasticVolatility.ar1Dlm(params)
-    val sqrtWInv = SvdFilter.sqrtInvSvd(p.w)
+    val sqrtW = SvdFilter.sqrtSvd(p.w)
 
-    SvdSampler.sample(mod, filtered, sqrtWInv)
+    SvdSampler.sample(mod, filtered, sqrtW)
   }
 }

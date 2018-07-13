@@ -57,7 +57,7 @@ class KfSpec
     forAll(params) { p =>
       val data = observations(p)
       val filtered = KalmanFilter.filterDlm(mod, data, p)
-      val sampled = Smoothing.sample(mod, filtered, (dt: Double) => p.w *:* dt)
+      val sampled = Smoothing.sampleDlm(mod, filtered, p.w)
 
       assert(sampled.size === filtered.size)
       assert(sampled.map(_._1) === filtered.map(_.time))

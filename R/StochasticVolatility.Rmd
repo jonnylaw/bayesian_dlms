@@ -75,6 +75,27 @@ p3 = ggs_density(params) + facet_wrap(~Parameter, ncol = 3, scales = "free")
 p1 / p2 / p3
 ```
 
+```{r stochastic-volatility-parameters-svd}
+chain1 = read_csv("../examples/data/sv_params_svd_0.csv", col_names = c("phi", "mu", "sigmaEta"))
+chain2 = read_csv("../examples/data/sv_params_svd_1.csv", col_names = c("phi", "mu", "sigmaEta"))
+
+indices = seq(from = 1, to = nrow(chain1), by = 10)
+params = ggs(mcmc.list(mcmc(chain1[indices,]), mcmc(chain2[indices,])))
+
+p1 = params %>%
+    ggplot(aes(x = Iteration, y = value, colour = as.factor(Chain))) +
+    geom_line(alpha = 0.6) +
+    facet_wrap(~Parameter, scales = "free_y") +
+    theme(legend.position = "none")
+
+p2 = params %>% 
+  ggs_autocorrelation()
+
+p3 = ggs_density(params) + facet_wrap(~Parameter, ncol = 3, scales = "free")
+
+p1 / p2 / p3
+```
+
 ## Heteroskedastic First Order DLM 
 
 A stochastic volatility model can be used to model the variance of a dynamic linear model, allowing for heteroskedasticity.
@@ -144,7 +165,7 @@ sims %>%
 ```
 
 ```{r fsv-diagnostics}
-gibbs_iters = read_csv("../examples/data/
+gibbs_iters = read_csv("../examples/data/factor_sv_gibbs_0.csv")
 chain = mcmc(gibbs_iters[seq(1, nrow(gibbs_iters), by = 10),]) %>%
   ggs() %>%
   filter(Parameter %in% c("V", "W"))

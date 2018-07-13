@@ -18,17 +18,17 @@ case class State(time: Double,
     */
   def step(
     mod:      DlmModel,
-    sqrtWInv: DenseMatrix[Double])
+    sqrtW: DenseMatrix[Double])
     (st: SvdState, ss: State) = {
 
     val dt = ss.time - st.time
     val dcInv = st.dc.map(1.0 / _)
     val root = svd(
-      DenseMatrix.vertcat(sqrtWInv * mod.g(dt) * st.uc, diag(dcInv)))
+      DenseMatrix.vertcat(sqrtW * mod.g(dt) * st.uc, diag(dcInv)))
     val uh = st.uc * root.rightVectors.t
     val dh = root.singularValues.map(1.0 / _)
 
-    val gWinv = mod.g(dt).t * sqrtWInv.t * sqrtWInv
+    val gWinv = mod.g(dt).t * sqrtW.t * sqrtW
     val du = diag(dh) * uh.t
     val h = st.mt + du.t * du * gWinv * (ss.theta - ss.at1)
 
@@ -46,8 +46,8 @@ case class State(time: Double,
   /**
     * Given a vector containing the SVD filtered results, perform backward sampling
     * @param mod a DLM specification
-    * @param w the square root inverse of the system error matrix
-    * @param st the current state
+    * @param st the filtered state
+    * @param w the square root of the system error matrix
     * @return
     */
   def sample(
@@ -82,8 +82,7 @@ case class State(time: Double,
     ys:  Vector[Dlm.Data],
     p:   DlmParameters) = {
 
-    val ps = SvdFilter.transformParams(p)
-    ffbs(mod, ys, ps, SvdFilter.advanceState(ps, mod.g))
+    ffbs(mod, ys, p, SvdFilter.advanceState(p, mod.g))
   }
 
   /**

@@ -170,7 +170,11 @@ object StochasticVolatility {
     val init = SvdFilter.initialiseState(mod, paramsSv, yt)
 
     // create vector of parameters
-    val ps = vkt map (newV => paramsSv.copy(v = DenseMatrix(newV)))
+    val ps = vkt map { newV =>
+      val sqrtVinv = 1.0 / math.sqrt(newV)
+      val sqrtW = paramsSv.w map (math.sqrt)
+      paramsSv.copy(v = DenseMatrix(sqrtVinv), w = sqrtW)
+    }
 
     val filtered = (ps zip yt).scanLeft(init) {
       case (s, (p, y)) => SvdFilter.step(mod, p, advState)(s, y)
