@@ -43,7 +43,7 @@ object FitSv extends App {
   val priorPhi = new Beta(5, 2)
   val priorMu = Gaussian(0.0, 3.0)
 
-  val iters = StochasticVolatility.sampleArSvd(priorSigma, priorPhi, priorMu, p, data)
+  val iters = StochasticVolatility.sampleAr(priorSigma, priorPhi, priorMu, p, data)
 
   def formatParameters(s: StochasticVolatility.State) = {
     List(s.params.phi, s.params.mu, s.params.sigmaEta)
@@ -54,3 +54,45 @@ object FitSv extends App {
     runWith(Sink.onComplete(_ => system.terminate()))
 }
 
+object SimulateOu extends App {
+  // simulate data
+  val p = SvParameters(0.2, 1.0, 0.3)
+  val times = Stream.iterate(0.1)(t => t + scala.util.Random.nextDouble())
+  val sims = StochasticVolatility.simOu(p, times).take(3000).toVector
+
+  // write to file
+  val out = new java.io.File("examples/data/sv_ou_sims.csv")
+  val headers = rfc.withHeader("time", "observation", "log-variance")
+  def formatData(d: (Double, Option[Double], Double)) = d match {
+    case (t, y, a) => List(t, y.getOrElse(0.0), a)
+  }
+  out.writeCsv(sims.map(formatData), headers)
+}
+
+object FitSvOu extends App {
+  implicit val system = ActorSystem("sv-ou")
+  implicit val materializer = ActorMaterializer()
+
+  val p = SvParameters(0.2, 1.0, 0.3)
+
+  val rawData = Paths.get("examples/data/sv_ou_sims.csv")
+  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
+  val data = reader.collect {
+    case Right(a) => (a.head, a(1).some)
+  }.toVector.
+    drop(1)
+
+  val priorSigma = InverseGamma(10.0, 1.0)
+  val priorPhi = new Beta(2.0, 5.0)
+  val priorMu = Gaussian(1.0, 1.0)
+
+  val iters = StochasticVolatility.sampleOu(priorSigma, priorPhi, priorMu, p, data)
+
+  def formatParameters(s: StochasticVolatility.State) = {
+    List(s.params.phi, s.params.mu, s.params.sigmaEta)
+  }
+
+  Streaming.writeParallelChain(
+    iters, 2, 100000, "examples/data/sv_ou_params", formatParameters).
+    runWith(Sink.onComplete(_ => system.terminate()))
+}

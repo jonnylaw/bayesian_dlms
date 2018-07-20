@@ -274,9 +274,9 @@ object KalmanFilter extends Filter[KfState, DlmParameters, DlmModel] {
   }
 
   /**
-    * Filter the first order autoregressive model
+    * Filter the ornstein-uhlenbeck process
     * Y_t = a_t + v_t, v_t ~ N(0, v)
-    * a_t = mu + phi * (a_t - mu) + eta_t, eta_t ~ N(0, sigmaEta^2)
+    * da_t = phi * (a_t - mu) dt + sigma_eta dW_t
     * @param ys
     */
   def filterOu[T[_]: Traverse](

@@ -1,6 +1,6 @@
 package core.dlm.model
 
-import breeze.linalg.{DenseVector, DenseMatrix}
+import breeze.linalg.{DenseVector, DenseMatrix, diag}
 import breeze.stats.distributions._
 import breeze.numerics.exp
 //import cats.Applicative
@@ -206,6 +206,14 @@ object DlmFsv {
   //   } yield dlmMinusFactors(y, f, beta)
   // }
 
+  /**
+    * Sample the latent-state of the DLM FSV Model
+    * @param dlm the DLM
+    * @param ys a vector of untransformed data
+    * @param p the DLM parameters 
+    * @param vs a vector of variances equal to the length of ys
+    * @return a distribution over possible sampled latent-states
+    */
   def sampleMeanState(
     dlm: DlmModel,
     ys:  Vector[Dlm.Data],
@@ -221,6 +229,21 @@ object DlmFsv {
     }
 
     Rand.always(Smoothing.sampleDlm(dlm, filtered.toVector, p.w))
+  }
+
+  /**
+    * Calculate the variance of the process at a given time
+    * @param beta the factor loading matrix
+    * @param logVol the log-volatility at time t
+    * @param v the entries of the diagonal matrix of the variance
+    * @return the variance of the process at a given time
+    */
+  def volatilityToVariance(
+    beta:   DenseMatrix[Double],
+    logVol: DenseVector[Double],
+    v:      Double): DenseMatrix[Double] = {
+
+    (beta * diag(logVol.map(math.exp)) * beta.t) + diag(DenseVector.fill(beta.rows)(v))x
   }
 
   /**
@@ -245,7 +268,7 @@ object DlmFsv {
     for {
       fs1 <- FactorSv.sampleStep(priorBeta, priorSigmaEta, priorMu, priorPhi, 
         priorSigma, factorObs(observations, s.theta, dlm.f), p, k)(fs)
-      vs = fs1.volatility map { case (t, a) => beta.t * a * beta + s.p.fsv.v }
+      vs = fs1.volatility map { case (t, a) => volatilityToVariance(beta, a, s.p.fsv.v) }
       theta <- sampleMeanState(dlm, observations, s.p.dlm, vs)
       newW <- GibbsSampling.sampleSystemMatrix(priorW, theta.toVector, dlm.g)
       newP = DlmFsv.Parameters(s.p.dlm.copy(w = newW), fs1.params)
@@ -273,7 +296,7 @@ object DlmFsv {
 
     // initialise the latent state
     val initFactorState = FactorSv.initialiseStateAr(initP.fsv, observations, k)
-    val vs = initFactorState.volatility map { case (t, a) => beta.t * a * beta + initP.fsv.v }
+    val vs = initFactorState.volatility map { case (t, a) => volatilityToVariance(beta, a, initP.fsv.v) }
     val initDlmState = sampleMeanState(dlm, observations, initP.dlm, vs).draw
     val init = State(initP, initDlmState.toVector,
       initFactorState.factors, initFactorState.volatility)

@@ -130,7 +130,8 @@ object DlmSv {
     mod: DlmModel,
     alphas: Vector[(Double, DenseVector[Double])],
     params: Parameters,
-    advState: SvParameters => (KfState, Double) => KfState): Rand[Vector[(Double, DenseVector[Double])]] = {
+    advState: SvParameters => (KfState, Double) => KfState,
+    backStep: SvParameters => (KfState, SamplingState) => SamplingState) = {
 
     val times = alphas.map(_._1)
     val vs = takeMean(mod, thetas, ys)
@@ -141,7 +142,8 @@ object DlmSv {
         .transpose
         .zip(alphas.map(_._2.data.toVector).transpose)
         .zip(params.sv)
-      a1 = StochasticVolatility.sampleState(times zip v, times zip a, ps, advState(ps))
+      dlmP = StochasticVolatility.ar1DlmParams(ps)
+      a1 = StochasticVolatility.sampleState(times zip v, times zip a, dlmP, ps.phi, advState(ps), backStep(ps))
     } yield a1.draw.map(_._2)
 
     Rand.always(times zip res.transpose.map(x => DenseVector(x.toArray)))
@@ -223,7 +225,9 @@ object DlmSv {
 
     for {
       alphas <- (params.sv zip yse).traverse {
-        case (pi, y) => StochasticVolatility.initialState(pi, (times zip y), advState(pi), backStep(pi))
+        case (pi, y) =>
+          val dlmP = StochasticVolatility.ar1DlmParams(pi)
+          StochasticVolatility.initialState((times zip y), dlmP, pi.phi, advState(pi), backStep(pi))
       }
       theta = ffbs(vs, ys, params.dlm, SvdFilter.advanceState(params.dlm, mod.g), mod)
     } yield State(combineStates(alphas), theta, params)
@@ -246,13 +250,14 @@ object DlmSv {
     priorSigmaEta: InverseGamma,
     ys: Vector[Dlm.Data],
     mod: DlmModel,
-    advState: SvParameters => (KfState, Double) => KfState
+    advState: SvParameters => (KfState, Double) => KfState,
+    backStep: SvParameters => (KfState, SamplingState) => SamplingState
   )(s: State): Rand[State] = {
 
     val vs = getVariances(s.alphas)
 
     for {
-      alphas <- sampleStates(ys, s.thetas, mod, s.alphas, s.params, advState)
+      alphas <- sampleStates(ys, s.thetas, mod, s.alphas, s.params, advState, backStep)
       pvs = sampleVolatilityParams(priorPhi, priorSigmaEta, alphas, s.params)
       theta = ffbs(vs, ys, s.params.dlm, SvdFilter.advanceState(s.params.dlm, mod.g), mod)
       newW <- GibbsSampling.sampleSystemMatrix(priorW, theta, mod.g)
@@ -282,6 +287,6 @@ object DlmSv {
     // initialise the latent state
     val init = initialiseState(initP, ys, mod, advState, backStep).draw
 
-    MarkovChain(init)(step(priorW, priorPhi, priorSigmaEta, ys, mod, advState))
+    MarkovChain(init)(step(priorW, priorPhi, priorSigmaEta, ys, mod, advState, backStep))
   }
 }

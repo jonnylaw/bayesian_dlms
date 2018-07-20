@@ -50,7 +50,8 @@ object FilterAr {
   }
 
   def backStep(params: SvParameters) = {
-    val (mod, p) = StochasticVolatility.ar1Dlm(params)
+    val mod = Dlm.autoregressive(params.phi)
+    val p = StochasticVolatility.ar1DlmParams(params)
     Smoothing.step(mod, p.w) _
   }
 
@@ -58,16 +59,18 @@ object FilterAr {
     params: SvParameters,
     filtered: Vector[KfState]) = {
 
-    val (mod, p) = StochasticVolatility.ar1Dlm(params)
+    val mod = Dlm.autoregressive(params.phi)
+    val p = StochasticVolatility.ar1DlmParams(params)
     Smoothing.sample(mod, filtered, Smoothing.step(mod, p.w))
   }
 
   def sampleSvd(
-    params: SvParameters,
+    w:        DenseMatrix[Double],
+    phi:      Double,
     filtered: Vector[SvdState]) = {
 
-    val (mod, p) = StochasticVolatility.ar1Dlm(params)
-    val sqrtW = p.w map math.sqrt
+    val mod = Dlm.autoregressive(phi)
+    val sqrtW = w map math.sqrt
 
     SvdSampler.sample(mod, filtered, sqrtW)
   }

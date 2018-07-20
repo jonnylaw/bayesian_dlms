@@ -467,8 +467,10 @@ object FactorSv {
       i <- Vector.range(0, k)
       fps = initP.factorParams(i)
       fs = extractFactors(factors, i)
-      (mod, p) = StochasticVolatility.ar1Dlm(fps)
-      state = StochasticVolatility.initialState(fps, fs, FilterAr.advanceState(fps),
+      p = StochasticVolatility.ar1DlmParams(fps)
+      mod = Dlm.autoregressive(fps.phi)
+      state = StochasticVolatility.initialState(fs, p, fps.phi,
+        FilterAr.advanceState(fps),
         Smoothing.step(mod, p.w)).draw
     } yield state
 
