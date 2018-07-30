@@ -25,6 +25,37 @@ trait MultivariateRegression {
   )
 }
 
+object UnivariateRegression extends App {
+  val n = 300
+  val xs = Array.iterate(0.0, n)(x => x + Uniform(-1, 1).draw).
+    map(x => DenseVector(x))
+  val params = DlmParameters(
+    v = diag(DenseVector.fill(1)(1.0)),
+    w = diag(DenseVector.fill(2)(1.0)),
+    m0 = DenseVector.fill(2)(0.0),
+    c0 = diag(DenseVector.fill(2)(10.0))
+  )
+
+  val sims = Dlm.simulateRegular(Dlm.regression(xs), params, 1.0).
+    steps.
+    take(n).
+    toVector
+  
+  // write to file
+  val out = new java.io.File("examples/data/univariate_regression_sims.csv")
+  val colnames = Seq("time", "observation") ++
+    (1 to 2).map(i => s"state_$i") ++ Seq("covariate")
+
+  val headers = rfc.withHeader(colnames: _*)
+
+  def formatData(d: ((Dlm.Data, DenseVector[Double]), DenseVector[Double])) = d match {
+    case ((Dlm.Data(t, y), s), x) =>
+      t :: KalmanFilter.flattenObs(y).data.toList ::: s.data.toList ::: x.data.toList
+  }
+
+  out.writeCsv(sims.zip(xs).map(formatData), headers)
+}
+
 /**
   * Simulate a multivariate regression model with 4 observations
   */
