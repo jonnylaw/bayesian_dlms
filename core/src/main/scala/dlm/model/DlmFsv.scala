@@ -206,6 +206,14 @@ object DlmFsv {
   //   } yield dlmMinusFactors(y, f, beta)
   // }
 
+  /**
+    * Sample the latent-state of the DLM FSV Model
+    * @param dlm the DLM
+    * @param ys a vector of untransformed data
+    * @param p the DLM parameters 
+    * @param vs a vector of variances equal to the length of ys
+    * @return a distribution over possible sampled latent-states
+    */
   def sampleMeanState(
     dlm: DlmModel,
     ys:  Vector[Dlm.Data],
@@ -228,6 +236,21 @@ object DlmFsv {
     a:    DenseVector[Double],
     v:    Double): DenseMatrix[Double] = {
     beta.t * a.map(math.exp) * beta + diag(DenseVector.fill(beta.rows)(v))
+  }
+
+  /**
+    * Calculate the variance of the process at a given time
+    * @param beta the factor loading matrix
+    * @param logVol the log-volatility at time t
+    * @param v the entries of the diagonal matrix of the variance
+    * @return the variance of the process at a given time
+    */
+  def volatilityToVariance(
+    beta:   DenseMatrix[Double],
+    logVol: DenseVector[Double],
+    v:      Double): DenseMatrix[Double] = {
+
+    (beta * diag(logVol.map(math.exp)) * beta.t) + diag(DenseVector.fill(beta.rows)(v))x
   }
 
   /**
