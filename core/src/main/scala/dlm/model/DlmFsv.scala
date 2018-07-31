@@ -231,13 +231,6 @@ object DlmFsv {
     Rand.always(Smoothing.sampleDlm(dlm, filtered.toVector, p.w))
   }
 
-  def volatilityToVariance(
-    beta: DenseMatrix[Double],
-    a:    DenseVector[Double],
-    v:    Double): DenseMatrix[Double] = {
-    beta.t * a.map(math.exp) * beta + diag(DenseVector.fill(beta.rows)(v))
-  }
-
   /**
     * Calculate the variance of the process at a given time
     * @param beta the factor loading matrix
@@ -250,7 +243,7 @@ object DlmFsv {
     logVol: DenseVector[Double],
     v:      Double): DenseMatrix[Double] = {
 
-    (beta * diag(logVol.map(math.exp)) * beta.t) + diag(DenseVector.fill(beta.rows)(v))x
+    (beta * diag(logVol.map(math.exp)) * beta.t) + diag(DenseVector.fill(beta.rows)(v))
   }
 
   /**

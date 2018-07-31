@@ -10,14 +10,13 @@ import scala.language.higherKinds
 import Dlm.Data
 
 /**
-  * State of the Particle Filter
+  * State of the Bootstrap Particle Filter
   */
 case class PfState(
-    time: Double,
-    state: Vector[DenseVector[Double]],
-    weights: Vector[Double],
-    ll: Double
-)
+  time:    Double,
+  state:   Vector[DenseVector[Double]],
+  weights: Vector[Double],
+  ll:      Double)
 
 /**
   * The particle filter can be used for inference of
@@ -84,9 +83,8 @@ object ParticleFilter {
     * A single step of the Bootstrap Particle Filter
     */
   def step(mod: DglmModel,
-    p: DlmParameters)
-    (s: PfState,
-    d: Data): PfState = {
+    p:          DlmParameters)
+    (s: PfState, d: Data): PfState = {
 
     val y = KalmanFilter.flattenObs(d.observation)
     val dt = d.time - s.time

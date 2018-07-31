@@ -39,8 +39,8 @@ case class State(time: Double,
 
     val lastState = filtered.last
     State(lastState.time,
-          SvdSampler.rnorm(lastState.mt, lastState.dc, lastState.uc).draw,
-          lastState.at)
+      SvdSampler.rnorm(lastState.mt, lastState.dc, lastState.uc).draw,
+      lastState.at)
   }
 
   /**

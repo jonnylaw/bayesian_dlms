@@ -3,23 +3,25 @@ package examples.dlm
 import core.dlm.model._
 import Dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
-import breeze.stats.distributions.{RandBasis}
+import breeze.stats.distributions.{RandBasis, Gamma}
 import java.nio.file.Paths
 import cats.implicits._
 import kantan.csv._
 import kantan.csv.ops._
 import plot._
 import com.cibo.evilplot.plot.aesthetics.DefaultTheme._
+import math.exp
 
 trait FirstOrderDlm {
   val mod = DlmModel(
     f = (t: Double) => DenseMatrix((1.0)),
     g = (t: Double) => DenseMatrix((1.0))
   )
-  val p = DlmParameters(v = DenseMatrix(2.0),
-                        w = DenseMatrix(3.0),
-                        DenseVector(0.0),
-                        DenseMatrix(1.0))
+  val p = DlmParameters(
+    v = DenseMatrix(2.0),
+    w = DenseMatrix(3.0),
+    DenseVector(0.0),
+    DenseMatrix(1.0))
 }
 
 trait SimulatedData {
@@ -32,7 +34,7 @@ trait SimulatedData {
 
 object SimulateDlm extends App with FirstOrderDlm {
   val sims = simulateRegular(mod, p, 1.0).
-    steps.take(300).
+    steps.take(1000).
     toVector
 
   val out = new java.io.File("examples/data/first_order_dlm.csv")
@@ -43,9 +45,9 @@ object SimulateDlm extends App with FirstOrderDlm {
   }
   out.writeCsv(sims.map(formatData), headers)
 
-  TimeSeries.plotObservations(sims.map(_._1).map(d => (d.time, d.observation)))
-    .render()
-    .write(new java.io.File("figures/first_order.png"))
+  // TimeSeries.plotObservations(sims.map(_._1).map(d => (d.time, d.observation)))
+  //   .render()
+  //   .write(new java.io.File("figures/first_order.png"))
 }
 
 object FilterDlm extends App with FirstOrderDlm with SimulatedData {
@@ -62,6 +64,51 @@ object FilterDlm extends App with FirstOrderDlm with SimulatedData {
                                "state_variance",
                                "one_step_forecast",
                                "one_step_variance")
+
+  out.writeCsv(filtered.map(formatFiltered), headers)
+}
+
+object LiuAndWest extends App with FirstOrderDlm with SimulatedData {
+ // smoothing parameter for the mixture of gaussians, equal to (3 delta - 1) / 2 delta
+  val a = (3 * 0.95 - 1) / 2 * 0.95
+
+  val prior = for {
+    v <- InverseGamma(3.0, 3.0)
+    w <- InverseGamma(3.0, 3.0)
+  } yield DlmParameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)
+
+  val filtered = LiuAndWestFilter(200, prior, a).filter(mod, data, p,
+    LiuAndWestFilter.advanceState(p, mod))
+
+  val out = new java.io.File("examples/data/liuandwest_filtered.csv")
+
+  def formatFiltered(s: PfStateParams): List[Double] = {
+    List(s.time) ++ LiuAndWestFilter.meanState(s.state).data.toList ++
+    LiuAndWestFilter.meanParameters(s.params map(_.map(exp))).toList ++
+    LiuAndWestFilter.varParameters(s.params map(_.map(exp))).data.toList
+  }
+  val headers = rfc.withHeader("time", "state_mean", "v_mean", "w_mean", "m0_mean", "c0_mean",
+    "v_variance", "w_variance", "m0_variance", "c0_variance")
+
+  out.writeCsv(filtered.map(formatFiltered), headers)
+}
+
+object ConjFilter extends App with FirstOrderDlm with SimulatedData {
+  val prior = Gamma(1.0, 0.01)
+  val filtered = ConjugateFilter(prior).filter(mod, data, p, ConjugateFilter.advanceState(p, mod.g))
+
+  val out = new java.io.File("examples/data/first_order_dlm_conjugate_filtered.csv")
+
+  def formatFiltered(s: GammaState) = {
+    List(s.time, s.mt(0), s.ct(0,0), s.precision.mean, s.precision.shape, s.precision.scale)
+  }
+
+  val headers = rfc.withHeader("time",
+    "state_mean",
+    "state_variance",
+    "mean_precision",
+    "precision_shape",
+    "precision_scale")
 
   out.writeCsv(filtered.map(formatFiltered), headers)
 }

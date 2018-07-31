@@ -1,7 +1,7 @@
 package core.dlm
 
 import breeze.linalg.{DenseVector, DenseMatrix}
-import breeze.stats.distributions.Rand
+import breeze.stats.distributions.{Rand, MultivariateGaussian, Gaussian}
 import cats._
 
 package object model {
@@ -17,8 +17,12 @@ package object model {
       dlmModel.f,
       dlmModel.g,
       (v: DenseMatrix[Double]) =>
-        (x: DenseVector[Double], y: DenseVector[Double]) =>
-          MultivariateGaussianSvd(x, v).logPdf(y)
+      (x: DenseVector[Double], y: DenseVector[Double]) =>
+      if (y.size == 1) {
+        Gaussian(x(0), v(0,0)).logPdf(y(0))
+      } else {
+        MultivariateGaussian(x, v).logPdf(y)
+      }
     )
   }
 

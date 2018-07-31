@@ -102,22 +102,25 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
     )
   }
 
-  def stepState(model: DglmModel,
-                params: DlmParameters,
-                state: DenseVector[Double],
-                dt: Double): Rand[DenseVector[Double]] = {
+  def stepState(
+    model: DglmModel,
+    params: DlmParameters,
+    state: DenseVector[Double],
+    dt: Double): Rand[DenseVector[Double]] = {
 
     for {
-      w <- MultivariateGaussianSvd(DenseVector.zeros[Double](params.w.cols),
-                                   params.w * dt)
+      w <- MultivariateGaussianSvd(
+        DenseVector.zeros[Double](params.w.cols),
+        params.w * dt)
       x1 = model.g(dt) * state + w
     } yield x1
   }
 
-  def observation(model: DglmModel,
-                  params: DlmParameters,
-                  state: DenseVector[Double],
-                  time: Double): Rand[DenseVector[Double]] = {
+  def observation(
+    model: DglmModel,
+    params: DlmParameters,
+    state: DenseVector[Double],
+    time: Double): Rand[DenseVector[Double]] = {
 
     model.observation(state, params.v)
   }
@@ -125,6 +128,7 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
   def initialiseState(
       model: DglmModel,
       params: DlmParameters): (Dlm.Data, DenseVector[Double]) = {
+
     val initState = MultivariateGaussianSvd(params.m0, params.c0).draw
     (Data(0, DenseVector[Option[Double]](None)), initState)
   }

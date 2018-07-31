@@ -39,6 +39,9 @@ case class DlmParameters(
   def map(f: Double => Double) =
     DlmParameters(v.map(f), w.map(f), m0.map(f), c0.map(f))
 
+  def add(p: DlmParameters) =
+    p.copy(v = p.v + v, w = p.w + w, m0 = p.m0 + m0, c0 = p.c0 + c0)
+
   def |*|(y: DlmParameters): DlmParameters =
     Dlm.outerSumParameters(self, y)
 
