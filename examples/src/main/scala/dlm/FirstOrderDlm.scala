@@ -94,21 +94,41 @@ object LiuAndWest extends App with FirstOrderDlm with SimulatedData {
 }
 
 object ConjFilter extends App with FirstOrderDlm with SimulatedData {
-  val prior = Gamma(1.0, 0.01)
+  val prior = InverseGamma(3.0, 3.0)
   val filtered = ConjugateFilter(prior).filter(mod, data, p, ConjugateFilter.advanceState(p, mod.g))
 
   val out = new java.io.File("examples/data/first_order_dlm_conjugate_filtered.csv")
 
   def formatFiltered(s: GammaState) = {
-    List(s.time, s.mt(0), s.ct(0,0), s.precision.mean, s.precision.shape, s.precision.scale)
+    List(s.time, s.mt(0), s.ct(0,0), s.variance.head.mean, s.variance.head.variance)
   }
 
   val headers = rfc.withHeader("time",
     "state_mean",
     "state_variance",
-    "mean_precision",
-    "precision_shape",
-    "precision_scale")
+    "v_mean",
+    "v_variance")
+
+  out.writeCsv(filtered.map(formatFiltered), headers)
+}
+
+object Storvik extends App with FirstOrderDlm with SimulatedData {
+  val priorV = InverseGamma(3.0, 3.0)
+  val priorW = InverseGamma(3.0, 3.0)
+  val n = 300
+  val advState = (p: StorvikState, dt: Double) => p
+  val filtered = StorvikFilter(n, priorW, priorV).filter(mod, data, p, advState)
+
+  val out = new java.io.File("examples/data/fo_storvik_filtered.csv")
+
+  def formatFiltered(s: StorvikState): List[Double] = {
+    List(s.time) ++ LiuAndWestFilter.meanState(s.state).data.toList ++
+    LiuAndWestFilter.meanParameters(s.params).toList ++
+    LiuAndWestFilter.varParameters(s.params).data.toList
+  }
+
+  val headers = rfc.withHeader("time", "state_mean", "v_mean", "w_mean", "m0_mean", "c0_mean",
+    "v_variance", "w_variance", "m0_variance", "c0_variance")
 
   out.writeCsv(filtered.map(formatFiltered), headers)
 }

@@ -77,7 +77,7 @@ case class LiuAndWestFilter(n: Int, prior: Rand[DlmParameters], a: Double)
     val max = logAuxWeights.max
     val auxWeights = logAuxWeights map (a => exp(a - max))
 
-    val auxVars = ParticleFilter.resample(x.weights.indices.toVector, auxWeights)
+    val auxVars = ParticleFilter.multinomialResample(x.weights.indices.toVector, auxWeights)
 
     // propose new log-parameters
     val newParams = for {
@@ -115,7 +115,7 @@ case class LiuAndWestFilter(n: Int, prior: Rand[DlmParameters], a: Double)
 
 object LiuAndWestFilter {
   /**
-    * Advance the state mean and variance to the a-priori
+    * Advance the state particles to the a-priori
     * value of the state at time t
     * @param s the current state of the Kalman Filter
     * @param dt the time increment
@@ -143,6 +143,24 @@ object LiuAndWestFilter {
 
   def meanState(v: Vector[DenseVector[Double]]): DenseVector[Double] =
     v.reduce(_ + _).map(_ / v.size)
+
+  def varState(v: Vector[DenseVector[Double]]): DenseVector[Double] = ???
+
+  /**
+    * Determine the credible intervals of a collection of samples of DenseVectors
+    * @param
+    */
+  def credibleIntervals(
+    xs:       Vector[DenseVector[Double]],
+    interval: Double): Vector[(Double, Double)] = {
+
+    for {
+      x <- xs.map(_.data.toVector).transpose
+      n = xs.size
+      upper = math.floor(n * interval).toInt
+      lower = n - upper
+    } yield (x(lower), x(upper))
+  }
 
   /**
     * Calculate the mean of the parameter particles

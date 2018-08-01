@@ -172,14 +172,14 @@ object KalmanFilter extends Filter[KfState, DlmParameters, DlmModel] {
 
       val residual = y - predicted
 
-      val kalman_gain = (predcov.t \ (fm.t * rt.t)).t
-      val mt1 = at + kalman_gain * residual
+      val kalmanGain = (predcov.t \ (fm.t * rt.t)).t
+      val mt1 = at + kalmanGain * residual
       val n = mt1.size
 
       val identity = DenseMatrix.eye[Double](n)
 
-      val diff = (identity - kalman_gain * fm.t)
-      val covariance = diff * rt * diff.t + kalman_gain * vm * kalman_gain.t
+      val diff = (identity - kalmanGain * fm.t)
+      val covariance = diff * rt * diff.t + kalmanGain * vm * kalmanGain.t
       val newll = ll + conditionalLikelihood(predicted, predcov, y)
 
       (ft, qt, mt1, covariance, newll)

@@ -19,7 +19,7 @@ package object model {
       (v: DenseMatrix[Double]) =>
       (x: DenseVector[Double], y: DenseVector[Double]) =>
       if (y.size == 1) {
-        Gaussian(x(0), v(0,0)).logPdf(y(0))
+        Gaussian(x(0), math.sqrt(v(0,0))).logPdf(y(0))
       } else {
         MultivariateGaussian(x, v).logPdf(y)
       }

@@ -1,6 +1,6 @@
 package core.dlm.model
 
-import breeze.linalg.{DenseMatrix, DenseVector}
+import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions._
 import cats.Traverse
 import cats.implicits._
@@ -25,13 +25,13 @@ case class GammaState(
   rt:        DenseMatrix[Double],
   ft:        Option[DenseVector[Double]],
   qt:        Option[DenseMatrix[Double]],
-  precision: Gamma,
+  variance:  Vector[InverseGamma],
   ll:        Double)
 
 /**
   * Calculate an one-dimensional unknown observation variance 
   */
-case class ConjugateFilter(prior: Gamma) extends Filter[GammaState, DlmParameters, DlmModel] {
+case class ConjugateFilter(prior: InverseGamma) extends Filter[GammaState, DlmParameters, DlmModel] {
 
   def initialiseState[T[_]: Traverse](
     model: DlmModel,
@@ -39,7 +39,30 @@ case class ConjugateFilter(prior: Gamma) extends Filter[GammaState, DlmParameter
     ys: T[Dlm.Data]): GammaState = {
 
     val t0 = ys.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
-    GammaState(t0.get - 1.0, p.m0, p.c0, p.m0, p.c0, None, None, prior, 0.0)
+    val p0 = Vector.fill(p.v.cols)(prior)
+    GammaState(t0.get - 1.0, p.m0, p.c0, p.m0, p.c0, None, None, p0, 0.0)
+  }
+
+  def diagonal(m: DenseMatrix[Double]): Vector[Double] = {
+    for {
+      i <- Vector.range(0, m.cols)
+    } yield m(i, i)
+  }
+
+  def updateStats(
+    prior: Vector[InverseGamma],
+    qt:    DenseMatrix[Double],
+    e:     DenseVector[Double],
+    v:     DenseMatrix[Double]): Vector[InverseGamma] = {
+
+    val shapes = prior map (_.shape + 1)
+    val scales = diag(DenseVector(prior.map(_.scale).toArray)) + qt.t \ (v * (e * e.t))
+
+    (diagonal(scales) zip shapes) map { case (sc, sh) => InverseGamma(sh, sc) }
+  }
+
+  def meanVariance(vs: Vector[InverseGamma]): DenseMatrix[Double] = {
+    diag(DenseVector(vs.map(_.mean).toArray))
   }
 
   def step(
@@ -56,11 +79,12 @@ case class ConjugateFilter(prior: Gamma) extends Filter[GammaState, DlmParameter
     val st = advState(s, dt)
 
     // calculate the mean of the forecast distribution for y
-    val v = 1 / s.precision.mean
+    val v = meanVariance(s.variance)
     val ft = f.t * st.at
     val qt = f.t * st.rt * f + v
 
-    // calculate the difference between the mean of the predictive distribution and the actual observation
+    // calculate the difference between the mean of the
+    // predictive distribution and the actual observation
     val y = KalmanFilter.flattenObs(d.observation)
     val e = y - ft
 
@@ -69,23 +93,17 @@ case class ConjugateFilter(prior: Gamma) extends Filter[GammaState, DlmParameter
     val mt1 = st.at + k * e
     val n = mt1.size
 
-    // update the shape parameter of the gamma posterior distribution
-    val shape = s.precision.shape + 1
-
-    // update the rate parameter of the Gamma distribution (rate = 1/scale)
-    val rate = DenseMatrix(1 / s.precision.scale) + qt.t \ (v * (e * e.t))
-
+    val vs = updateStats(s.variance, qt, e, v)
     // compute joseph form update to covariance
     val i = DenseMatrix.eye[Double](n)
-    val covariance = (i - k * f.t) * st.rt * (i - k * f.t).t + k * rate/shape * k.t
+    val covariance = (i - k * f.t) * st.rt * (i - k * f.t).t + k * meanVariance(vs) * k.t
 
     // update the marginal likelihood
     val newll = s.ll + KalmanFilter.conditionalLikelihood(ft, qt, y)
     val m = st.mt + k * e
 
     // In Breeze, Gamma is parameterised using shape and scale (scale = 1/rate)
-    GammaState(d.time, m, covariance, st.at, st.rt,
-      Some(ft), Some(qt), Gamma(shape, 1/rate.data.head), newll)
+    GammaState(d.time, m, covariance, st.at, st.rt,  Some(ft), Some(qt), vs, newll)
   }
 }
 

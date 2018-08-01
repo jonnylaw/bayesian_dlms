@@ -31,7 +31,7 @@ object ParticleGibbs {
       .map(x => (t0 - 1.0, x))
 
     // run the PF to sample the first conditioned state
-    val st = ParticleFilter.filter(model, ys, p, n)
+    val st = ParticleFilter.filter(model, ys, n)(p)
     val ws = st.map(_.weights).toList.last
     val states = st.map(d => d.state.map((d.time, _)).toList).toList
     val conditionedState =
@@ -44,7 +44,7 @@ object ParticleGibbs {
 
     val y = KalmanFilter.flattenObs(d.observation)
     // resample using the previous weights
-    val resampledX = resample(s.states.head.toVector, s.weights.toVector)
+    val resampledX = multinomialResample(s.states.head.toVector, s.weights.toVector)
 
     // advance n-1 states from time t, located at the head of the list
     val x1 =
