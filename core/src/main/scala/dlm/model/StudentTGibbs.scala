@@ -9,7 +9,6 @@ import breeze.stats.distributions._
   * using the fact that the student's t-distribution is an Inverse Gamma mixture of normals
   */
 object StudentT {
-
   /**
     * The state of the Markov chain for the Student's t-distribution
     * gibbs sampler
@@ -39,21 +38,20 @@ object StudentT {
       f: Double => DenseMatrix[Double],
       dof: Int,
       theta: Vector[(Double, DenseVector[Double])],
-      p: DlmParameters
-  ) = {
+      p: DlmParameters) = {
 
     val scale = p.v(0, 0)
     val alpha = (dof + 1) * 0.5
-    val ft = (theta.tail zip ys).map {
-      case ((time, x), y) =>
-        val fm = KalmanFilter.missingF(f, time, y.observation)
-        fm.t * x
-    }
 
-    val flatObservations = ys.map(_.observation).map(KalmanFilter.flattenObs)
-
-    val diff = (flatObservations zip ft)
-      .map { case (y, fr) => (y - fr) *:* (y - fr) }
+    val diff = (ys.map(_.observation) zip theta)
+      .map { case (y, (t, x)) =>
+        val ft = f(t).t * x
+        val res: Array[Double] = y.data.zipWithIndex.map {
+          case (Some(y), i) => (y - ft(i)) * (y - ft(i))
+          case _ => 0.0
+        }
+        DenseVector(res)
+      }
       .map(x => x(0))
 
     val beta = diff.map(d => (dof * scale * 0.5) + d * 0.5)
@@ -67,8 +65,8 @@ object StudentT {
   def sampleNu(
       prop: Int => DiscreteDistr[Int],
       prior: Int => Double,
-      ll: Int => Double
-  ) = { (nu: Int) =>
+      ll: Int => Double) = { (nu: Int) =>
+
     val logMeasure = (nu: Int) => ll(nu) + prior(nu)
 
     for {

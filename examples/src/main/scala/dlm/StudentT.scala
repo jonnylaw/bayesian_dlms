@@ -67,11 +67,7 @@ object StudentTGibbs extends App with StudenttDglm with StudenttData {
   }
 
   Streaming
-    .writeParallelChain(iters,
-                        2,
-                        10000,
-                        "examples/data/student_t_dglm_gibbs",
-                        format)
+    .writeParallelChain(iters, 2, 10000, "examples/data/student_t_dglm_gibbs", format)
     .runWith(Sink.onComplete(_ => system.terminate()))
 }
 
