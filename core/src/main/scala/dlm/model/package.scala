@@ -5,7 +5,6 @@ import breeze.stats.distributions.{Rand, MultivariateGaussian, Gaussian}
 import cats._
 
 package object model {
-
   /**
     * A Gaussian DLM can be implicitly converted to a DGLM
     * Then particle filtering methods can be used on Gaussian Models

@@ -133,6 +133,33 @@ object Storvik extends App with FirstOrderDlm with SimulatedData {
   out.writeCsv(filtered.map(formatFiltered), headers)
 }
 
+object RbFilter extends App with FirstOrderDlm with SimulatedData {
+  val a = 0.01
+
+  val prior = for {
+    v <- InverseGamma(3.0, 3.0)
+    w <- InverseGamma(3.0, 3.0)
+  } yield DlmParameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)
+
+  val n = 500
+  val advState = (p: RbState, dt: Double) => p
+  val filtered = RaoBlackwellFilter(n, prior, a).filter(mod, data, p, advState)
+
+  val out = new java.io.File("examples/data/fo_raoblackwellfilter.csv")
+
+  def formatFiltered(s: RbState): List[Double] = {
+    List(s.time) ++ LiuAndWestFilter.meanState(s.mt).data.toList ++
+    LiuAndWestFilter.meanParameters(s.params map(_.map(exp))).toList ++
+    LiuAndWestFilter.varParameters(s.params map(_.map(exp))).data.toList
+  }
+
+  val headers = rfc.withHeader("time", "state_mean", "v_mean", "w_mean", "m0_mean", "c0_mean",
+    "v_variance", "w_variance", "m0_variance", "c0_variance")
+
+  out.writeCsv(filtered.map(formatFiltered), headers)
+}
+
+
 object SmoothDlm extends App with FirstOrderDlm with SimulatedData {
   val filtered = KalmanFilter.filter(mod, data, p, KalmanFilter.advanceState(p, mod.g))
   val smoothed = Smoothing.backwardsSmoother(mod)(filtered)

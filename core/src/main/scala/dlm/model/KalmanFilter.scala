@@ -34,7 +34,7 @@ object KalmanFilter extends Filter[KfState, DlmParameters, DlmModel] {
     mt: DenseVector[Double],
     ct: DenseMatrix[Double],
     dt: Double,
-    w: DenseMatrix[Double]) = {
+    w: DenseMatrix[Double]): (DenseVector[Double], DenseMatrix[Double]) = {
 
     if (dt == 0) {
       (mt, ct)

@@ -29,7 +29,9 @@ trait StudenttData {
 }
 
 object SimulateStudentT extends App with StudenttDglm {
-  val sims = Dglm.simulateRegular(mod, params, 1.0).steps.take(1000)
+  val sims = Dglm.simulateRegular(mod, params, 1.0).
+    steps.
+    take(1000)
 
   val out = new java.io.File("examples/data/student_t_dglm.csv")
   val header = rfc.withHeader("time", "observation", "state")
@@ -72,24 +74,25 @@ object StudentTGibbs extends App with StudenttDglm with StudenttData {
 }
 
 object StudentTpmmh extends App with StudenttDglm with StudenttData {
-  def prior(p: DlmParameters) = {
-    InverseGamma(21.0, 2.0).logPdf(p.w(0, 0)) +
-      InverseGamma(5.0, 4.0).logPdf(p.v(0, 0))
+  implicit val system = ActorSystem("student-t-gibbs")
+  implicit val materializer = ActorMaterializer()
+
+  val priorW = InverseGamma(21.0, 2.0)
+  val priorV = InverseGamma(5.0, 4.0)
+  val priorNu = Poisson(3)
+  val propNu = (nu: Int) => NegativeBinomial(nu, 0.01)
+  
+  val n = 300
+  val iters = StudentT.samplePmmh(data,
+    priorW, priorV, priorNu, Metropolis.symmetricProposal(0.01),
+    propNu, dlm, n, params, 3)
+
+  def format(s: StudentT.PmmhState) = {
+    DenseVector.vertcat(diag(s.p.v), diag(s.p.w)).data.toList ++
+      List(s.nu.toDouble) ++ List(s.accepted.toDouble)
   }
 
-  val n = 500
-  val iters = Metropolis
-    .dglm(mod, data, Metropolis.symmetricProposal(0.01), prior, params, n)
-    .steps
-    .take(100000)
-    .map(_.parameters)
-
-  def formatParameters(p: DlmParameters) = {
-    DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
-  }
-
-  val headers = rfc.withHeader("scale", "W")
-  Streaming.writeChain(formatParameters,
-                       "examples/data/student_t_dglm_pmmh.csv",
-                       headers)(iters)
+  Streaming
+    .writeParallelChain(iters, 2, 100000, "examples/data/student_t_dglm_pmmh", format)
+    .runWith(Sink.onComplete(_ => system.terminate()))
 }

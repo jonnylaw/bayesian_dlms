@@ -1,7 +1,7 @@
 package core.dlm.model
 
 import cats.implicits._
-import breeze.linalg.{DenseVector, DenseMatrix}
+import breeze.linalg.{DenseVector, DenseMatrix, diag}
 import breeze.stats.distributions._
 
 /**
@@ -18,11 +18,10 @@ object StudentT {
     * @param state the currently sampled state using FFBS
     */
   case class State(
-      p: DlmParameters,
-      variances: Vector[Double],
-      nu: Int,
-      state: Vector[(Double, DenseVector[Double])]
-  )
+    p: DlmParameters,
+    variances: Vector[Double],
+    nu: Int,
+    state: Vector[(Double, DenseVector[Double])])
 
   /**
     * Sample the variances of the Normal distribution
@@ -34,11 +33,11 @@ object StudentT {
     * @return a Rand distribution over the list of N variances
     */
   def sampleVariances(
-      ys: Vector[Dlm.Data],
-      f: Double => DenseMatrix[Double],
-      dof: Int,
-      theta: Vector[(Double, DenseVector[Double])],
-      p: DlmParameters) = {
+    ys: Vector[Dlm.Data],
+    f: Double => DenseMatrix[Double],
+    dof: Int,
+    theta: Vector[(Double, DenseVector[Double])],
+    p: DlmParameters) = {
 
     val scale = p.v(0, 0)
     val alpha = (dof + 1) * 0.5
@@ -63,9 +62,9 @@ object StudentT {
     * Sample the degrees of freedom for the observation distribution
     */
   def sampleNu(
-      prop: Int => DiscreteDistr[Int],
-      prior: Int => Double,
-      ll: Int => Double) = { (nu: Int) =>
+    prop: Int => DiscreteDistr[Int],
+    prior: Int => Double,
+    ll: Int => Double) = { (nu: Int) =>
 
     val logMeasure = (nu: Int) => ll(nu) + prior(nu)
 
@@ -82,9 +81,10 @@ object StudentT {
     * Calculate the log-likelihood of the student's t-distributed model
     * @param
     */
-  def ll(ys: Vector[Dlm.Data],
-         xs: Vector[(Double, DenseVector[Double])],
-         p: DlmParameters)(nu: Int) = {
+  def ll(
+    ys: Vector[Dlm.Data],
+    xs: Vector[(Double, DenseVector[Double])],
+    p: DlmParameters)(nu: Int) = {
 
     val observations: Vector[Option[Vector[Double]]] =
       ys.map(_.observation.data.toVector.sequence)
@@ -148,12 +148,14 @@ object StudentT {
   /**
     * A single step of the Student t-distribution Gibbs Sampler
     */
-  def step(data: Vector[Dlm.Data],
-           priorW: InverseGamma,
-           priorNu: DiscreteDistr[Int],
-           propNu: Int => DiscreteDistr[Int],
-           mod: DglmModel,
-           p: DlmParameters) = { s: State =>
+  def step(
+    data: Vector[Dlm.Data],
+    priorW: InverseGamma,
+    priorNu: DiscreteDistr[Int],
+    propNu: Int => DiscreteDistr[Int],
+    mod: DglmModel,
+    p: DlmParameters) = { s: State =>
+
     val dlm = DlmModel(mod.f, mod.g)
 
     for {
@@ -165,18 +167,76 @@ object StudentT {
     } yield State(s.p.copy(v = DenseMatrix(scale), w = newW), vs, nu, theta)
   }
 
+  case class PmmhState(
+    ll: Double,
+    p:  DlmParameters,
+    nu: Int,
+    accepted: Int)
+
+  /**
+    * Perform a single step of the PMMH algorithm for the Student's t distributed DLM
+    */
+  def stepPmmh(
+    priorW:  ContinuousDistr[Double],
+    priorV:  ContinuousDistr[Double],
+    priorNu: DiscreteDistr[Int],
+    prop:    DlmParameters => Rand[DlmParameters],
+    propNu:  Int => DiscreteDistr[Int],
+    ll:      (DlmParameters, Int) => Double) = { s: PmmhState =>
+
+    val logMeasure = (p: DlmParameters, nu: Int) => ll(p, nu) +
+      priorNu(nu) +
+      diag(p.w).map(wi => priorW.logPdf(wi)).sum +
+      diag(p.v).map(vi => priorV.logPdf(vi)).sum
+
+    for {
+      nu <- propNu(s.nu)
+      propP <- prop(s.p)
+      ll = logMeasure(propP, nu)
+      a = ll + propNu(nu).logProbabilityOf(s.nu) -
+        s.ll - propNu(s.nu).logProbabilityOf(nu)
+      u <- Uniform(0, 1)
+      next = if (math.log(u) < a) {
+        PmmhState(ll, propP, nu, s.accepted + 1)
+      } else {
+        s
+      }
+    } yield next
+  }
+
+  def samplePmmh(
+    data:    Vector[Dlm.Data],
+    priorW:  ContinuousDistr[Double],
+    priorV:  ContinuousDistr[Double],
+    priorNu: DiscreteDistr[Int],
+    prop:    DlmParameters => Rand[DlmParameters],
+    propNu:  Int => DiscreteDistr[Int],
+    model:   DlmModel,
+    n:       Int,
+    initP:   DlmParameters,
+    initNu:  Int): Process[PmmhState] = {
+
+    val mod = (nu: Int) => Dglm.studentT(nu, model)
+    val ll = (p: DlmParameters, nu: Int) =>
+      ParticleFilter.likelihood(mod(nu), data, n)(p)
+
+    val init = PmmhState(-1e99, initP, initNu, 0)
+    MarkovChain(init)(stepPmmh(priorW, priorV, priorNu, prop, propNu, ll))
+  }
+
   /**
     * Perform Gibbs Sampling for the Student t-distributed model
     * @param priorW the prior distribution of the system noise matrix
     * @param mod the DGLM representing the Student's t model
     * @param params the initial parameters
     */
-  def sample(data: Vector[Dlm.Data],
-             priorW: InverseGamma,
-             priorNu: DiscreteDistr[Int],
-             propNu: Int => DiscreteDistr[Int],
-             mod: DglmModel,
-             params: DlmParameters) = {
+  def sample(
+    data: Vector[Dlm.Data],
+    priorW: InverseGamma,
+    priorNu: DiscreteDistr[Int],
+    propNu: Int => DiscreteDistr[Int],
+    mod: DglmModel,
+    params: DlmParameters) = {
 
     val dlm = DlmModel(mod.f, mod.g)
     val initVariances = Vector.fill(data.size)(1.0)

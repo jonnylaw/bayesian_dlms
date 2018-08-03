@@ -40,44 +40,17 @@ case class LiuAndWestFilter(n: Int, prior: Rand[DlmParameters], a: Double)
     PfStateParams(t0.get - 1.0, x0.toVector, w0, p0.toVector)
   }
 
-  /**
-    * Proposal distribution for the logged-parameters psi = (log(v), log(w))
-    * @param p 
-    */
-  def proposal(p: DlmParameters, delta: DenseMatrix[Double]) = {
-    val innov = delta.map(sqrt) * DenseVector(Gaussian(0.0, 1.0).sample(delta.cols).toArray)
-    val newV = diag(p.v) + innov(0 until p.v.cols)
-    val newW = diag(p.w) + innov(p.v.cols until (p.v.cols + p.w.cols))
-
-    p.copy(v = diag(newV), w = diag(newW))
-  }
-
   def step(
     mod:      DglmModel,
     p:        DlmParameters,
     advState: (PfStateParams, Double) => PfStateParams)
     (x:       PfStateParams, d: Dlm.Data): PfStateParams = {
 
-    val meanParams: DlmParameters = meanParameters(x.params)
     val varParams = varParameters(x.params)
-
-    val mi: Vector[DlmParameters] = for {
-      param <- x.params
-      mp = meanParams.map(x => x * (1.0-a))
-      m = param.map(_ * a).add(mp)
-    } yield m
+    val mi = scaleParameters(x.params, a)
 
     val y = KalmanFilter.flattenObs(d.observation)
-    val logAuxWeights = (x.weights, mi, x.state).zipped map { case (weight, param, state) =>
-
-      val ll = mod.conditionalLikelihood(param.v map exp)(state, y)
-      weight + ll
-    }
-
-    val max = logAuxWeights.max
-    val auxWeights = logAuxWeights map (a => exp(a - max))
-
-    val auxVars = ParticleFilter.multinomialResample(x.weights.indices.toVector, auxWeights)
+    val auxVars = auxiliaryVariables(x.weights, x.state, mod, y, mi)
 
     // propose new log-parameters
     val newParams = for {
@@ -114,6 +87,40 @@ case class LiuAndWestFilter(n: Int, prior: Rand[DlmParameters], a: Double)
 }
 
 object LiuAndWestFilter {
+
+  /**
+    * Calculate the auxiliary variables needed for online importance sampling
+    */
+  def auxiliaryVariables(
+    weights: Vector[Double],
+    states: Vector[DenseVector[Double]],
+    mod: DglmModel,
+    y:   DenseVector[Double],
+    mi:  Vector[DlmParameters]): Vector[Int] = {
+
+    val logAuxWeights = (weights, mi, states).zipped map { case (weight, param, state) =>
+      val ll = mod.conditionalLikelihood(param.v map exp)(state, y)
+      weight + ll
+    }
+
+    val max = logAuxWeights.max
+    val auxWeights = logAuxWeights map (a => exp(a - max))
+
+    ParticleFilter.multinomialResample(states.indices.toVector, auxWeights)
+  }
+
+  def scaleParameters(
+    params: Vector[DlmParameters],
+    a: Double): Vector[DlmParameters] = {
+    val meanParams: DlmParameters = meanParameters(params)
+
+    for {
+      param <- params
+      mp = meanParams.map(x => x * (1.0-a))
+      m = param.map(_ * a).add(mp)
+    } yield m
+  }
+
   /**
     * Advance the state particles to the a-priori
     * value of the state at time t
@@ -175,5 +182,17 @@ object LiuAndWestFilter {
   def varParameters(p: Vector[DlmParameters]): DenseVector[Double] = {
     val m = seqToMatrix(p map (x => DenseVector(x.toList.toArray)))
     breeze.stats.variance(m(::, *)).t
+  }
+
+  /**
+    * Proposal distribution for the logged-parameters psi = (log(v), log(w))
+    * @param p 
+    */
+  def proposal(p: DlmParameters, delta: DenseMatrix[Double]) = {
+    val innov = delta.map(sqrt) * DenseVector(Gaussian(0.0, 1.0).sample(delta.cols).toArray)
+    val newV = diag(p.v) + innov(0 until p.v.cols)
+    val newW = diag(p.w) + innov(p.v.cols until (p.v.cols + p.w.cols))
+
+    p.copy(v = diag(newV), w = diag(newW))
   }
 }

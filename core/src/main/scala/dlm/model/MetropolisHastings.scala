@@ -81,8 +81,7 @@ object Metropolis {
   def step[A](
       proposal: A => Rand[A],
       prior: A => Double,
-      likelihood: A => Double
-  )(state: (A, Double)) = {
+      likelihood: A => Double)(state: (A, Double)) = {
 
     MarkovChain.Kernels.metropolis(proposal)((a: A) => prior(a) + likelihood(a))
   }
@@ -92,10 +91,9 @@ object Metropolis {
     * from the previous time step and keeping track of the acceptance ratio
     */
   def mStep[A](
-      proposal: A => Rand[A],
-      prior: A => Double,
-      likelihood: A => Double
-  )(state: State[A]) = {
+    proposal: A => Rand[A],
+    prior: A => Double,
+    likelihood: A => Double)(state: State[A]) = {
 
     for {
       propP <- proposal(state.parameters)
