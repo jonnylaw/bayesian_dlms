@@ -44,12 +44,12 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
   def studentT(nu: Int, mod: DlmModel): DglmModel = {
     DglmModel(
       observation = (x: DenseVector[Double], v: DenseMatrix[Double]) =>
-        ScaledStudentsT(nu, x(0), v(0, 0)).map(DenseVector(_)),
+        ScaledStudentsT(nu, x(0), math.sqrt(v(0, 0))).map(DenseVector(_)),
       mod.f,
       mod.g,
       conditionalLikelihood = (v: DenseMatrix[Double]) =>
         (y: DenseVector[Double], x: DenseVector[Double]) =>
-          ScaledStudentsT(nu, x(0), v(0, 0)).logPdf(y(0))
+          ScaledStudentsT(nu, x(0), math.sqrt(v(0, 0))).logPdf(y(0))
     )
   }
 

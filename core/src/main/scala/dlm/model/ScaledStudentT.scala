@@ -9,8 +9,8 @@ case class ScaledStudentsT(dof: Double, location: Double, scale: Double)(
     with Moments[Double, Double] {
 
   def logNormalizer: Double =
-    -lgamma((dof + 1) * 0.5) + 0.5 * log(math.Pi * dof * scale) + lgamma(
-      dof * 0.5)
+    -lgamma((dof + 1) * 0.5) + 0.5 * log(math.Pi * dof * scale) +
+  lgamma(dof * 0.5)
 
   def unnormalizedLogPdf(x: Double): Double =
     -(dof + 1) * 0.5 * log(

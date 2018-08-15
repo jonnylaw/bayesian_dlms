@@ -151,7 +151,11 @@ object LiuAndWestFilter {
   def meanState(v: Vector[DenseVector[Double]]): DenseVector[Double] =
     v.reduce(_ + _).map(_ / v.size)
 
-  def varState(v: Vector[DenseVector[Double]]): DenseVector[Double] = ???
+  def varState(v: Vector[DenseVector[Double]]): DenseVector[Double] = {
+    val m = seqToMatrix(v)
+    breeze.stats.variance(m(::, *)).t
+  }
+
 
   /**
     * Determine the credible intervals of a collection of samples of DenseVectors

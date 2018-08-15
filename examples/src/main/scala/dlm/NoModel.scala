@@ -49,16 +49,30 @@ object NoStudentTModel extends App with NoData {
   val mod = Dglm.studentT(3, dlm)
   val params = DlmParameters(
     DenseMatrix(3.0),
-    diag(DenseVector.fill(7)(0.1)),
-    DenseVector.fill(7)(0.0),
-    diag(DenseVector.fill(7)(100.0)))
+    diag(DenseVector.fill(13)(0.1)),
+    DenseVector.fill(13)(0.0),
+    diag(DenseVector.fill(13)(100.0)))
 
   val priorW = InverseGamma(3.0, 3.0)
   val priorNu = Poisson(3)
-  val propNu = (nu: Int) => Poisson(nu)
+  // nu is the mean of the negative binomial proposal (A Gamma mixture of Poissons)
+  val propNu = (size: Double) => (nu: Int) => {
+    val prob = nu / (size + nu)
+
+    for {
+      lambda <- Gamma(size, prob / (1 - prob))
+      x <- Poisson(lambda)
+    } yield x + 1
+  }
+
+  val propNuP = (size: Double) => (from: Int, to: Int) => {
+    val r = size
+    val p = from / (r + from)
+    NegativeBinomial(p, r).logProbabilityOf(to)
+  }
 
   val iters = StudentT
-    .sample(data.toVector, priorW, priorNu, propNu, mod, params)
+    .sample(data.toVector, priorW, priorNu, propNu(0.5), propNuP(0.5), mod, params)
 
   def formatParameters(s: StudentT.State) = {
     DenseVector.vertcat(diag(s.p.v), diag(s.p.w)).data.toList
@@ -66,7 +80,7 @@ object NoStudentTModel extends App with NoData {
 
   Streaming
     .writeParallelChain(iters, 2, 100000,
-      "examples/data/no_dglm_seasonal_weekly_student_exact.csv", formatParameters)
+      "examples/data/no_dglm_seasonal_weekly_student_exact", formatParameters)
     .runWith(Sink.onComplete(_ => system.terminate()))
 }
 
@@ -77,9 +91,9 @@ object NoGaussianModel extends App with NoData {
   val dlm = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3) |+| Dlm.seasonal(24 * 7, 3)
   val params = DlmParameters(
     DenseMatrix(3.0),
-    diag(DenseVector.fill(7)(0.1)),
-    DenseVector.fill(7)(0.0),
-    diag(DenseVector.fill(7)(100.0)))
+    diag(DenseVector.fill(13)(0.1)),
+    DenseVector.fill(13)(0.0),
+    diag(DenseVector.fill(13)(100.0)))
 
   val priorW = InverseGamma(3.0, 3.0)
   val priorV = InverseGamma(3.0, 3.0)
@@ -91,7 +105,7 @@ object NoGaussianModel extends App with NoData {
   }
 
   Streaming
-    .writeParallelChain(iters, 2, 100000, "examples/data/no_dlm_seasonal_weekly.csv", formatParameters)
+    .writeParallelChain(iters, 2, 100000, "examples/data/no_dlm_seasonal_weekly", formatParameters)
     .runWith(Sink.onComplete(_ => system.terminate()))
 }
 

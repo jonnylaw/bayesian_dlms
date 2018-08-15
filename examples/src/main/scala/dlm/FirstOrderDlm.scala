@@ -3,7 +3,7 @@ package examples.dlm
 import core.dlm.model._
 import Dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
-import breeze.stats.distributions.{RandBasis, Gamma}
+import breeze.stats.distributions.{RandBasis, Gamma, Rand}
 import java.nio.file.Paths
 import cats.implicits._
 import kantan.csv._
@@ -134,14 +134,16 @@ object Storvik extends App with FirstOrderDlm with SimulatedData {
 }
 
 object RbFilter extends App with FirstOrderDlm with SimulatedData {
-  val a = 0.01
+ // smoothing parameter for the mixture of gaussians, equal to (3 delta - 1) / 2 delta
+  val delta = 0.95
+  val a = (3 * delta - 1) / 2 * delta
 
   val prior = for {
     v <- InverseGamma(3.0, 3.0)
     w <- InverseGamma(3.0, 3.0)
   } yield DlmParameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)
 
-  val n = 500
+  val n = 300
   val advState = (p: RbState, dt: Double) => p
   val filtered = RaoBlackwellFilter(n, prior, a).filter(mod, data, p, advState)
 

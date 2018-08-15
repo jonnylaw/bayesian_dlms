@@ -2,7 +2,7 @@ package examples.dlm
 
 import core.dlm.model._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
-import breeze.stats.distributions.Poisson
+import breeze.stats.distributions.{Poisson, Gamma, NegativeBinomial}
 import java.nio.file.Paths
 import cats.implicits._
 import kantan.csv._
@@ -57,12 +57,27 @@ object StudentTGibbs extends App with StudenttDglm with StudenttData {
   implicit val system = ActorSystem("student-t-gibbs")
   implicit val materializer = ActorMaterializer()
 
-  val priorW = InverseGamma(21.0, 2.0)
+  val priorW = InverseGamma(3.0, 3.0)
   val priorNu = Poisson(3)
-  val propNu = (nu: Int) => NegativeBinomial(nu, 0.01)
+
+  // nu is the mean of the negative binomial proposal (A Gamma mixture of Poissons)
+  val propNu = (size: Double) => (nu: Int) => {
+    val prob = nu / (size + nu)
+
+    for {
+      lambda <- Gamma(size, prob / (1 - prob))
+      x <- Poisson(lambda)
+    } yield x + 1
+  }
+
+  val propNuP = (size: Double) => (from: Int, to: Int) => {
+    val r = size
+    val p = from / (r + from)
+    NegativeBinomial(p, r).logProbabilityOf(to)
+  }
 
   val iters =
-    StudentT.sample(data.toVector, priorW, priorNu, propNu, mod, params)
+    StudentT.sample(data.toVector, priorW, priorNu, propNu(0.5), propNuP(0.5), mod, params)
 
   def format(s: StudentT.State): List[Double] = {
     s.nu.toDouble :: DenseVector.vertcat(diag(s.p.v), diag(s.p.w)).data.toList
@@ -74,18 +89,33 @@ object StudentTGibbs extends App with StudenttDglm with StudenttData {
 }
 
 object StudentTpmmh extends App with StudenttDglm with StudenttData {
-  implicit val system = ActorSystem("student-t-gibbs")
+  implicit val system = ActorSystem("student-t-pmmh")
   implicit val materializer = ActorMaterializer()
 
-  val priorW = InverseGamma(21.0, 2.0)
-  val priorV = InverseGamma(5.0, 4.0)
+  val priorW = InverseGamma(3.0, 3.0)
+  val priorV = InverseGamma(3.0, 3.0)
   val priorNu = Poisson(3)
-  val propNu = (nu: Int) => NegativeBinomial(nu, 0.01)
+
+  // nu is the mean of the negative binomial proposal (A Gamma mixture of Poissons)
+  val propNu = (size: Double) => (nu: Int) => {
+    val prob = nu / (size + nu)
+
+    for {
+      lambda <- Gamma(size, prob / (1 - prob))
+      x <- Poisson(lambda)
+    } yield x + 1
+  }
+
+  val propNuP = (size: Double) => (from: Int, to: Int) => {
+    val r = size
+    val p = from / (r + from)
+    NegativeBinomial(p, r).logProbabilityOf(to)
+  }
   
   val n = 300
   val iters = StudentT.samplePmmh(data,
     priorW, priorV, priorNu, Metropolis.symmetricProposal(0.01),
-    propNu, dlm, n, params, 3)
+    propNu(0.5), propNuP(0.5), dlm, n, params, 3)
 
   def format(s: StudentT.PmmhState) = {
     DenseVector.vertcat(diag(s.p.v), diag(s.p.w)).data.toList ++
