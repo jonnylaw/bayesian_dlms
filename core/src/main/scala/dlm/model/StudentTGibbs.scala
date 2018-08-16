@@ -18,10 +18,11 @@ object StudentT {
     * @param state the currently sampled state using FFBS
     */
   case class State(
-    p: DlmParameters,
+    p:         DlmParameters,
     variances: Vector[Double],
-    nu: Int,
-    state: Vector[(Double, DenseVector[Double])])
+    nu:        Int,
+    state:     Vector[(Double, DenseVector[Double])],
+    accepted:  Int)
 
   /**
     * Sample the variances of the Normal distribution
@@ -60,20 +61,25 @@ object StudentT {
 
   /**
     * Calculate the log-likelihood of the student's t-distributed model
-    * @param
+    * @param mod the Student t DGLM
+    * @param ys a vector of observations
+    * @param xs a sample from the latent-state of the student's t model
+    * @param p the 
     */
   def ll(
+    mod: DglmModel,
     ys: Vector[Dlm.Data],
     xs: Vector[(Double, DenseVector[Double])],
     p: DlmParameters)(nu: Int) = {
 
-    val observations: Vector[Option[Vector[Double]]] =
-      ys.map(_.observation.data.toVector.sequence)
+    // remove partially missing data
+    val observations: Vector[Option[DenseVector[Double]]] =
+      ys.map(x => x.observation.data.toVector.sequence.map(a => DenseVector(a.toArray)))
 
     (xs.tail zip observations)
       .map {
         case ((t, x), Some(y)) =>
-          ScaledStudentsT(nu, x(0), p.v(0, 0)).logPdf(y(0))
+          mod.conditionalLikelihood(p.v)(x, y)
         case (_, None) => 0.0
       }
       .reduce(_ + _)
@@ -133,16 +139,16 @@ object StudentT {
     prop:  Int => Rand[Int],
     propP: (Int, Int) => Double,
     prior: Int => Double,
-    ll: Int => Double) = { (nu: Int) =>
+    likelihood: Int => Double) = { (nu: Int) =>
 
-    val logMeasure = (nu: Int) => ll(nu) + prior(nu)
+    val logMeasure = (nu: Int) => likelihood(nu) + prior(nu)
 
     for {
       propNu <- prop(nu)
       a = logMeasure(propNu) + propP(propNu, nu) -
         logMeasure(nu) - propP(nu, propNu)
       u <- Uniform(0, 1)
-      next = if (math.log(u) < a) propNu else nu
+      next = if (math.log(u) < a) (propNu, true) else (nu, false)
     } yield next
   }
 
@@ -165,8 +171,10 @@ object StudentT {
       newW <- GibbsSampling.sampleSystemMatrix(priorW, theta, mod.g)
       vs = sampleVariances(data, mod.f, s.nu, theta, p)
       scale <- sampleScaleT(s.nu, vs)
-      nu <- sampleNu(propNu, propNuP, priorNu.logProbabilityOf, ll(data, theta, p))(s.nu)
-    } yield State(s.p.copy(v = DenseMatrix(scale), w = newW), vs, nu, theta)
+      (nu, accepted) <- sampleNu(propNu, propNuP,
+        priorNu.logProbabilityOf, ll(mod, data, theta, p))(s.nu)
+    } yield State(s.p.copy(v = DenseMatrix(scale), w = newW), vs, nu, theta,
+      s.accepted + (if (accepted) 1 else 0))
   }
 
   /**
@@ -187,7 +195,7 @@ object StudentT {
     val dlm = DlmModel(mod.f, mod.g)
     val initVariances = Vector.fill(data.size)(1.0)
     val initState = sampleState(initVariances, dlm, data, params)
-    val init = State(params, initVariances, priorNu.draw, initState.draw)
+    val init = State(params, initVariances, priorNu.draw, initState.draw, 0)
 
     MarkovChain(init)(step(data, priorW, priorNu, propNu, propNuP, mod, params))
   }

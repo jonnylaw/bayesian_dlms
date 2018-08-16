@@ -2,13 +2,14 @@ package core.dlm.model
 
 import breeze.stats.distributions._
 import breeze.linalg.{DenseVector, DenseMatrix}
+import breeze.numerics.{lgamma, log}
 import cats.implicits._
 import math.exp
 import breeze.stats.covmat
 import Dlm.Data
 
 /**
-  * A DGLM
+  * A DGLM used for modelling non-linear non-Gaussian univariate time series
   */
 case class DglmModel(
     observation: (DenseVector[Double],
@@ -48,8 +49,72 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
       mod.f,
       mod.g,
       conditionalLikelihood = (v: DenseMatrix[Double]) =>
-        (y: DenseVector[Double], x: DenseVector[Double]) =>
+        (x: DenseVector[Double], y: DenseVector[Double]) =>
           ScaledStudentsT(nu, x(0), math.sqrt(v(0, 0))).logPdf(y(0))
+    )
+  }
+
+  def logit(p: Double): Double =
+    log(p / (1 - p))
+
+  def expit(x: Double): Double =
+    exp(x) / (1 + exp(x))
+
+  /**
+    * Zero inflated Poisson DGLM, the observation variance is the logit of the 
+    * probability of observing a zero
+    * @param mod the DLM model specifying the latent-state
+    */
+  def zip(mod: DlmModel): DglmModel = {
+    DglmModel(
+      observation = (x: DenseVector[Double], v: DenseMatrix[Double]) => {
+        val p = expit(v(0,0))
+        for {
+          u <- Uniform(0, 1)
+          nonZero <- Poisson(exp(x(0)))
+          next = if (u < p) 0 else nonZero
+        } yield DenseVector(next.toDouble)
+      },
+      mod.f,
+      mod.g,
+      conditionalLikelihood = (v: DenseMatrix[Double]) =>
+      (x: DenseVector[Double], y: DenseVector[Double]) => {
+        val obs: Double = y(0)
+        val p = expit(v(0,0))
+        if (math.abs(obs - 0) < 1e-5) { 
+          log(p + (1.0 - p) * exp(-exp(x(0))))
+        } else {
+          -log(1.0 + exp(v(0,0))) + obs * x(0) - exp(x(0)) - lgamma(obs + 1.0)
+        }
+      }
+    )
+  }
+
+  /**
+    * Negative Binomial Model for overdispersed count data
+    */
+  def negativeBinomial(mod: DlmModel): DglmModel = {
+    DglmModel(
+      observation = (x: DenseVector[Double], logv: DenseMatrix[Double]) => {
+        val size = exp(logv(0,0))
+        val prob = exp(x(0)) / (size + exp(x(0)))
+
+        for {
+          lambda <- Gamma(size, prob / (1-prob))
+          x <- Poisson(lambda)
+        } yield DenseVector(x.toDouble)
+      },
+      mod.f,
+      mod.g,
+      conditionalLikelihood = (logv: DenseMatrix[Double]) =>
+      (x: DenseVector[Double], y: DenseVector[Double]) => {
+        val size = exp(logv(0,0))
+        val mu = exp(x(0))
+        val obs: Double = y(0)
+
+        lgamma(size + obs) - lgamma(obs + 1) - lgamma(size) +
+        size * log(size / (mu + size)) + obs * log(mu / (mu + size))
+      }
     )
   }
 

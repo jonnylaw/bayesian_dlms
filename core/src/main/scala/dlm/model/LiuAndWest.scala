@@ -189,8 +189,10 @@ object LiuAndWestFilter {
   }
 
   /**
-    * Proposal distribution for the logged-parameters psi = (log(v), log(w))
-    * @param p 
+    * Multivariate Normal proposal distribution for the logged-parameters psi = (log(v), log(w))
+    * @param p the DLM parameters
+    * @param delta the covariance matrix of the MVN proposal distribution
+    * @return perturbed logged DLM parameters 
     */
   def proposal(p: DlmParameters, delta: DenseMatrix[Double]) = {
     val innov = delta.map(sqrt) * DenseVector(Gaussian(0.0, 1.0).sample(delta.cols).toArray)

@@ -55,6 +55,7 @@ object NoStudentTModel extends App with NoData {
 
   val priorW = InverseGamma(3.0, 3.0)
   val priorNu = Poisson(3)
+
   // nu is the mean of the negative binomial proposal (A Gamma mixture of Poissons)
   val propNu = (size: Double) => (nu: Int) => {
     val prob = nu / (size + nu)
@@ -75,7 +76,7 @@ object NoStudentTModel extends App with NoData {
     .sample(data.toVector, priorW, priorNu, propNu(0.5), propNuP(0.5), mod, params)
 
   def formatParameters(s: StudentT.State) = {
-    DenseVector.vertcat(diag(s.p.v), diag(s.p.w)).data.toList
+    s.nu.toDouble :: DenseVector.vertcat(diag(s.p.v), diag(s.p.w)).data.toList
   }
 
   Streaming

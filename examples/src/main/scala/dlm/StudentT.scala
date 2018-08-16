@@ -61,26 +61,24 @@ object StudentTGibbs extends App with StudenttDglm with StudenttData {
   val priorNu = Poisson(3)
 
   // nu is the mean of the negative binomial proposal (A Gamma mixture of Poissons)
+  // should this be a sensored distribution?
   val propNu = (size: Double) => (nu: Int) => {
     val prob = nu / (size + nu)
 
-    for {
-      lambda <- Gamma(size, prob / (1 - prob))
-      x <- Poisson(lambda)
-    } yield x + 1
+    NegativeBinomial(size, prob).map(_ + 1)
   }
 
   val propNuP = (size: Double) => (from: Int, to: Int) => {
-    val r = size
-    val p = from / (r + from)
-    NegativeBinomial(p, r).logProbabilityOf(to)
+    val p = from / (size + from)
+    NegativeBinomial(size, p).logProbabilityOf(to)
   }
 
   val iters =
-    StudentT.sample(data.toVector, priorW, priorNu, propNu(0.5), propNuP(0.5), mod, params)
+    StudentT.sample(data.toVector, priorW, priorNu, propNu(1.0), propNuP(1.0), mod, params)
 
   def format(s: StudentT.State): List[Double] = {
-    s.nu.toDouble :: DenseVector.vertcat(diag(s.p.v), diag(s.p.w)).data.toList
+    s.nu.toDouble :: DenseVector.vertcat(diag(s.p.v), diag(s.p.w)).data.toList :::
+    List(s.accepted.toDouble)
   }
 
   Streaming
@@ -112,7 +110,7 @@ object StudentTpmmh extends App with StudenttDglm with StudenttData {
     NegativeBinomial(p, r).logProbabilityOf(to)
   }
   
-  val n = 300
+  val n = 100
   val iters = StudentT.samplePmmh(data,
     priorW, priorV, priorNu, Metropolis.symmetricProposal(0.01),
     propNu(0.5), propNuP(0.5), dlm, n, params, 3)

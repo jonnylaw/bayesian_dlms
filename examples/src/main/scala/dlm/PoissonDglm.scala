@@ -2,7 +2,7 @@ package examples.dlm
 
 import core.dlm.model._
 import breeze.linalg.{DenseMatrix, DenseVector}
-import breeze.stats.distributions.MarkovChain
+import breeze.stats.distributions.{MarkovChain, MultivariateGaussian}
 import java.nio.file.Paths
 import cats.implicits._
 import kantan.csv._
@@ -11,7 +11,7 @@ import kantan.csv.ops._
 trait PoissonDglm {
   val mod = Dglm.poisson(Dlm.polynomial(1))
   val params = DlmParameters(DenseMatrix(2.0),
-                             DenseMatrix(0.01),
+                             DenseMatrix(0.05),
                              DenseVector(0.0),
                              DenseMatrix(1.0))
 }
@@ -24,16 +24,21 @@ trait PoissonData {
   }.toVector
 }
 
-object SimulatePoissonDglm extends App with PoissonDglm {
-  val sims = Dglm.simulateRegular(mod, params, 1.0).steps.take(1000)
+object SimulateState extends App with PoissonDglm {
+  val init = MultivariateGaussian(params.m0, params.c0).draw
+  val sims = MarkovChain((0.0, init)){ case (t, x) =>
+    for {
+      x1 <- Dlm.stepState(Dlm.polynomial(1), params, x, 1.0)
+    } yield (t + 1.0, x1) }.
+    steps.
+    take(1000)
 
-  val out = new java.io.File("examples/data/poisson_dglm.csv")
+  val out = new java.io.File("examples/data/latent_state.csv")
   val header = rfc.withHeader("time", "observation", "state")
   val writer = out.asCsvWriter[List[Double]](header)
 
-  def formatData(d: (Dlm.Data, DenseVector[Double])) = d match {
-    case (Dlm.Data(t, y), x) =>
-      t :: KalmanFilter.flattenObs(y).data.toList ::: x.data.toList
+  def formatData(d: (Double, DenseVector[Double])) = d match {
+    case (t, x) => t :: x.data.toList
   }
 
   while (sims.hasNext) {
@@ -41,6 +46,79 @@ object SimulatePoissonDglm extends App with PoissonDglm {
   }
 
   writer.close()
+}
+
+
+object SimulatePoissonDglm extends App with PoissonDglm {
+  val rawData = Paths.get("examples/data/latent_state.csv")
+  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
+  val state = reader.collect {
+    case Right(a) => (a.head, DenseVector(a(1)))
+  }.toVector
+
+  val sims = state.map { case (t, x) => (t, mod.observation(x, params.v).draw, x) }
+
+  val out = new java.io.File("examples/data/poisson_dglm.csv")
+  val header = rfc.withHeader("time", "observation", "state")
+
+  def formatData(d: (Double, DenseVector[Double], DenseVector[Double])) = d match {
+    case (t, y, x) =>
+      t :: y.data.toList ::: x.data.toList
+  }
+
+  out.writeCsv(sims.map(formatData), header)
+}
+
+object SimulateZeroInflated extends App {
+  val mod = Dglm.zip(Dlm.polynomial(1))
+  val params = DlmParameters(DenseMatrix(Dglm.logit(0.2)),
+                             DenseMatrix(0.5),
+                             DenseVector(0.0),
+                             DenseMatrix(1.0))
+
+  val rawData = Paths.get("examples/data/latent_state.csv")
+  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
+  val state = reader.collect {
+    case Right(a) => (a.head, DenseVector(a(1)))
+  }.toVector
+
+  val sims = state.map { case (t, x) => (t, mod.observation(x, params.v).draw, x) }
+
+  val out = new java.io.File("examples/data/zip_dglm.csv")
+  val header = rfc.withHeader("time", "observation", "state")
+
+  def formatData(d: (Double, DenseVector[Double], DenseVector[Double])) = d match {
+    case (t, y, x) =>
+      t :: y.data.toList ::: x.data.toList
+  }
+
+  out.writeCsv(sims.map(formatData), header)
+}
+
+object SimulateNegativeBinomial extends App {
+  val mod = Dglm.negativeBinomial(Dlm.polynomial(1))
+  val params = DlmParameters(DenseMatrix(math.log(1.0)),
+                             DenseMatrix(0.5),
+                             DenseVector(0.0),
+                             DenseMatrix(1.0))
+
+  val rawData = Paths.get("examples/data/latent_state.csv")
+  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
+  val state = reader.collect {
+    case Right(a) => (a.head, DenseVector(a(1)))
+  }.toVector
+
+  val sims = state.map { case (t, x) => (t, mod.observation(x, params.v).draw, x) }
+
+  val out = new java.io.File("examples/data/negative_binomial_dglm.csv")
+  val header = rfc.withHeader("time", "observation", "state")
+
+  def formatData(d: (Double, DenseVector[Double], DenseVector[Double])) = d match {
+    case (t, y, x) =>
+      t :: y.data.toList ::: x.data.toList
+  }
+
+  out.writeCsv(sims.map(formatData), header)
 }
 
 object PoissonDglmGibbs extends App with PoissonDglm with PoissonData {
