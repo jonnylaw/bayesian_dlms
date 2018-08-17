@@ -94,6 +94,12 @@ object LiuAndWest extends App with FirstOrderDlm with SimulatedData {
 }
 
 object ConjFilter extends App with FirstOrderDlm with SimulatedData {
+  override val p = DlmParameters(
+    v = DenseMatrix(2.0),
+    w = DenseMatrix(3.0),
+    m0 = DenseVector(0.0),
+    c0 = DenseMatrix(100.0))
+
   val prior = InverseGamma(3.0, 3.0)
   val filtered = ConjugateFilter(prior).filter(mod, data, p, ConjugateFilter.advanceState(p, mod.g))
 

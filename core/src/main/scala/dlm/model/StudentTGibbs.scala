@@ -207,7 +207,9 @@ object StudentT {
     accepted: Int)
 
   /**
-    * Perform a single step of the PMMH algorithm for the Student's t distributed DLM
+    * Perform a single step of the PMMH algorithm for the Student's t distributed state
+    * space model
+    * @param priorW 
     */
   def stepPmmh(
     priorW:  ContinuousDistr[Double],
@@ -219,12 +221,12 @@ object StudentT {
     ll:      (DlmParameters, Int) => Double) = { s: PmmhState =>
 
     val logMeasure = (p: DlmParameters, nu: Int) => ll(p, nu) +
-      priorNu(nu) +
+      priorNu.logProbabilityOf(nu) +
       sum(diag(p.w).map(wi => priorW.logPdf(wi))) +
       sum(diag(p.v).map(vi => priorV.logPdf(vi)))
 
     for {
-      nu <- propNu(s.nu).map(_ + 1) // can't have a zero value for nu
+      nu <- propNu(s.nu)
       propP <- prop(s.p)
       ll = logMeasure(propP, nu)
       a = ll + propNuP(nu, s.nu) - s.ll - propNuP(s.nu, nu)
@@ -237,6 +239,9 @@ object StudentT {
     } yield next
   }
 
+  /**
+    * Particle Marginal Metropolis Hastings for the Student's t-distributed state space model
+    */
   def samplePmmh(
     data:    Vector[Dlm.Data],
     priorW:  ContinuousDistr[Double],

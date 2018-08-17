@@ -110,10 +110,10 @@ object StudentTpmmh extends App with StudenttDglm with StudenttData {
     NegativeBinomial(p, r).logProbabilityOf(to)
   }
   
-  val n = 100
+  val n = 200
   val iters = StudentT.samplePmmh(data,
     priorW, priorV, priorNu, Metropolis.symmetricProposal(0.01),
-    propNu(0.5), propNuP(0.5), dlm, n, params, 3)
+    propNu(1.0), propNuP(1.0), dlm, n, params, 3).steps.take(1000)
 
   def format(s: StudentT.PmmhState) = {
     DenseVector.vertcat(diag(s.p.v), diag(s.p.w)).data.toList ++
