@@ -48,7 +48,6 @@ object SimulateState extends App with PoissonDglm {
   writer.close()
 }
 
-
 object SimulatePoissonDglm extends App with PoissonDglm {
   val rawData = Paths.get("examples/data/latent_state.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)

@@ -113,7 +113,7 @@ object StudentTpmmh extends App with StudenttDglm with StudenttData {
   val n = 200
   val iters = StudentT.samplePmmh(data,
     priorW, priorV, priorNu, Metropolis.symmetricProposal(0.01),
-    propNu(1.0), propNuP(1.0), dlm, n, params, 3).steps.take(1000)
+    propNu(1.0), propNuP(1.0), dlm, n, params, 3)
 
   def format(s: StudentT.PmmhState) = {
     DenseVector.vertcat(diag(s.p.v), diag(s.p.w)).data.toList ++

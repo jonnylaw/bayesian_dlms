@@ -68,6 +68,23 @@ object FilterDlm extends App with FirstOrderDlm with SimulatedData {
   out.writeCsv(filtered.map(formatFiltered), headers)
 }
 
+object AuxFilterFo extends App with FirstOrderDlm with SimulatedData {
+  val advState = (s: PfState, dt: Double) => s
+  val filtered = AuxFilter(200).filter(mod, data, p, advState)
+
+  val out = new java.io.File("examples/data/fodlm_aux_filtered.csv")
+
+  def formatFiltered(f: PfState) = {
+    List(f.time) ++ LiuAndWestFilter.meanState(f.state).data.toList ++
+    LiuAndWestFilter.varState(f.state).data.toList
+  }
+  val headers = rfc.withHeader("time",
+                               "state_mean",
+                               "state_variance")
+
+  out.writeCsv(filtered.map(formatFiltered), headers)
+}
+
 object LiuAndWest extends App with FirstOrderDlm with SimulatedData {
  // smoothing parameter for the mixture of gaussians, equal to (3 delta - 1) / 2 delta
   val a = (3 * 0.95 - 1) / 2 * 0.95

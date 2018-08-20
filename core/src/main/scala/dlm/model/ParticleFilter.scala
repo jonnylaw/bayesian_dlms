@@ -42,14 +42,15 @@ case class ParticleFilter(n: Int) extends Filter[PfState, DlmParameters, DglmMod
       val x = advanceState(mod, dt, s.state, p).draw
       s.copy(state = x)
     } else {
-      val resampledX = multinomialResample(s.state, s.weights)
-      val x1 = advanceState(mod, dt, resampledX, p).draw
+      val x1 = advanceState(mod, dt, s.state, p).draw
       val w = calcWeights(mod, d.time, x1, d.observation, p)
       val max = w.max
       val w1 = w map (a => exp(a - max))
       val ll = s.ll + max + log(mean(w1))
 
-      PfState(d.time, x1, w1, ll)
+      val resampled = multinomialResample(x1, w1)
+
+      PfState(d.time, resampled, w1, ll)
     }
   }
 
@@ -116,6 +117,18 @@ object ParticleFilter {
     state traverse (x => Dglm.stepState(model, p, x, dt))
   }
 
+  def calcWeight(
+    mod: DglmModel,
+    time: Double,
+    x: DenseVector[Double],
+    y: DenseVector[Option[Double]],
+    p: DlmParameters) = {
+
+    val fm = KalmanFilter.missingF(mod.f, time, y)
+    val vm = KalmanFilter.missingV(p.v, y)
+    mod.conditionalLikelihood(vm)(fm.t * x, KalmanFilter.flattenObs(y))
+  }
+
   /**
     * Calculate the weights of each particle using the conditional likelihood of
     * the observations given the state
@@ -135,10 +148,7 @@ object ParticleFilter {
     y: DenseVector[Option[Double]],
     p: DlmParameters) = {
 
-    val fm = KalmanFilter.missingF(mod.f, time, y)
-    val vm = KalmanFilter.missingV(p.v, y)
-    state.map(x =>
-      mod.conditionalLikelihood(vm)(fm.t * x, KalmanFilter.flattenObs(y)))
+    state.map(x => calcWeight(mod, time, x, y, p))
   }
 
   /**
