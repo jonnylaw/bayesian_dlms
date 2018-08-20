@@ -76,8 +76,9 @@ object ParticleFilter {
     (p: DlmParameters): Double = {
 
     val advState = (p: PfState, dt: Double) => p
-    ParticleFilter(n).filter(mod, ys, p, advState).
-      foldLeft(0.0)((l, d) => d.ll)
+    val filter = ParticleFilter(n)
+    val init = filter.initialiseState(mod, p, ys)
+    ys.foldLeft(init)(filter.step(mod, p, advState)).ll
   }
 
   /**
