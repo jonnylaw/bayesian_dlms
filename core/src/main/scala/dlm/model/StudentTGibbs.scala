@@ -117,12 +117,11 @@ object StudentT {
     // create a list of parameters with the variance in them
     val ps = variances.map(vi => params.copy(v = DenseMatrix(vi)))
 
-    def kalmanStep(p: DlmParameters) = KalmanFilter.step(mod, p,
-      KalmanFilter.advanceState(p, mod.g)) _
+    val kf = (p: DlmParameters) => KalmanFilter(KalmanFilter.advanceState(p, mod.g))
+    def kalmanStep(p: DlmParameters) = kf(p).step(mod, p) _
 
-    val (at, rt) =
-      KalmanFilter.advState(mod.g, params.m0, params.c0, 0, params.w)
-    val init = KalmanFilter.initialiseState(mod, params, observations)
+    val (at, rt) = KalmanFilter.advState(mod.g, params.m0, params.c0, 0, params.w)
+    val init = kf(params).initialiseState(mod, params, observations)
 
     // fold over the list of variances and the observations
     val filtered = (ps zip observations).scanLeft(init) {

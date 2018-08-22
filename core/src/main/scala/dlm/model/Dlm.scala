@@ -244,15 +244,17 @@ object Dlm extends Simulate[DlmModel, DlmParameters, DenseVector[Double]] {
     * @param p the parameters of the DLM
     */
   def stepForecast(
-    mod: DlmModel,
+    mod:  DlmModel,
     time: Double,
-    dt: Double,
-    mt: DenseVector[Double],
-    ct: DenseMatrix[Double],
-    p: DlmParameters) = {
+    dt:   Double,
+    mt:   DenseVector[Double],
+    ct:   DenseMatrix[Double],
+    p:    DlmParameters) = {
+
+    val kf = KalmanFilter(KalmanFilter.advanceState(p, mod.g))
 
     val (at, rt) = KalmanFilter.advState(mod.g, mt, ct, dt, p.w)
-    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, at, rt, time, p.v)
+    val (ft, qt) = kf.oneStepPrediction(mod.f, at, rt, time, p.v)
 
     (time, at, rt, ft, qt)
   }
@@ -267,13 +269,14 @@ object Dlm extends Simulate[DlmModel, DlmParameters, DenseVector[Double]] {
     * @return a Stream of forecasts
     */
   def forecast(
-    mod: DlmModel,
-    mt: DenseVector[Double],
-    ct: DenseMatrix[Double],
+    mod:  DlmModel,
+    mt:   DenseVector[Double],
+    ct:   DenseMatrix[Double],
     time: Double,
-    p: DlmParameters) = {
+    p:    DlmParameters) = {
 
-    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, mt, ct, time, p.v)
+    val kf = KalmanFilter(KalmanFilter.advanceState(p, mod.g))
+    val (ft, qt) = kf.oneStepPrediction(mod.f, mt, ct, time, p.v)
 
     Stream
       .iterate((time, mt, ct, ft, qt)) {

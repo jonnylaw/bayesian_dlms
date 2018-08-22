@@ -25,7 +25,7 @@ case class StorvikState(
 case class StorvikFilter(
   n:      Int,
   priorW: InverseGamma,
-  priorV: InverseGamma) extends Filter[StorvikState, DlmParameters, DglmModel] {
+  priorV: InverseGamma) extends FilterTs[StorvikState, DlmParameters, DglmModel] {
 
   def initialiseState[T[_]: Traverse](
     model: DglmModel,
@@ -90,9 +90,8 @@ case class StorvikFilter(
   }
 
   def step(
-    mod:      DglmModel,
-    p:        DlmParameters,
-    advState: (StorvikState, Double) => StorvikState)
+    mod: DglmModel,
+    p:   DlmParameters)
     (s:  StorvikState, d: Dlm.Data): StorvikState = {
 
     val y = KalmanFilter.flattenObs(d.observation)

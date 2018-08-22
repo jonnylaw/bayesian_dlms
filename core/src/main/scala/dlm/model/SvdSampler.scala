@@ -70,7 +70,7 @@ case class State(time: Double,
     advState: (SvdState, Double) => SvdState) = {
 
     val ps = SvdFilter.transformParams(p)
-    val filtered = SvdFilter.filterDecomp(mod, ys, ps, advState)
+    val filtered = SvdFilter(advState).filterDecomp(mod, ys, ps)
     Rand.always(sample(mod, filtered, ps.w))
   }
 

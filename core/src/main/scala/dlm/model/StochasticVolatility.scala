@@ -69,7 +69,9 @@ object StochasticVolatility {
     } yield next
   }
 
-  case class State(params: SvParameters, alphas: Vector[(Double, Double)])
+  case class State(
+    params: SvParameters,
+    alphas: Vector[(Double, Double)])
 
   /**
     * The observation function for the stochastic volatility model
@@ -214,7 +216,7 @@ object StochasticVolatility {
     val ps = vkt map (newV => params.copy(v = DenseMatrix(newV)))
 
     val filtered = (ps zip yt).scanLeft(init) {
-      case (s, (p, y)) => KalmanFilter.step(mod, p, advState)(s, y)
+      case (s, (p, y)) => KalmanFilter(advState).step(mod, p)(s, y)
     }
 
     Rand.always(Smoothing.sample(mod, filtered, backStep).map {
@@ -248,7 +250,7 @@ object StochasticVolatility {
       .map { case ((t, yo), m) => (t, yo map (y => log(y * y) - m)) }
       .map { case (t, x) => Dlm.Data(t, DenseVector(x)) }
 
-    val init = SvdFilter.initialiseState(mod, params, yt)
+    val init = SvdFilter(advState).initialiseState(mod, params, yt)
 
     // create vector of parameters
     val ps = vkt map { newV =>
@@ -258,7 +260,7 @@ object StochasticVolatility {
     }
 
     val filtered = (ps zip yt).scanLeft(init) {
-      case (s, (p, y)) => SvdFilter.step(mod, p, advState)(s, y)
+      case (s, (p, y)) => SvdFilter(advState).step(mod, p)(s, y)
     }
 
     Rand.always(FilterAr.sampleSvd(params.w, phi, filtered.toVector).map {

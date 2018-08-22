@@ -1,37 +1,26 @@
 package core.dlm.model
 
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
-import breeze.stats.distributions._
 import cats.Traverse
 import cats.implicits._
 
 /**
   * State for the conjugate filter
-  * @param time the time of the observation
-  * @param mt the posterior mean of the latent state 
-  * @param ct the posterior covariance of the latent state
-  * @param at the prior mean of the latent state
-  * @param rt the prior covariance of the latent state
-  * @param ft the one-step forecast mean
-  * @param qt the one-step forecast covariance
-  * @param precision the distribution of the observation precision 
-  * @param ll the running marginal log-likelihood
+  * 
+  * @param kfState the latent-state
+  * @param variance the distribution of the observation precision 
   */
 case class GammaState(
-  time:      Double,
-  mt:        DenseVector[Double],
-  ct:        DenseMatrix[Double],
-  at:        DenseVector[Double],
-  rt:        DenseMatrix[Double],
-  ft:        Option[DenseVector[Double]],
-  qt:        Option[DenseMatrix[Double]],
-  variance:  Vector[InverseGamma],
-  ll:        Double)
+  kfState:   KfState,
+  variance:  Vector[InverseGamma])
 
 /**
   * Calculate an one-dimensional unknown observation variance 
   */
-case class ConjugateFilter(prior: InverseGamma) extends Filter[GammaState, DlmParameters, DlmModel] {
+case class ConjugateFilter(
+  prior: InverseGamma,
+  advState: (GammaState, Double) => GammaState)
+    extends FilterTs[GammaState, DlmParameters, DlmModel] {
 
   def initialiseState[T[_]: Traverse](
     model: DlmModel,
@@ -40,7 +29,7 @@ case class ConjugateFilter(prior: InverseGamma) extends Filter[GammaState, DlmPa
 
     val t0 = ys.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
     val p0 = Vector.fill(p.v.cols)(prior)
-    GammaState(t0.get - 1.0, p.m0, p.c0, p.m0, p.c0, None, None, p0, 0.0)
+    GammaState(KfState(t0.get - 1.0, p.m0, p.c0, p.m0, p.c0, None, None, 0.0), p0)
   }
 
   def diagonal(m: DenseMatrix[Double]): Vector[Double] = {
@@ -67,12 +56,11 @@ case class ConjugateFilter(prior: InverseGamma) extends Filter[GammaState, DlmPa
 
   def step(
     mod: DlmModel,
-    p: DlmParameters,
-    advState: (GammaState, Double) => GammaState)
+    p: DlmParameters)
     (s: GammaState, d: Dlm.Data): GammaState = {
 
     // calculate the time difference
-    val dt = d.time - s.time
+    val dt = d.time - s.kfState.time
     val f = mod.f(d.time)
 
     // calculate moments of the advanced state, prior to the observation
@@ -80,8 +68,8 @@ case class ConjugateFilter(prior: InverseGamma) extends Filter[GammaState, DlmPa
 
     // calculate the mean of the forecast distribution for y
     val v = meanVariance(s.variance)
-    val ft = f.t * st.at
-    val qt = f.t * st.rt * f + v
+    val ft = f.t * st.kfState.at
+    val qt = f.t * st.kfState.rt * f + v
 
     // calculate the difference between the mean of the
     // predictive distribution and the actual observation
@@ -89,21 +77,21 @@ case class ConjugateFilter(prior: InverseGamma) extends Filter[GammaState, DlmPa
     val e = y - ft
 
     // calculate the kalman gain 
-    val k = (qt.t \ (f.t * st.rt.t)).t
-    val mt1 = st.at + k * e
+    val k = (qt.t \ (f.t * st.kfState.rt.t)).t
+    val mt1 = st.kfState.at + k * e
     val n = mt1.size
 
     val vs = updateStats(s.variance, qt, e, v)
     // compute joseph form update to covariance
     val i = DenseMatrix.eye[Double](n)
-    val covariance = (i - k * f.t) * st.rt * (i - k * f.t).t + k * meanVariance(vs) * k.t
+    val covariance = (i - k * f.t) * st.kfState.rt * (i - k * f.t).t + k * meanVariance(vs) * k.t
 
     // update the marginal likelihood
-    val newll = s.ll + KalmanFilter.conditionalLikelihood(ft, qt, y)
-    val m = st.mt + k * e
+    val newll = s.kfState.ll + KalmanFilter.conditionalLikelihood(ft, qt, y)
+    val m = st.kfState.mt + k * e
 
     // In Breeze, Gamma is parameterised using shape and scale (scale = 1/rate)
-    GammaState(d.time, m, covariance, st.at, st.rt,  Some(ft), Some(qt), vs, newll)
+    GammaState(KfState(d.time, m, covariance, st.kfState.at, st.kfState.rt,  Some(ft), Some(qt), newll), vs)
   }
 }
 
@@ -122,8 +110,7 @@ object ConjugateFilter {
     (s:  GammaState,
      dt: Double) = {
 
-    val (at, rt) = KalmanFilter.advState(g, s.mt, s.ct, dt, p.w)
-    s.copy(at = at, rt = rt)
+    s.copy(kfState = KalmanFilter.advanceState(p, g)(s.kfState, dt))
   }
 }
 

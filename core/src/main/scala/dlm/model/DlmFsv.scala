@@ -220,12 +220,13 @@ object DlmFsv {
     p:   DlmParameters,
     vs:  Vector[DenseMatrix[Double]]): Rand[Vector[(Double, DenseVector[Double])]] = {
 
+    val advState = KalmanFilter.advanceState(p, dlm.g) _
     val ps = vs map (newV => p.copy(v = newV))
-    val init = KalmanFilter.initialiseState(dlm, p, ys)
+    val init = KalmanFilter(advState).
+      initialiseState(dlm, p, ys)
 
     val filtered = (ps zip ys).scanLeft(init) {
-      case (s, (p, y)) => KalmanFilter.step(dlm, p,
-        KalmanFilter.advanceState(p, dlm.g))(s, y)
+      case (s, (p, y)) => KalmanFilter(advState).step(dlm, p)(s, y)
     }
 
     Rand.always(Smoothing.sampleDlm(dlm, filtered.toVector, p.w))

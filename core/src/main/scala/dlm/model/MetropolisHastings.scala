@@ -121,7 +121,7 @@ object Metropolis {
   ) = {
     val initState = State[DlmParameters](initP, -1e99, 0)
     val ll = (p: DlmParameters) =>
-      KalmanFilter.likelihood(mod, KalmanFilter.advanceState(p, mod.g), observations)(p)
+      KalmanFilter.likelihood(mod, observations)(p)
 
     MarkovChain(initState)(mStep[DlmParameters](proposal, prior, ll))
   }
@@ -176,7 +176,7 @@ object MetropolisHastings {
           initP: DlmParameters) = {
 
     val ll = (p: DlmParameters) =>
-      KalmanFilter.likelihood(mod, KalmanFilter.advanceState(p, mod.g), observations)(p)
+      KalmanFilter.likelihood(mod, observations)(p)
 
     val initState = Metropolis.State[DlmParameters](initP, -1e99, 0)
     MarkovChain(initState)(mhStep[DlmParameters](proposal, prior, ll))

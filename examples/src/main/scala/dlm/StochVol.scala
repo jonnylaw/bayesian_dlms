@@ -2,6 +2,7 @@ package examples.dlm
 
 import core.dlm.model._
 import breeze.stats.distributions._
+import breeze.linalg.DenseVector
 import java.nio.file.Paths
 import cats.implicits._
 import kantan.csv._
@@ -50,7 +51,34 @@ object FitSv extends App {
   }
 
   Streaming.writeParallelChain(
-    iters, 2, 10000, "examples/data/sv_params_svd", formatParameters).
+    iters, 2, 100000, "examples/data/sv_params", formatParameters).
+    runWith(Sink.onComplete(_ => system.terminate()))
+}
+
+object FitSvKnots extends App {
+  implicit val system = ActorSystem("stochastic_volatility")
+  implicit val materializer = ActorMaterializer()
+
+  val p = SvParameters(0.8, 1.0, 0.2)
+
+  val rawData = Paths.get("examples/data/sv_sims.csv")
+  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
+  val data = reader.collect {
+    case Right(a) => Dlm.Data(a.head, DenseVector(a(1).some))
+  }.toVector
+
+  val priorSigma = InverseGamma(0.001, 0.001)
+  val priorPhi = Gaussian(0.0, 10.0)
+  val priorMu = Gaussian(0.0, 10.0)
+
+  val iters = StochasticVolatilityKnots.sample(priorMu, priorSigma, priorPhi, data, p)
+
+  def formatParameters(s: StochasticVolatilityKnots.State) = {
+    List(s.params.phi, s.params.mu, s.params.sigmaEta)
+  }
+
+  Streaming.writeParallelChain(
+    iters, 2, 100000, "examples/data/sv_knot_params", formatParameters).
     runWith(Sink.onComplete(_ => system.terminate()))
 }
 
@@ -96,3 +124,4 @@ object FitSvOu extends App {
     iters, 2, 100000, "examples/data/sv_ou_params", formatParameters).
     runWith(Sink.onComplete(_ => system.terminate()))
 }
+
