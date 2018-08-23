@@ -3,7 +3,7 @@ package core.dlm.model
 import breeze.linalg.{DenseVector, DenseMatrix, diag}
 import breeze.stats.distributions._
 import breeze.numerics.exp
-//import cats.Applicative
+import cats.Applicative
 import cats.implicits._
 
 /**
@@ -169,42 +169,42 @@ object DlmFsv {
     )
   }
 
-  // /**
-  //   * Helper function for DLM obs
-  //   */
-  // def dlmMinusFactors(
-  //   obs:    Dlm.Data,
-  //   factor: (Double, Option[DenseVector[Double]]),
-  //   beta:   DenseMatrix[Double]): Dlm.Data = {
+  /**
+    * Helper function for DLM obs
+    */
+  def dlmMinusFactors(
+    obs:    Dlm.Data,
+    factor: (Double, Option[DenseVector[Double]]),
+    beta:   DenseMatrix[Double]): Dlm.Data = {
 
-  //   // remove all partially missing data
-  //   val ys = obs.observation.data.toVector.sequence.map { x =>
-  //     DenseVector(x.toArray)
-  //   }
+    // remove all partially missing data
+    val ys = obs.observation.data.toVector.sequence.map { x =>
+      DenseVector(x.toArray)
+    }
 
-  //   val observation = Applicative[Option].map2(factor._2, ys){
-  //     (f, y) => y - beta * f }.map(_.data.toVector).sequence
+    val observation = Applicative[Option].map2(factor._2, ys){
+      (f, y) => y - beta * f }.map(_.data.toVector).sequence
 
-  //   Dlm.Data(obs.time, DenseVector(observation.toArray))
-  // }
+    Dlm.Data(obs.time, DenseVector(observation.toArray))
+  }
 
-  // /**
-  //   * Calculate the difference between the observations y_t and beta * f_t
-  //   * @param observations a vector of observations
-  //   * @param factors a vector of factors
-  //   * @param beta the value of the factor loading matrix
-  //   * @return a vector containing the difference between observations and 
-  //   * beta * f_t
-  //   */
-  // def dlmObs(
-  //   observations: Vector[Dlm.Data],
-  //   factors:      Vector[(Double, Option[DenseVector[Double]])],
-  //   beta:         DenseMatrix[Double]) = {
+  /**
+    * Calculate the difference between the observations y_t and beta * f_t
+    * @param observations a vector of observations
+    * @param factors a vector of factors
+    * @param beta the value of the factor loading matrix
+    * @return a vector containing the difference between observations and 
+    * beta * f_t
+    */
+  def dlmObs(
+    observations: Vector[Dlm.Data],
+    factors:      Vector[(Double, Option[DenseVector[Double]])],
+    beta:         DenseMatrix[Double]) = {
 
-  //   for {
-  //     (y, f) <- observations zip factors
-  //   } yield dlmMinusFactors(y, f, beta)
-  // }
+    for {
+      (y, f) <- observations zip factors
+    } yield dlmMinusFactors(y, f, beta)
+  }
 
   /**
     * Sample the latent-state of the DLM FSV Model
@@ -234,14 +234,12 @@ object DlmFsv {
 
   /**
     * Calculate the variance of the process at a given time
-    * @param beta the factor loading matrix
     * @param logVol the log-volatility at time t
-    * @param v the entries of the diagonal matrix of the variance
     * @return the variance of the process at a given time
     */
   def volatilityToVariance(
-    beta:   DenseMatrix[Double],
     logVol: DenseVector[Double],
+    beta:   DenseMatrix[Double],
     v:      Double): DenseMatrix[Double] = {
 
     (beta * diag(logVol.map(math.exp)) * beta.t) + diag(DenseVector.fill(beta.rows)(v))
@@ -267,13 +265,52 @@ object DlmFsv {
     val fs = buildFactorState(s)
 
     for {
-      fs1 <- FactorSv.sampleStep(priorBeta, priorSigmaEta, priorMu, priorPhi, 
+      fs1 <- FactorSv.sampleStep(priorBeta, priorSigmaEta, priorMu, priorPhi,
         priorSigma, factorObs(observations, s.theta, dlm.f), p, k)(fs)
-      vs = fs1.volatility map { case (t, a) => volatilityToVariance(beta, a, s.p.fsv.v) }
-      theta <- sampleMeanState(dlm, observations, s.p.dlm, vs)
+      vs = fs1.volatility map { case (t, a) => volatilityToVariance(a, beta, s.p.fsv.v) }
+      ys = dlmObs(observations, fs1.factors, beta)
+      theta <- sampleMeanState(dlm, ys, s.p.dlm, vs)
       newW <- GibbsSampling.sampleSystemMatrix(priorW, theta.toVector, dlm.g)
       newP = DlmFsv.Parameters(s.p.dlm.copy(w = newW), fs1.params)
     } yield State(newP, theta.toVector, fs1.factors, fs1.volatility)
+  }
+
+
+  // we have all the static parameters
+  // simulate the state using the initial static parameters?
+  // this is so dumb, I bet this isn't identifiable
+  def initialiseState(
+    dlm:    DlmModel,
+    ys:     Vector[Dlm.Data],
+    params: DlmFsv.Parameters,
+    p: Int,
+    k: Int
+  ): State = {
+
+    // the dimension of the time series
+    val n = ys.size
+
+    // simulate the initial observation noise?? Is this a good idea
+    val fsv = FactorSv.simulate(params.fsv).
+      steps.
+      take(n).
+      toVector
+
+    val logVol = fsv.map(_._3)
+
+    // calculate the variances from the simulated noise
+    val vs = logVol map { a =>
+      volatilityToVariance(DenseVector(a.toArray), params.fsv.beta, params.fsv.v)
+    }
+
+    // sample the initial mean state using the variances
+    val dlmState = sampleMeanState(dlm, ys, params.dlm, vs).draw
+    dlmState take 5 foreach println
+
+    // initialise the observation noise and sample the factors
+    val factorState = FactorSv.initialiseStateAr(params.fsv, fsv.map(_._1), k)
+
+    State(params, dlmState.toVector, factorState.factors, factorState.volatility)
   }
 
   /**
@@ -294,14 +331,7 @@ object DlmFsv {
     val beta = initP.fsv.beta
     val k = beta.cols
     val p = beta.rows
-
-    // initialise the latent state
-    val initFactorState = FactorSv.initialiseStateAr(initP.fsv, observations, k)
-    val vs = initFactorState.volatility map { case (t, a) =>
-      volatilityToVariance(beta, a, initP.fsv.v) }
-    val initDlmState = sampleMeanState(dlm, observations, initP.dlm, vs).draw
-    val init = State(initP, initDlmState.toVector,
-      initFactorState.factors, initFactorState.volatility)
+    val init = initialiseState(dlm, observations, initP, p, k)
 
     MarkovChain(init)(sampleStep(priorBeta, priorSigmaEta, priorPhi, priorMu,
       priorSigma, priorW, observations, dlm, p, k))

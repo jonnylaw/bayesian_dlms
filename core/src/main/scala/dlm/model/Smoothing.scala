@@ -61,7 +61,7 @@ object Smoothing {
     val lastTime = last.time
     val init = SmoothingState(lastTime, last.mt, last.ct, last.at, last.rt)
 
-    kfState.scanRight(init)(smoothStep(mod))
+    kfState.init.scanRight(init)(smoothStep(mod))
   }
 
   /**

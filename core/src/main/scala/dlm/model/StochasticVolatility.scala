@@ -21,54 +21,6 @@ object StochasticVolatility {
   private val means = Array(-11.4, -5.24, -9.84, 1.51, -0.65, 0.53, -2.36)
   private val variances = Array(5.8, 2.61, 5.18, 0.17, 0.64, 0.34, 1.26)
 
-  /**
-    * Metropolis Hastings step which returns a new value of the parameter
-    * and a boolean representing if the parameter is accepted
-    */
-  def metropHastingsAccept[P](
-    prior:    ContinuousDistr[P],
-    proposal: P => ContinuousDistr[P],
-    ll:       P => Double): P => Rand[(P, Boolean)] = { p: P =>
-
-    for {
-      prop <- proposal(p)
-      newLL = ll(prop)
-      newP = proposal(p).logPdf(prop)
-      oldLL = ll(p)
-      oldP = proposal(prop).logPdf(p)
-      a = newLL - newP - oldLL + oldP
-      u <- Uniform(0, 1)
-      next = if (log(u) < a) {
-        (prop, true)
-      } else {
-        (p, false)
-      }
-    } yield next
-  }
-
-  /**
-    * Metropolis step which returns a new value of the parameter
-    * and a boolean representing if the parameter is accepted
-    */
-  def metropAccept[P](
-    prior: ContinuousDistr[P],
-    prop:  P => Rand[P],
-    ll:    P => Double): P => Rand[(P, Boolean)] = { p: P =>
-
-    for {
-      prop <- prop(p)
-      newLL = ll(prop)
-      oldLL = ll(p)
-      a = newLL - oldLL
-      u <- Uniform(0, 1)
-      next = if (log(u) < a) {
-        (prop, true)
-      } else {
-        (p, false)
-      }
-    } yield next
-  }
-
   case class State(
     params: SvParameters,
     alphas: Vector[(Double, Double)])
@@ -182,11 +134,11 @@ object StochasticVolatility {
     */
   def sampleState(
     ys:       Vector[(Double, Option[Double])],
-    alphas:   Vector[(Double, Double)],
     params:   DlmParameters,
     phi:      Double,
     advState: (KfState, Double) => KfState,
-    backStep: (KfState, SamplingState) => SamplingState) = {
+    backStep: (KfState, SamplingState) => SamplingState)(
+    alphas:   Vector[(Double, Double)])= {
 
     val t0 = ys.head._1
     val dt0 = ys(1)._1 - ys.head._1
@@ -292,11 +244,12 @@ object StochasticVolatility {
     * @param prior a prior distribution for the parameter phi
     * @return a Metropolis Hastings step sampling the value of Phi
     */
-  def samplePhi(tau: Double,
-                lambda: Double,
-                prior: ContinuousDistr[Double],
-                p: SvParameters,
-                alpha: Vector[(Double, Double)]) = {
+  def samplePhi(
+    tau: Double,
+    lambda: Double,
+    prior: ContinuousDistr[Double],
+    p: SvParameters,
+    alpha: Vector[(Double, Double)]) = {
 
     val proposal = (phi: Double) => {
       new Beta(lambda * phi + tau, lambda * (1 - phi) + tau)
@@ -326,9 +279,9 @@ object StochasticVolatility {
     val psigma = prior.variance
 
     val sumStates = (alphas.init, alphas.tail).zipped.
-      map { case (at1, at) => (at._2 - p.phi * at1._2) }.reduce(_ + _)
+      map { case (at, at1) => (at1._2 - p.phi * at._2) }.reduce(_ + _)
 
-    val prec = 1 / psigma + (n - 1) * (1 - p.phi) * (1 - p.phi) / p.sigmaEta * p.sigmaEta
+    val prec = 1 / psigma + ((n - 1) * (1 - p.phi) * (1 - p.phi)) / p.sigmaEta * p.sigmaEta
     val mean = (pmu / psigma + ((1 - p.phi) / p.sigmaEta * p.sigmaEta) * sumStates) / prec
     val variance = 1 / prec
 
@@ -340,13 +293,14 @@ object StochasticVolatility {
     * @param prior the prior for the variance of the noise of the latent-state
     * @return a distribution over the system variance
     */
-  def sampleSigma(prior: InverseGamma,
-                  p: SvParameters,
-                  alphas: Vector[(Double, Double)]) = {
+  def sampleSigma(
+    prior: InverseGamma,
+    p: SvParameters,
+    alphas: Vector[(Double, Double)]) = {
 
-    val squaredSum = alphas.init.zip(alphas.tail)
-      .map { case (mt, mt1) =>
-          val diff = mt1._2 - (p.mu + p.phi * (mt._2 - p.mu))
+    val squaredSum = (alphas.init, alphas.tail).zipped.
+      map { case (mt, mt1) =>
+          val diff = (mt1._2 - p.mu) - p.phi * (mt._2 - p.mu)
           (diff * diff)
       }.sum
 
@@ -412,8 +366,8 @@ object StochasticVolatility {
     ys:         Vector[(Double, Option[Double])])(s: State) = {
 
     for {
-      alphas <- sampleState(ys, s.alphas, ar1DlmParams(s.params), s.params.phi,
-        FilterAr.advanceState(s.params), FilterAr.backStep(s.params))
+      alphas <- sampleState(ys, ar1DlmParams(s.params), s.params.phi,
+        FilterAr.advanceState(s.params), FilterAr.backStep(s.params))(s.alphas)
       newPhi <- samplePhi(0.05, 100, priorPhi, s.params, alphas)(s.params.phi)
       newSigma <- sampleSigma(priorSigma, s.params.copy(phi = newPhi), alphas)
       newMu <- sampleMu(priorMu, s.params.copy(phi = newPhi, sigmaEta = newSigma), alphas)
@@ -574,11 +528,13 @@ object StochasticVolatility {
     ys:         Vector[(Double, Option[Double])])(s: State) = {
 
     for {
-      alphas <- sampleState(ys, s.alphas, ouDlmParams(s.params), s.params.phi,
-        FilterOu.advanceState(s.params), FilterOu.backwardStep(s.params))
+      alphas <- sampleState(ys, ouDlmParams(s.params), s.params.phi,
+        FilterOu.advanceState(s.params), FilterOu.backwardStep(s.params))(s.alphas)
       newPhi <- samplePhiOu(priorPhi, s.params, alphas, 0.05, 10)(s.params.phi)
-      newSigma <- sampleSigmaMetropOu(priorSigma, 0.05, s.params.copy(phi = newPhi), alphas)(s.params.sigmaEta)
-      newMu <- sampleMuOu(priorMu, 0.05, s.params.copy(phi = newPhi, sigmaEta = newSigma), alphas)(s.params.mu)
+      newSigma <- sampleSigmaMetropOu(priorSigma, 0.05,
+        s.params.copy(phi = newPhi), alphas)(s.params.sigmaEta)
+      newMu <- sampleMuOu(priorMu, 0.05,
+        s.params.copy(phi = newPhi, sigmaEta = newSigma), alphas)(s.params.mu)
       p = SvParameters(newPhi, newMu, newSigma)
     } yield State(p, alphas)
 

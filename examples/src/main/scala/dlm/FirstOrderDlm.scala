@@ -195,7 +195,7 @@ object SmoothDlm extends App with FirstOrderDlm with SimulatedData {
     (s.time, s.mean(0), s.covariance.data(0))
 
   out.writeCsv(smoothed.map(formatSmoothed),
-               rfc.withHeader("time", "smoothed_mean", "smoothed_variance"))
+    rfc.withHeader("time", "smoothed_mean", "smoothed_variance"))
 }
 
 object SampleStates extends App with FirstOrderDlm with SimulatedData {

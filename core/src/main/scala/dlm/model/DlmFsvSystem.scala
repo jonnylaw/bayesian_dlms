@@ -12,6 +12,21 @@ import cats.implicits._
   */
 object DlmFsvSystem {
   /**
+    * The state of the Gibbs Sampler
+    * @param p the current parameters of the MCMC
+    * @param theta the current state of the mean latent state (DLM state)
+    * of the DLM FSV model
+    * @param factors the factors of the observation model
+    * @param volatility the log-volatility of the system variance
+    */
+  case class State(
+    p:          DlmFsvSystem.Parameters,
+    theta:      Vector[(Double, DenseVector[Double])],
+    factors:    Vector[(Double, Option[DenseVector[Double]])],
+    volatility: Vector[(Double, DenseVector[Double])]
+  )
+
+  /**
     * Parameters of the DLM Factor Stochastic Volatility model
     * @param m0 the mean of the initial state 
     * @param c0 the variance of the initial state
@@ -23,7 +38,10 @@ object DlmFsvSystem {
     m0:      DenseVector[Double],
     c0:      DenseMatrix[Double],
     v:       Double,
-    factors: FactorSv.Parameters)
+    factors: FactorSv.Parameters) {
+
+    def toList = DenseVector.vertcat(m0, diag(c0)).data.toList ::: List(v) ::: factors.toList
+  }
 
   /**
     * Simulate a single step in the DLM FSV model
@@ -80,20 +98,6 @@ object DlmFsvSystem {
       simStep(d.time + 1.0, x, aw, dlm, p, 1.0, dimObs) }
   }
 
-  /**
-    * The state of the Gibbs Sampler
-    * @param p the current parameters of the MCMC
-    * @param theta the current state of the mean latent state (DLM state)
-    * of the DLM FSV model
-    * @param factors the factors of the observation model
-    * @param volatility the log-volatility of the system variance
-    */
-  case class State(
-    p:          DlmFsvSystem.Parameters,
-    theta:      Vector[(Double, DenseVector[Double])],
-    factors:    Vector[(Double, Option[DenseVector[Double]])],
-    volatility: Vector[(Double, DenseVector[Double])]
-  )
 
   /**
     * Calculate the variance of the factor volatility model
@@ -106,8 +110,7 @@ object DlmFsvSystem {
   def factorVariance(
     beta:   DenseMatrix[Double],
     sigmaX: Double,
-    ps:     Vector[SvParameters]
-  ) = {
+    ps:     Vector[SvParameters]) = {
 
     val arVar = for {
       (mu, sigmaEta, phi) <- ps.map(p => (p.mu, p.sigmaEta, p.phi))
@@ -205,8 +208,9 @@ object DlmFsvSystem {
         priorPhi, priorSigma, factorState(s.theta, dlm.g), d, k)(fs)
       dlmP = toDlmParameters(s.p, p)
       theta <- SvdSampler.ffbsDlm(dlm, ys, dlmP)
-      newV <- sampleObservationVariance(priorV, dlm.f, theta, ys)
-      newP = s.p.copy(factors = fs1.params, v = newV)
+      // newV <- sampleObservationVariance(priorV, dlm.f, theta, ys)
+      newP = s.p.copy(factors = fs1.params)
+        //, v = newV)
     } yield State(newP, theta, fs1.factors, fs1.volatility)
   }
 
@@ -217,8 +221,9 @@ object DlmFsvSystem {
 
     val k = params.factors.beta.cols
     val p = ys.head.observation.size
+    val parameters = toDlmParameters(params, p)
 
-    val theta = SvdSampler.ffbsDlm(dlm, ys, toDlmParameters(params, p)).draw
+     val theta = SvdSampler.ffbsDlm(dlm, ys, parameters).draw
     val thetaObs = theta.map { case (t, a) => Dlm.Data(t, a.map(_.some)) }
     val fs = FactorSv.initialiseStateAr(params.factors, thetaObs, k)
 

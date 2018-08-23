@@ -131,9 +131,10 @@ case class SvdFilter(advState: (SvdState, Double) => SvdState)
 
   /**
     * Perform the Kalman filter using the decomposition of the DLM parameters
+    * using a general traversable collection
     * @param model
     */
-  def filterDecomp[T[_]: Traverse](
+  def filterDecompT[T[_]: Traverse](
     model: DlmModel,
     ys:    T[Dlm.Data],
     p:     DlmParameters): T[SvdState] = {
@@ -141,10 +142,18 @@ case class SvdFilter(advState: (SvdState, Double) => SvdState)
     val init = initialiseState(model, p, ys)
     FilterTs.scanLeft(ys, init, step(model, p))
   }
+
+  def filterDecomp(
+    model: DlmModel,
+    ys:    Vector[Dlm.Data],
+    p:     DlmParameters): Vector[SvdState] = {
+
+    val init = initialiseState(model, p, ys)
+    ys.scanLeft(init)(step(model, p))
+  }
 }
 
 object SvdFilter {
-
   /**
     * Filter a DLM using the SVD Filter
     */
@@ -169,9 +178,9 @@ object SvdFilter {
     * @return
     */
   def advanceState(
-    p: DlmParameters,
-    g: Double => DenseMatrix[Double])
-    (s: SvdState,
+    p:   DlmParameters,
+    g:   Double => DenseMatrix[Double])
+    (s:  SvdState,
      dt: Double) = {
 
     val (at, dr, ur) = SvdFilter.advState(g, dt, s.mt, s.dc, s.uc, p.w)
@@ -179,12 +188,12 @@ object SvdFilter {
   }
   
   def advState(
-    g:     Double => DenseMatrix[Double],
-    dt:    Double,
-    mt:    DenseVector[Double],
-    dc:    DenseVector[Double],
-    uc:    DenseMatrix[Double],
-    w:     DenseMatrix[Double]) = {
+    g:  Double => DenseMatrix[Double],
+    dt: Double,
+    mt: DenseVector[Double],
+    dc: DenseVector[Double],
+    uc: DenseMatrix[Double],
+    w:  DenseMatrix[Double]) = {
     
     if (dt == 0) {
       (mt, dc, uc)

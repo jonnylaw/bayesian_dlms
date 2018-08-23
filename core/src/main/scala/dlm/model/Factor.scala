@@ -81,14 +81,10 @@ object FactorSv {
       vt <- MultivariateGaussian(
         DenseVector.zeros[Double](params.beta.rows),
         diag(DenseVector.fill(params.beta.rows)(params.v)))
-
       fs <- (a zip params.factorParams).
         traverse { case (x, p) => StochasticVolatility.simStep(t, p)(x) }
-
       f = fs.map { case (t, ft, at) => ft.get }
-
       a1 = fs.map { case (t, ft, at) => at }
-
       y = params.beta * DenseVector(f.toArray) + vt
     } yield (Dlm.Data(t, y.map(_.some)), f, a1)
   }
@@ -256,6 +252,18 @@ object FactorSv {
         0.0
       }
     }
+  }
+
+  def drawBeta(p: Int, k: Int, bi: Rand[Double]): Rand[DenseMatrix[Double]] = {
+    Rand.always(DenseMatrix.tabulate(p, k) { case (i, j) =>
+      if (i == j) {
+        1.0
+      } else if (j > i) {
+        0.0
+      } else {
+        bi.draw
+      }
+    })
   }
 
   def flattenFactors(fs: Vector[(Double, Option[DenseVector[Double]])]) = {
