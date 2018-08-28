@@ -373,6 +373,7 @@ object FactorSv {
     * @param ys the observations
     * @param s the current state of the MCMC
     * @return the sampled value of sigma
+    * TODO: Check this
     */
   def sampleSigma(
     prior:  InverseGamma,

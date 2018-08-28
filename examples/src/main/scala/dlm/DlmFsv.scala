@@ -72,8 +72,8 @@ object SimulateDlmFsv extends App with DlmFsvModel {
 }
 
 object ParametersDlmFsv extends App with DlmFsvModel with SimulatedDlmFsv {
-  // implicit val system = ActorSystem("dlm_fsv")
-  // implicit val materializer = ActorMaterializer()
+  implicit val system = ActorSystem("dlm_fsv")
+  implicit val materializer = ActorMaterializer()
 
   val priorBeta = Gaussian(0.0, 5.0)
   val priorSigmaEta = InverseGamma(10, 1)
@@ -87,17 +87,10 @@ object ParametersDlmFsv extends App with DlmFsvModel with SimulatedDlmFsv {
 
   def formatParameters(s: DlmFsv.State) = s.p.toList
 
-  iters.
-    steps.
-    take(100).
-    map(formatParameters).
-    foreach(println)
-
-
   // write iters to file
-  // Streaming.writeParallelChain(
-  //   iters, 2, 10000, "examples/data/dlm_fsv_params", formatParameters).
-  //   runWith(Sink.onComplete(_ => system.terminate()))
+  Streaming.writeParallelChain(
+    iters, 2, 10000, "examples/data/dlm_fsv_params", formatParameters).
+    runWith(Sink.onComplete(_ => system.terminate()))
 }
 
 trait DlmFsvSystemModel {

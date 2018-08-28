@@ -26,7 +26,8 @@ case class PfState(
 case class ParticleFilter(
   n: Int,
   resample: (Vector[DenseVector[Double]], Vector[Double]) => Vector[DenseVector[Double]])
-    extends Filter[PfState, DlmParameters, DglmModel] {
+    extends FilterTs[PfState, DlmParameters, DglmModel] {
+
   import ParticleFilter._
 
   /**
@@ -77,7 +78,7 @@ object ParticleFilter {
     n: Int)
     (p: DlmParameters): Double = {
 
-    val filter = ParticleFilter(n)
+    val filter = ParticleFilter(n, multinomialResample)
     val init = filter.initialiseState(mod, p, ys)
     ys.foldLeft(init)(filter.step(mod, p)).ll
   }

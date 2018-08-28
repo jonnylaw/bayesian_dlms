@@ -123,7 +123,7 @@ object SimulateNegativeBinomial extends App {
 object FilterPoisson extends App with PoissonDglm with PoissonData {
   val advState = (s: PfState, dt: Double) => s
   val filtered = ParticleFilter(500, ParticleFilter.metropolisResampling(10)).
-    filter(mod, data, params, advState)
+    filter(mod, data, params)
 
   val out = new java.io.File("examples/data/poisson_filtered_metropolis.csv")
   val header = rfc.withHeader("time", "state_mean", "state_var")

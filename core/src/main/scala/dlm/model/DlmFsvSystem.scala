@@ -147,12 +147,16 @@ object DlmFsvSystem {
   /**
     * Calculate the time dependent variance from the log-volatility
     * and factor loading matrix
+    * @param alphas the time series of log-volatility
+    * @param beta the factor loading matrix
+    * @param v the diagonal observation covariance
     */
   def calculateVariance(
     alphas: Vector[(Double, DenseVector[Double])],
-    beta:   DenseMatrix[Double]): Vector[DenseMatrix[Double]] = {
+    beta:   DenseMatrix[Double],
+    v:      DenseMatrix[Double]): Vector[DenseMatrix[Double]] = {
 
-    alphas map (a => (beta * diag(exp(a._2))) * beta.t)
+    alphas map (a => (beta * diag(exp(a._2)) * beta.t) + v)
   }
 
   /**
@@ -234,7 +238,8 @@ object DlmFsvSystem {
         priorPhi, priorSigma, factorState(s.theta, dlm.g), d, k)(fs)
 
       // perform FFBS using time dependent variance
-      ws = calculateVariance(fs1.volatility.tail, beta)
+      ws = calculateVariance(fs1.volatility.tail, fs1.params.beta,
+        diag(DenseVector.fill(p)(fs1.params.v)))
       dlmP = toDlmParameters(s.p, p)
       theta <- ffbs(dlm, ys, dlmP, ws)
 

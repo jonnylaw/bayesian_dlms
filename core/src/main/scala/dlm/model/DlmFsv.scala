@@ -1,6 +1,6 @@
 package core.dlm.model
 
-import breeze.linalg.{DenseVector, DenseMatrix}
+import breeze.linalg.{DenseVector, DenseMatrix, diag}
 import breeze.stats.distributions._
 import breeze.numerics.exp
 import cats.Applicative
@@ -217,6 +217,10 @@ object DlmFsv {
   /**
     * Perform forward filtering backward sampling using a
     * time dependent observation variance and the SVD
+    * @param model a DLM model
+    * @param ys the time series of observations
+    * @param p DLM parameters containing sqrtW for SVD filter / sampler
+    * @param vs a vector containing V_t the time dependent variances
     */
   def ffbsSvd(
     model: DlmModel,
@@ -261,8 +265,9 @@ object DlmFsv {
 
     for {
       fs1 <- FactorSv.sampleStep(priorBeta, priorSigmaEta, priorMu, priorPhi,
-        priorSigma, factorObs(observations, s.theta, dlm.f), p, k)(fs)
-      vs = DlmFsvSystem.calculateVariance(fs1.volatility.tail, fs1.params.beta)
+        priorSigma, factorObs(observations, s.theta, dlm.f), p, k)(fs)      
+      vs = DlmFsvSystem.calculateVariance(fs1.volatility.tail,
+        fs1.params.beta, diag(DenseVector.fill(p)(fs1.params.v)))
       theta <- ffbsSvd(dlm, observations, s.p.dlm, vs)
       // newW <- GibbsSampling.sampleSystemMatrix(priorW, theta.toVector, dlm.g)
       newP = DlmFsv.Parameters(s.p.dlm, fs1.params)
@@ -280,7 +285,8 @@ object DlmFsv {
     // initialise the variances and latent-states
     val vs = Vector.fill(ys.size)(DenseMatrix.eye[Double](p))
     val theta = ffbsSvd(dlm, ys, params.dlm, vs).draw
-    val factorState = FactorSv.initialiseStateAr(params.fsv, factorObs(ys, theta, dlm.f), k)
+    val factorState = FactorSv.initialiseStateAr(params.fsv,
+      factorObs(ys, theta, dlm.f), k)
 
     // calculate sqrt of W for SVD Filter
     val sqrtW = SvdFilter.sqrtSvd(params.dlm.w)
