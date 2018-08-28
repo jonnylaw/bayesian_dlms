@@ -9,9 +9,11 @@ import cats.implicits._
   * TODO: Check this
   */
 object SvdSampler {
-case class State(time: Double,
-  theta: DenseVector[Double],
-  at1: DenseVector[Double])
+
+  case class State(
+    time:  Double,
+    theta: DenseVector[Double],
+    at1:   DenseVector[Double])
 
   /**
     * Perform a single step in the backward sampler using the SVD

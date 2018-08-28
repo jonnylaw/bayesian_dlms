@@ -1,6 +1,6 @@
 package core.dlm.model
 
-import breeze.linalg.{DenseVector, DenseMatrix, diag}
+import breeze.linalg.{DenseVector, DenseMatrix}
 import breeze.stats.distributions._
 import breeze.numerics.exp
 import cats.Applicative
@@ -20,7 +20,15 @@ object DlmFsv {
     dlm: DlmParameters,
     fsv: FactorSv.Parameters) {
 
-    def toList = dlm.toList ::: fsv.toList
+    def toList = diagonal(dlm.w).data.toList ::: fsv.toList
+  }
+
+  def diagonal(m: DenseMatrix[Double]): DenseVector[Double] = {
+    val ms = for {
+      i <- 0 until m.rows
+    } yield m(i, i)
+
+    DenseVector(ms.toArray)
   }
 
   /**
@@ -207,42 +215,30 @@ object DlmFsv {
   }
 
   /**
-    * Sample the latent-state of the DLM FSV Model
-    * @param dlm the DLM
-    * @param ys a vector of untransformed data
-    * @param p the DLM parameters 
-    * @param vs a vector of variances equal to the length of ys
-    * @return a distribution over possible sampled latent-states
+    * Perform forward filtering backward sampling using a
+    * time dependent observation variance and the SVD
     */
-  def sampleMeanState(
-    dlm: DlmModel,
-    ys:  Vector[Dlm.Data],
-    p:   DlmParameters,
-    vs:  Vector[DenseMatrix[Double]]): Rand[Vector[(Double, DenseVector[Double])]] = {
+  def ffbsSvd(
+    model: DlmModel,
+    ys:    Vector[Dlm.Data],
+    p:     DlmParameters,
+    vs:    Vector[DenseMatrix[Double]]) = {
 
-    val advState = KalmanFilter.advanceState(p, dlm.g) _
-    val ps = vs map (newV => p.copy(v = newV))
-    val init = KalmanFilter(advState).
-      initialiseState(dlm, p, ys)
+    val ps = vs.map(vi => p.copy(v = SvdFilter.sqrtInvSvd(vi)))
 
-    val filtered = (ps zip ys).scanLeft(init) {
-      case (s, (p, y)) => KalmanFilter(advState).step(dlm, p)(s, y)
+    val filterStep = (params: DlmParameters) => {
+      val advState = SvdFilter.advanceState(params, model.g) _
+      SvdFilter(advState).step(model, params) _
     }
+    val initFilter = SvdFilter(SvdFilter.advanceState(p, model.g)).
+      initialiseState(model, p, ys)
+    val filtered = (ps, ys).
+      zipped.
+      scanLeft(initFilter){ case (s, (params, y)) =>
+        filterStep(params)(s, y) }.
+      toVector
 
-    Rand.always(Smoothing.sampleDlm(dlm, filtered.toVector, p.w))
-  }
-
-  /**
-    * Calculate the variance of the process at a given time
-    * @param logVol the log-volatility at time t
-    * @return the variance of the process at a given time
-    */
-  def volatilityToVariance(
-    logVol: DenseVector[Double],
-    beta:   DenseMatrix[Double],
-    v:      Double): DenseMatrix[Double] = {
-
-    (beta * diag(logVol.map(math.exp)) * beta.t) + diag(DenseVector.fill(beta.rows)(v))
+    Rand.always(SvdSampler.sample(model, filtered, ps.head.w))
   }
 
   /**
@@ -261,56 +257,36 @@ object DlmFsv {
     p:             Int,
     k:             Int)(s: State): Rand[State] = {
    
-    val beta = s.p.fsv.beta
     val fs = buildFactorState(s)
 
     for {
       fs1 <- FactorSv.sampleStep(priorBeta, priorSigmaEta, priorMu, priorPhi,
         priorSigma, factorObs(observations, s.theta, dlm.f), p, k)(fs)
-      vs = fs1.volatility map { case (t, a) => volatilityToVariance(a, beta, s.p.fsv.v) }
-      ys = dlmObs(observations, fs1.factors, beta)
-      theta <- sampleMeanState(dlm, ys, s.p.dlm, vs)
-      newW <- GibbsSampling.sampleSystemMatrix(priorW, theta.toVector, dlm.g)
-      newP = DlmFsv.Parameters(s.p.dlm.copy(w = newW), fs1.params)
+      vs = DlmFsvSystem.calculateVariance(fs1.volatility.tail, fs1.params.beta)
+      theta <- ffbsSvd(dlm, observations, s.p.dlm, vs)
+      // newW <- GibbsSampling.sampleSystemMatrix(priorW, theta.toVector, dlm.g)
+      newP = DlmFsv.Parameters(s.p.dlm, fs1.params)
+        //.copy(w = SvdFilter.sqrtSvd(newW))
     } yield State(newP, theta.toVector, fs1.factors, fs1.volatility)
   }
 
-
-  // we have all the static parameters
-  // simulate the state using the initial static parameters?
-  // this is so dumb, I bet this isn't identifiable
   def initialiseState(
     dlm:    DlmModel,
     ys:     Vector[Dlm.Data],
     params: DlmFsv.Parameters,
     p: Int,
-    k: Int
-  ): State = {
+    k: Int): State = {
 
-    // the dimension of the time series
-    val n = ys.size
+    // initialise the variances and latent-states
+    val vs = Vector.fill(ys.size)(DenseMatrix.eye[Double](p))
+    val theta = ffbsSvd(dlm, ys, params.dlm, vs).draw
+    val factorState = FactorSv.initialiseStateAr(params.fsv, factorObs(ys, theta, dlm.f), k)
 
-    // simulate the initial observation noise?? Is this a good idea
-    val fsv = FactorSv.simulate(params.fsv).
-      steps.
-      take(n).
-      toVector
+    // calculate sqrt of W for SVD Filter
+    val sqrtW = SvdFilter.sqrtSvd(params.dlm.w)
 
-    val logVol = fsv.map(_._3)
-
-    // calculate the variances from the simulated noise
-    val vs = logVol map { a =>
-      volatilityToVariance(DenseVector(a.toArray), params.fsv.beta, params.fsv.v)
-    }
-
-    // sample the initial mean state using the variances
-    val dlmState = sampleMeanState(dlm, ys, params.dlm, vs).draw
-    dlmState take 5 foreach println
-
-    // initialise the observation noise and sample the factors
-    val factorState = FactorSv.initialiseStateAr(params.fsv, fsv.map(_._1), k)
-
-    State(params, dlmState.toVector, factorState.factors, factorState.volatility)
+    State(params.copy(dlm = params.dlm.copy(w = sqrtW)),
+      theta, factorState.factors, factorState.volatility)
   }
 
   /**

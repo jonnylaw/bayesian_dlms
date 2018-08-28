@@ -11,10 +11,7 @@ import akka.actor.ActorSystem
 import akka.stream._
 import scaladsl._
 
-/**
-  * Simulate a stochastic volatility model with an AR(1) latent state
-  */
-object SimulateFsv extends App {
+trait FsvModel {
   // simulate data
   val beta = DenseMatrix(
     (1.0,  0.0),
@@ -29,6 +26,11 @@ object SimulateFsv extends App {
     beta,
     Vector.fill(2)(SvParameters(0.8, 2.0, 0.2))
   )
+}
+/**
+  * Simulate a stochastic volatility model with an AR(1) latent state
+  */
+object SimulateFsv extends App with FsvModel {
 
   val sims = FactorSv.simulate(params).steps.take(1000)
 
@@ -51,24 +53,9 @@ object SimulateFsv extends App {
   writer.close()
 }
 
-object FitFsv extends App {
+object FitFsv extends App with FsvModel {
   implicit val system = ActorSystem("factor_sv")
   implicit val materializer = ActorMaterializer()
-
-  // simulate data
-  val beta = DenseMatrix(
-    (1.0,  0.0),
-    (0.3,  1.0),
-    (0.07, 0.25),
-    (0.23, 0.23),
-    (0.4,  0.25),
-    (0.2,  0.23))
-
-  val params = FactorSv.Parameters(
-    v = 0.1,
-    beta,
-    Vector.fill(2)(SvParameters(0.8, 2.0, 0.2))
-  )
 
   val rawData = Paths.get("examples/data/fsv_sims.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
@@ -85,12 +72,9 @@ object FitFsv extends App {
   val iters = FactorSv
     .sampleAr(priorBeta, priorSigmaEta, priorMu, priorPhi, priorSigma, data, params)
 
-  def formatParameters(s: FactorSv.State) = {
-    s.params.v :: s.params.factorParams.flatMap(_.toList).toList ::: s.params.beta.data.toList
-  }
+  def formatParameters(s: FactorSv.State) = s.params.toList
 
   Streaming.writeParallelChain(
     iters, 2, 100000, "examples/data/factor_sv_gibbs", formatParameters).
     runWith(Sink.onComplete(_ => system.terminate()))
 }
-

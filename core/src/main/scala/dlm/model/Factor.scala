@@ -23,8 +23,7 @@ object FactorSv {
   case class Parameters(
     v:            Double,
     beta:         DenseMatrix[Double],
-    factorParams: Vector[SvParameters]
-  ) {
+    factorParams: Vector[SvParameters]) {
 
     def toList = v :: beta.data.toList ::: factorParams.flatMap(_.toList).toList
   }
@@ -81,10 +80,14 @@ object FactorSv {
       vt <- MultivariateGaussian(
         DenseVector.zeros[Double](params.beta.rows),
         diag(DenseVector.fill(params.beta.rows)(params.v)))
+
       fs <- (a zip params.factorParams).
         traverse { case (x, p) => StochasticVolatility.simStep(t, p)(x) }
+
       f = fs.map { case (t, ft, at) => ft.get }
+
       a1 = fs.map { case (t, ft, at) => at }
+
       y = params.beta * DenseVector(f.toArray) + vt
     } yield (Dlm.Data(t, y.map(_.some)), f, a1)
   }
@@ -254,18 +257,6 @@ object FactorSv {
     }
   }
 
-  def drawBeta(p: Int, k: Int, bi: Rand[Double]): Rand[DenseMatrix[Double]] = {
-    Rand.always(DenseMatrix.tabulate(p, k) { case (i, j) =>
-      if (i == j) {
-        1.0
-      } else if (j > i) {
-        0.0
-      } else {
-        bi.draw
-      }
-    })
-  }
-
   def flattenFactors(fs: Vector[(Double, Option[DenseVector[Double]])]) = {
     fs.map { case (t, fs) => fs.map((t, _)) }.flatten
   }
@@ -382,7 +373,6 @@ object FactorSv {
     * @param ys the observations
     * @param s the current state of the MCMC
     * @return the sampled value of sigma
-    * TODO: Check this
     */
   def sampleSigma(
     prior:  InverseGamma,
@@ -393,6 +383,7 @@ object FactorSv {
     val p = params.beta.rows
     val n = ys.size
     val shape = prior.shape + n * 0.5
+
     val fls = flattenFactors(fs).sortBy(_._1)
     val ssy = (ys zip fls).
       map {
@@ -405,7 +396,7 @@ object FactorSv {
       map(x => x *:* x).
       reduce(_ + _)
 
-    val scale = prior.scale + 0.5 * mean(ssy)
+    val scale = prior.scale + 0.5 * mean(ssy) // ??
     
     InverseGamma(shape, scale)
   }
@@ -427,9 +418,10 @@ object FactorSv {
     for {
       svp <- sampleVolatilityParams(priorMu, priorSigmaEta, priorPhi, p)(s)
       fs <- sampleFactors(observations, svp.params, svp.volatility)
-      sigma <- sampleSigma(priorSigma, observations, s.params, fs)
-      beta <- sampleBeta(priorBeta, observations, p, k, fs, s.params)
-    } yield svp.copy(params = svp.params.copy(beta = beta, v = sigma), factors = fs)
+      // sigma <- sampleSigma(priorSigma, observations, svp.params, fs)
+      beta <- sampleBeta(priorBeta, observations, p, k, fs, svp.params)
+        //svp.params.copy(v = sigma))
+    } yield svp.copy(params = svp.params.copy(beta = beta), factors = fs)
   }
 
   /**
@@ -454,7 +446,7 @@ object FactorSv {
       (time, yt) <- obs
       prec = DenseMatrix.eye[Double](k) + (beta.t * precY * beta)
       mean = yt map (y => prec \ (beta.t * (precY * y)))
-      sample = mean map { m => rnorm(m, prec).draw  }
+      sample = mean map { m => rnorm(m, prec).draw }
     } yield (time, sample)
 
     Rand.always(res)

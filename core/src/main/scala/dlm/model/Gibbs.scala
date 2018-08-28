@@ -20,6 +20,7 @@ object GibbsSampling {
     * @param theta a sample of the DLM state
     * @param ys the observed values of the time series
     * @return the posterior distribution over the diagonal observation matrix
+
     */
   def sampleObservationMatrix(
     prior: InverseGamma,
@@ -29,9 +30,9 @@ object GibbsSampling {
 
     val ssy: DenseVector[Double] = (theta zip ys)
       .map {
-        case ((time, x), y) =>
+        case ((time, x), d) =>
           val ft = f(time).t * x
-          val res: Array[Double] = y.observation.data.zipWithIndex.map { 
+          val res: Array[Double] = d.observation.data.zipWithIndex.map { 
             case (Some(y), i) => (y - ft(i)) * (y - ft(i))
             case _ => 0.0
           }

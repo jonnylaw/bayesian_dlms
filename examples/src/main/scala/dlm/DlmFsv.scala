@@ -25,8 +25,9 @@ trait DlmFsvModel {
     (0.4,  0.25),
     (0.2,  0.23))
 
+  val k = 2 // equivalent to number of columns in beta
   val params = FactorSv.Parameters(v = 0.1, beta,
-    Vector.fill(2)(SvParameters(0.8, 2.0, 0.2))
+    Vector.fill(k)(SvParameters(0.8, 2.0, 0.2))
   )
 
   val dlmP = DlmParameters(
@@ -70,33 +71,28 @@ object SimulateDlmFsv extends App with DlmFsvModel {
   writer.close()
 }
 
-object ParametersDlmFsv
-    extends App
-    with DlmFsvModel
-    with SimulatedDlmFsv {
-
+object ParametersDlmFsv extends App with DlmFsvModel with SimulatedDlmFsv {
   // implicit val system = ActorSystem("dlm_fsv")
   // implicit val materializer = ActorMaterializer()
 
   val priorBeta = Gaussian(0.0, 5.0)
-  val priorSigmaEta = InverseGamma(1, 0.01)
+  val priorSigmaEta = InverseGamma(10, 1)
   val priorPhi = new Beta(5, 2)
   val priorMu = Gaussian(0.0, 3.0)
-  val priorSigma = InverseGamma(1, 0.01)
-  val priorW = InverseGamma(1, 0.01)
+  val priorSigma = InverseGamma(10, 1)
+  val priorW = InverseGamma(10, 1)
 
   val iters = DlmFsv.sample(priorBeta, priorSigmaEta, priorPhi,
     priorMu, priorSigma, priorW, data, mod, p)
 
-  def formatParameters(s: DlmFsv.State): List[Double] = {
-    s.p.toList
-  }
+  def formatParameters(s: DlmFsv.State) = s.p.toList
 
   iters.
     steps.
-    take(1000).
+    take(100).
     map(formatParameters).
     foreach(println)
+
 
   // write iters to file
   // Streaming.writeParallelChain(
@@ -160,8 +156,8 @@ object SimulateDlmFsvSystem extends App with DlmFsvSystemModel {
 }
 
 object FitDlmFsvSystem extends App with DlmFsvSystemModel {
-  implicit val system = ActorSystem("dlm_fsv_system")
-  implicit val materializer = ActorMaterializer()
+  // implicit val system = ActorSystem("dlm_fsv_system")
+  // implicit val materializer = ActorMaterializer()
 
   val rawData = Paths.get("examples/data/dlm_fsv_system_sims.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
@@ -201,8 +197,14 @@ object FitDlmFsvSystem extends App with DlmFsvSystemModel {
   val iters = DlmFsvSystem.sample(priorBeta, priorSigmaEta, priorPhi, priorMu,
     priorSigma, priorV, data, dlmMod, params)
 
+  iters.
+    steps.
+    take(100).
+    map(formatParameters).
+    foreach(println)
+
   // write iters to file
-  Streaming.writeParallelChain(
-    iters, 2, 100000, "examples/data/dlm_fsv_system_params", formatParameters).
-    runWith(Sink.onComplete(_ => system.terminate()))
+  // Streaming.writeParallelChain(
+  //   iters, 2, 100000, "examples/data/dlm_fsv_system_params", formatParameters).
+  //   runWith(Sink.onComplete(_ => system.terminate()))
 }
