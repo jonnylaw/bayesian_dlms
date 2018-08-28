@@ -58,7 +58,7 @@ object FilterCorrelatedDlm
     extends App
     with CorrelatedModel
     with CorrelatedData {
-  val filtered = SvdFilter.filter(model, data, p, SvdFilter.advanceState(p, model.g))
+  val filtered = SvdFilter(SvdFilter.advanceState(p, model.g)).filter(model, data, p)
 
   val out = new java.io.File("examples/data/correlated_dlm_filtered.csv")
 

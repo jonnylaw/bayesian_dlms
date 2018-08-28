@@ -84,9 +84,10 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
   )
 
   val y1 = data.head
+  val kf = KalmanFilter(KalmanFilter.advanceState(p, model.g))
   val (a1, r1) = KalmanFilter.advState(model.g, p.m0, p.c0, 1, p.w)
   val (f1, q1, m1, c1, _) =
-    KalmanFilter.updateState(model.f, a1, r1, y1, p.v, 0.0)
+    kf.updateState(model.f, a1, r1, y1, p.v, 0.0)
   val e1 = KalmanFilter.flattenObs(y1.observation) - f1
   val k1 = r1 * inv(q1)
 
@@ -111,7 +112,7 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
   }
 
   val state1 = KfState(1, m1, c1, a1, r1, Some(f1), Some(q1), 0.0)
-  val filterOne = KalmanFilter.step(model, p, KalmanFilter.advanceState(p, model.g))(state1, data(1))
+  val filterOne = kf.step(model, p)(state1, data(1))
 
   test("time step 2") {
     assert(filterOne.at === DenseVector(1.8, 1.8))
@@ -124,7 +125,7 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(filterOne.ct === diag(DenseVector(1.269231, 1.269231)))
   }
 
-  val filterTwo = KalmanFilter.step(model, p, KalmanFilter.advanceState(p, model.g))(filterOne, data(2))
+  val filterTwo = kf.step(model, p)(filterOne, data(2))
 
   test("time step 3") {
     assert(filterTwo.at === DenseVector(2.307692, 2.307692))
@@ -137,7 +138,7 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(filterTwo.ct === diag(DenseVector(1.291971, 1.291971)))
   }
 
-  val filterThree = KalmanFilter.step(model, p, KalmanFilter.advanceState(p, model.g))(filterTwo, data(3))
+  val filterThree = kf.step(model, p)(filterTwo, data(3))
 
   test("time step 4, missing data") {
     assert(filterThree.at === DenseVector(4.027007, 4.027007))
@@ -150,7 +151,7 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(filterThree.ct === diag(DenseVector(2.291971, 2.291971)))
   }
 
-  val filterFour = KalmanFilter.step(model, p, KalmanFilter.advanceState(p, model.g))(filterThree, data(4))
+  val filterFour = kf.step(model, p)(filterThree, data(4))
 
   test("time step, t = 5, partially observed data") {
     assert(filterFour.at === DenseVector(4.027007, 4.027007))
@@ -163,7 +164,7 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(filterFour.ct === diag(DenseVector(1.569606, 3.291971)))
   }
 
-  val filterFive = KalmanFilter.step(model, p, KalmanFilter.advanceState(p, model.g))(filterFour, data(5))
+  val filterFive = kf.step(model, p)(filterFour, data(5))
 
   test("time step, t = 7, skip an observation without encoding") {
     assert(filterFive.at === DenseVector(7.204408, 4.027007))

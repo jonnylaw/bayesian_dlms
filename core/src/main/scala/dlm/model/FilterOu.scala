@@ -53,6 +53,6 @@ object FilterOu {
     val cov = diff * ct * diff.t + cgrinv * w * cgrinv.t
     val sample = MultivariateGaussian(mean, cov).draw
 
-    SamplingState(time, sample, kfState.at, kfState.rt)
+    SamplingState(time, sample, mean, cov, kfState.at, kfState.rt)
   }
 }

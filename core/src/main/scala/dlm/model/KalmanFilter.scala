@@ -28,40 +28,9 @@ case class KfState(
   ll: Double
 )
 
-object KalmanFilter extends Filter[KfState, DlmParameters, DlmModel] {
-  def advState(
-    g: Double => DenseMatrix[Double],
-    mt: DenseVector[Double],
-    ct: DenseMatrix[Double],
-    dt: Double,
-    w: DenseMatrix[Double]): (DenseVector[Double], DenseMatrix[Double]) = {
-
-    if (dt == 0) {
-      (mt, ct)
-    } else {
-      val at = g(dt) * mt
-      val rt = g(dt) * ct * g(dt).t + w * dt
-      (at, rt)
-    }
-  }
-
-  /**
-    * Advance the state mean and variance to the a-priori
-    * value of the state at time t
-    * @param g the system matrix, a function from a time increment to DenseMatrix
-    * @param s the current state of the Kalman Filter
-    * @param dt the time increment
-    * @return the a-priori mean and covariance of the state at time t
-    */
-  def advanceState(
-    p: DlmParameters,
-    g: Double => DenseMatrix[Double])
-    (s: KfState,
-     dt: Double) = {
-
-    val (at, rt) = advState(g, s.mt, s.ct, dt, p.w)
-    s.copy(at = at, rt = rt)
-  }
+case class KalmanFilter(advState: (KfState, Double) => KfState)
+    extends FilterTs[KfState, DlmParameters, DlmModel] {
+  import KalmanFilter._
 
   /**
     * Perform a one-step prediction
@@ -77,41 +46,6 @@ object KalmanFilter extends Filter[KfState, DlmParameters, DlmModel] {
     val qt = f(time).t * rt * f(time) + v
 
     (ft, qt)
-  }
-
-  /**
-    * Get the index of the non-missing data
-    * @param y a vector of observations possibly containing missing data
-    * @return a vector containing the indices of non-missing observations
-    */
-  def indexNonMissing[A](y: DenseVector[Option[A]]): Vector[Int] = {
-    y.data
-      .map(_.isDefined)
-      .zipWithIndex
-      .map { case (b, i) => if (b) Some(i) else None }
-      .toVector
-      .flatten
-  }
-
-  /**
-    * Build observation matrix for potentially missing data
-    */
-  def missingF[A](f: Double => DenseMatrix[Double],
-                  time: Double,
-                  y: DenseVector[Option[A]]): DenseMatrix[Double] = {
-
-    val missing = indexNonMissing(y)
-    f(time)(::, missing.toVector).toDenseMatrix
-  }
-
-  /**
-    * Build observation error variance matrix for potentially missing data
-    */
-  def missingV[A](v: DenseMatrix[Double],
-                  y: DenseVector[Option[A]]): DenseMatrix[Double] = {
-
-    val missing = indexNonMissing(y)
-    v(missing.toVector, missing.toVector).toDenseMatrix
   }
 
   /**
@@ -132,15 +66,6 @@ object KalmanFilter extends Filter[KfState, DlmParameters, DlmModel] {
     val qt = fm.t * rt * fm + vm
 
     (ft, qt)
-  }
-
-  /**
-    * Remove optional data from an observation vector
-    * @param y a vector containing optional observations
-    * @return a vector containing only the observations which are there
-    */
-  def flattenObs(y: DenseVector[Option[Double]]) = {
-    DenseVector(y.data.flatten)
   }
 
   /**
@@ -187,29 +112,13 @@ object KalmanFilter extends Filter[KfState, DlmParameters, DlmModel] {
   }
 
   /**
-    * Calculate the conditional likelihood of the observation given the
-    * corresponding one-step forecast
-    */
-  def conditionalLikelihood(ft: DenseVector[Double],
-                            qt: DenseMatrix[Double],
-                            y: DenseVector[Double]) = {
-
-    if (y.size == 1) {
-      Gaussian(ft(0), math.sqrt(qt(0, 0))).logPdf(y(0))
-    } else {
-      MultivariateGaussian(ft, qt).logPdf(y)
-    }
-  }
-
-  /**
     * Step the Kalman Filter a single Step
     */
   def step(
-    mod: DlmModel,
-    p: DlmParameters,
-    advState: (KfState, Double) => KfState)
+    mod:    DlmModel,
+    p:      DlmParameters)
     (state: KfState,
-     y: Dlm.Data): KfState = {
+     y:     Dlm.Data): KfState = {
 
     val dt = y.time - state.time
     val st = advState(state, dt)
@@ -229,27 +138,67 @@ object KalmanFilter extends Filter[KfState, DlmParameters, DlmModel] {
     KfState(t0.get - 1.0, p.m0, p.c0, p.m0, p.c0, None, None, 0.0)
   }
 
-  /**
-    * Calculate the marginal likelihood of a DLM using a kalman filter
-    */
-  def likelihood[T[_]: Traverse](
-    mod: DlmModel,
-    advState: (KfState, Double) => KfState,
-    ys: T[Dlm.Data])(
-    p: DlmParameters): Double = {
+  def transformParams(p: DlmParameters): DlmParameters = p
+}
 
-    val init = initialiseState(mod, p, ys)
-    ys.foldLeft(init)(step(mod, p, advState)).ll
+object KalmanFilter {
+  /**
+    * Remove optional data from an observation vector
+    * @param y a vector containing optional observations
+    * @return a vector containing only the observations which are there
+    */
+  def flattenObs(y: DenseVector[Option[Double]]) = {
+    DenseVector(y.data.flatten)
   }
 
-  def transformParams(p: DlmParameters): DlmParameters = p
+  /**
+    * Calculate the conditional likelihood of the observation given the
+    * corresponding one-step forecast
+    */
+  def conditionalLikelihood(ft: DenseVector[Double],
+                            qt: DenseMatrix[Double],
+                            y: DenseVector[Double]) = {
 
-  def filterDlm[T[_]: Traverse](
-    mod: DlmModel,
-    ys:  T[Dlm.Data],
-    p:   DlmParameters) = {
+    if (y.size == 1) {
+      Gaussian(ft(0), math.sqrt(qt(0, 0))).logPdf(y(0))
+    } else {
+      MultivariateGaussian(ft, qt).logPdf(y)
+    }
+  }
 
-    filter(mod, ys, p, KalmanFilter.advanceState(p, mod.g))
+  /**
+    * Get the index of the non-missing data
+    * @param y a vector of observations possibly containing missing data
+    * @return a vector containing the indices of non-missing observations
+    */
+  def indexNonMissing[A](y: DenseVector[Option[A]]): Vector[Int] = {
+    y.data
+      .map(_.isDefined)
+      .zipWithIndex
+      .map { case (b, i) => if (b) Some(i) else None }
+      .toVector
+      .flatten
+  }
+
+  /**
+    * Build observation matrix for potentially missing data
+    */
+  def missingF[A](f: Double => DenseMatrix[Double],
+                  time: Double,
+                  y: DenseVector[Option[A]]): DenseMatrix[Double] = {
+
+    val missing = indexNonMissing(y)
+    f(time)(::, missing.toVector).toDenseMatrix
+  }
+
+  /**
+    * Build observation error variance matrix for potentially missing data
+    */
+  def missingV[A](v: DenseMatrix[Double],
+                  y: DenseVector[Option[A]]): DenseMatrix[Double] = {
+
+    val missing = indexNonMissing(y)
+    v(missing.toVector, missing.toVector).toDenseMatrix
   }
 
   /**
@@ -270,7 +219,7 @@ object KalmanFilter extends Filter[KfState, DlmParameters, DlmModel] {
       DenseVector.zeros[Double](1),
       DenseMatrix.eye[Double](1))
 
-    filter(mod, ys, dlmP, FilterAr.advanceState(p))
+    KalmanFilter(FilterAr.advanceState(p)).filterTraverse(mod, ys, dlmP)
   }
 
   /**
@@ -291,6 +240,68 @@ object KalmanFilter extends Filter[KfState, DlmParameters, DlmModel] {
       DenseVector.zeros[Double](1),
       DenseMatrix.eye[Double](1))
 
-    filter(mod, ys, dlmP, FilterOu.advanceState(p))
+    KalmanFilter(FilterOu.advanceState(p)).filterTraverse(mod, ys, dlmP)
+  }
+
+  /**
+    * Advance the state mean and variance to the a-priori
+    * value of the state at time t
+    * @param g the system matrix, a function from a time increment to DenseMatrix
+    * @param s the current state of the Kalman Filter
+    * @param dt the time increment
+    * @return the a-priori mean and covariance of the state at time t
+    */
+  def advanceState(
+    p: DlmParameters,
+    g: Double => DenseMatrix[Double])
+    (s: KfState,
+     dt: Double): KfState = {
+
+    val (at, rt) = advState(g, s.mt, s.ct, dt, p.w)
+    s.copy(at = at, rt = rt)
+  }
+
+  /**
+    * Advance the state 
+    */
+  def advState(
+    g: Double => DenseMatrix[Double],
+    mt: DenseVector[Double],
+    ct: DenseMatrix[Double],
+    dt: Double,
+    w:  DenseMatrix[Double]) = {
+
+    if (dt == 0) {
+      (mt, ct)
+    } else {
+      val at = g(dt) * mt
+      val rt = g(dt) * ct * g(dt).t + w * dt
+      (at, rt)
+    }
+  }
+
+  /**
+    * Filter a DLM with a random walk latent-state
+    */
+  def filterDlm[T[_]: Traverse](
+    mod: DlmModel,
+    ys:  T[Dlm.Data],
+    p:   DlmParameters) = {
+
+    KalmanFilter(advanceState(p, mod.g)).filterTraverse(mod, ys, p)
+  }
+
+  /**
+    * Calculate the marginal likelihood of a DLM using a kalman filter
+    */
+  def likelihood[T[_]: Traverse](
+    mod:      DlmModel,
+    ys:       T[Dlm.Data])(
+    p:        DlmParameters): Double = {
+
+    val kf = KalmanFilter(advanceState(p, mod.g))
+    val init = kf.initialiseState(mod, p, ys)
+
+    ys.foldLeft(init)(kf.step(mod, p)).ll
   }
 }

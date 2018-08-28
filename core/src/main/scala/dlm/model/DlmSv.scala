@@ -143,7 +143,8 @@ object DlmSv {
         .zip(alphas.map(_._2.data.toVector).transpose)
         .zip(params.sv)
       dlmP = StochasticVolatility.ar1DlmParams(ps)
-      a1 = StochasticVolatility.sampleState(times zip v, times zip a, dlmP, ps.phi, advState(ps), backStep(ps))
+      a1 = StochasticVolatility.sampleState(times zip v, 
+        dlmP, ps.phi, advState(ps), backStep(ps))(times zip a)
     } yield a1.draw.map(_._2)
 
     Rand.always(times zip res.transpose.map(x => DenseVector(x.toArray)))
@@ -186,11 +187,11 @@ object DlmSv {
     // create a list of parameters with the variance for each time in them
     val ps = vs.map { case (t, vi) => params.copy(v = diag(vi)) }
 
-    val init = SvdFilter.initialiseState(mod, params, ys)
+    val init = SvdFilter(advState).initialiseState(mod, params, ys)
 
     // fold over the list of variances and the observations
     val filtered = (ps zip ys).scanLeft(init) {
-      case (s, (p, y)) => SvdFilter.step(mod, p, advState)(s, y)
+      case (s, (p, y)) => SvdFilter(advState).step(mod, p)(s, y)
     }
 
     val w = SvdFilter.sqrtInvSvd(params.w)

@@ -37,15 +37,13 @@ class KalmanFilterBenchmark {
 
   @Benchmark
   def arrayFilterSvd(mod: ModelState) = {
-    SvdFilter.filterArray(mod.model, mod.data, mod.p,
-      SvdFilter.advanceState(mod.p, mod.model.g))
+    SvdFilter(SvdFilter.advanceState(mod.p, mod.model.g)).filterArray(mod.model, mod.data, mod.p)
 
   }
 
   @Benchmark
   def arrayFilter(mod: ModelState) = {
-    KalmanFilter.filterArray(mod.model, mod.data, mod.p,
-      KalmanFilter.advanceState(mod.p, mod.model.g))
+    KalmanFilter(KalmanFilter.advanceState(mod.p, mod.model.g)).filterArray(mod.model, mod.data, mod.p)
   }
 
   @Benchmark

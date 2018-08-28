@@ -125,6 +125,7 @@ class SvdFilterTest extends FunSuite with Matchers with BreezeGenerators {
   val root = svd(p.c0)
   val uc = root.rightVectors.t
   val dc = root.singularValues
+  val svdkf = SvdFilter(SvdFilter.advanceState(p, model.g))
   val (a1svd, dr, ur) = SvdFilter.advState(model.g, 1.0, p.m0, dc, uc, p.w)
   val r1svd = (diag(dr) * ur).t * (diag(dr) * ur)
 
@@ -135,7 +136,7 @@ class SvdFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(r1svd === p.c0 + p.w)
   }
 
-  val f1svd = SvdFilter.oneStepForecast(model.f, a1svd, 1.0)
+  val f1svd = svdkf.oneStepForecast(model.f, a1svd, 1.0)
 
   test("Svd Filter should perform a one step prediction") {
     assert(f1svd === filteredTest.head.at)

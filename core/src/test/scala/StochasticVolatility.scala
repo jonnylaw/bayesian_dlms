@@ -19,8 +19,10 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
     toVector.
     map { case (t, y, a) => Dlm.Data(t, DenseVector(y)) }
 
-  val filteredTest = KalmanFilter.filter[Vector](model, sims, params, FilterAr.advanceState(p))
-  val filterSvdTest = SvdFilter.filter(model, sims, params, FilterAr.advanceStateSvd(p))
+  val filteredTest = KalmanFilter(FilterAr.advanceState(p)).
+    filter(model, sims, params)
+  val filterSvdTest = SvdFilter(FilterAr.advanceStateSvd(p)).
+    filter(model, sims, params)
 
   test("Svd filter AR(1) should return the same values as the Kalman Filter") {
     for {

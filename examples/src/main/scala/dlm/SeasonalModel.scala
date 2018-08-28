@@ -63,8 +63,7 @@ object SimulateSeasonalDlm extends App with SeasonalModel {
   * Filter the seasonal DLM
   */
 object FilterSeasonalDlm extends App with SeasonalModel with SeasonalData {
-  val filtered = SvdFilter.filter(mod, data, p,
-    SvdFilter.advanceState(p, mod.g))
+  val filtered = SvdFilter(SvdFilter.advanceState(p, mod.g)).filter(mod, data, p)
 
   val out = new java.io.File("examples/data/seasonal_filtered.csv")
 
@@ -84,7 +83,7 @@ object FilterSeasonalDlm extends App with SeasonalModel with SeasonalData {
   * Run backward smoothing on the seasonal DLM
   */
 object SmoothSeasonalDlm extends App with SeasonalModel with SeasonalData {
-  val filtered = KalmanFilter.filter(mod, data, p, KalmanFilter.advanceState(p, mod.g))
+  val filtered = KalmanFilter(KalmanFilter.advanceState(p, mod.g)).filter(mod, data, p)
   val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
 
   val out = new java.io.File("examples/data/seasonal_smoothed.csv")
@@ -152,8 +151,8 @@ object ForecastSeasonal extends App with SeasonalModel with SeasonalData {
                                      p.c0)
 
   // get the posterior distribution of the final state
-  val filtered = SvdFilter.filter(mod, data, meanParameters,
-    SvdFilter.advanceState(meanParameters, mod.g))
+  val filtered = SvdFilter(SvdFilter.advanceState(meanParameters, mod.g)).
+    filter(mod, data, meanParameters)
   val (mt, ct, initTime) = filtered.map { a =>
     val ct = a.uc * diag(a.dc) * a.uc.t
     (a.mt, ct, a.time)

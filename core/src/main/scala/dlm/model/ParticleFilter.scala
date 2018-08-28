@@ -27,7 +27,6 @@ case class ParticleFilter(
   n: Int,
   resample: (Vector[DenseVector[Double]], Vector[Double]) => Vector[DenseVector[Double]])
     extends Filter[PfState, DlmParameters, DglmModel] {
-
   import ParticleFilter._
 
   /**
@@ -35,8 +34,7 @@ case class ParticleFilter(
     */
   def step(
     mod:      DglmModel,
-    p:        DlmParameters,
-    advState: (PfState, Double) => PfState)
+    p:        DlmParameters)
     (s: PfState, d: Data): PfState = {
 
     val y = KalmanFilter.flattenObs(d.observation)
@@ -79,31 +77,10 @@ object ParticleFilter {
     n: Int)
     (p: DlmParameters): Double = {
 
-    val advState = (p: PfState, dt: Double) => p
-    val filter = ParticleFilter(n, multinomialResample)
+    val filter = ParticleFilter(n)
     val init = filter.initialiseState(mod, p, ys)
-    ys.foldLeft(init)(filter.step(mod, p, advState)).ll
+    ys.foldLeft(init)(filter.step(mod, p)).ll
   }
-
-  /**
-    * Run a Bootstrap Particle Filter over a DGLM
-    * @param mod a DGLM
-    * @param ys a traversable collection of ordered observations
-    * @param n the number of particles used to approximate the latent-state
-    * @param p the value of the static parameters to use in the filter
-    * @return a collection containing the approximate posterior latent-state for t = 1,...,T
-    * and the log-likelihood
-    */
-  def filter[T[_]: Traverse](
-    mod: DglmModel,
-    ys: T[Data],
-    n: Int)
-    (p: DlmParameters): T[PfState] = {
-
-    val advState = (p: PfState, dt: Double) => p
-    ParticleFilter(n, multinomialResample).filter(mod, ys, p, advState)
-  }
-
 
   /**
     * Advance the system of particles to the next timepoint

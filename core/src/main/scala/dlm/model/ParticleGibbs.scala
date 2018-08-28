@@ -9,10 +9,11 @@ import breeze.stats.mean
 import ParticleFilter._
 import Dlm.Data
 
-case class PgState(conditionedState: Map[Double, DenseVector[Double]],
-                   states: List[List[(Double, DenseVector[Double])]],
-                   weights: List[Double],
-                   ll: Double)
+case class PgState(
+  conditionedState: Map[Double, DenseVector[Double]],
+  states: List[List[(Double, DenseVector[Double])]],
+  weights: List[Double],
+  ll: Double)
 
 /**
   * Particle Gibbs Sampler for A Dynamic Generalised Linear DglmModel
@@ -31,7 +32,7 @@ object ParticleGibbs {
       .map(x => (t0 - 1.0, x))
 
     // run the PF to sample the first conditioned state
-    val st = ParticleFilter.filter(model, ys, n)(p)
+    val st = ParticleFilter(n).filterTraverse(model, ys, p)
     val ws = st.map(_.weights).toList.last
     val states = st.map(d => d.state.map((d.time, _)).toList).toList
     val conditionedState =

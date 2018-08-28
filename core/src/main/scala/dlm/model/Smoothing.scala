@@ -7,17 +7,20 @@ import spire.syntax.cfor._
 import scala.reflect.ClassTag
 
 case class SamplingState(
-  time: Double,
+  time:   Double,
   sample: DenseVector[Double],
-  at1: DenseVector[Double],
-  rt1: DenseMatrix[Double])
+  mean:   DenseVector[Double],
+  cov:    DenseMatrix[Double], 
+  at1:    DenseVector[Double],
+  rt1:    DenseMatrix[Double])
 
 object Smoothing {
-  case class SmoothingState(time: Double,
-                            mean: DenseVector[Double],
-                            covariance: DenseMatrix[Double],
-                            at1: DenseVector[Double],
-                            rt1: DenseMatrix[Double])
+  case class SmoothingState(
+    time: Double,
+    mean: DenseVector[Double],
+    covariance: DenseMatrix[Double],
+    at1: DenseVector[Double],
+    rt1: DenseMatrix[Double])
 
   /**
     * A single step in the backwards smoother
@@ -58,7 +61,7 @@ object Smoothing {
     val lastTime = last.time
     val init = SmoothingState(lastTime, last.mt, last.ct, last.at, last.rt)
 
-    kfState.scanRight(init)(smoothStep(mod))
+    kfState.init.scanRight(init)(smoothStep(mod))
   }
 
   /**
@@ -95,27 +98,25 @@ object Smoothing {
     val covariance = diff * ct * diff.t + cgrinv * w * dt * cgrinv.t
     val r = (covariance + covariance.t) /:/ 2.0
 
-    SamplingState(kfState.time,
-      MultivariateGaussianSvd(mean, r).draw,
-      kfState.at,
-      kfState.rt)
+    SamplingState(kfState.time, MultivariateGaussianSvd(mean, r).draw,
+      mean, r, kfState.at, kfState.rt)
   }
 
   def initialise(filtered: Vector[KfState]) = {
     val last = filtered.last
     val lastState = MultivariateGaussianSvd(last.mt, last.ct).draw
-    SamplingState(last.time, lastState, last.at, last.rt)
+    SamplingState(last.time, lastState, last.mt, last.ct, last.at, last.rt)
   }
 
-   /**
-    * Perform backward sampling using 
+  /**
+    * Perform backward sampling 
     */
   def sample(
     mod: DlmModel,
     filtered: Vector[KfState],
     backStep: (KfState, SamplingState) => SamplingState) = {
 
-    def initState = initialise(filtered)
+    val initState = initialise(filtered)
 
     filtered.init
       .scanRight(initState)(backStep)
@@ -156,10 +157,13 @@ object Smoothing {
     backStep: (KfState, SamplingState) => SamplingState,
     p: DlmParameters) = {
 
-    val filtered = KalmanFilter.filter(mod, observations, p, advState)
+    val filtered = KalmanFilter(advState).filter(mod, observations, p)
     Rand.always(sample(mod, filtered, backStep))
   }
 
+  /**
+    * Perform backward sampling for a DLM
+    */
   def sampleDlm(
     mod:      DlmModel,
     filtered: Vector[KfState],

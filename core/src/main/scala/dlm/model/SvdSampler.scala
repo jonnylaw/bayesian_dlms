@@ -9,9 +9,11 @@ import cats.implicits._
   * TODO: Check this
   */
 object SvdSampler {
-case class State(time: Double,
-  theta: DenseVector[Double],
-  at1: DenseVector[Double])
+
+  case class State(
+    time:  Double,
+    theta: DenseVector[Double],
+    at1:   DenseVector[Double])
 
   /**
     * Perform a single step in the backward sampler using the SVD
@@ -70,7 +72,7 @@ case class State(time: Double,
     advState: (SvdState, Double) => SvdState) = {
 
     val ps = SvdFilter.transformParams(p)
-    val filtered = SvdFilter.filterDecomp(mod, ys, ps, advState)
+    val filtered = SvdFilter(advState).filterDecomp(mod, ys, ps)
     Rand.always(sample(mod, filtered, ps.w))
   }
 

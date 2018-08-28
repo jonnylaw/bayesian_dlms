@@ -28,7 +28,7 @@ trait SmoothedData {
   // tolerance
   implicit val tol = 1e-4
 
-  val filtered = KalmanFilter.filter(model, data, p, KalmanFilter.advanceState(p, model.g))
+  val filtered = KalmanFilter(KalmanFilter.advanceState(p, model.g)).filter(model, data, p)
   val smoothed = Smoothing.backwardsSmoother(model)(filtered)
 }
 

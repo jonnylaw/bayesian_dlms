@@ -1,6 +1,5 @@
 package core.dlm.model
 
-import breeze.linalg.DenseVector
 import breeze.stats.distributions._
 import cats.Traverse
 import cats.implicits._
@@ -10,16 +9,15 @@ import breeze.stats.mean
 /**
   * Calculate an one-dimensional unknown observation variance 
   */
-case class AuxFilter(n: Int) extends Filter[PfState, DlmParameters, DglmModel] {
+case class AuxFilter(n: Int) extends FilterTs[PfState, DlmParameters, DglmModel] {
   import ParticleFilter._
 
   /**
     * A single step of the Auxiliary Particle Filter
     */
   def step(
-    mod:      DglmModel,
-    p:        DlmParameters,
-    advState: (PfState, Double) => PfState)
+    mod: DglmModel,
+    p:   DlmParameters)
     (s: PfState, d: Dlm.Data): PfState = {
 
     val y = KalmanFilter.flattenObs(d.observation)
