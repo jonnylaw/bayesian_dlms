@@ -2,6 +2,7 @@ package examples.dlm
 
 import core.dlm.model._
 import breeze.linalg.{DenseMatrix, DenseVector}
+import breeze.stats.mean
 import breeze.stats.distributions._
 import java.nio.file.Paths
 import cats.implicits._
@@ -77,4 +78,54 @@ object FitFsv extends App with FsvModel {
   Streaming.writeParallelChain(
     iters, 2, 100000, "examples/data/factor_sv_gibbs", formatParameters).
     runWith(Sink.onComplete(_ => system.terminate()))
+}
+
+object SampleStateFvs extends App with FsvModel {
+  val p = 6
+  val k = 2
+  val rawData = Paths.get("examples/data/fsv_sims.csv")
+  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader(false))
+  val data = reader.
+    collect { 
+      case Right(a) => Dlm.Data(a.head,
+        DenseVector(a.drop(1).take(p).toArray.map(_.some)))
+    }.
+    toVector.
+    take(100)
+
+  val priorBeta = Gaussian(1.0, 5.0)
+  val priorSigmaEta = InverseGamma(2.5, 1.0)
+  val priorPhi = new Beta(20, 2)
+  val priorMu = Gaussian(2.0, 1.0)
+  val priorSigma = InverseGamma(2.5, 3.0)
+
+
+  val iters = FactorSv.sampleAr(priorBeta, priorSigmaEta, priorMu,
+    priorPhi, priorSigma, data, params).
+    steps.
+    take(1000).
+    map(x => FactorSv.extractFactors(x.factors, 1)).
+    toVector
+
+  def quantile[A: Ordering](xs: Seq[A], prob: Double): A = {
+    val index = math.floor(xs.length * prob).toInt
+    val ordered = xs.sorted
+    ordered(index)
+  }
+
+  val summary = iters.transpose.map { x =>
+    val sample = x.map(_._2).flatten
+
+    (x.head._1,
+      mean(sample),
+      quantile(sample, 0.995),
+      quantile(sample, 0.005)
+    )
+  }
+
+  // write state
+  val out = new java.io.File("examples/data/factor_sv_state_0.csv")
+  val headers = rfc.withHeader("time", "mean", "upper", "lower")
+
+  out.writeCsv(summary, headers)
 }
