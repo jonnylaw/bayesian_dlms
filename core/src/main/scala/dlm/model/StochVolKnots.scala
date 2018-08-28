@@ -73,7 +73,7 @@ object StochasticVolatilityKnots {
     val filtered = KalmanFilter(advState).filter(mod, observations, p)
 
     val initState = Smoothing.initialise(filtered)
-    val sampled = filtered.scanRight(initState)(backStep)
+    val sampled = filtered.scanRight(initState)(backStep).init
 
     Rand.always(sampled)
   }
@@ -151,6 +151,31 @@ object StochasticVolatilityKnots {
     KfState(fs.time, fs.mean, fs.cov, fs.mean, fs.cov, None, None, 0.0)
   }
 
+  def conditionalFilter(
+    start:    SamplingState,
+    p:        SvParameters,
+    ys:       Vector[Dlm.Data],
+    advState: SvParameters => (KfState, Double) => KfState) = {
+
+    val mod = Dlm.autoregressive(p.phi)
+    val dlmP = StochasticVolatility.ar1DlmParams(p).
+      copy(v = DenseMatrix(math.Pi * math.Pi * 0.5))
+
+    val s0 = toKfState(start)
+    ys.scanLeft(s0)(KalmanFilter(advState(p)).step(mod, dlmP))
+  }
+
+  def conditionalSampler(
+    end:      SamplingState,
+    p:        SvParameters,
+    filtered: Vector[KfState],
+    backStep: SvParameters => (KfState, SamplingState) => SamplingState) = {
+
+    val sampled = filtered.scanRight(end)(backStep(p))
+
+    Rand.always(sampled.tail)
+  }
+
   /**
     * Conditional Forward filtering backward sampling
     * @param start a tuple containing the time and 
@@ -169,28 +194,11 @@ object StochasticVolatilityKnots {
     backStep: SvParameters => (KfState, SamplingState) => SamplingState
   ): Rand[Vector[SamplingState]] = {
 
-    // println("starting knot")
-    // println(start)
+    val filtered = conditionalFilter(start, p, ys, advState)
+    val sampled = conditionalSampler(end, p, filtered.init, backStep)
 
-    // println("ending knot")
-    // println(end)
-
-    val mod = Dlm.autoregressive(p.phi)
-    val dlmP = StochasticVolatility.ar1DlmParams(p).
-      copy(v = DenseMatrix(math.Pi * math.Pi * 0.5))
-
-    val s0 = toKfState(start)
-    val filtered = ys.scanLeft(s0)(KalmanFilter(advState(p)).step(mod, dlmP)).init
-    // println("filtered")
-    // filtered foreach println
-
-    val sampled = filtered.scanRight(end)(backStep(p))
-    // println("sampled")
-    // sampled foreach println
-
-    Rand.always(start +: sampled.tail)
+    sampled.map(s => start +: s)
   }
-
 
   /**
     * Sample a block of the latent state
@@ -222,31 +230,59 @@ object StochasticVolatilityKnots {
     * @param knots 
     * @return a function from the current state of the Markov chain
     * to the next state containing a new proposed value of the latent AR(1) state
+    * 
+    * TODO: Split this into three functions - start, middle and end
     */
   def sampleState(
     ys:       Vector[Dlm.Data],
     advState: SvParameters => (KfState, Double) => KfState,
     backStep: SvParameters => (KfState, SamplingState) => SamplingState,
-    params:   SvParameters,
+    p:        SvParameters,
     knots:    Vector[Int]) = { s: Vector[SamplingState] =>
 
     val starts = knots.init
     val ends = knots.tail
+    val theEnd = knots.last
 
-    (starts zip ends).foldLeft(s) { (st, indices) =>
-      val (start, end) = indices
-      // println(s"start: $start, end: $end")
-      val selectedObs = ys.slice(start, end)
-      // println("Observations")
+    (starts zip ends).foldLeft(s) { case (st, (start, end)) =>
+      // println("observations: ")
       // selectedObs foreach println
+      val selectedObs = ys.slice(start, end)
 
-      val vs = st.slice(start, end + 1)
-      // println("log-volatility")
-      // vs foreach println
+      val newBlock = if (start == 0) {
+        val initVar = (p.sigmaEta * p.sigmaEta) / (1 - p.phi * p.phi)
+        val init = MultivariateGaussian(DenseVector(p.mu), DenseMatrix(initVar))
+        val ss = SamplingState(ys.head.time - 1, init.draw,
+          init.mean, init.variance, init.mean, init.variance)
+        val vs = ss +: st.slice(start + 1, end + 1)
+        // println("starting state")
+        // vs foreach println
 
-      val newBlock = sampleBlock(selectedObs, params, advState, backStep)(vs).draw
+        sampleBlock(selectedObs, p, advState, backStep)(vs).draw
+
+      } else if (end == theEnd) {
+        val vs = st.slice(start, end + 1)
+        // println("ending state")
+        // vs.foreach(println)
+        val prop = (vs: Vector[SamplingState]) => {
+          val filtered = conditionalFilter(vs.head, p, selectedObs, advState)
+          val initState = Smoothing.initialise(filtered)
+          Rand.always(filtered.init.scanRight(initState)(backStep(p)))
+        }
+        val ll = (vs: Vector[SamplingState]) =>
+          exactLl(vs, selectedObs) - approxLl(vs, selectedObs)
+
+        val mh = MarkovChain.Kernels.metropolis(prop)(ll)
+        mh(vs).draw
+      } else {
+        val vs = st.slice(start, end + 1)
+        sampleBlock(selectedObs, p, advState, backStep)(vs).draw
+      }
 
       st.take(start) ++ newBlock ++ st.drop(end + 1)
+      // println("whole state")
+      // res foreach println
+      // res
     }
   }
 
@@ -254,8 +290,7 @@ object StochasticVolatilityKnots {
     min + scala.util.Random.nextInt(max - min + 1)
 
   def sampleStarts(min: Int, max: Int)(length: Int) = {
-    // Stream.continually(discreteUniform(min, max)).
-    Stream.continually(10).
+    Stream.continually(discreteUniform(min, max)).
       scanLeft(0)(_ + _).
       takeWhile(_ < length - 1).
       toVector

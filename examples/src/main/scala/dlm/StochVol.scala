@@ -67,7 +67,7 @@ object FitSvKnots extends App {
   val data = reader.collect {
     case Right(a) => Dlm.Data(a.head, DenseVector(a(1).some))
   }.toVector.
-    take(200)
+    take(100)
 
   val priorSigma = InverseGamma(0.001, 0.001)
   val priorPhi = Gaussian(0.8, 1.0)
@@ -91,8 +91,8 @@ object FitSvKnots extends App {
 }
 
 object FitSvKnotsBeta extends App {
-  implicit val system = ActorSystem("stochastic_volatility_knots")
-  implicit val materializer = ActorMaterializer()
+  // implicit val system = ActorSystem("stochastic_volatility_knots")
+  // implicit val materializer = ActorMaterializer()
 
   val p = SvParameters(0.8, 1.0, 0.2)
 
@@ -118,9 +118,9 @@ object FitSvKnotsBeta extends App {
     map(formatParameters).
     foreach(println)
 
-  Streaming.writeParallelChain(
-    iters, 2, 10000, "examples/data/sv_knot_beta", formatParameters).
-    runWith(Sink.onComplete(_ => system.terminate()))
+  // Streaming.writeParallelChain(
+  //   iters, 2, 10000, "examples/data/sv_knot_beta", formatParameters).
+  //   runWith(Sink.onComplete(_ => system.terminate()))
 }
 
 object SvSampleStateMixture extends App {

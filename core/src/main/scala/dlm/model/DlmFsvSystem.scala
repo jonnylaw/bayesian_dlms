@@ -156,7 +156,7 @@ object DlmFsvSystem {
     beta:   DenseMatrix[Double],
     v:      DenseMatrix[Double]): Vector[DenseMatrix[Double]] = {
 
-    alphas map (a => (beta * diag(exp(a._2)) * beta.t) + v)
+    alphas map (a => ((beta * diag(exp(a._2))) * beta.t) + v)
   }
 
   /**
@@ -237,9 +237,9 @@ object DlmFsvSystem {
       fs1 <- FactorSv.sampleStep(priorBeta, priorSigmaEta, priorMu,
         priorPhi, priorSigma, factorState(s.theta, dlm.g), d, k)(fs)
 
-      // perform FFBS using time dependent variance
+      // perform FFBS using time dependent system noise covariance
       ws = calculateVariance(fs1.volatility.tail, fs1.params.beta,
-        diag(DenseVector.fill(p)(fs1.params.v)))
+        diag(DenseVector.fill(d)(fs1.params.v)))
       dlmP = toDlmParameters(s.p, p)
       theta <- ffbs(dlm, ys, dlmP, ws)
 

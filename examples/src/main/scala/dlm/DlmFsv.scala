@@ -149,8 +149,8 @@ object SimulateDlmFsvSystem extends App with DlmFsvSystemModel {
 }
 
 object FitDlmFsvSystem extends App with DlmFsvSystemModel {
-  // implicit val system = ActorSystem("dlm_fsv_system")
-  // implicit val materializer = ActorMaterializer()
+  implicit val system = ActorSystem("dlm_fsv_system")
+  implicit val materializer = ActorMaterializer()
 
   val rawData = Paths.get("examples/data/dlm_fsv_system_sims.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
@@ -190,14 +190,14 @@ object FitDlmFsvSystem extends App with DlmFsvSystemModel {
   val iters = DlmFsvSystem.sample(priorBeta, priorSigmaEta, priorPhi, priorMu,
     priorSigma, priorV, data, dlmMod, params)
 
-  iters.
-    steps.
-    take(100).
-    map(formatParameters).
-    foreach(println)
+  // iters.
+  //   steps.
+  //   take(100).
+  //   map(formatParameters).
+  //   foreach(println)
 
   // write iters to file
-  // Streaming.writeParallelChain(
-  //   iters, 2, 100000, "examples/data/dlm_fsv_system_params", formatParameters).
-  //   runWith(Sink.onComplete(_ => system.terminate()))
+  Streaming.writeParallelChain(
+    iters, 2, 100000, "examples/data/dlm_fsv_system_params", formatParameters).
+    runWith(Sink.onComplete(_ => system.terminate()))
 }
