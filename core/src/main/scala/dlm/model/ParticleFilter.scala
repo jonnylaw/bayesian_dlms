@@ -23,7 +23,11 @@ case class PfState(
   * Dynamic Generalised Linear Models (DGLMs),
   * where the observation distribution is not Gaussian.
   */
-case class ParticleFilter(n: Int) extends Filter[PfState, DlmParameters, DglmModel] {
+case class ParticleFilter(
+  n: Int,
+  resample: (Vector[DenseVector[Double]], Vector[Double]) => Vector[DenseVector[Double]])
+    extends Filter[PfState, DlmParameters, DglmModel] {
+
   import ParticleFilter._
 
   /**
@@ -48,7 +52,7 @@ case class ParticleFilter(n: Int) extends Filter[PfState, DlmParameters, DglmMod
       val w1 = w map (a => exp(a - max))
       val ll = s.ll + max + log(mean(w1))
 
-      val resampled = multinomialResample(x1, w1)
+      val resampled = resample(x1, w1)
 
       PfState(d.time, resampled, w1, ll)
     }
@@ -76,7 +80,7 @@ object ParticleFilter {
     (p: DlmParameters): Double = {
 
     val advState = (p: PfState, dt: Double) => p
-    val filter = ParticleFilter(n)
+    val filter = ParticleFilter(n, multinomialResample)
     val init = filter.initialiseState(mod, p, ys)
     ys.foldLeft(init)(filter.step(mod, p, advState)).ll
   }
@@ -97,7 +101,7 @@ object ParticleFilter {
     (p: DlmParameters): T[PfState] = {
 
     val advState = (p: PfState, dt: Double) => p
-    ParticleFilter(n).filter(mod, ys, p, advState)
+    ParticleFilter(n, multinomialResample).filter(mod, ys, p, advState)
   }
 
 
@@ -111,9 +115,9 @@ object ParticleFilter {
     */
   def advanceState[T[_]: Traverse](
     model: DglmModel,
-    dt: Double,
+    dt:    Double,
     state: T[DenseVector[Double]],
-    p: DlmParameters) = {
+    p:     DlmParameters) = {
 
     state traverse (x => Dglm.stepState(model, p, x, dt))
   }
@@ -143,11 +147,11 @@ object ParticleFilter {
     * @return a collection of weights corresponding to each particle
     */
   def calcWeights[F[_]: Functor](
-    mod: DglmModel,
-    time: Double,
+    mod:   DglmModel,
+    time:  Double,
     state: F[DenseVector[Double]],
-    y: DenseVector[Option[Double]],
-    p: DlmParameters) = {
+    y:     DenseVector[Option[Double]],
+    p:     DlmParameters) = {
 
     state.map(x => calcWeight(mod, time, x, y, p))
   }
@@ -164,6 +168,39 @@ object ParticleFilter {
       Multinomial(DenseVector(weights.toArray)).sample(particles.size).toVector
 
     indices map (particles(_))
+  }
+
+  def discreteUniform(min: Int, max: Int): Rand[Int] = {
+    Rand.always(min + scala.util.Random.nextInt(max - min + 1))
+  }
+
+  /**
+    * Metropolis resampling which only computes the ratio between pairs of weights making
+    * it amenable to parallelisation
+    * @param b the number of iterations
+    * @param w
+    */
+  def metropolisResampling[A](b: Int)(x: Vector[A], w: Vector[Double]): Vector[A] = {
+    val n = w.size
+
+    def loop(b: Int, k: Int): Int = {
+      if (b == 0) {
+        k
+      } else {
+        val u = Uniform(0, 1).draw
+        val j = discreteUniform(0, n-1).draw
+        if (u <= w(j)/w(k)) {
+          loop(b-1, j)
+        } else {
+          loop(b-1, k)
+        }
+      }
+    }
+
+    w.indices.toVector.par.map { i =>
+      val k = loop(b, i)
+      x(k)
+    }.seq
   }
 
 
