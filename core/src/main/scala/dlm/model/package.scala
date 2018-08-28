@@ -3,6 +3,7 @@ package core.dlm
 import breeze.linalg.{DenseVector, DenseMatrix}
 import breeze.stats.distributions.{Rand, MultivariateGaussian, Gaussian}
 import cats._
+import scala.collection.parallel.immutable.ParVector
 
 package object model {
   /**
@@ -36,4 +37,8 @@ package object model {
         case Right(b) => Rand.always(b)
       }
   }
+
+  // implicit val parTraverse = new Traverse[ParVector] {
+
+  // }
 }
