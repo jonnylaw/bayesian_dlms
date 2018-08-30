@@ -5,7 +5,7 @@ import core.dlm.model._
 import breeze.linalg._
 import cats.implicits._
 
-object ArrayFilterBenchmark {
+object SvdFilterBenchmark {
 
   @State(Scope.Benchmark)
   class ModelState {
@@ -25,8 +25,8 @@ object ArrayFilterBenchmark {
   }
 }
 
-class ArrayFilterBenchmark {
-  import ArrayFilterBenchmark._
+class SvdFilterBenchmark {
+  import SvdFilterBenchmark._
 
   @Benchmark
   def kalmanFilter(mod: ModelState) = {
@@ -34,7 +34,7 @@ class ArrayFilterBenchmark {
   }
 
   @Benchmark
-  def arrayFilter(mod: ModelState) = {
-    KalmanFilter(KalmanFilter.advanceState(mod.p, mod.model.g)).filterArray(mod.model, mod.data, mod.p)
+  def svdFilter(mod: ModelState) = {
+    SvdFilter.filterDlm(mod.model, mod.data, mod.p)
   }
 }
