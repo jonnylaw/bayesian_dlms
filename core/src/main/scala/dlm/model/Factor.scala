@@ -340,7 +340,7 @@ object FactorSv {
       i <- Vector.range(0, k).par
       thisState = extractState(s.volatility, i)
       theseParameters = s.params.factorParams(i)
-      factorState = StochasticVolatility.State(theseParameters, thisState)
+      factorState = StochasticVolatility.State(theseParameters, thisState, 0)
       theseFactors = extractFactors(s.factors, i)
       factor = StochasticVolatility.stepAr(priorSigmaEta, priorPhi, priorMu, theseFactors)(factorState)
     } yield factor

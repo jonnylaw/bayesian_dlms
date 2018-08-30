@@ -41,14 +41,14 @@ object FitSv extends App {
     case Right(a) => (a.head, a(1).some)
   }.toVector
 
-  val priorSigma = InverseGamma(10, 1)
+  val priorSigma = InverseGamma(10, 2)
   val priorPhi = new Beta(5, 2)
   val priorMu = Gaussian(0.0, 3.0)
 
   val iters = StochasticVolatility.sampleAr(priorSigma, priorPhi, priorMu, p, data)
 
   def formatParameters(s: StochasticVolatility.State) = {
-    List(s.params.phi, s.params.mu, s.params.sigmaEta)
+    List(s.params.phi, s.params.mu, s.params.sigmaEta, s.accepted)
   }
 
   Streaming.writeParallelChain(
@@ -57,42 +57,8 @@ object FitSv extends App {
 }
 
 object FitSvKnots extends App {
-  // implicit val system = ActorSystem("stochastic_volatility_knots")
-  // implicit val materializer = ActorMaterializer()
-
-  val p = SvParameters(0.8, 1.0, 0.2)
-
-  val rawData = Paths.get("examples/data/sv_sims.csv")
-  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
-  val data = reader.collect {
-    case Right(a) => Dlm.Data(a.head, DenseVector(a(1).some))
-  }.toVector.
-    take(100)
-
-  val priorSigma = InverseGamma(0.001, 0.001)
-  val priorPhi = Gaussian(0.8, 1.0)
-  val priorMu = Gaussian(0.0, 10.0)
-
-  val iters = StochasticVolatilityKnots.sample(priorMu, priorSigma, priorPhi, data, p)
-
-  def formatParameters(s: StochasticVolatilityKnots.State) = {
-    List(s.params.phi, s.params.mu, s.params.sigmaEta)
-  }
-
-  iters.
-    steps.
-    take(1000).
-    map(formatParameters).
-    foreach(println)
-
-  // Streaming.writeParallelChain(
-  //   iters, 2, 10000, "examples/data/sv_knot_params", formatParameters).
-  //   runWith(Sink.onComplete(_ => system.terminate()))
-}
-
-object FitSvKnotsBeta extends App {
-  // implicit val system = ActorSystem("stochastic_volatility_knots")
-  // implicit val materializer = ActorMaterializer()
+  implicit val system = ActorSystem("stochastic_volatility_knots")
+  implicit val materializer = ActorMaterializer()
 
   val p = SvParameters(0.8, 1.0, 0.2)
 
@@ -102,25 +68,46 @@ object FitSvKnotsBeta extends App {
     case Right(a) => Dlm.Data(a.head, DenseVector(a(1).some))
   }.toVector
 
-  val priorSigma = InverseGamma(0.001, 0.001)
-  val priorPhi = new Beta(2.0, 5.0)
+  val priorPrec = InverseGamma(10, 2)
+  val priorPhi = Gaussian(0.8, 1.0)
   val priorMu = Gaussian(0.0, 10.0)
 
-  val iters = StochasticVolatilityKnots.sampleBeta(priorMu, priorSigma, priorPhi, data, p)
+  val iters = StochasticVolatilityKnots.sample(priorMu, priorPrec, priorPhi, data, p)
 
   def formatParameters(s: StochasticVolatilityKnots.State) = {
     List(s.params.phi, s.params.mu, s.params.sigmaEta)
   }
 
-  iters.
-    steps.
-    take(1000).
-    map(formatParameters).
-    foreach(println)
+  Streaming.writeParallelChain(
+    iters, 2, 100000, "examples/data/sv_knot_params", formatParameters).
+    runWith(Sink.onComplete(_ => system.terminate()))
+}
 
-  // Streaming.writeParallelChain(
-  //   iters, 2, 10000, "examples/data/sv_knot_beta", formatParameters).
-  //   runWith(Sink.onComplete(_ => system.terminate()))
+object FitSvKnotsBeta extends App {
+  implicit val system = ActorSystem("stochastic_volatility_knots")
+  implicit val materializer = ActorMaterializer()
+
+  val p = SvParameters(0.8, 1.0, 0.2)
+
+  val rawData = Paths.get("examples/data/sv_sims.csv")
+  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
+  val data = reader.collect {
+    case Right(a) => Dlm.Data(a.head, DenseVector(a(1).some))
+  }.toVector
+
+  val priorPrec = InverseGamma(10, 2)
+  val priorPhi = new Beta(2.0, 5.0)
+  val priorMu = Gaussian(0.0, 10.0)
+
+  val iters = StochasticVolatilityKnots.sampleBeta(priorMu, priorPrec, priorPhi, data, p)
+
+  def formatParameters(s: StochasticVolatilityKnots.State) = {
+    List(s.params.phi, s.params.mu, s.params.sigmaEta, s.accepted)
+  }
+
+  Streaming.writeParallelChain(
+    iters, 2, 100000, "examples/data/sv_knot_beta", formatParameters).
+    runWith(Sink.onComplete(_ => system.terminate()))
 }
 
 object SvSampleStateMixture extends App {

@@ -28,7 +28,7 @@ object GibbsSampling {
     ys:    Vector[Data],
     theta: Vector[(Double, DenseVector[Double])]): Rand[DenseMatrix[Double]] = {
 
-    val ssy: DenseVector[Double] = (theta zip ys)
+    val ssy: DenseVector[Double] = (theta.tail zip ys)
       .map {
         case ((time, x), d) =>
           val ft = f(time).t * x

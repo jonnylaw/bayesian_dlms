@@ -47,6 +47,7 @@ lazy val core = (project in file("core"))
       "org.scalanlp"        %% "breeze-natives"     % "0.13.2",
       "com.nrinaudo"        %% "kantan.csv-cats"    % "0.4.0",
       "com.nrinaudo"        %% "kantan.csv-java8"   % "0.4.0",
+      "com.nrinaudo"        %% "kantan.csv-generic" % "0.4.0",
       "org.typelevel"       %% "cats-core"          % "1.0.1",
       "com.typesafe.akka"   %% "akka-stream"        % "2.5.9",
       "org.scalatest"       %% "scalatest"          % "3.0.5"  % "test",

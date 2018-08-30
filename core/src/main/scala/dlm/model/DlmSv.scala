@@ -151,7 +151,8 @@ object DlmSv {
   }
 
   /**
-    * 
+    * Sample the static parameters of the log-volatility
+    * @param 
     */
   def sampleVolatilityParams(
       priorPhi: ContinuousDistr[Double],
@@ -163,7 +164,7 @@ object DlmSv {
 
     for {
       (as, ps) <- alphas.map(_._2.data.toVector).transpose zip params.sv
-      newPhi = StochasticVolatility
+      (newPhi, accepted) = StochasticVolatility
         .samplePhi(0.05, 100, priorPhi, ps, times zip as)(ps.phi)
         .draw
       newSigma = StochasticVolatility

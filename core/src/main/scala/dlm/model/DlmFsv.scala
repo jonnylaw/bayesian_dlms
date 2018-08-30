@@ -150,7 +150,7 @@ object DlmFsv {
     f:            Double => DenseMatrix[Double]) = {
 
     for {
-      (y, x) <- observations.map(_.observation) zip theta
+      (y, x) <- observations.map(_.observation) zip theta.tail
       mean = f(x._1).t * x._2
       diff = y.data.zipWithIndex.
         map { 

@@ -166,6 +166,24 @@ object MetropolisHastings {
     } yield next
   }
 
+  def mhAccept[A](
+    proposal: A => ContinuousDistr[A],
+    logMeasure: A => Double)(param: A) = {
+
+    for {
+      propP <- proposal(param)
+      nextp = proposal(param).logPdf(propP)
+      lastp = proposal(propP).logPdf(param)
+      a = logMeasure(propP) - nextp - logMeasure(param) + lastp
+      u <- Uniform(0, 1)
+      next = if (log(u) < a) {
+        (propP, 1)
+      } else {
+        (param, 0)
+      }
+    } yield next
+  }
+
   /**
     * Run Metropolis-Hastings algorithm for a DLM, using the kalman filter to calculate the likelihood
     */
