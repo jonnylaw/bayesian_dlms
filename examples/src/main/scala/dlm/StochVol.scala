@@ -18,7 +18,7 @@ import scaladsl._
 object SimulateSv extends App {
   // simulate data
   val p = SvParameters(0.8, 1.0, 0.2)
-  val sims = StochasticVolatility.simulate(p).steps.take(3000).toVector
+  val sims = StochasticVolatility.simulate(p).steps.take(5000).toVector
 
   // write to file
   val out = new java.io.File("examples/data/sv_sims.csv")
@@ -96,7 +96,7 @@ object FitSvKnotsBeta extends App {
   }.toVector
 
   val priorPrec = InverseGamma(10, 2)
-  val priorPhi = new Beta(2.0, 5.0)
+  val priorPhi = new Beta(5, 2)
   val priorMu = Gaussian(0.0, 10.0)
 
   val iters = StochasticVolatilityKnots.sampleBeta(priorMu, priorPrec, priorPhi, data, p)
@@ -193,7 +193,7 @@ object SimulateOu extends App {
   // simulate data
   val p = SvParameters(0.2, 1.0, 0.3)
   val times = Stream.iterate(0.1)(t => t + scala.util.Random.nextDouble())
-  val sims = StochasticVolatility.simOu(p, times).take(3000).toVector
+  val sims = StochasticVolatility.simOu(p, times).take(5000).toVector
 
   // write to file
   val out = new java.io.File("examples/data/sv_ou_sims.csv")
