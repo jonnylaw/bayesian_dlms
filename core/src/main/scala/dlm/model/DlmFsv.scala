@@ -132,7 +132,7 @@ object DlmFsv {
     */
   case class State(
     p:          DlmFsv.Parameters,
-    theta:      Vector[(Double, DenseVector[Double])],
+    theta:      Vector[SamplingState],
     factors:    Vector[(Double, Option[DenseVector[Double]])],
     volatility: Vector[SamplingState]
   )
@@ -145,19 +145,19 @@ object DlmFsv {
     * @return a vector containing the difference between the observations and dynamic mean
     */
   def factorObs(
-    observations: Vector[Data],
-    theta:        Vector[(Double, DenseVector[Double])],
-    f:            Double => DenseMatrix[Double]) = {
+    ys:    Vector[Data],
+    theta: Vector[SamplingState],
+    f:     Double => DenseMatrix[Double]) = {
 
     for {
-      (y, x) <- observations.map(_.observation) zip theta.tail
-      mean = f(x._1).t * x._2
+      (y, x) <- ys.map(_.observation) zip theta.tail
+      mean = f(x.time).t * x.sample
       diff = y.data.zipWithIndex.
         map { 
           case (Some(yi), i) => Some(yi - mean(i))
           case (None, _) => None
         }
-    } yield Data(x._1, DenseVector(diff))
+    } yield Data(x.time, DenseVector(diff))
   }
 
   /**
@@ -170,12 +170,8 @@ object DlmFsv {
   /**
     * Transform the state of this sampler into the state for the DLM
     */
-  def buildDlmState(s: State): GibbsSampling.State = {
-    GibbsSampling.State(
-      s.p.dlm,
-      s.theta.map(x => (x._1, x._2))
-    )
-  }
+  def buildDlmState(s: State): GibbsSampling.State = 
+    GibbsSampling.State(s.p.dlm, s.theta)
 
   /**
     * Helper function for DLM obs
@@ -269,7 +265,7 @@ object DlmFsv {
       vs = DlmFsvSystem.calculateVariance(fs1.volatility.tail,
         fs1.params.beta, diag(DenseVector.fill(p)(fs1.params.v)))
       theta <- ffbsSvd(dlm, observations, s.p.dlm, vs)
-      newW <- GibbsSampling.sampleSystemMatrix(priorW, theta.toVector, dlm.g)
+      newW <- GibbsSampling.sampleSystemMatrix(priorW, theta, dlm.g)
       newP = DlmFsv.Parameters(s.p.dlm.copy(w = SvdFilter.sqrtSvd(newW)), fs1.params)
     } yield State(newP, theta.toVector, fs1.factors, fs1.volatility)
   }

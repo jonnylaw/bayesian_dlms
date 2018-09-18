@@ -155,20 +155,19 @@ object StudentT {
     * A single step of the Student t-distribution Gibbs Sampler
     */
   def step(
-    data: Vector[Data],
-    priorW: InverseGamma,
+    data:    Vector[Data],
+    priorW:  InverseGamma,
     priorNu: DiscreteDistr[Int],
     propNu:  Int => Rand[Int],
     propNuP: (Int, Int) => Double,
-    mod: DglmModel,
-    p: DlmParameters) = { s: State =>
+    mod:     DglmModel,
+    p:       DlmParameters) = { s: State =>
 
     val dlm = Dlm(mod.f, mod.g)
 
     for {
       theta <- sampleState(s.variances, dlm, data, p)
-      st = theta.map(a => (a.time, a.sample))
-      newW <- GibbsSampling.sampleSystemMatrix(priorW, st, mod.g)
+      newW <- GibbsSampling.sampleSystemMatrix(priorW, theta, mod.g)
       vs = sampleVariances(data, mod.f, s.nu, theta, p)
       scale <- sampleScaleT(s.nu, vs)
       (nu, accepted) <- sampleNu(propNu, propNuP,

@@ -10,10 +10,11 @@ import kantan.csv.ops._
 
 trait PoissonDglm {
   val mod = Dglm.poisson(Dlm.polynomial(1))
-  val params = DlmParameters(DenseMatrix(2.0),
-                             DenseMatrix(0.05),
-                             DenseVector(0.0),
-                             DenseMatrix(1.0))
+  val params = DlmParameters(
+    DenseMatrix(2.0),
+    DenseMatrix(0.05),
+    DenseVector(0.0),
+    DenseMatrix(1.0))
 }
 
 trait PoissonData {
@@ -136,33 +137,33 @@ object FilterPoisson extends App with PoissonDglm with PoissonData {
   out.writeCsv(filtered.map(formatData), header)
 }
 
-object PoissonDglmGibbs extends App with PoissonDglm with PoissonData {
-  val n = 200
-  val model = Dlm(mod.f, mod.g)
-  val priorW = InverseGamma(11.0, 1.0)
+// object PoissonDglmGibbs extends App with PoissonDglm with PoissonData {
+//   val n = 200
+//   val model = Dlm(mod.f, mod.g)
+//   val priorW = InverseGamma(11.0, 1.0)
 
-  val mcmcStep = (s: List[(Double, DenseVector[Double])], p: DlmParameters) =>
-    for {
-      w <- GibbsSampling.sampleSystemMatrix(priorW, s.toVector, model.g)
-      (ll, state) <- ParticleGibbs.sample(n, params, model, data.toList)
-    } yield (state, DlmParameters(p.v, w, p.m0, p.c0))
+//   val mcmcStep = (s: List[SamplingState], p: DlmParameters) =>
+//     for {
+//       w <- GibbsSampling.sampleSystemMatrix(priorW, s.toVector, model.g)
+//       (ll, state) <- ParticleGibbs.sample(n, params, model, data.toList)
+//     } yield (state, DlmParameters(p.v, w, p.m0, p.c0))
 
-  val initState = ParticleGibbs.sample(n, params, model, data.toList).draw._2
-  val iters = MarkovChain((initState, params)) { case (x, p) => mcmcStep(x, p) }.steps
-    .map(_._2)
-    .take(10000)
+//   val initState = ParticleGibbs.sample(n, params, model, data.toList).draw._2
+//   val iters = MarkovChain((initState, params)) { case (x, p) => mcmcStep(x, p) }.steps
+//     .map(_._2)
+//     .take(10000)
 
-  val out = new java.io.File("examples/data/poisson_dglm_gibbs.csv")
-  val writer = out.asCsvWriter[Double](rfc.withHeader("W"))
+//   val out = new java.io.File("examples/data/poisson_dglm_gibbs.csv")
+//   val writer = out.asCsvWriter[Double](rfc.withHeader("W"))
 
-  def formatParameters(p: DlmParameters) = {
-    (p.w.data(0))
-  }
+//   def formatParameters(p: DlmParameters) = {
+//     (p.w.data(0))
+//   }
 
-  // write iters to file
-  while (iters.hasNext) {
-    writer.write(formatParameters(iters.next))
-  }
+//   // write iters to file
+//   while (iters.hasNext) {
+//     writer.write(formatParameters(iters.next))
+//   }
 
-  writer.close()
-}
+//   writer.close()
+// }

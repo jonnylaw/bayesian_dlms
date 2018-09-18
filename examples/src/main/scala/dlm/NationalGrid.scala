@@ -64,7 +64,7 @@ object FirstOrderRadiance extends App {
         runWith(Sink.head)
 
       val state: Future[(DenseVector[Double], DenseMatrix[Double])] = iters.
-        map(_.state.last._2).
+        map(_.state.last.sample).
         runWith(Sink.seq).
         map(Dglm.meanCovSamples)
 

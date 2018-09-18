@@ -67,7 +67,7 @@ object FilterAr {
   def sampleSvd(
     w:        DenseMatrix[Double],
     phi:      Double,
-    filtered: Vector[SvdState]) = {
+    filtered: Vector[SvdState]): Vector[SamplingState] = {
 
     val mod = Dlm.autoregressive(phi)
     val sqrtW = w map math.sqrt

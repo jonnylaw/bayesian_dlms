@@ -10,3 +10,4 @@ R/.RData
 *.zip
 *.pdf
 .Rproj.user
+*.csv

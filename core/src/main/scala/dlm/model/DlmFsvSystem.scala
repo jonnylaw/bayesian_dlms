@@ -21,7 +21,7 @@ object DlmFsvSystem {
     */
   case class State(
     p:          DlmFsvSystem.Parameters,
-    theta:      Vector[(Double, DenseVector[Double])],
+    theta:      Vector[SamplingState],
     factors:    Vector[(Double, Option[DenseVector[Double]])],
     volatility: Vector[SamplingState]
   )
@@ -105,14 +105,14 @@ object DlmFsvSystem {
     * @return a vector containing the x(t_i) - g(dt_i)x(t_{i-1})
     */
   def factorState(
-    theta: Vector[(Double, DenseVector[Double])],
+    theta: Vector[SamplingState],
     g:     Double => DenseMatrix[Double]) = {
 
     for {
       (x0, x1) <- theta.init zip theta.tail
-      dt = x1._1 - x0._1
-      diff = x1._2 - g(dt) * x0._2
-    } yield Data(x1._1, diff.mapValues(_.some))
+      dt = x1.time - x0.time
+      diff = x1.sample - g(dt) * x0.sample
+    } yield Data(x1.time, diff.mapValues(_.some))
   }
 
   /**
@@ -189,13 +189,12 @@ object DlmFsvSystem {
     val sampleStep = (params: DlmParameters) => {
       SvdSampler.step(model, params.w) _
     }
-    val res = (ps, filtered.init).
-      zipped.
+    val res = (ps, filtered.init).zipped.
       scanRight(init){ case ((params, fs), s) =>
         sampleStep(params)(fs, s) }.
       toVector
 
-    Rand.always(res.map(st => (st.time, st.theta)))
+    Rand.always(res)
   }
 
   def toDlmParameters(
@@ -272,7 +271,7 @@ object DlmFsvSystem {
     val ws = Vector.fill(ys.size)(DenseMatrix.eye[Double](dlm.f(1.0).rows))
 
     val theta = ffbs(dlm, ys, parameters, ws).draw
-    val thetaObs = theta.map { case (t, a) => Data(t, a.map(_.some)) }
+    val thetaObs = theta.map { ss => Data(ss.time, ss.sample.map(_.some)) }
     val fs = FactorSv.initialiseStateAr(params.factors, thetaObs, k)
 
     State(params, theta.toVector, fs.factors, fs.volatility)

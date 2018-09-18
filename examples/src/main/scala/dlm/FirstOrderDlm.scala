@@ -201,15 +201,14 @@ object SmoothDlm extends App with FirstOrderDlm with SimulatedData {
 object SampleStates extends App with FirstOrderDlm with SimulatedData {
   implicit val basis = RandBasis.withSeed(7)
 
-  val svdSampled = SvdSampler.ffbs(mod, data, p, SvdFilter.advanceState(p, mod.g)).sample(1000)
+  val svdSampled = SvdSampler.ffbsDlm(mod, data, p).sample(1000)
   val meanStateSvd = SvdSampler.meanState(svdSampled)
   val outSvd = new java.io.File("examples/data/first_order_state_svd_sample.csv")
 
   outSvd.writeCsv(meanStateSvd, rfc.withHeader("time", "sampled_mean"))
 
   val sampled = Smoothing.ffbsDlm(mod, data, p).
-    sample(1000).
-    map(_.map(s => (s.time, s.sample)))
+    sample(1000)
   val meanState = SvdSampler.meanState(sampled)
   val out = new java.io.File("examples/data/first_order_state_sample.csv")
 

@@ -7,7 +7,7 @@ import breeze.numerics._
 object GibbsSampling {
   case class State(
     p: DlmParameters,
-    state: Vector[(Double, DenseVector[Double])]
+    state: Vector[SamplingState]
   )
 
   /**
@@ -25,12 +25,12 @@ object GibbsSampling {
     prior: InverseGamma,
     f:     Double => DenseMatrix[Double],
     ys:    Vector[Data],
-    theta: Vector[(Double, DenseVector[Double])]): Rand[DenseMatrix[Double]] = {
+    theta: Vector[SamplingState]): Rand[DenseMatrix[Double]] = {
 
     val ssy: DenseVector[Double] = (theta.tail zip ys)
       .map {
-        case ((time, x), d) =>
-          val ft = f(time).t * x
+        case (ss, d) =>
+          val ft = f(ss.time).t * ss.sample
           val res: Array[Double] = d.observation.data.zipWithIndex.map { 
             case (Some(y), i) => (y - ft(i)) * (y - ft(i))
             case _ => 0.0
@@ -56,7 +56,7 @@ object GibbsSampling {
     */
   def sampleSystemMatrix(
     prior: InverseGamma,
-    theta: Vector[(Double, DenseVector[Double])],
+    theta: Vector[SamplingState],
     g: Double => DenseMatrix[Double]): Rand[DenseMatrix[Double]] = {
 
     // take the squared difference of x_t - g * x_{t-1} for t = 1 ... 0
@@ -64,8 +64,8 @@ object GibbsSampling {
     val squaredSum = (theta.init, theta.tail).zipped
       .map {
         case (mt, mt1) =>
-          val dt = mt1._1 - mt._1
-          val diff = (mt1._2 - g(dt) * mt._2)
+          val dt = mt1.time - mt.time
+          val diff = (mt1.sample - g(dt) * mt.sample)
           (diff *:* diff) / dt
       }
       .reduce(_ + _)
@@ -85,13 +85,13 @@ object GibbsSampling {
     * @param p the static parameters of a DLM
     * @param phi autoregressive
     */
-  def arlikelihood(state: Vector[(Double, DenseVector[Double])],
+  def arlikelihood(state: Vector[SamplingState],
                    p: DlmParameters,
                    phi: DenseVector[Double]): Double = {
 
     val n = state.length
     val ssa = (state.init zip state.tail)
-      .map { case (at, at1) => at1._2 - phi * at._2 }
+      .map { case (at, at1) => at1.sample - phi * at.sample }
       .map(x => x * x)
       .reduce(_ + _)
 
@@ -141,10 +141,9 @@ object GibbsSampling {
     for {
       theta <- Smoothing.ffbs(mod, observations,
         KalmanFilter.advanceState(s.p, mod.g), Smoothing.step(mod, s.p.w), s.p)
-      st = theta.map(a => (a.time, a.sample))
-      newV <- sampleObservationMatrix(priorV, mod.f, observations, st.toVector)
-      newW <- sampleSystemMatrix(priorW, st.toVector, mod.g)
-    } yield State(s.p.copy(v = newV, w = newW), st.toVector)
+      newV <- sampleObservationMatrix(priorV, mod.f, observations, theta)
+      newW <- sampleSystemMatrix(priorW, theta, mod.g)
+    } yield State(s.p.copy(v = newV, w = newW), theta)
   }
 
   /**
@@ -170,8 +169,7 @@ object GibbsSampling {
       initState <- Smoothing.ffbs(mod, observations,
         KalmanFilter.advanceState(initParams, mod.g),
         Smoothing.step(mod, initParams.w), initParams)
-      st = initState.map(a => (a.time, a.sample))
-    } yield State(initParams, st)
+    } yield State(initParams, initState)
 
     MarkovChain(init.draw)(dinvGammaStep(mod, priorV, priorW, observations))
   }
@@ -211,15 +209,15 @@ object GibbsSampling {
     * Calculate the marginal likelihood for metropolis hastings
     */
   def likelihood(
-    theta: Vector[(Double, DenseVector[Double])],
+    theta: Vector[SamplingState],
     g: Double => DenseMatrix[Double])(p: DlmParameters): Double = {
 
     val n = theta.length
     val ssa = (theta.init zip theta.tail)
       .map {
         case (at, at1) =>
-          val dt = at1._1 - at._1
-          at1._2 - g(dt) * at._2
+          val dt = at1.time - at.time
+          at1.sample - g(dt) * at.sample
       }
       .map(x => x * x)
       .reduce(_ + _)
@@ -239,7 +237,7 @@ object GibbsSampling {
     */
   def metropStep(
     mod: Dlm,
-    theta: Vector[(Double, DenseVector[Double])],
+    theta: Vector[SamplingState],
     proposal: DlmParameters => Rand[DlmParameters]) = {
 
     MarkovChain.Kernels.metropolis(proposal)(likelihood(theta, mod.g))
@@ -257,19 +255,18 @@ object GibbsSampling {
     */
   def gibbsMetropStep(
     proposal: DlmParameters => Rand[DlmParameters],
-    mod: Dlm,
-    priorV: InverseGamma,
-    priorW: InverseGamma,
+    mod:      Dlm,
+    priorV:   InverseGamma,
+    priorW:   InverseGamma,
     observations: Vector[Data]) = { s: State =>
 
     for {
       theta <- SvdSampler.ffbs(mod, observations, s.p,
         SvdFilter.advanceState(s.p, mod.g))
-      thetaSorted = theta.sortBy(_._1)
-      newV <- sampleObservationMatrix(priorV, mod.f, observations, thetaSorted)
-      newW <- sampleSystemMatrix(priorW, thetaSorted, mod.g)
-      newP <- metropStep(mod, thetaSorted, proposal)(s.p)
-    } yield State(newP.copy(v = newV, w = newW), thetaSorted)
+      newV <- sampleObservationMatrix(priorV, mod.f, observations, theta)
+      newW <- sampleSystemMatrix(priorW, theta, mod.g)
+      newP <- metropStep(mod, theta, proposal)(s.p)
+    } yield State(newP.copy(v = newV, w = newW), theta)
   }
 
   /**
@@ -289,8 +286,7 @@ object GibbsSampling {
       initState <- Smoothing.ffbs(mod, observations,
         KalmanFilter.advanceState(initParams, mod.g),
         Smoothing.step(mod, initParams.w), initParams)
-      st = initState.map(a => (a.time, a.sample))
-    } yield State(initParams, st)
+    } yield State(initParams, initState)
 
     MarkovChain(init.draw)(
       gibbsMetropStep(proposal, mod, priorV, priorW, observations))

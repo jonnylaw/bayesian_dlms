@@ -9,19 +9,13 @@ import cats.implicits._
   * TODO: Check this
   */
 object SvdSampler {
-
-  case class State(
-    time:  Double,
-    theta: DenseVector[Double],
-    at1:   DenseVector[Double])
-
   /**
     * Perform a single step in the backward sampler using the SVD
     */
   def step(
-    mod:      Dlm,
+    mod:   Dlm,
     sqrtW: DenseMatrix[Double])
-    (st: SvdState, ss: State) = {
+    (st: SvdState, ss: SamplingState): SamplingState = {
 
     val dt = ss.time - st.time
     val dcInv = st.dc.map(1.0 / _)
@@ -32,16 +26,19 @@ object SvdSampler {
 
     val gWinv = mod.g(dt).t * sqrtW.t * sqrtW
     val du = diag(dh) * uh.t
-    val h = st.mt + du.t * du * gWinv * (ss.theta - ss.at1)
+    val h = st.mt + du.t * du * gWinv * (ss.sample - ss.at1)
 
-    State(st.time, rnorm(h, dh, uh).draw, st.at)
+    SamplingState(st.time, rnorm(h, dh, uh).draw, h,
+      uh * du, st.at, st.ur * diag(st.dr) * st.ur.t)
   }
 
   def initialise(filtered: Array[SvdState]) = {
-    val lastState = filtered.last
-    State(lastState.time,
-      SvdSampler.rnorm(lastState.mt, lastState.dc, lastState.uc).draw,
-      lastState.at)
+    val last = filtered.last
+    val sample = SvdSampler.rnorm(last.mt, last.dc, last.uc).draw
+    val ct = last.uc * diag(last.dc) * last.uc.t
+    val rt = last.ur * diag(last.dr) * last.ur.t
+
+    SamplingState(last.time, sample, last.mt, ct, last.at, rt)
   }
 
   /**
@@ -54,10 +51,10 @@ object SvdSampler {
   def sample(
     mod: Dlm,
     st:  Vector[SvdState],
-    w:   DenseMatrix[Double]): Vector[(Double, DenseVector[Double])] = {
+    w:   DenseMatrix[Double]): Vector[SamplingState] = {
 
     val init = initialise(st.toArray)
-    st.init.scanRight(init)(step(mod, w)).map(a => (a.time, a.theta))
+    st.init.scanRight(init)(step(mod, w))
   }
 
   /**
@@ -99,7 +96,7 @@ object SvdSampler {
   def rnorm(
     mu: DenseVector[Double],
     d: DenseVector[Double],
-            u: DenseMatrix[Double]) = new Rand[DenseVector[Double]] {
+    u: DenseMatrix[Double]) = new Rand[DenseVector[Double]] {
 
     def draw = {
       val z = DenseVector.rand(mu.size, Gaussian(0, 1))
@@ -107,10 +104,10 @@ object SvdSampler {
     }
   }
 
-  def meanState(sampled: Seq[Seq[(Double, DenseVector[Double])]]) = {
+  def meanState(sampled: Seq[Seq[SamplingState]]) = {
     sampled.transpose
       .map(s =>
-        (s.head._1, s.map(_._2).reduce(_ + _) /:/ sampled.size.toDouble))
+        (s.head.time, s.map(_.sample).reduce(_ + _) /:/ sampled.size.toDouble))
       .map { case (t, s) => List(t, s(0)) }
   }
 

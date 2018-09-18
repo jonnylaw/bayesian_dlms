@@ -46,14 +46,14 @@ object FitSv extends App {
   val priorPhi = new Beta(5, 2)
   val priorMu = Gaussian(1.0, 1.0)
 
-  val iters = StochasticVolatility.sampleAr(priorPhi, priorMu, priorSigma, p, data)
+  val iters = StochasticVolatility.sampleArSvd(priorPhi, priorMu, priorSigma, p, data)
 
   def formatParameters(s: StochVolState) = {
     List(s.params.phi, s.params.mu, s.params.sigmaEta, s.accepted)
   }
 
   Streaming.writeParallelChain(
-    iters, 2, 100000, "examples/data/sv_params", formatParameters).
+    iters, 2, 1000, "examples/data/sv_params", formatParameters).
     runWith(Sink.onComplete(_ => system.terminate()))
 }
 
@@ -69,9 +69,9 @@ object FitSvKnots extends App {
     case Right(a) => Data(a.head, DenseVector(a(1).some))
   }.toVector
 
-  val priorSigma = InverseGamma(10, 2)
   val priorPhi = Gaussian(0.8, 0.2)
   val priorMu = Gaussian(1.0, 1.0)
+  val priorSigma = InverseGamma(10, 2)
 
   val iters = StochasticVolatilityKnots.sample(priorPhi, priorMu, priorSigma, data, p)
 
@@ -96,11 +96,11 @@ object FitSvKnotsBeta extends App {
     case Right(a) => Data(a.head, DenseVector(a(1).some))
   }.toVector
 
-  val priorPrec = InverseGamma(10, 2)
   val priorPhi = new Beta(5.0, 2.0)
   val priorMu = Gaussian(1.0, 1.0)
+  val priorSigma = InverseGamma(10, 2)
 
-  val iters = StochasticVolatilityKnots.sampleBeta(priorMu, priorPrec, priorPhi, data, p)
+  val iters = StochasticVolatilityKnots.sampleBeta(priorMu, priorSigma, priorPhi, data, p)
 
   def formatParameters(s: StochVolState) = {
     List(s.params.phi, s.params.mu, s.params.sigmaEta, s.accepted)

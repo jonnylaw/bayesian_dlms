@@ -11,10 +11,11 @@ import kantan.csv.ops._
 
 trait ArDlm {
   val mod = Dlm.autoregressive(phi = 0.9)
-  val p = DlmParameters(DenseMatrix(4.0),
-                        DenseMatrix(2.0),
-                        DenseVector(0.0),
-                        DenseMatrix(1.0))
+  val p = DlmParameters(
+    DenseMatrix(4.0),
+    DenseMatrix(2.0),
+    DenseVector(0.0),
+    DenseMatrix(1.0))
 }
 
 trait ArData {
@@ -83,8 +84,7 @@ object ParametersAr extends App with ArDlm with ArData {
     p <- prior
     phi <- priorPhi
     state <- Smoothing.ffbsDlm(mod, data, p)
-    st = state.map(a => (a.time, a.sample))
-  } yield (phi, GibbsSampling.State(p, st))
+  } yield (phi, GibbsSampling.State(p, state))
 
 
   val iters = MarkovChain(init.draw)(step).steps.take(100000)
