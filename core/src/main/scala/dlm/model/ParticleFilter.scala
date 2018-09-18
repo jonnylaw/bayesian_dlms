@@ -1,4 +1,4 @@
-package core.dlm.model
+package dlm.core.model
 
 import breeze.linalg.DenseVector
 import breeze.stats.distributions._
@@ -7,7 +7,6 @@ import breeze.stats.mean
 import cats.{Traverse, Functor}
 import cats.implicits._
 import scala.language.higherKinds
-import Dlm.Data
 
 /**
   * State of the Bootstrap Particle Filter

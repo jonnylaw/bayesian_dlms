@@ -1,6 +1,6 @@
 package examples.dlm
 
-import core.dlm.model._
+import dlm.core.model._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions._
 import java.nio.file.Paths
@@ -27,7 +27,7 @@ trait NoData {
   val data = reader
     .collect {
       case Right(a) =>
-        Dlm.Data(secondsToHours(a._1.toEpochSecond(ZoneOffset.UTC)),
+        Data(secondsToHours(a._1.toEpochSecond(ZoneOffset.UTC)),
           DenseVector(Some(a._2)))
     }
     .toStream

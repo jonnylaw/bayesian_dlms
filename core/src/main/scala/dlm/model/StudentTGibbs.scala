@@ -1,4 +1,4 @@
-package core.dlm.model
+package dlm.core.model
 
 import cats.implicits._
 import breeze.linalg.{DenseVector, DenseMatrix, diag, sum}
@@ -21,7 +21,7 @@ object StudentT {
     p:         DlmParameters,
     variances: Vector[Double],
     nu:        Int,
-    state:     Vector[(Double, DenseVector[Double])],
+    state:     Vector[SamplingState],
     accepted:  Int)
 
   /**
@@ -34,25 +34,24 @@ object StudentT {
     * @return a Rand distribution over the list of N variances
     */
   def sampleVariances(
-    ys: Vector[Dlm.Data],
+    ys: Vector[Data],
     f: Double => DenseMatrix[Double],
     dof: Int,
-    theta: Vector[(Double, DenseVector[Double])],
+    theta: Vector[SamplingState],
     p: DlmParameters) = {
 
     val scale = p.v(0, 0)
     val alpha = (dof + 1) * 0.5
 
     val diff = (ys.map(_.observation) zip theta)
-      .map { case (y, (t, x)) =>
-        val ft = f(t).t * x
+      .map { case (y, s) =>
+        val ft = f(s.time).t * s.sample
         val res: Array[Double] = y.data.zipWithIndex.map {
           case (Some(y), i) => (y - ft(i)) * (y - ft(i))
           case _ => 0.0
         }
-        DenseVector(res)
+        res.head
       }
-      .map(x => x(0))
 
     val beta = diff.map(d => (dof * scale * 0.5) + d * 0.5)
 
@@ -68,18 +67,19 @@ object StudentT {
     */
   def ll(
     mod: DglmModel,
-    ys: Vector[Dlm.Data],
-    xs: Vector[(Double, DenseVector[Double])],
+    ys: Vector[Data],
+    xs: Vector[SamplingState],
     p: DlmParameters)(nu: Int) = {
 
     // remove partially missing data
     val observations: Vector[Option[DenseVector[Double]]] =
-      ys.map(x => x.observation.data.toVector.sequence.map(a => DenseVector(a.toArray)))
+      ys.map(x => x.observation.data.toVector.
+        sequence.map(a => DenseVector(a.toArray)))
 
     (xs.tail zip observations)
       .map {
-        case ((t, x), Some(y)) =>
-          mod.conditionalLikelihood(p.v)(x, y)
+        case (s, Some(y)) =>
+          mod.conditionalLikelihood(p.v)(s.sample, y)
         case (_, None) => 0.0
       }
       .reduce(_ + _)
@@ -110,8 +110,8 @@ object StudentT {
     */
   def sampleState(
     variances: Vector[Double],
-    mod: DlmModel,
-    observations: Vector[Dlm.Data],
+    mod: Dlm,
+    observations: Vector[Data],
     params: DlmParameters) = {
 
     // create a list of parameters with the variance in them
@@ -155,7 +155,7 @@ object StudentT {
     * A single step of the Student t-distribution Gibbs Sampler
     */
   def step(
-    data: Vector[Dlm.Data],
+    data: Vector[Data],
     priorW: InverseGamma,
     priorNu: DiscreteDistr[Int],
     propNu:  Int => Rand[Int],
@@ -163,11 +163,12 @@ object StudentT {
     mod: DglmModel,
     p: DlmParameters) = { s: State =>
 
-    val dlm = DlmModel(mod.f, mod.g)
+    val dlm = Dlm(mod.f, mod.g)
 
     for {
       theta <- sampleState(s.variances, dlm, data, p)
-      newW <- GibbsSampling.sampleSystemMatrix(priorW, theta, mod.g)
+      st = theta.map(a => (a.time, a.sample))
+      newW <- GibbsSampling.sampleSystemMatrix(priorW, st, mod.g)
       vs = sampleVariances(data, mod.f, s.nu, theta, p)
       scale <- sampleScaleT(s.nu, vs)
       (nu, accepted) <- sampleNu(propNu, propNuP,
@@ -183,7 +184,7 @@ object StudentT {
     * @param params the initial parameters
     */
   def sample(
-    data: Vector[Dlm.Data],
+    data: Vector[Data],
     priorW: InverseGamma,
     priorNu: DiscreteDistr[Int],
     propNu:  Int => Rand[Int],
@@ -191,7 +192,7 @@ object StudentT {
     mod: DglmModel,
     params: DlmParameters) = {
 
-    val dlm = DlmModel(mod.f, mod.g)
+    val dlm = Dlm(mod.f, mod.g)
     val initVariances = Vector.fill(data.size)(1.0)
     val initState = sampleState(initVariances, dlm, data, params)
     val init = State(params, initVariances, priorNu.draw, initState.draw, 0)
@@ -242,14 +243,14 @@ object StudentT {
     * Particle Marginal Metropolis Hastings for the Student's t-distributed state space model
     */
   def samplePmmh(
-    data:    Vector[Dlm.Data],
+    data:    Vector[Data],
     priorW:  ContinuousDistr[Double],
     priorV:  ContinuousDistr[Double],
     priorNu: DiscreteDistr[Int],
     prop:    DlmParameters => Rand[DlmParameters],
     propNu:  Int => Rand[Int],
     propNuP: (Int, Int) => Double,
-    model:   DlmModel,
+    model:   Dlm,
     n:       Int,
     initP:   DlmParameters,
     initNu:  Int): Process[PmmhState] = {

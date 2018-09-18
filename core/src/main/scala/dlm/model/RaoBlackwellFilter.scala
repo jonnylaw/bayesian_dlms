@@ -1,4 +1,4 @@
-package core.dlm.model
+package dlm.core.model
 
 // exclude vector
 import breeze.linalg.{Vector => _, _}
@@ -19,12 +19,12 @@ case class RbState(
   * Extended Particle filter which approximates the parameters as a particle cloud
   */
 case class RaoBlackwellFilter(n: Int, prior: Rand[DlmParameters], a: Double)
-    extends FilterTs[RbState, DlmParameters, DlmModel] {
+    extends FilterTs[RbState, DlmParameters, Dlm] {
 
   def initialiseState[T[_]: Traverse](
-    model: DlmModel,
+    model: Dlm,
     p: DlmParameters,
-    ys: T[Dlm.Data]): RbState = {
+    ys: T[Data]): RbState = {
 
     val t0 = ys.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
     val m0 = Vector.fill(n)(p.m0)
@@ -35,9 +35,9 @@ case class RaoBlackwellFilter(n: Int, prior: Rand[DlmParameters], a: Double)
   }
 
   def step(
-    mod: DlmModel,
+    mod: Dlm,
     p:   DlmParameters)
-    (x:  RbState, d: Dlm.Data): RbState = {
+    (x:  RbState, d: Data): RbState = {
 
     val varParams = varParameters(x.params)
     val mi = scaleParameters(x.params, a)

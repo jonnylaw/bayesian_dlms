@@ -1,4 +1,4 @@
-package core.dlm.model
+package dlm.core.model
 
 import breeze.linalg.{DenseMatrix, diag, DenseVector}
 import breeze.stats.distributions._
@@ -6,7 +6,6 @@ import scala.math.log
 import breeze.numerics.exp
 import cats.{Applicative, Traverse}
 import cats.implicits._
-import Dlm._
 
 object Metropolis {
 
@@ -113,7 +112,7 @@ object Metropolis {
     * using the kalman filter to calculate the likelihood
     */
   def dlm[T[_]: Traverse](
-      mod: DlmModel,
+      mod: Dlm,
       observations: T[Data],
       proposal: DlmParameters => Rand[DlmParameters],
       prior: DlmParameters => Double,
@@ -129,12 +128,13 @@ object Metropolis {
   /**
     * Use particle marginal metropolis algorithm for a DGLM model
     */
-  def dglm[T[_]: Traverse](mod: DglmModel,
-                           observations: T[Data],
-                           proposal: DlmParameters => Rand[DlmParameters],
-                           prior: DlmParameters => Double,
-                           initP: DlmParameters,
-                           n: Int) = {
+  def dglm[T[_]: Traverse](
+    mod: DglmModel,
+    observations: T[Data],
+    proposal: DlmParameters => Rand[DlmParameters],
+    prior: DlmParameters => Double,
+    initP: DlmParameters,
+    n: Int) = {
 
     val initState = State[DlmParameters](initP, -1e99, 0)
     val ll = (p: DlmParameters) =>
@@ -187,7 +187,7 @@ object MetropolisHastings {
   /**
     * Run Metropolis-Hastings algorithm for a DLM, using the kalman filter to calculate the likelihood
     */
-  def dlm(mod: DlmModel,
+  def dlm(mod: Dlm,
           observations: Vector[Data],
           proposal: DlmParameters => ContinuousDistr[DlmParameters],
           prior: DlmParameters => Double,

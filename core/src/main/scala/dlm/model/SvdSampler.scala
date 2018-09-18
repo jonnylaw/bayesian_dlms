@@ -1,4 +1,4 @@
-package core.dlm.model
+package dlm.core.model
 
 import breeze.linalg.{DenseVector, DenseMatrix, diag, svd}
 import breeze.stats.distributions.{Gaussian, Rand}
@@ -19,7 +19,7 @@ object SvdSampler {
     * Perform a single step in the backward sampler using the SVD
     */
   def step(
-    mod:      DlmModel,
+    mod:      Dlm,
     sqrtW: DenseMatrix[Double])
     (st: SvdState, ss: State) = {
 
@@ -38,7 +38,6 @@ object SvdSampler {
   }
 
   def initialise(filtered: Array[SvdState]) = {
-
     val lastState = filtered.last
     State(lastState.time,
       SvdSampler.rnorm(lastState.mt, lastState.dc, lastState.uc).draw,
@@ -53,7 +52,7 @@ object SvdSampler {
     * @return
     */
   def sample(
-    mod: DlmModel,
+    mod: Dlm,
     st:  Vector[SvdState],
     w:   DenseMatrix[Double]): Vector[(Double, DenseVector[Double])] = {
 
@@ -66,8 +65,8 @@ object SvdSampler {
     * the SVD of the covariance matrix
     */
   def ffbs(
-    mod: DlmModel,
-    ys:  Vector[Dlm.Data],
+    mod: Dlm,
+    ys:  Vector[Data],
     p:   DlmParameters,
     advState: (SvdState, Double) => SvdState) = {
 
@@ -80,8 +79,8 @@ object SvdSampler {
     * Perform FFBS for a DLM using the SVD
     */
   def ffbsDlm(
-    mod: DlmModel,
-    ys:  Vector[Dlm.Data],
+    mod: Dlm,
+    ys:  Vector[Data],
     p:   DlmParameters) = {
 
     ffbs(mod, ys, p, SvdFilter.advanceState(p, mod.g))
@@ -94,11 +93,12 @@ object SvdSampler {
     * @param d the square root of the diagonal in the SVD of the
     * Error covariance matrix C_t
     * @param u the right vectors of the SVDfilter
-    * @return a DenseVector sampled from the Multivariate Normal distribution with
-    * mean mu and covariance u d^2 u^T
+    * @return a DenseVector sampled from the Multivariate Normal 
+    * distribution with mean mu and covariance u d^2 u^T
     */
-  def rnorm(mu: DenseVector[Double],
-            d: DenseVector[Double],
+  def rnorm(
+    mu: DenseVector[Double],
+    d: DenseVector[Double],
             u: DenseMatrix[Double]) = new Rand[DenseVector[Double]] {
 
     def draw = {

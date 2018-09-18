@@ -1,10 +1,9 @@
-package core.dlm.model
+package dlm.core.model
 
 import breeze.linalg.DenseVector
 import breeze.stats.distributions._
 //import cats.Traverse
 import cats.implicits._
-import Dlm._
 
 /**
   * Abstract trait to simulate data
@@ -13,7 +12,7 @@ import Dlm._
   * @param S a single realisation of the latent-state
   */
 trait Simulate[M, P, S] {
-  def initialiseState(model: M, params: P): (Dlm.Data, S)
+  def initialiseState(model: M, params: P): (Data, S)
 
   def stepState(model: M, params: P, state: S, dt: Double): Rand[S]
 
@@ -39,9 +38,9 @@ trait Simulate[M, P, S] {
   //   val init = initialiseState(model, params)
   //   Filter.scan(times,
   //               init,
-  //               p: (Double, (Dlm.Data, S)) =>
+  //               p: (Double, (Data, S)) =>
   //                 p match {
-  //                   case (t: Double, x: (Dlm.Data, S)) =>
+  //                   case (t: Double, x: (Data, S)) =>
   //                     simStep(model, params)(x._2, t, t - x._1.time).draw
   //               })
   // }

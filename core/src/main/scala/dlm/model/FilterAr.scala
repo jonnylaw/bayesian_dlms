@@ -1,4 +1,4 @@
-package core.dlm.model
+package dlm.core.model
 
 import breeze.linalg.{DenseMatrix, diag, svd}
 

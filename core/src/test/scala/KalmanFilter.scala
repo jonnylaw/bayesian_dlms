@@ -1,5 +1,4 @@
-import core.dlm.model._
-import Dlm._
+import dlm.core.model._
 import breeze.linalg.{DenseMatrix, DenseVector, diag, inv}
 import org.scalatest._
 import prop._
@@ -60,7 +59,7 @@ class KfSpec
       val sampled = Smoothing.sampleDlm(mod, filtered, p.w)
 
       assert(sampled.size === filtered.size)
-      assert(sampled.map(_._1) === filtered.map(_.time))
+      assert(sampled.map(_.time) === filtered.map(_.time))
     }
   }
 }

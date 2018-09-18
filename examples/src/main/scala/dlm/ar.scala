@@ -1,6 +1,6 @@
 package examples.dlm
 
-import core.dlm.model._
+import dlm.core.model._
 import Dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions.{MarkovChain, Beta}
@@ -71,10 +71,11 @@ object ParametersAr extends App with ArDlm with ArData {
 
   val step = (s: (Double, GibbsSampling.State)) =>
     for {
-      newS <- GibbsSampling.dinvGammaStep(GibbsSampling.updateModel(mod, s._1),
-                                          priorV,
-                                          priorW,
-                                          data)(s._2)
+      newS <- GibbsSampling.dinvGammaStep(
+        GibbsSampling.updateModel(mod, s._1),
+        priorV,
+        priorW,
+        data)(s._2)
       phi <- GibbsSampling.samplePhi(priorPhi, 1000, 0.5, newS)(s._1)
     } yield (phi, newS)
 
@@ -82,7 +83,9 @@ object ParametersAr extends App with ArDlm with ArData {
     p <- prior
     phi <- priorPhi
     state <- Smoothing.ffbsDlm(mod, data, p)
-  } yield (phi, GibbsSampling.State(p, state))
+    st = state.map(a => (a.time, a.sample))
+  } yield (phi, GibbsSampling.State(p, st))
+
 
   val iters = MarkovChain(init.draw)(step).steps.take(100000)
 

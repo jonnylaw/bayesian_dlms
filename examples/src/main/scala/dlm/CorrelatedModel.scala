@@ -1,6 +1,6 @@
 package examples.dlm
 
-import core.dlm.model._
+import dlm.core.model._
 import cats.implicits._
 import Dlm._
 import breeze.linalg._

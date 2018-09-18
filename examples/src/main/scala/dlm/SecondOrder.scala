@@ -1,7 +1,6 @@
 package examples.dlm
 
-import core.dlm.model._
-import Dlm._
+import dlm.core.model._
 import GibbsSampling._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import java.nio.file.Paths
@@ -9,8 +8,8 @@ import cats.implicits._
 import kantan.csv._
 import kantan.csv.ops._
 
-trait DlmModel {
-  val mod = polynomial(2)
+trait Dlm {
+  val mod = Dlm.polynomial(2)
 
   val p = DlmParameters(
     DenseMatrix(3.0),
@@ -28,8 +27,8 @@ trait SimulatedSecondOrderData {
   }.toVector
 }
 
-object SimulateSecondOrderDlm extends App with DlmModel {
-  val sims = simulateRegular(mod, p, 1.0).steps.take(1000)
+object SimulateSecondOrderDlm extends App with Dlm {
+  val sims = Dlm.simulateRegular(mod, p, 1.0).steps.take(1000)
 
   val out = new java.io.File("examples/data/second_order_dlm.csv")
   val headers = rfc.withHeader("time", "observation", "state_1", "state_2")
@@ -49,7 +48,7 @@ object SimulateSecondOrderDlm extends App with DlmModel {
 
 object FilterSecondOrderDlm
     extends App
-    with DlmModel
+    with Dlm
     with SimulatedSecondOrderData {
 
   val filtered = SvdFilter.filterDlm(mod, data, p)
@@ -72,7 +71,7 @@ object FilterSecondOrderDlm
 
 object SmoothSecondOrderDlm
     extends App
-    with DlmModel
+    with Dlm
     with SimulatedSecondOrderData {
 
   val filtered = KalmanFilter.filterDlm(mod, data, p)
@@ -89,7 +88,7 @@ object SmoothSecondOrderDlm
 
 object GibbsSecondOrder
     extends App
-    with DlmModel
+    with Dlm
     with SimulatedSecondOrderData {
   val priorV = InverseGamma(4.0, 9.0)
   val priorW = InverseGamma(3.0, 8.0)
@@ -112,7 +111,7 @@ object GibbsSecondOrder
   writer.close()
 }
 
-object GibbsInvestParameters extends App with DlmModel {
+object GibbsInvestParameters extends App with Dlm {
   val rawData = Paths.get("examples/data/invest2.dat")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader(false))
   val data = reader

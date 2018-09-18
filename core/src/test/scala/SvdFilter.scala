@@ -1,4 +1,4 @@
-import core.dlm.model._
+import dlm.core.model._
 import org.scalatest._
 import prop._
 import org.scalactic.Equality
@@ -111,12 +111,12 @@ class SvdFilterTest extends FunSuite with Matchers with BreezeGenerators {
   )
 
   val data = Vector(
-    Dlm.Data(1.0, DenseVector(Some(4.5), Some(4.5))),
-    Dlm.Data(2.0, DenseVector(Some(3.0), Some(3.0))),
-    Dlm.Data(3.0, DenseVector(Some(6.3), Some(6.3))),
-    Dlm.Data(4.0, DenseVector[Option[Double]](None, None)),
-    Dlm.Data(5.0, DenseVector(Some(10.1), None)), // partially observed
-    Dlm.Data(7.0, DenseVector(Some(15.2), Some(15.2)))
+    Data(1.0, DenseVector(Some(4.5), Some(4.5))),
+    Data(2.0, DenseVector(Some(3.0), Some(3.0))),
+    Data(3.0, DenseVector(Some(6.3), Some(6.3))),
+    Data(4.0, DenseVector[Option[Double]](None, None)),
+    Data(5.0, DenseVector(Some(10.1), None)), // partially observed
+    Data(7.0, DenseVector(Some(15.2), Some(15.2)))
   )
 
   val filteredTest = KalmanFilter.filterDlm(model, data, p)
@@ -175,7 +175,7 @@ class SvdSamplerTest extends FlatSpec with Matchers with BreezeGenerators {
     val sampled = Smoothing.ffbsDlm(model, data, p).draw
     val svdSampled = SvdSampler.ffbs(model, data, p, SvdFilter.advanceState(p, model.g)).draw
 
-    assert(sampled.map(_._2.size).sum === svdSampled.map(_._2.size).sum)
-    sampled.map(_._1) should contain allElementsOf svdSampled.map(_._1)
+    assert(sampled.map(_.sample.size).sum === svdSampled.map(_._2.size).sum)
+    sampled.map(_.time) should contain allElementsOf svdSampled.map(_._1)
   }
 }

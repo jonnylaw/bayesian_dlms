@@ -1,6 +1,6 @@
 package examples.dlm
 
-import core.dlm.model._
+import dlm.core.model._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions.{Poisson, Gamma, NegativeBinomial}
 import java.nio.file.Paths
@@ -24,7 +24,7 @@ trait StudenttData {
   val rawData = Paths.get("examples/data/student_t_dglm.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
-    case Right(a) => Dlm.Data(a.head, DenseVector(Some(a(1))))
+    case Right(a) => Data(a.head, DenseVector(Some(a(1))))
   }.toVector
 }
 
@@ -37,8 +37,8 @@ object SimulateStudentT extends App with StudenttDglm {
   val header = rfc.withHeader("time", "observation", "state")
   val writer = out.asCsvWriter[List[Double]](header)
 
-  def formatData(d: (Dlm.Data, DenseVector[Double])) = d match {
-    case (Dlm.Data(t, y), x) =>
+  def formatData(d: (Data, DenseVector[Double])) = d match {
+    case (Data(t, y), x) =>
       t :: KalmanFilter.flattenObs(y).data.toList ::: x.data.toList
   }
 

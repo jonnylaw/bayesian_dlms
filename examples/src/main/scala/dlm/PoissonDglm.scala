@@ -1,6 +1,6 @@
 package examples.dlm
 
-import core.dlm.model._
+import dlm.core.model._
 import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.distributions.{MarkovChain, MultivariateGaussian}
 import java.nio.file.Paths
@@ -20,7 +20,7 @@ trait PoissonData {
   val rawData = Paths.get("examples/data/poisson_dglm.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
-    case Right(a) => Dlm.Data(a.head, DenseVector(a(1).some))
+    case Right(a) => Data(a.head, DenseVector(a(1).some))
   }.toVector
 }
 
@@ -138,7 +138,7 @@ object FilterPoisson extends App with PoissonDglm with PoissonData {
 
 object PoissonDglmGibbs extends App with PoissonDglm with PoissonData {
   val n = 200
-  val model = DlmModel(mod.f, mod.g)
+  val model = Dlm(mod.f, mod.g)
   val priorW = InverseGamma(11.0, 1.0)
 
   val mcmcStep = (s: List[(Double, DenseVector[Double])], p: DlmParameters) =>

@@ -1,4 +1,4 @@
-package core.dlm
+package dlm.core
 
 import breeze.linalg.{DenseVector, DenseMatrix}
 import breeze.stats.distributions.{Rand, MultivariateGaussian, Gaussian}
@@ -10,7 +10,7 @@ package object model {
     * A Gaussian DLM can be implicitly converted to a DGLM
     * Then particle filtering methods can be used on Gaussian Models
     */
-  implicit def dlm2dglm(dlmModel: DlmModel): DglmModel = {
+  implicit def dlm2dglm(dlmModel: Dlm): DglmModel = {
     DglmModel(
       (x: DenseVector[Double], v: DenseMatrix[Double]) =>
         MultivariateGaussianSvd(x, v),

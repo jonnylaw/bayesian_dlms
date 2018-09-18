@@ -1,6 +1,6 @@
 package examples.dlm
 
-import core.dlm.model._
+import dlm.core.model._
 import Dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions.{RandBasis, Gamma, Rand}
@@ -13,7 +13,7 @@ import com.cibo.evilplot.plot.aesthetics.DefaultTheme._
 import math.exp
 
 trait FirstOrderDlm {
-  val mod = DlmModel(
+  val mod = Dlm(
     f = (t: Double) => DenseMatrix((1.0)),
     g = (t: Double) => DenseMatrix((1.0))
   )
@@ -207,7 +207,9 @@ object SampleStates extends App with FirstOrderDlm with SimulatedData {
 
   outSvd.writeCsv(meanStateSvd, rfc.withHeader("time", "sampled_mean"))
 
-  val sampled = Smoothing.ffbsDlm(mod, data, p).sample(1000)
+  val sampled = Smoothing.ffbsDlm(mod, data, p).
+    sample(1000).
+    map(_.map(s => (s.time, s.sample)))
   val meanState = SvdSampler.meanState(sampled)
   val out = new java.io.File("examples/data/first_order_state_sample.csv")
 

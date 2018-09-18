@@ -1,7 +1,7 @@
 package examples.dlm
 
 import breeze.linalg.{DenseVector, DenseMatrix, diag}
-import core.dlm.model._
+import dlm.core.model._
 import akka.actor.ActorSystem
 import java.time._
 import java.time.format._
@@ -37,7 +37,7 @@ object FirstOrderRadiance extends App {
   val priorV = InverseGamma(3.0, 5.0)
   val priorW = InverseGamma(3.0, 5.0)
 
-  def mcmc(data: Vector[Dlm.Data]) = 
+  def mcmc(data: Vector[Data]) = 
     GibbsSampling.sample(model, priorV, priorW, initP, data).
       steps.
       take(10000)
@@ -142,7 +142,7 @@ object Forecasting {
     * Perform 18 step forecast for the final day radiance
     */
   def forecastRadiance(
-    model: core.dlm.model.DlmModel,
+    model: dlm.core.model.Dlm,
     p: DlmParameters,
     mt: DenseVector[Double],
     ct: DenseMatrix[Double],
@@ -216,9 +216,9 @@ object WeatherData {
     * Convert a single radiance reading into a forecast datetime
     * lead time and difference
     */
-  def radianceToData(r: Radiance): (Int, Dlm.Data) = 
+  def radianceToData(r: Radiance): (Int, Data) = 
     (r.stationId, 
-      Dlm.Data(
+      Data(
         datetimeToSeconds(r.forecastDatetime), 
         DenseVector(r.difference.toArray)
       )
@@ -231,10 +231,10 @@ object WeatherData {
     * to a vector of data containing the forecast datetime and difference
     * at each lead time
     */
-  def radianceToDataFlow: Flow[Radiance, (Double, Vector[Dlm.Data]), NotUsed] = {
+  def radianceToDataFlow: Flow[Radiance, (Double, Vector[Data]), NotUsed] = {
     Flow[Radiance].
       groupBy(100, a => a.stationId).
-      fold((0.0, Vector.empty[Dlm.Data])){(l, r) =>
+      fold((0.0, Vector.empty[Data])){(l, r) =>
         val (lt, d) = radianceToData(r)
         (lt, l._2 :+ d)
       }.

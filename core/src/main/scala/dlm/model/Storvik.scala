@@ -1,4 +1,4 @@
-package core.dlm.model
+package dlm.core.model
 
 import breeze.linalg.{DenseVector, diag}
 import breeze.stats.distributions._
@@ -30,7 +30,7 @@ case class StorvikFilter(
   def initialiseState[T[_]: Traverse](
     model: DglmModel,
     p: DlmParameters,
-    ys: T[Dlm.Data]): StorvikState = {
+    ys: T[Data]): StorvikState = {
 
     val x0 = MultivariateGaussian(p.m0, p.c0).sample(n).toVector
     val p0 = Vector.fill(n)(p)
@@ -92,7 +92,7 @@ case class StorvikFilter(
   def step(
     mod: DglmModel,
     p:   DlmParameters)
-    (s:  StorvikState, d: Dlm.Data): StorvikState = {
+    (s:  StorvikState, d: Data): StorvikState = {
 
     val y = KalmanFilter.flattenObs(d.observation)
     val dt = d.time - s.time

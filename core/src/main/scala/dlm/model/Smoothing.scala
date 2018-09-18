@@ -1,4 +1,4 @@
-package core.dlm.model
+package dlm.core.model
 
 import breeze.linalg.{DenseVector, DenseMatrix}
 import breeze.stats.distributions.Rand
@@ -29,7 +29,7 @@ object Smoothing {
     * @param state the state at time t + 1
     * @return
     */
-  def smoothStep(mod: DlmModel)(kfState: KfState, state: SmoothingState) = {
+  def smoothStep(mod: Dlm)(kfState: KfState, state: SmoothingState) = {
 
     // extract elements from kalman state
     val time = kfState.time
@@ -55,7 +55,7 @@ object Smoothing {
     * @param kfState the output of a Kalman Filter
     * @return
     */
-  def backwardsSmoother(mod: DlmModel)(kfState: Vector[KfState]) = {
+  def backwardsSmoother(mod: Dlm)(kfState: Vector[KfState]) = {
 
     val last = kfState.last
     val lastTime = last.time
@@ -73,7 +73,7 @@ object Smoothing {
     * @return a sample from the state
     */
   def step(
-    mod: DlmModel,
+    mod: Dlm,
     w:   DenseMatrix[Double])
     (kfState: KfState,
     state:    SamplingState) = {
@@ -112,7 +112,7 @@ object Smoothing {
     * Perform backward sampling 
     */
   def sample(
-    mod: DlmModel,
+    mod: Dlm,
     filtered: Vector[KfState],
     backStep: (KfState, SamplingState) => SamplingState) = {
 
@@ -120,7 +120,6 @@ object Smoothing {
 
     filtered.init
       .scanRight(initState)(backStep)
-      .map(a => (a.time, a.sample))
   }
 
   /**
@@ -151,8 +150,8 @@ object Smoothing {
     * @param p parametes of the DLM
     */
   def ffbs(
-    mod: DlmModel,
-    observations: Vector[Dlm.Data],
+    mod: Dlm,
+    observations: Vector[Data],
     advState: (KfState, Double) => KfState,
     backStep: (KfState, SamplingState) => SamplingState,
     p: DlmParameters) = {
@@ -165,7 +164,7 @@ object Smoothing {
     * Perform backward sampling for a DLM
     */
   def sampleDlm(
-    mod:      DlmModel,
+    mod:      Dlm,
     filtered: Vector[KfState],
     w:        DenseMatrix[Double]) =
     sample(mod, filtered, Smoothing.step(mod, w))
@@ -177,8 +176,8 @@ object Smoothing {
     * @param p parametes of the DLM
     */
   def ffbsDlm(
-    mod: DlmModel,
-    ys: Vector[Dlm.Data],
+    mod: Dlm,
+    ys: Vector[Data],
     p: DlmParameters) = {
 
     Smoothing.ffbs(mod, ys, KalmanFilter.advanceState(p, mod.g), Smoothing.step(mod, p.w), p)

@@ -1,4 +1,4 @@
-package core.dlm.model
+package dlm.core.model
 
 import breeze.linalg.{DenseVector, DenseMatrix, diag, svd}
 import cats.Traverse
@@ -21,7 +21,7 @@ case class SvdState(
   * https://arxiv.org/pdf/1611.03686.pdf
   */
 case class SvdFilter(advState: (SvdState, Double) => SvdState)
-    extends FilterTs[SvdState, DlmParameters, DlmModel] {
+    extends FilterTs[SvdState, DlmParameters, Dlm] {
   import SvdFilter._
 
   def oneStepForecast(
@@ -45,7 +45,7 @@ case class SvdFilter(advState: (SvdState, Double) => SvdState)
     ur: DenseMatrix[Double],
     p: DlmParameters,
     f: Double => DenseMatrix[Double],
-    d: Dlm.Data) = {
+    d: Data) = {
 
     val yt = KalmanFilter.flattenObs(d.observation)
 
@@ -73,9 +73,9 @@ case class SvdFilter(advState: (SvdState, Double) => SvdState)
   }
 
   def step(
-    mod:      DlmModel,
+    mod:      Dlm,
     p:        DlmParameters)
-    (s: SvdState, y: Dlm.Data) = {
+    (s: SvdState, y: Data) = {
 
     val dt = y.time - s.time
     val st = advState(s, dt)
@@ -89,9 +89,9 @@ case class SvdFilter(advState: (SvdState, Double) => SvdState)
     * Initialise the state of the SVD Filter
     */
   def initialiseState[T[_]: Traverse](
-    mod: DlmModel,
+    mod: Dlm,
     p:   DlmParameters,
-    ys:  T[Dlm.Data]) = {
+    ys:  T[Data]) = {
 
     val root = svd(p.c0)
     val t0 = ys.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
@@ -107,8 +107,8 @@ case class SvdFilter(advState: (SvdState, Double) => SvdState)
     * Perform the SVD Filter on a traversable collection
     */
   override def filterTraverse[T[_]: Traverse](
-    model: DlmModel,
-    ys:    T[Dlm.Data],
+    model: Dlm,
+    ys:    T[Data],
     p:     DlmParameters): T[SvdState] = {
 
     val ps = transformParams(p)
@@ -120,8 +120,8 @@ case class SvdFilter(advState: (SvdState, Double) => SvdState)
     * Perform the SVD Filter on a traversable collection
     */
   override def filter(
-    model: DlmModel,
-    ys:    Vector[Dlm.Data],
+    model: Dlm,
+    ys:    Vector[Data],
     p:     DlmParameters): Vector[SvdState] = {
 
     val ps = transformParams(p)
@@ -135,8 +135,8 @@ case class SvdFilter(advState: (SvdState, Double) => SvdState)
     * @param model
     */
   def filterDecompT[T[_]: Traverse](
-    model: DlmModel,
-    ys:    T[Dlm.Data],
+    model: Dlm,
+    ys:    T[Data],
     p:     DlmParameters): T[SvdState] = {
 
     val init = initialiseState(model, p, ys)
@@ -144,8 +144,8 @@ case class SvdFilter(advState: (SvdState, Double) => SvdState)
   }
 
   def filterDecomp(
-    model: DlmModel,
-    ys:    Vector[Dlm.Data],
+    model: Dlm,
+    ys:    Vector[Data],
     p:     DlmParameters): Vector[SvdState] = {
 
     val init = initialiseState(model, p, ys)
@@ -158,8 +158,8 @@ object SvdFilter {
     * Filter a DLM using the SVD Filter
     */
   def filterDlm[T[_]: Traverse](
-    mod: DlmModel,
-    ys:  T[Dlm.Data],
+    mod: Dlm,
+    ys:  T[Data],
     p:   DlmParameters) = {
 
     SvdFilter(advanceState(p, mod.g)).filterTraverse(mod, ys, p)

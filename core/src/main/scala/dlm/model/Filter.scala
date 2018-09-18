@@ -1,8 +1,7 @@
-package core.dlm.model
+package dlm.core.model
 
 import cats.Traverse
 import cats.implicits._
-import Dlm._
 import spire.syntax.cfor._
 import scala.reflect.ClassTag
 
@@ -51,7 +50,7 @@ trait FilterTs[S, P, M] {
     */
   def filterArray(
     model:    M,
-    ys:       Vector[Dlm.Data],
+    ys:       Vector[Data],
     p:        P)(implicit ct: ClassTag[S]): Array[S] = {
 
     val st = Array.ofDim[S](ys.length + 1)

@@ -1,4 +1,4 @@
-package core.dlm.model
+package dlm.core.model
 
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import cats.Traverse
@@ -20,12 +20,12 @@ case class GammaState(
 case class ConjugateFilter(
   prior: InverseGamma,
   advState: (GammaState, Double) => GammaState)
-    extends FilterTs[GammaState, DlmParameters, DlmModel] {
+    extends FilterTs[GammaState, DlmParameters, Dlm] {
 
   def initialiseState[T[_]: Traverse](
-    model: DlmModel,
+    model: Dlm,
     p: DlmParameters,
-    ys: T[Dlm.Data]): GammaState = {
+    ys: T[Data]): GammaState = {
 
     val t0 = ys.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
     val p0 = Vector.fill(p.v.cols)(prior)
@@ -55,9 +55,9 @@ case class ConjugateFilter(
   }
 
   def step(
-    mod: DlmModel,
+    mod: Dlm,
     p: DlmParameters)
-    (s: GammaState, d: Dlm.Data): GammaState = {
+    (s: GammaState, d: Data): GammaState = {
 
     // calculate the time difference
     val dt = d.time - s.kfState.time

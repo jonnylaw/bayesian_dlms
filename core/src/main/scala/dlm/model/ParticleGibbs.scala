@@ -1,4 +1,4 @@
-package core.dlm.model
+package dlm.core.model
 
 import breeze.linalg.DenseVector
 import breeze.stats.distributions.{Multinomial, Rand}
@@ -7,7 +7,6 @@ import cats.Traverse
 import math.{exp, log}
 import breeze.stats.mean
 import ParticleFilter._
-import Dlm.Data
 
 case class PgState(
   conditionedState: Map[Double, DenseVector[Double]],
@@ -96,7 +95,7 @@ object ParticleGibbs {
     */
   def filter[T[_]: Traverse](n: Int,
                              model: DglmModel,
-                             ys: T[Dlm.Data],
+                             ys: T[Data],
                              p: DlmParameters): PgState = {
 
     val init = initialiseState(n, model, p, ys)
