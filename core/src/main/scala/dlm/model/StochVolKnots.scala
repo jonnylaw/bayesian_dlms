@@ -1,24 +1,25 @@
-package core.dlm.model
+package dlm.core.model
 
 import breeze.stats.distributions._
 import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.numerics.{log, exp, sqrt}
 
 /**
-  * Use a Gaussian approximation to the state space to sample the stochastic volatility model
-  * with discrete regular observations and an AR(1) latent state
+  * The state for the Gibbs Sampler
+  * @param params the current value of the parameters of the SV model
+  * @param alphas the current value of the AR(1) state
+  */
+case class StochVolState(
+  params: SvParameters,
+  alphas: Vector[SamplingState],
+  accepted: Int)
+
+/**
+  * Use a Gaussian approximation to the state space to sample the
+  * stochastic volatility model with discrete regular observations 
+  * and an AR(1) latent state
   */
 object StochasticVolatilityKnots {
-  /**
-    * The state for the Gibbs Sampler
-    * @param params the current value of the parameters of the SV model
-    * @param alphas the current value of the AR(1) state
-    */
-  case class State(
-    params: SvParameters,
-    alphas: Vector[SamplingState],
-    accepted: Int)
-
   /**
     * Sample phi from the autoregressive state space
     * from a conjugate Gaussian distribution
@@ -41,7 +42,7 @@ object StochasticVolatilityKnots {
       map(x => x * x).
       reduce(_ + _)
 
-    val sumStates2 = (alphas.init zip alphas.tail).
+    val sumStates2 = (alphas.tail.init zip alphas.drop(2)).
       map { case (at1, at) => (at1.sample(0) - p.mu) * (at.sample(0) - p.mu) }.
       reduce(_ + _)
 
@@ -57,16 +58,16 @@ object StochasticVolatilityKnots {
     * @param ys a vector of univariate observations
     * @return a transformed vector of observations suitable for Kalman Filtering
     */
-  def transformObservations(ys: Vector[Dlm.Data]): Vector[Dlm.Data] = {
+  def transformObservations(ys: Vector[Data]): Vector[Data] = {
     for {
-      Dlm.Data(time, y) <- ys
+      Data(time, y) <- ys
       yt = y map ( _.map(yp => log(yp * yp) + 1.27))
-    } yield Dlm.Data(time, yt)
+    } yield Data(time, yt)
   }
 
   def ffbs(
-    mod: DlmModel,
-    observations: Vector[Dlm.Data],
+    mod: Dlm,
+    observations: Vector[Data],
     advState: (KfState, Double) => KfState,
     backStep: (KfState, SamplingState) => SamplingState,
     p: DlmParameters) = {
@@ -90,7 +91,7 @@ object StochasticVolatilityKnots {
     */
   def initialState(
     p:  SvParameters,
-    ys: Vector[Dlm.Data]): Rand[Vector[SamplingState]] = {
+    ys: Vector[Data]): Rand[Vector[SamplingState]] = {
 
     // transform the observations, centering, squaring and logging
     val observations = transformObservations(ys)
@@ -109,7 +110,7 @@ object StochasticVolatilityKnots {
     */
   def approxLl(
     state: Vector[SamplingState],
-    ys:    Vector[Dlm.Data]): Double = {
+    ys:    Vector[Data]): Double = {
 
     val n = ys.length
 
@@ -132,7 +133,7 @@ object StochasticVolatilityKnots {
     */
   def exactLl(
     state: Vector[SamplingState],
-    ys:    Vector[Dlm.Data]): Double = {
+    ys:    Vector[Data]): Double = {
 
     val n = ys.length
 
@@ -155,7 +156,7 @@ object StochasticVolatilityKnots {
   def conditionalFilter(
     start:    SamplingState,
     p:        SvParameters,
-    ys:       Vector[Dlm.Data],
+    ys:       Vector[Data],
     advState: SvParameters => (KfState, Double) => KfState) = {
 
     val mod = Dlm.autoregressive(p.phi)
@@ -190,7 +191,7 @@ object StochasticVolatilityKnots {
     start:    SamplingState,
     end:      SamplingState,
     p:        SvParameters,
-    ys:       Vector[Dlm.Data],
+    ys:       Vector[Data],
     advState: SvParameters => (KfState, Double) => KfState,
     backStep: SvParameters => (KfState, SamplingState) => SamplingState
   ): Rand[Vector[SamplingState]] = {
@@ -201,12 +202,40 @@ object StochasticVolatilityKnots {
     sampled.map(s => start +: s)
   }
 
+  def sampleStateArray(
+    ys:       Vector[Data],
+    advState: SvParameters => (KfState, Double) => KfState,
+    backStep: SvParameters => (KfState, SamplingState) => SamplingState,
+    p:        SvParameters,
+    knots:    Vector[Int]) = { state: Array[SamplingState] =>
+
+    for (i <- knots.indices.init) {
+      val selectedObs = ys.slice(knots(i), knots(i + 1))
+
+      if (i == 0) {
+        val vs = state.slice(1, knots(i + 1) + 1).toVector
+        val res = sampleStart(advState, backStep)(selectedObs, p, vs.last)(vs).draw
+        state.slice(1, knots(i + 1) + 1).copyToArray(res.toArray, 1)
+      } else if (i == knots.size - 2) {
+        val vs = state.slice(knots(i), knots(i + 1) + 1).toVector
+        val res = sampleEnd(advState, backStep)(selectedObs, p, vs.head)(vs).draw
+        state.slice(knots(i), knots(i + 1)).copyToArray(res.toArray, knots(i))
+      } else {
+        val vs = state.slice(knots(i), knots(i + 1) + 1).toVector
+        val res = sampleBlock(selectedObs, p, advState, backStep)(vs).draw
+        state.slice(knots(i), knots(i + 1)).copyToArray(res.toArray, knots(i))
+      }
+    }
+
+    state
+  }
+
   /**
     * Sample a block of the latent state
     * @param start the starting index of the latents state and observations
     */
   def sampleBlock(
-    obs:      Vector[Dlm.Data],
+    obs:      Vector[Data],
     p:        SvParameters,
     advState: SvParameters => (KfState, Double) => KfState,
     backStep: SvParameters => (KfState, SamplingState) => SamplingState) = {
@@ -214,9 +243,8 @@ object StochasticVolatilityKnots {
     // transform the observations for use in the ffbs algorithm
     val transObs = transformObservations(obs)
 
-    val prop = (vs: Vector[SamplingState]) => {
+    val prop = (vs: Vector[SamplingState]) => 
       conditionalFfbs(vs.head, vs.last, p, transObs, advState, backStep)
-    }
     val ll = (vs: Vector[SamplingState]) =>
       exactLl(vs, obs) - approxLl(vs, obs)
 
@@ -226,7 +254,7 @@ object StochasticVolatilityKnots {
   def sampleStart(
     advState: SvParameters => (KfState, Double) => KfState,
     backStep: SvParameters => (KfState, SamplingState) => SamplingState)(
-    ys:  Vector[Dlm.Data],
+    ys:  Vector[Data],
     p:   SvParameters,
     end: SamplingState): Vector[SamplingState] => Rand[Vector[SamplingState]] = { vs =>
 
@@ -241,7 +269,7 @@ object StochasticVolatilityKnots {
   def sampleEnd(
     advState: SvParameters => (KfState, Double) => KfState,
     backStep: SvParameters => (KfState, SamplingState) => SamplingState)(
-    ys:       Vector[Dlm.Data],
+    ys:       Vector[Data],
     p:        SvParameters,
     start:    SamplingState): Vector[SamplingState] => Rand[Vector[SamplingState]] = {
 
@@ -266,7 +294,7 @@ object StochasticVolatilityKnots {
     * to the next state containing a new proposed value of the latent AR(1) state
     */
   def sampleState(
-    ys:       Vector[Dlm.Data],
+    ys:       Vector[Data],
     advState: SvParameters => (KfState, Double) => KfState,
     backStep: SvParameters => (KfState, SamplingState) => SamplingState,
     p:        SvParameters,
@@ -306,7 +334,7 @@ object StochasticVolatilityKnots {
 
   /**
     * Sample knot positions by sampling block size from a uniform distribution between
-    *  min and max for a sequence of observations of length n
+    * min and max for a sequence of observations of length n
     * @param min the minimum size of a block
     * @param max the maxiumum size of a block
     * @param n the length of the observations
@@ -326,20 +354,19 @@ object StochasticVolatilityKnots {
     */
   def sampleStep(
     priorMu:       Gaussian,
-    priorSigmaEta: InverseGamma,
     priorPhi:      Gaussian,
-    ys:            Vector[Dlm.Data]) = { st: State =>
+    priorSigmaEta: InverseGamma,
+    ys:            Vector[Data]) = { st: StochVolState =>
     for {
       knots <- sampleKnots(10, 100)(ys.size)
-      alphas = sampleState(ys, FilterAr.advanceState,
-        FilterAr.backStep, st.params, knots)(st.alphas)
-      stateSample = alphas.map(s => (s.time, s.sample(0)))
+      alphas = sampleStateArray(ys, FilterAr.advanceState,
+        FilterAr.backStep, st.params, knots)(st.alphas.toArray).toVector
       phi <- samplePhi(priorPhi, st.params, alphas)
       mu <- StochasticVolatility.sampleMu(priorMu,
-        st.params.copy(phi = phi), stateSample)
+        st.params.copy(phi = phi), alphas)
       se <- StochasticVolatility.sampleSigma(priorSigmaEta,
-        st.params.copy(phi = phi, mu = mu), stateSample)
-    } yield State(SvParameters(phi, mu, se), alphas, 0)
+        st.params.copy(phi = phi, mu = mu), alphas)
+    } yield StochVolState(SvParameters(phi, mu, se), alphas, 0)
   }
 
   /**
@@ -352,32 +379,31 @@ object StochasticVolatilityKnots {
     */
   def sample(
     priorMu:       Gaussian,
-    priorSigmaEta: InverseGamma,
     priorPhi:      Gaussian,
-    ys:            Vector[Dlm.Data],
-    initP:         SvParameters): Process[State] = {
+    priorSigmaEta: InverseGamma,
+    ys:            Vector[Data],
+    initP:         SvParameters): Process[StochVolState] = {
 
-    val init = State(initP, initialState(initP, ys).draw, 0)
-    MarkovChain(init)(sampleStep(priorMu, priorSigmaEta, priorPhi, ys))
+    val init = StochVolState(initP, initialState(initP, ys).draw, 0)
+    MarkovChain(init)(sampleStep(priorMu, priorPhi, priorSigmaEta, ys))
   }
 
   def sampleStepBeta(
     priorMu:       Gaussian,
-    priorSigmaEta: InverseGamma,
     priorPhi:      ContinuousDistr[Double],
-    ys:            Vector[Dlm.Data]) = { st: State =>
+    priorSigmaEta: InverseGamma,
+    ys:            Vector[Data]) = { st: StochVolState =>
     for {
       knots <- sampleKnots(10, 100)(ys.size)
-      alphas = sampleState(ys, FilterAr.advanceState,
-        FilterAr.backStep, st.params, knots)(st.alphas)
-      stateSample = alphas.map(s => (s.time, s.sample(0)))
+      alphas = sampleStateArray(ys, FilterAr.advanceState,
+        FilterAr.backStep, st.params, knots)(st.alphas.toArray).toVector
       (phi, accepted) <- StochasticVolatility.samplePhi(0.05, 100.0,
-        priorPhi, st.params, stateSample)(st.params.phi)
+        priorPhi, st.params, alphas)(st.params.phi)
       mu <- StochasticVolatility.sampleMu(priorMu,
-        st.params.copy(phi = phi), stateSample)
+        st.params.copy(phi = phi), alphas)
       se <- StochasticVolatility.sampleSigma(priorSigmaEta,
-        st.params.copy(phi = phi, mu = mu), stateSample)    
-    } yield State(SvParameters(phi, mu, se), alphas, st.accepted + accepted)
+        st.params.copy(phi = phi, mu = mu), alphas)    
+    } yield StochVolState(SvParameters(phi, mu, se), alphas, st.accepted + accepted)
   }
 
 
@@ -385,10 +411,10 @@ object StochasticVolatilityKnots {
     priorMu:       Gaussian,
     priorSigmaEta: InverseGamma,
     priorPhi:      ContinuousDistr[Double],
-    observations:  Vector[Dlm.Data],
-    initP:         SvParameters): Process[State] = {
+    observations:  Vector[Data],
+    initP:         SvParameters): Process[StochVolState] = {
 
-    val init = State(initP, initialState(initP, observations).draw, 0)
-    MarkovChain(init)(sampleStepBeta(priorMu, priorSigmaEta, priorPhi, observations))
+    val init = StochVolState(initP, initialState(initP, observations).draw, 0)
+    MarkovChain(init)(sampleStepBeta(priorMu, priorPhi, priorSigmaEta, observations))
   }
 }

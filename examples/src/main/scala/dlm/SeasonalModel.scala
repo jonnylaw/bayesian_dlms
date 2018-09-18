@@ -1,6 +1,6 @@
 package examples.dlm
 
-import core.dlm.model._
+import dlm.core.model._
 import Dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions.RandBasis
@@ -178,8 +178,8 @@ object SampleStatesSeasonal extends App with SeasonalModel with SeasonalData {
   /**
     * Select only the nth state
     */
-  def formatState(n: Int)(s: Vector[(Double, DenseVector[Double])]) = {
-    val state: List[List[Double]] = s.map(_._2.data.toList).toList.transpose
+  def formatState(n: Int)(s: Vector[SamplingState]) = {
+    val state: List[List[Double]] = s.map(_.sample.data.toList).toList.transpose
     state(n)
   }
 

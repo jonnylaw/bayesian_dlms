@@ -1,4 +1,4 @@
-import core.dlm.model._
+import dlm.core.model._
 import breeze.linalg._
 import breeze.stats.distributions._
 import breeze.stats.{meanAndVariance, variance}
@@ -165,7 +165,7 @@ class MvnDistribution
 //       val mean =
 //         val variance =
 //       val n = 10000
-//       val dist = core.dlm.model.NegativeBinomial(nb.mean, nb.variance)
+//       val dist = dlm.core.model.NegativeBinomial(nb.mean, nb.variance)
 //       val samples = dist.sample(n)
 
 //       assert(nb.mean === mean(samples))

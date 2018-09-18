@@ -1,4 +1,4 @@
-// package core.dlm.model
+// package dlm.core.model
 
 // import Dglm._
 // import ParticleGibbs.State
@@ -7,7 +7,7 @@
 // import breeze.stats.mean
 // import math.{log, exp}
 // import cats.implicits._
-// import Dlm.Data
+// import Data
 
 // /**
 //   * Particle Gibbs with Ancestor Sampling

@@ -1,7 +1,7 @@
 package benchmark.bench
 
 import org.openjdk.jmh.annotations.{Benchmark, State, Scope}
-import core.dlm.model._
+import dlm.core.model._
 import breeze.linalg._
 
 object FfbsBenchmark {

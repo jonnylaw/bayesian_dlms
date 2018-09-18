@@ -1,29 +1,32 @@
-package core.dlm.model
+package dlm.core.model
 
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions._
 import scala.math.{sin, cos}
-//import cats.implicits._
+import cats.implicits._
 
 /**
-  * Definition of a DLM
+  * A state space model with a linear Gaussian latent-state
+  * @param f the observation matrix which can be a function of time
+  * @param g the system matrix
   */
-case class DlmModel(f: Double => DenseMatrix[Double],
-                    g: Double => DenseMatrix[Double]) { self =>
+case class Dlm(
+  f: Double => DenseMatrix[Double],
+  g: Double => DenseMatrix[Double]) { self =>
 
   /**
     * Combine two DLMs into a multivariate DLM
     * @param y another DLM 
     * @return a multivariate DLM
     */
-  def |*|(y: DlmModel): DlmModel =
+  def |*|(y: Dlm): Dlm =
     Dlm.outerSumModel(self, y)
 
   /**
     * Combine two univariate DLMs into a rich univariate DLM
     * @param y another DLM 
     */
-  def |+|(y: DlmModel): DlmModel =
+  def |+|(y: Dlm): Dlm =
     Dlm.composeModels(self, y)
 }
 
@@ -31,8 +34,8 @@ case class DlmModel(f: Double => DenseMatrix[Double],
   * Parameters of a DLM
   */
 case class DlmParameters(
-  v: DenseMatrix[Double],
-  w: DenseMatrix[Double],
+  v:  DenseMatrix[Double],
+  w:  DenseMatrix[Double],
   m0: DenseVector[Double],
   c0: DenseMatrix[Double]) { self =>
 
@@ -48,35 +51,42 @@ case class DlmParameters(
   def toList = DenseVector.vertcat(diag(v), diag(w), m0, diag(c0)).data.toList
 }
 
+object DlmParameters {
+  def apply(v: Double, w: Double, m0: Double, c0: Double): DlmParameters =
+    DlmParameters(
+      DenseMatrix(v),
+      DenseMatrix(w),
+      DenseVector(m0),
+      DenseMatrix(c0))
+}
+
+/**
+  * A single observation of a model
+  */
+case class Data(time: Double, observation: DenseVector[Option[Double]])
+
 /**
   * A DLM with a p-vector of observations
   * y_t = F_t x_t + v_t, v_t ~ N(0, V)
   * x_t = F_t x_{t-1} + w_t, w_t ~ N(0, W)
   */
-object Dlm extends Simulate[DlmModel, DlmParameters, DenseVector[Double]] {
-
-  /**
-    * A single observation of a model
-    */
-  case class Data(time: Double, observation: DenseVector[Option[Double]])
-
+object Dlm {
   /**
     * Dynamic Linear Models can be combined in order to model different
     * time dependent phenomena, for instance seasonal with trend
     */
-  def composeModels(x: DlmModel, y: DlmModel): DlmModel = {
-    DlmModel(
+  def composeModels(x: Dlm, y: Dlm): Dlm = 
+    Dlm(
       (t: Double) => DenseMatrix.vertcat(x.f(t), y.f(t)),
-      (t: Double) => blockDiagonal(x.g(t), y.g(t))
+      (dt: Double) => blockDiagonal(x.g(dt), y.g(dt))
     )
-  }
 
   /**
     * Similar Dynamic Linear Models can be combined in order to model
     * multiple similar times series in a vectorised way
     */
-  def outerSumModel(x: DlmModel, y: DlmModel) = {
-    DlmModel(
+  def outerSumModel(x: Dlm, y: Dlm) = {
+    Dlm(
       (t: Double) => blockDiagonal(x.f(t), y.f(t)),
       (t: Double) => blockDiagonal(x.g(t), y.g(t))
     )
@@ -97,8 +107,8 @@ object Dlm extends Simulate[DlmModel, DlmParameters, DenseVector[Double]] {
   /**
     * A polynomial model
     */
-  def polynomial(order: Int): DlmModel = {
-    DlmModel(
+  def polynomial(order: Int): Dlm = {
+    Dlm(
       (t: Double) => {
         val elements = Array.fill(order)(0.0)
         elements(0) = 1.0
@@ -117,9 +127,9 @@ object Dlm extends Simulate[DlmModel, DlmParameters, DenseVector[Double]] {
     * A first order regression model with intercept
     * @param x an array of covariates
     */
-  def regression(x: Array[DenseVector[Double]]): DlmModel = {
+  def regression(x: Array[DenseVector[Double]]): Dlm = {
 
-    DlmModel(
+    Dlm(
       (t: Double) => {
         val index = t.toInt - 1
         val m = 1 + x(index).size
@@ -134,8 +144,8 @@ object Dlm extends Simulate[DlmModel, DlmParameters, DenseVector[Double]] {
     * @param phi a sequence of autoregressive parameters of length equal
     * to the order of the autoregressive state
     */
-  def autoregressive(phi: Double*): DlmModel = {
-    DlmModel(
+  def autoregressive(phi: Double*): Dlm = {
+    Dlm(
       (t: Double) => {
         val m = DenseMatrix.zeros[Double](phi.size, 1)
         m(0, 0) = 1.0
@@ -175,9 +185,10 @@ object Dlm extends Simulate[DlmModel, DlmParameters, DenseVector[Double]] {
       dt: Double): DenseMatrix[Double] = {
 
     val matrices = (delta: Double) =>
-      (1 to harmonics).map(h => Dlm.rotationMatrix(h * angle(period)(delta)))
+    (1 to harmonics).map(h =>
+      rotationMatrix(h * angle(period)(delta)))
 
-    matrices(dt).reduce(Dlm.blockDiagonal)
+    matrices(dt).reduce(blockDiagonal)
   }
 
   /**
@@ -193,8 +204,8 @@ object Dlm extends Simulate[DlmModel, DlmParameters, DenseVector[Double]] {
     * @param harmonics the number of harmonics in the seasonal model
     * @return a seasonal DLM model
     */
-  def seasonal(period: Int, harmonics: Int): DlmModel = {
-    DlmModel(
+  def seasonal(period: Int, harmonics: Int): Dlm = {
+    Dlm(
       (t: Double) =>
         DenseMatrix.tabulate(harmonics * 2, 1) {
           case (h, i) => if (h % 2 == 0) 1 else 0
@@ -203,7 +214,7 @@ object Dlm extends Simulate[DlmModel, DlmParameters, DenseVector[Double]] {
     )
   }
 
-  def stepState(model: DlmModel,
+  def stepState(model: Dlm,
                 p: DlmParameters,
                 state: DenseVector[Double],
                 dt: Double) = {
@@ -215,7 +226,7 @@ object Dlm extends Simulate[DlmModel, DlmParameters, DenseVector[Double]] {
     } yield x1
   }
 
-  def observation(model: DlmModel,
+  def observation(model: Dlm,
                   p: DlmParameters,
                   x: DenseVector[Double],
                   time: Double): Rand[DenseVector[Double]] = {
@@ -227,11 +238,33 @@ object Dlm extends Simulate[DlmModel, DlmParameters, DenseVector[Double]] {
   }
 
   def initialiseState(
-      model: DlmModel,
-      params: DlmParameters): (Dlm.Data, DenseVector[Double]) = {
+      model: Dlm,
+      params: DlmParameters): (Data, DenseVector[Double]) = {
 
     val x0 = MultivariateGaussianSvd(params.m0, params.c0).draw
-    (Dlm.Data(0.0, DenseVector[Option[Double]](None)), x0)
+    (Data(0.0, DenseVector[Option[Double]](None)), x0)
+  }
+
+  def simStep(
+    model: Dlm,
+    params: DlmParameters)(
+    state: DenseVector[Double],
+      time: Double,
+      dt: Double): Rand[(Data, DenseVector[Double])] =
+    for {
+      x1 <- stepState(model, params, state, dt)
+      y <- observation(model, params, x1, time)
+    } yield (Data(time, y.map(_.some)), x1)
+
+  def simulateRegular(
+    model:  Dlm,
+    params: DlmParameters,
+    dt:     Double): Process[(Data, DenseVector[Double])] = {
+
+    val init = initialiseState(model, params)
+    MarkovChain(init) {
+      case (y, x) => simStep(model, params)(x, y.time + dt, dt)
+    }
   }
 
   /**
@@ -244,17 +277,15 @@ object Dlm extends Simulate[DlmModel, DlmParameters, DenseVector[Double]] {
     * @param p the parameters of the DLM
     */
   def stepForecast(
-    mod:  DlmModel,
+    mod:  Dlm,
     time: Double,
     dt:   Double,
     mt:   DenseVector[Double],
     ct:   DenseMatrix[Double],
     p:    DlmParameters) = {
 
-    val kf = KalmanFilter(KalmanFilter.advanceState(p, mod.g))
-
     val (at, rt) = KalmanFilter.advState(mod.g, mt, ct, dt, p.w)
-    val (ft, qt) = kf.oneStepPrediction(mod.f, at, rt, time, p.v)
+    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, at, rt, time, p.v)
 
     (time, at, rt, ft, qt)
   }
@@ -269,14 +300,13 @@ object Dlm extends Simulate[DlmModel, DlmParameters, DenseVector[Double]] {
     * @return a Stream of forecasts
     */
   def forecast(
-    mod:  DlmModel,
+    mod:  Dlm,
     mt:   DenseVector[Double],
     ct:   DenseMatrix[Double],
     time: Double,
     p:    DlmParameters) = {
 
-    val kf = KalmanFilter(KalmanFilter.advanceState(p, mod.g))
-    val (ft, qt) = kf.oneStepPrediction(mod.f, mt, ct, time, p.v)
+    val (ft, qt) = KalmanFilter.oneStepPrediction(mod.f, mt, ct, time, p.v)
 
     Stream
       .iterate((time, mt, ct, ft, qt)) {

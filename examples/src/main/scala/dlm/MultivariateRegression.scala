@@ -1,6 +1,6 @@
 package examples.dlm
 
-import core.dlm.model._
+import dlm.core.model._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions._
 import java.nio.file.Paths
@@ -48,8 +48,8 @@ object UnivariateRegression extends App {
 
   val headers = rfc.withHeader(colnames: _*)
 
-  def formatData(d: ((Dlm.Data, DenseVector[Double]), DenseVector[Double])) = d match {
-    case ((Dlm.Data(t, y), s), x) =>
+  def formatData(d: ((Data, DenseVector[Double]), DenseVector[Double])) = d match {
+    case ((Data(t, y), s), x) =>
       t :: KalmanFilter.flattenObs(y).data.toList ::: s.data.toList ::: x.data.toList
   }
 
@@ -76,8 +76,8 @@ object SimulateMultivariateRegression extends App with MultivariateRegression {
     (1 to 8).map(i => s"state_$i") ++ (1 to 4).map(i => s"covariate_$i")
   val headers = rfc.withHeader(colnames: _*)
 
-  def formatData(d: ((Dlm.Data, DenseVector[Double]), Vector[Double])) = d match {
-    case ((Dlm.Data(t, y), s), x) =>
+  def formatData(d: ((Data, DenseVector[Double]), Vector[Double])) = d match {
+    case ((Data(t, y), s), x) =>
       t :: KalmanFilter.flattenObs(y).data.toList ::: s.data.toList ::: x.toList
   }
 
@@ -91,7 +91,7 @@ object FitMultivariateRegression extends App with MultivariateRegression {
   val rawData = Paths.get("examples/data/multivariate_regression_sims.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
-    case Right(a) => (Dlm.Data(a.head, DenseVector(a.drop(1).take(4).toArray).map(_.some)),
+    case Right(a) => (Data(a.head, DenseVector(a.drop(1).take(4).toArray).map(_.some)),
       a.drop(13).toArray)
   }.toVector
 

@@ -69,7 +69,7 @@ object Diagnostics {
   def density(xs: Vector[Vector[Double]]): Plot = ???
 
   /**
-    * Plot Traceplot, ACF and histograms for an MCMC chain
+    * Plot Traceplot and histograms for an MCMC chain
     */
   def diagnostics(xs: Vector[Vector[Double]]): Plot = {
     val t = xs.transpose

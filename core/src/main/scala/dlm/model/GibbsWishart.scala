@@ -1,8 +1,7 @@
-package core.dlm.model
+package dlm.core.model
 
 import breeze.stats.distributions._
 import breeze.linalg.{DenseMatrix, DenseVector}
-import Dlm._
 
 /**
   * This class learns a correlated system matrix
@@ -39,18 +38,19 @@ object GibbsWishart {
   /**
     * A single step of the Gibbs Wishart algorithm
     */
-  def wishartStep(mod: DlmModel,
+  def wishartStep(mod: Dlm,
                   priorV: InverseGamma,
                   priorW: InverseWishart,
                   observations: Vector[Data]) = { s: GibbsSampling.State =>
     for {
       theta <- Smoothing.ffbsDlm(mod, observations, s.p)
-      newW <- sampleSystemMatrix(priorW, mod.g, theta.toVector)
+      st = theta.map(a => (a.time, a.sample))
+      newW <- sampleSystemMatrix(priorW, mod.g, st.toVector)
       newV <- GibbsSampling.sampleObservationMatrix(priorV,
                                                     mod.f,
                                                     observations,
-                                                    theta.toVector)
-    } yield GibbsSampling.State(s.p.copy(v = newV, w = newW), theta.toVector)
+                                                    st.toVector)
+    } yield GibbsSampling.State(s.p.copy(v = newV, w = newW), st.toVector)
   }
 
   /**
@@ -63,17 +63,19 @@ object GibbsWishart {
     * @param initParams the intial parameters of the Markov Chain
     * @param observations a vector of time series observations
     */
-  def sample(mod: DlmModel,
+  def sample(mod: Dlm,
              priorV: InverseGamma,
              priorW: InverseWishart,
              initParams: DlmParameters,
              observations: Vector[Data]) = {
 
-    val initState = Smoothing.ffbs(mod, observations, 
+    val init = for {
+      initState <- Smoothing.ffbs(mod, observations,
       KalmanFilter.advanceState(initParams, mod.g),
-      Smoothing.step(mod, initParams.w), initParams).draw
-    val init = GibbsSampling.State(initParams, initState)
+      Smoothing.step(mod, initParams.w), initParams)
+      st = initState.map(a => (a.time, a.sample))
+    } yield GibbsSampling.State(initParams, st)
 
-    MarkovChain(init)(wishartStep(mod, priorV, priorW, observations))
+    MarkovChain(init.draw)(wishartStep(mod, priorV, priorW, observations))
   }
 }

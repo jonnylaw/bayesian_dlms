@@ -1,4 +1,4 @@
-package core.dlm.model
+package dlm.core.model
 
 import breeze.stats.distributions._
 import cats.Traverse
@@ -18,7 +18,7 @@ case class AuxFilter(n: Int) extends FilterTs[PfState, DlmParameters, DglmModel]
   def step(
     mod: DglmModel,
     p:   DlmParameters)
-    (s: PfState, d: Dlm.Data): PfState = {
+    (s: PfState, d: Data): PfState = {
 
     val y = KalmanFilter.flattenObs(d.observation)
     val dt = d.time - s.time
@@ -57,7 +57,7 @@ case class AuxFilter(n: Int) extends FilterTs[PfState, DlmParameters, DglmModel]
   def initialiseState[T[_]: Traverse](
     model: DglmModel,
     p: DlmParameters,
-    ys: T[Dlm.Data]): PfState = {
+    ys: T[Data]): PfState = {
 
     val initState = MultivariateGaussian(p.m0, p.c0).sample(n).toVector
     val t0 = ys.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))

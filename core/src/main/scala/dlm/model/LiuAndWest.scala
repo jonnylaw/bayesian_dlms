@@ -1,4 +1,4 @@
-package core.dlm.model
+package dlm.core.model
 
 // exclude vector
 import breeze.linalg.{Vector => _, _}
@@ -30,7 +30,7 @@ case class LiuAndWestFilter(n: Int, prior: Rand[DlmParameters], a: Double)
   def initialiseState[T[_]: Traverse](
     model: DglmModel,
     p: DlmParameters,
-    ys: T[Dlm.Data]
+    ys: T[Data]
   ): PfStateParams = {
 
     val t0 = ys.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
@@ -43,7 +43,7 @@ case class LiuAndWestFilter(n: Int, prior: Rand[DlmParameters], a: Double)
   def step(
     mod: DglmModel,
     p:   DlmParameters)
-    (x:  PfStateParams, d: Dlm.Data): PfStateParams = {
+    (x:  PfStateParams, d: Data): PfStateParams = {
 
     val varParams = varParameters(x.params)
     val mi = scaleParameters(x.params, a)

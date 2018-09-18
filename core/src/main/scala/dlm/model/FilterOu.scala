@@ -1,4 +1,4 @@
-package core.dlm.model
+package dlm.core.model
 
 import math.exp
 import breeze.linalg.DenseMatrix

@@ -1,6 +1,5 @@
-package core.dlm.model
+package dlm.core.model
 
-import Dlm._
 import breeze.linalg.{DenseVector, diag, DenseMatrix, sum, cholesky}
 import breeze.stats.distributions._
 import breeze.numerics._
@@ -62,8 +61,7 @@ object GibbsSampling {
 
     // take the squared difference of x_t - g * x_{t-1} for t = 1 ... 0
     // add them all up
-    val squaredSum = theta.init
-      .zip(theta.tail)
+    val squaredSum = (theta.init, theta.tail).zipped
       .map {
         case (mt, mt1) =>
           val dt = mt1._1 - mt._1
@@ -106,10 +104,9 @@ object GibbsSampling {
     * Update an autoregressive model with a new value of the autoregressive
     * parameter
     */
-  def updateModel(mod: DlmModel, phi: Double*): DlmModel = {
-
-    mod.copy(g = (dt: Double) => new DenseMatrix(phi.size, 1, phi.toArray))
-  }
+  def updateModel(mod: Dlm, phi: Double*): Dlm = 
+    Dlm(f = mod.f,
+      g = (dt: Double) => new DenseMatrix(phi.size, 1, phi.toArray))
 
   /**
     * Sample the autoregressive parameter with a Beta Prior
@@ -136,7 +133,7 @@ object GibbsSampling {
     * @param observations an array of Data containing the observed time series
     */
   def dinvGammaStep(
-    mod: DlmModel,
+    mod: Dlm,
     priorV: InverseGamma,
     priorW: InverseGamma,
     observations: Vector[Data]) = { s: State =>
@@ -144,9 +141,10 @@ object GibbsSampling {
     for {
       theta <- Smoothing.ffbs(mod, observations,
         KalmanFilter.advanceState(s.p, mod.g), Smoothing.step(mod, s.p.w), s.p)
-      newV <- sampleObservationMatrix(priorV, mod.f, observations, theta.toVector)
-      newW <- sampleSystemMatrix(priorW, theta.toVector, mod.g)
-    } yield State(s.p.copy(v = newV, w = newW), theta.toVector)
+      st = theta.map(a => (a.time, a.sample))
+      newV <- sampleObservationMatrix(priorV, mod.f, observations, st.toVector)
+      newW <- sampleSystemMatrix(priorW, st.toVector, mod.g)
+    } yield State(s.p.copy(v = newV, w = newW), st.toVector)
   }
 
   /**
@@ -162,7 +160,7 @@ object GibbsSampling {
     * @return a Process
     */
   def sample(
-    mod: DlmModel,
+    mod: Dlm,
     priorV: InverseGamma,
     priorW: InverseGamma,
     initParams: DlmParameters,
@@ -172,13 +170,14 @@ object GibbsSampling {
       initState <- Smoothing.ffbs(mod, observations,
         KalmanFilter.advanceState(initParams, mod.g),
         Smoothing.step(mod, initParams.w), initParams)
-    } yield State(initParams, initState)
+      st = initState.map(a => (a.time, a.sample))
+    } yield State(initParams, st)
 
     MarkovChain(init.draw)(dinvGammaStep(mod, priorV, priorW, observations))
   }
 
   def stepSvd(
-    mod: DlmModel,
+    mod: Dlm,
     priorV: InverseGamma,
     priorW: InverseGamma,
     observations: Vector[Data]) = { s: State =>
@@ -194,7 +193,7 @@ object GibbsSampling {
     * Perform Gibbs Sampling using the SVD Kalman Filter for numerical stability
     */
   def sampleSvd(
-    mod: DlmModel,
+    mod: Dlm,
     priorV: InverseGamma,
     priorW: InverseGamma,
     initParams: DlmParameters,
@@ -239,7 +238,7 @@ object GibbsSampling {
     * performs a metropolis step to be used in a Markov Chain
     */
   def metropStep(
-    mod: DlmModel,
+    mod: Dlm,
     theta: Vector[(Double, DenseVector[Double])],
     proposal: DlmParameters => Rand[DlmParameters]) = {
 
@@ -258,7 +257,7 @@ object GibbsSampling {
     */
   def gibbsMetropStep(
     proposal: DlmParameters => Rand[DlmParameters],
-    mod: DlmModel,
+    mod: Dlm,
     priorV: InverseGamma,
     priorW: InverseGamma,
     observations: Vector[Data]) = { s: State =>
@@ -280,7 +279,7 @@ object GibbsSampling {
     */
   def metropSamples(
     proposal: DlmParameters => Rand[DlmParameters],
-    mod: DlmModel,
+    mod: Dlm,
     priorV: InverseGamma,
     priorW: InverseGamma,
     initParams: DlmParameters,
@@ -290,7 +289,8 @@ object GibbsSampling {
       initState <- Smoothing.ffbs(mod, observations,
         KalmanFilter.advanceState(initParams, mod.g),
         Smoothing.step(mod, initParams.w), initParams)
-    } yield State(initParams, initState)
+      st = initState.map(a => (a.time, a.sample))
+    } yield State(initParams, st)
 
     MarkovChain(init.draw)(
       gibbsMetropStep(proposal, mod, priorV, priorW, observations))

@@ -1,6 +1,6 @@
 package examples.dlm
 
-import core.dlm.model._
+import dlm.core.model._
 import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.mean
 import breeze.stats.distributions._
@@ -32,8 +32,7 @@ trait FsvModel {
   * Simulate a stochastic volatility model with an AR(1) latent state
   */
 object SimulateFsv extends App with FsvModel {
-
-  val sims = FactorSv.simulate(params).steps.take(1000)
+  val sims = FactorSv.simulate(params).steps.take(10000)
 
   // write to file
   val out = new java.io.File("examples/data/fsv_sims.csv")
@@ -42,8 +41,8 @@ object SimulateFsv extends App with FsvModel {
   val headers = rfc.withHeader(colnames: _*)
   val writer = out.asCsvWriter[List[Double]](headers)
 
-  def formatData(d: (Dlm.Data, Vector[Double], Vector[Double])): List[Double] = d match {
-    case (Dlm.Data(t, y), f, a) =>
+  def formatData(d: (Data, Vector[Double], Vector[Double])): List[Double] = d match {
+    case (Data(t, y), f, a) =>
       List(t) ::: y.data.toList.flatten ::: f.toList ::: a.toList
   }
 
@@ -61,7 +60,7 @@ object FitFsv extends App with FsvModel {
   val rawData = Paths.get("examples/data/fsv_sims.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
-    case Right(a) => Dlm.Data(a.head, DenseVector(a.slice(1, 7).toArray.map(_.some)))
+    case Right(a) => Data(a.head, DenseVector(a.slice(1, 7).toArray.map(_.some)))
   }.toVector
 
   val priorBeta = Gaussian(1.0, 5.0)
@@ -87,7 +86,7 @@ object SampleStateFvs extends App with FsvModel {
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader(false))
   val data = reader.
     collect { 
-      case Right(a) => Dlm.Data(a.head,
+      case Right(a) => Data(a.head,
         DenseVector(a.drop(1).take(p).toArray.map(_.some)))
     }.
     toVector.
@@ -114,10 +113,9 @@ object SampleStateFvs extends App with FsvModel {
   }
 
   val summary = iters.transpose.map { x =>
-    val sample = x.map(_._2).flatten
+    val sample = x.map(a => KalmanFilter.flattenObs(a.observation)(0))
 
-    (x.head._1,
-      mean(sample),
+    (x.head.time, mean(sample),
       quantile(sample, 0.995),
       quantile(sample, 0.005)
     )

@@ -1,6 +1,6 @@
 package examples.dlm
 
-import core.dlm.model._
+import dlm.core.model._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions._
 import java.nio.file.Paths
@@ -43,7 +43,7 @@ trait SimulatedDlmFsv {
   val rawData = Paths.get("examples/data/dlm_fsv_sims.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
-    case Right(a) => Dlm.Data(a.head, DenseVector(a.slice(1, 7).map(_.some).toArray))
+    case Right(a) => Data(a.head, DenseVector(a.slice(1, 7).map(_.some).toArray))
   }.toVector
 }
 
@@ -59,8 +59,8 @@ object SimulateDlmFsv extends App with DlmFsvModel {
   val headers = rfc.withHeader(names: _*)
   val writer = out.asCsvWriter[List[Double]](headers)
 
-  def formatData(d: (Dlm.Data, DenseVector[Double], Vector[Double])) = d match {
-    case (Dlm.Data(t, y), x, a) =>
+  def formatData(d: (Data, DenseVector[Double], Vector[Double])) = d match {
+    case (Data(t, y), x, a) =>
       t :: KalmanFilter.flattenObs(y).data.toList ::: x.data.toList ::: a.toList
   }
 
@@ -89,7 +89,7 @@ object ParametersDlmFsv extends App with DlmFsvModel with SimulatedDlmFsv {
 
   // write iters to file
   Streaming.writeParallelChain(
-    iters, 2, 10000, "examples/data/dlm_fsv_params", formatParameters).
+    iters, 2, 100000, "examples/data/dlm_fsv_params", formatParameters).
     runWith(Sink.onComplete(_ => system.terminate()))
 }
 
@@ -136,8 +136,8 @@ object SimulateDlmFsvSystem extends App with DlmFsvSystemModel {
   val headers = rfc.withHeader(names: _*)
   val writer = out.asCsvWriter[List[Double]](headers)
 
-  def formatData(d: (Dlm.Data, DenseVector[Double], Vector[Double])) = d match {
-    case (Dlm.Data(t, y), x, a) =>
+  def formatData(d: (Data, DenseVector[Double], Vector[Double])) = d match {
+    case (Data(t, y), x, a) =>
       t :: KalmanFilter.flattenObs(y).data.toList ::: x.data.toList ::: a.toList
   }
 
@@ -155,7 +155,7 @@ object FitDlmFsvSystem extends App with DlmFsvSystemModel {
   val rawData = Paths.get("examples/data/dlm_fsv_system_sims.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
-    case Right(a) => Dlm.Data(a.head, DenseVector(a.slice(1, 2).map(_.some).toArray))
+    case Right(a) => Data(a.head, DenseVector(a.slice(1, 2).map(_.some).toArray))
   }.toVector.
     take(1000)
 
@@ -187,8 +187,8 @@ object FitDlmFsvSystem extends App with DlmFsvSystemModel {
     s.p.toList
   }
 
-  val iters = DlmFsvSystem.sample(priorBeta, priorSigmaEta, priorPhi, priorMu,
-    priorSigma, priorV, data, dlmMod, params)
+  val iters = DlmFsvSystem.sample(priorBeta, priorSigmaEta, priorPhi,
+    priorMu, priorSigma, priorV, data, dlmMod, params)
 
   // iters.
   //   steps.

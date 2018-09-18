@@ -1,4 +1,4 @@
-package core.dlm.model
+package dlm.core.model
 
 import java.io.File
 import java.nio.file.Paths
