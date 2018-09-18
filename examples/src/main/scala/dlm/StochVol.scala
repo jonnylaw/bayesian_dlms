@@ -192,7 +192,7 @@ object SimulateOu extends App {
   // simulate data
   val p = SvParameters(0.2, 1.0, 0.3)
   val times = Stream.iterate(0.1)(t => t + scala.util.Random.nextDouble())
-  val sims = StochasticVolatility.simOu(p, times).take(3000).toVector
+  val sims = StochasticVolatility.simOu(p, times).take(5000).toVector
 
   // write to file
   val out = new java.io.File("examples/data/sv_ou_sims.csv")
