@@ -190,12 +190,6 @@ object FitDlmFsvSystem extends App with DlmFsvSystemModel {
   val iters = DlmFsvSystem.sample(priorBeta, priorSigmaEta, priorPhi,
     priorMu, priorSigma, priorV, data, dlmMod, params)
 
-  // iters.
-  //   steps.
-  //   take(100).
-  //   map(formatParameters).
-  //   foreach(println)
-
   // write iters to file
   Streaming.writeParallelChain(
     iters, 2, 100000, "examples/data/dlm_fsv_system_params", formatParameters).
