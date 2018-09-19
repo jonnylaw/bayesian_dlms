@@ -106,7 +106,8 @@ case class KalmanFilter(advState: (KfState, Double) => KfState)
 
     val dt = y.time - state.time
     val st = advState(state, dt)
-    val (ft, qt, mt, ct, ll) = updateState(mod.f, st.at, st.rt, y, p.v, state.ll)
+    val (ft, qt, mt, ct, ll) =
+      updateState(mod.f, st.at, st.rt, y, p.v, state.ll)
 
     KfState(y.time, mt, ct, st.at, st.rt, Some(ft), Some(qt), ll)
   }
@@ -114,9 +115,10 @@ case class KalmanFilter(advState: (KfState, Double) => KfState)
   /**
     * Initialise the state of the Kalman Filter
     */
-  def initialiseState[T[_]: Traverse](mod: Dlm,
-                                      p: DlmParameters,
-                                      obs: T[Data]): KfState = {
+  def initialiseState[T[_]: Traverse](
+    mod: Dlm,
+    p: DlmParameters,
+    obs: T[Data]): KfState = {
 
     val t0 = obs.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
     KfState(t0.get - 1.0, p.m0, p.c0, p.m0, p.c0, None, None, 0.0)
@@ -303,5 +305,49 @@ object KalmanFilter {
     val qt = f(time).t * rt * f(time) + v
 
     (ft, qt)
+  }
+
+/**
+  * Single step of a univariate kalman filter
+  */
+  def stepUni(
+    d:   (Double, Option[Double]),
+    t0:  Double,
+    mt:  Double,
+    ct:  Double,
+    p:   DlmParameters,
+    mod: Dlm) = {
+
+  val t = d._1
+  // extract model "matrices"
+  val dt = t - t0
+  val g = mod.g(dt)(0,0)
+  val f = mod.f(t)(0,0)
+
+  val at = g * mt
+  val rt = g * g * ct + p.w(0,0) * dt
+  val ft = f * at
+  val qt = f * f * rt + p.v(0,0)
+
+  d._2 match {
+    case Some(y) =>
+      val kt = f * rt / qt
+      val et = y - ft
+
+      (t, at + kt * et, kt * p.v(0,0))
+    case None => (t, at, rt)
+  }
+}
+
+  /**
+    * Univariate Kalman Filter
+    */
+  def univariateKf(
+    ys: Vector[(Double, Option[Double])],
+    p:  DlmParameters,
+    mod: Dlm) = {
+
+    ys.scanLeft((ys.head._1, p.m0(0), p.c0(0,0))){ case ((t, mt, ct), y) =>
+      stepUni(y, t, mt, ct, p, mod) }
   }
 }

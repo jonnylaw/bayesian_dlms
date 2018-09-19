@@ -22,6 +22,8 @@ object ArrayFilterBenchmark {
         take(10).
         toVector.
         map(_._1)
+
+    val ys = data.map(d => (d.time, d.observation(0)))
   }
 }
 
@@ -33,8 +35,13 @@ class ArrayFilterBenchmark {
     KalmanFilter.filterDlm(mod.model, mod.data, mod.p)
   }
 
+  // @Benchmark
+  // def arrayFilter(mod: ModelState) = {
+  //   KalmanFilter(KalmanFilter.advanceState(mod.p, mod.model.g)).filterArray(mod.model, mod.data, mod.p)
+  // }
+
   @Benchmark
-  def arrayFilter(mod: ModelState) = {
-    KalmanFilter(KalmanFilter.advanceState(mod.p, mod.model.g)).filterArray(mod.model, mod.data, mod.p)
+  def univariateFilter(mod: ModelState) = {
+    KalmanFilter.univariateKf(mod.ys, mod.p, mod.model)
   }
 }

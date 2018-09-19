@@ -91,8 +91,8 @@ object StochasticVolatility {
     * @param alphas the latent log-volatility
     */
   def sampleKt(
-    ys: Vector[Data],
-    alphas: Vector[SamplingState]) = {
+    ys:     Vector[Option[Double]],
+    alphas: Vector[Double]) = {
 
     // conditional likelihood
     def ll(j: Int, yo: Option[Double], x: Double) = {
@@ -109,8 +109,8 @@ object StochasticVolatility {
       } yield log(pis(j)) + ll(j, yo, x)
 
     for {
-      (y, x) <- ys.map(_.observation) zip alphas.tail.map(_.sample(0))
-      lw = logWeights(y(0), x)
+      (y, x) <- ys zip alphas.tail
+      lw = logWeights(y, x)
       max = lw.max
       weights = lw.map(w => exp(w - max))
       kt = Multinomial(DenseVector(weights.toArray)).draw
@@ -144,7 +144,7 @@ object StochasticVolatility {
     val mod = Dlm.autoregressive(phi)
 
     // sample the T indices of the mixture
-    val kt = sampleKt(ys, alphas)
+    val kt = sampleKt(ys.map(_.observation(0)), alphas.map(_.sample(0)))
 
     // construct a list of variances and means
     val vkt = kt.map(j => variances(j))
@@ -166,7 +166,26 @@ object StochasticVolatility {
     }
 
     val initState = Smoothing.initialise(filtered)
-    Rand.always(filtered.scanRight(initState)(backStep))
+    Rand.always(filtered.init.scanRight(initState)(backStep))
+  }
+
+  def sampleStateAr(
+    ys:     Vector[Option[Double]],
+    params: SvParameters,
+    alphas: Vector[FilterAr.SampleState])= {
+
+    // sample the T indices of the mixture
+    val kt = sampleKt(ys, alphas.map(_.sample))
+
+    // construct a list of variances and means
+    val vkt = kt.map(j => variances(j))
+    val mkt = kt.map(j => means(j))
+
+    val yt = (ys zip mkt).map { case (yo, m) => yo map (y => log(y * y) - m) }
+
+    // create vector of parameters
+    val filtered = FilterAr.filterUnivariate(yt, vkt, params)
+    FilterAr.univariateSample(params, filtered)
   }
 
   /**
@@ -185,7 +204,7 @@ object StochasticVolatility {
     val mod = Dlm.autoregressive(phi)
 
     // sample the T indices of the mixture
-    val kt = sampleKt(ys, alphas)
+    val kt = sampleKt(ys.map(_.observation(0)), alphas.map(_.sample(0)))
 
     // construct a list of variances and means
     val vkt = kt.map(j => variances(j))
@@ -219,16 +238,16 @@ object StochasticVolatility {
     * @return the log-likelihood
     */
   def arLikelihood(
-    alphas: Vector[SamplingState],
+    alphas: Vector[Double],
     p: SvParameters): Double = {
 
     val initvar = math.pow(p.sigmaEta, 2) / (1 - math.pow(p.phi, 2))
 
-    Gaussian(p.mu, math.sqrt(initvar)).logPdf(alphas.head.sample(0)) +
+    Gaussian(p.mu, math.sqrt(initvar)).logPdf(alphas.head) +
       (alphas.drop(2) zip alphas.tail.init).map {
         case (a1, a0) =>
-          val mean = p.mu + p.phi * (a0.sample(0) - p.mu)
-          Gaussian(mean, p.sigmaEta).logPdf(a1.sample(0))
+          val mean = p.mu + p.phi * (a0 - p.mu)
+          Gaussian(mean, p.sigmaEta).logPdf(a1)
       }.sum
   }
 
@@ -244,7 +263,7 @@ object StochasticVolatility {
     lambda: Double,
     prior:  ContinuousDistr[Double],
     p:      SvParameters,
-    alpha:  Vector[SamplingState]) = { 
+    alpha:  Vector[Double]) = { 
 
     val proposal = (phi: Double) => {
       new Beta(lambda * phi + tau, lambda * (1 - phi) + tau)
@@ -267,14 +286,14 @@ object StochasticVolatility {
   def sampleMu(
     prior:  Gaussian,
     p:      SvParameters,
-    alphas: Vector[SamplingState]): Rand[Double] = {
+    alphas: Vector[Double]): Rand[Double] = {
 
     val n = alphas.tail.size
     val pmu = prior.mean
     val psigma = prior.variance
 
     val sumStates = (alphas.tail.init, alphas.drop(2)).zipped.
-      map { case (at, at1) => (at1.sample(0) - p.phi * at.sample(0)) }.reduce(_ + _)
+      map { case (at, at1) => (at1 - p.phi * at) }.reduce(_ + _)
 
     val prec = 1 / psigma + ((n - 1) * (1 - p.phi) * (1 - p.phi)) / p.sigmaEta * p.sigmaEta
     val mean = (pmu / psigma + ((1 - p.phi) / p.sigmaEta * p.sigmaEta) * sumStates) / prec
@@ -291,11 +310,11 @@ object StochasticVolatility {
   def sampleSigma(
     prior:  InverseGamma,
     p:      SvParameters,
-    alphas: Vector[SamplingState]) = {
+    alphas: Vector[Double]) = {
 
     val squaredSum = (alphas.tail.init, alphas.drop(2)).zipped.
       map { case (mt, mt1) =>
-          val diff = (mt1.sample(0) - p.mu) - p.phi * (mt.sample(0) - p.mu)
+          val diff = (mt1 - p.mu) - p.phi * (mt - p.mu)
           (diff * diff)
       }.sum
 
@@ -316,6 +335,37 @@ object StochasticVolatility {
       yt = yo(0) map (y => log(y * y) + 1.27)
     } yield Data(time, DenseVector(yt))
   }
+
+  def stepUni(
+    priorPhi:   ContinuousDistr[Double],
+    priorMu:    Gaussian,
+    priorSigma: InverseGamma,
+    ys:         Vector[Option[Double]]) = { s: StochasticVolatilityKnots.StochVolStateUni =>
+
+    for {
+      alphas <- sampleStateAr(ys, s.params, s.alphas)
+      state = alphas.map(_.sample)
+      (newPhi, accepted) <- samplePhi(0.05, 100.0, priorPhi, s.params, state)(s.params.phi)
+      newSigma <- sampleSigma(priorSigma, s.params.copy(phi = newPhi), state)
+      newMu <- sampleMu(priorMu, s.params.copy(phi = newPhi, sigmaEta = newSigma), state)
+      p = SvParameters(newPhi, newMu, newSigma)
+    } yield s.copy(params = p, alphas = alphas, accepted = s.accepted + accepted)
+  }
+
+  def sampleUni(
+    priorPhi:   ContinuousDistr[Double],
+    priorMu:    Gaussian,
+    priorSigma: InverseGamma,
+    params:     SvParameters,
+    ys:         Vector[Option[Double]]) = {
+
+    // initialise the latent state
+    val initState = StochasticVolatilityKnots.initialStateAr(params, ys).draw
+    val init = StochasticVolatilityKnots.StochVolStateUni(params, initState, 0)
+
+    MarkovChain(init)(stepUni(priorPhi, priorMu, priorSigma, ys))
+  }
+
 
   /**
     * Sample the initial state from the Gaussian approximation of the SV model
@@ -351,12 +401,13 @@ object StochasticVolatility {
     for {
       alphas <- sampleState(ys, ar1DlmParams(s.params), s.params.phi,
         FilterAr.advanceState(s.params), FilterAr.backStep(s.params))(s.alphas)
+      state = alphas.map(_.sample(0))
       (newPhi, accepted) <- samplePhi(0.05, 100.0, priorPhi,
-        s.params, alphas)(s.params.phi)
+        s.params, state)(s.params.phi)
       newSigma <- sampleSigma(priorSigma,
-        s.params.copy(phi = newPhi), alphas)
+        s.params.copy(phi = newPhi), state)
       newMu <- sampleMu(priorMu,
-        s.params.copy(phi = newPhi, sigmaEta = newSigma), alphas)
+        s.params.copy(phi = newPhi, sigmaEta = newSigma), state)
       p = SvParameters(newPhi, newMu, newSigma)
     } yield StochVolState(p, alphas, s.accepted + accepted)
   }
@@ -385,11 +436,14 @@ object StochasticVolatility {
     ys:         Vector[Data])(s: StochVolState) = {
 
     for {
-      alphas <- sampleStateSvd(ys, s.alphas, ar1DlmParams(s.params), s.params.phi,
-        FilterAr.advanceStateSvd(s.params))
-      (newPhi, accepted) <- samplePhi(0.05, 100, priorPhi, s.params, alphas)(s.params.phi)
-      newSigma <- sampleSigma(priorSigma, s.params.copy(phi = newPhi), alphas)
-      newMu <- sampleMu(priorMu, s.params.copy(phi = newPhi, sigmaEta = newSigma), alphas)
+      alphas <- sampleStateSvd(ys, s.alphas, ar1DlmParams(s.params),
+        s.params.phi, FilterAr.advanceStateSvd(s.params))
+      state = alphas.map(_.sample(0))
+      (newPhi, accepted) <- samplePhi(0.05, 100, priorPhi,
+        s.params, state)(s.params.phi)
+      newSigma <- sampleSigma(priorSigma, s.params.copy(phi = newPhi), state)
+      newMu <- sampleMu(priorMu,
+        s.params.copy(phi = newPhi, sigmaEta = newSigma), state)
       p = SvParameters(newPhi, newMu, newSigma)
     } yield StochVolState(p, alphas, s.accepted + accepted)
   }

@@ -345,9 +345,9 @@ object FactorSv {
     * @return 
     */
   def sampleVolatilityParamsAr(
+    priorPhi:      Beta,
     priorMu:       Gaussian,
     priorSigmaEta: InverseGamma,
-    priorPhi:      Beta,
     p:             Int)(s: State) = {
 
     val k = s.params.beta.cols
@@ -358,7 +358,8 @@ object FactorSv {
       theseParameters = s.params.factorParams(i)
       factorState = StochVolState(theseParameters, thisState, 0)
       theseFactors = extractFactors(s.factors, i)
-      factor = StochasticVolatilityKnots.sampleStepBeta(priorMu, priorPhi, priorSigmaEta, theseFactors)(factorState)
+      factor = StochasticVolatilityKnots.sampleStepUni(priorPhi,
+        priorMu, priorSigmaEta, theseFactors)(factorState)
     } yield factor
 
     for {
@@ -465,7 +466,7 @@ object FactorSv {
     k:             Int) = { (s: State) => 
 
     for {
-      svp <- sampleVolatilityParamsAr(priorMu, priorSigmaEta, priorPhi, p)(s)
+      svp <- sampleVolatilityParamsAr(priorPhi, priorMu, priorSigmaEta, p)(s)
       fs <- sampleFactors(observations, svp.params, svp.volatility)
       sigma <- sampleSigma(priorSigma, observations, svp.params, fs)
       beta <- sampleBeta(priorBeta, observations, p, k, fs, svp.params.copy(v = sigma))

@@ -13,7 +13,7 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
   val params = StochasticVolatility.ar1DlmParams(p)
   val sims = StochasticVolatility.simulate(p).
     steps.
-    take(100).
+    take(10).
     toVector.
     map { case (t, y, a) => Data(t, DenseVector(y)) }
 
@@ -35,15 +35,29 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
     } assert(filteredTest(i).ct === (covs(i)))
   }
 
-  // TODO: calculate AR(1) filter "by hand" to test SVD Filter
-  val data = Vector(
-    Data(1.0, DenseVector(Some(4.5), Some(4.5))),
-    Data(2.0, DenseVector(Some(3.0), Some(3.0))),
-    Data(3.0, DenseVector(Some(6.3), Some(6.3))),
-    Data(4.0, DenseVector[Option[Double]](None, None)),
-    Data(5.0, DenseVector(Some(10.1), None)), // partially observed
-    Data(7.0, DenseVector(Some(15.2), Some(15.2)))
-  )
+  val ys = sims.map(d => (d.observation(0).get))
+  val filtered = FilterAr.filterUnivariate(ys, Vector.fill(ys.size)(1.0), p)
+
+  test("Univariate Kalman filter is the same as the Kalman Filter") {
+    for {
+      i <- 0 until sims.size
+      means = filtered.map(_.mt)
+      mvMeans = filteredTest.map(_.mt(0))
+    } assert(means(i) === (mvMeans(i)) +- 1e-3)
+
+    for {
+      i <- 0 until sims.size
+      covs = filtered.map(_.ct)
+      mvCovs = filteredTest.map(_.ct(0,0))
+    } assert(covs(i) === (mvCovs(i)) +- 1e-3)
+  }
+
+  val sampled = Smoothing.sample(model, filteredTest, FilterAr.backStep(p))
+  val sampledUni = FilterAr.univariateSample(p, filtered).draw
+
+  test("Univariate Sampler is the same size MV Sampler") {
+    assert(sampled.size === sampledUni.size)
+  }
 
   val mod = Dlm.polynomial(2)
   val firstOrderParams = DlmParameters(

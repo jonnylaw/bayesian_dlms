@@ -39,21 +39,21 @@ object FitSv extends App {
   val rawData = Paths.get("examples/data/sv_sims.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
-    case Right(a) => Data(a.head, DenseVector(a(1).some))
+    case Right(a) => a(1).some
   }.toVector
 
-  val priorSigma = InverseGamma(10, 2)
   val priorPhi = new Beta(5, 2)
   val priorMu = Gaussian(1.0, 1.0)
+  val priorSigma = InverseGamma(10, 2)
 
-  val iters = StochasticVolatility.sampleArSvd(priorPhi, priorMu, priorSigma, p, data)
+  val iters = StochasticVolatility.sampleUni(priorPhi, priorMu, priorSigma, p, data)
 
-  def formatParameters(s: StochVolState) = {
+  def formatParameters(s: StochasticVolatilityKnots.StochVolStateUni) = {
     List(s.params.phi, s.params.mu, s.params.sigmaEta, s.accepted)
   }
 
   Streaming.writeParallelChain(
-    iters, 2, 1000, "examples/data/sv_params", formatParameters).
+    iters, 2, 10000, "examples/data/sv_params", formatParameters).
     runWith(Sink.onComplete(_ => system.terminate()))
 }
 
@@ -66,21 +66,21 @@ object FitSvKnots extends App {
   val rawData = Paths.get("examples/data/sv_sims.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
-    case Right(a) => Data(a.head, DenseVector(a(1).some))
+    case Right(a) => a(1).some
   }.toVector
 
   val priorPhi = Gaussian(0.8, 0.2)
   val priorMu = Gaussian(1.0, 1.0)
   val priorSigma = InverseGamma(10, 2)
 
-  val iters = StochasticVolatilityKnots.sample(priorPhi, priorMu, priorSigma, data, p)
+  val iters = StochasticVolatilityKnots.sampleUni(priorPhi, priorMu, priorSigma, data, p)
 
-  def formatParameters(s: StochVolState) = {
+  def formatParameters(s: StochasticVolatilityKnots.StochVolStateUni) = {
     List(s.params.phi, s.params.mu, s.params.sigmaEta)
   }
 
   Streaming.writeParallelChain(
-    iters, 2, 100000, "examples/data/sv_knot_params", formatParameters).
+    iters, 2, 10000, "examples/data/sv_knot_params", formatParameters).
     runWith(Sink.onComplete(_ => system.terminate()))
 }
 
@@ -100,7 +100,7 @@ object FitSvKnotsBeta extends App {
   val priorMu = Gaussian(1.0, 1.0)
   val priorSigma = InverseGamma(10, 2)
 
-  val iters = StochasticVolatilityKnots.sampleBeta(priorMu, priorSigma, priorPhi, data, p)
+  val iters = StochasticVolatilityKnots.sampleBeta(priorPhi, priorMu, priorSigma, data, p)
 
   def formatParameters(s: StochVolState) = {
     List(s.params.phi, s.params.mu, s.params.sigmaEta, s.accepted)
@@ -154,16 +154,15 @@ object SvSampleStateKnots extends App {
   val rawData = Paths.get("examples/data/sv_sims.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
-    case Right(a) => Data(a.head, DenseVector(a(1).some))
+    case Right(a) => a(1).some
   }.toVector.
     take(1000)
 
-  val initState = StochasticVolatilityKnots.initialState(params, data).draw
+  val initState = StochasticVolatilityKnots.initialStateAr(params, data).draw
 
-  val sampleState = (st: Vector[SamplingState]) => for {
+  val sampleState = (st: Vector[FilterAr.SampleState]) => for {
     knots <- StochasticVolatilityKnots.sampleKnots(10, 100)(data.size)
-    state = StochasticVolatilityKnots.sampleState(data,
-      FilterAr.advanceState, FilterAr.backStep, params, knots)(st)
+    state = StochasticVolatilityKnots.sampleStateAr(data, params, knots)(st)
   } yield state
 
   val iters = MarkovChain(initState)(sampleState).
@@ -177,9 +176,9 @@ object SvSampleStateKnots extends App {
     ordered(index)
   }
 
-  val summary = iters.transpose.map { x =>
-    val sample = x.map(_.sample(0))
-    (x.head.time, mean(sample), quantile(sample, 0.995), quantile(sample, 0.005))
+  val summary = iters.transpose.zipWithIndex.map { case (x, t) =>
+    val sample = x.map(_.sample)
+    (t, mean(sample), quantile(sample, 0.995), quantile(sample, 0.005))
   }
 
   // write state

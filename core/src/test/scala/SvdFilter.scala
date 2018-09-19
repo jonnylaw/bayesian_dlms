@@ -173,9 +173,10 @@ class SvdSamplerTest extends FlatSpec with Matchers with BreezeGenerators {
 
   "Svd Sampler" should "produce the same size state as smoothing sampler" in {
     val sampled = Smoothing.ffbsDlm(model, data, p).draw
-    val svdSampled = SvdSampler.ffbs(model, data, p, SvdFilter.advanceState(p, model.g)).draw
+    val svdSampled = SvdSampler.ffbs(model, data, p,
+      SvdFilter.advanceState(p, model.g)).draw
 
-    assert(sampled.map(_.sample.size).sum === svdSampled.map(_._2.size).sum)
-    sampled.map(_.time) should contain allElementsOf svdSampled.map(_._1)
+    assert(sampled.map(_.sample.size).sum === svdSampled.map(_.sample.size).sum)
+    sampled.map(_.time) should contain allElementsOf svdSampled.map(_.time)
   }
 }
