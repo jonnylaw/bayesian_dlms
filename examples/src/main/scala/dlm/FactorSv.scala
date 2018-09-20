@@ -113,12 +113,9 @@ object SampleStateFvs extends App with FsvModel {
   }
 
   val summary = iters.transpose.map { x =>
-    val sample = x.map(a => KalmanFilter.flattenObs(a.observation)(0))
-
-    (x.head.time, mean(sample),
-      quantile(sample, 0.995),
-      quantile(sample, 0.005)
-    )
+    val t = x.head._1
+    val sample = x.map(_._2).flatten
+    (t + 1, mean(sample), quantile(sample, 0.995), quantile(sample, 0.005))
   }
 
   // write state

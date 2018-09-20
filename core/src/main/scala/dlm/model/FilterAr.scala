@@ -7,6 +7,7 @@ import breeze.stats.distributions.{Gaussian, Rand}
   */
 object FilterAr {
   case class FilterState(
+    time: Double,
     mt: Double,
     ct: Double,
     at: Double,
@@ -14,20 +15,20 @@ object FilterAr {
 
   def stepUni(p: SvParameters)(
     v:  Double,
-    yo:  Option[Double],
+    yo: (Double, Option[Double]),
     st: FilterState) = {
 
     val at = p.mu + p.phi * (st.mt - p.mu)
     val rt = p.phi * p.phi * st.ct + p.sigmaEta * p.sigmaEta
 
     yo match {
-      case Some(y) =>
+      case (t, Some(y)) =>
         val kt = rt / (rt + v)
         val et = y - at
 
-        FilterState(at + kt * et, kt * v, at, rt)
-      case None =>
-        FilterState(at, rt, at, rt)
+        FilterState(t, at + kt * et, kt * v, at, rt)
+      case (t, None) =>
+        FilterState(t, at, rt, at, rt)
     }
   }
 
@@ -35,17 +36,18 @@ object FilterAr {
     * Univariate Kalman Filter for the stochastic volatility model with AR(1) state space
     */
   def filterUnivariate(
-    ys: Vector[Option[Double]],
+    ys: Vector[(Double, Option[Double])],
     vs: Vector[Double],
     p:  SvParameters) = {
 
     val (m0, c0) = (p.mu, p.sigmaEta * p.sigmaEta / (1 - p.phi * p.phi))
-    val init = FilterState(m0, c0, m0, c0)
+    val init = FilterState(ys.head._1 - 1.0, m0, c0, m0, c0)
 
     (ys zip vs).scanLeft(init){ case (st, (y, v)) => stepUni(p)(v, y, st) }
   }
 
   case class SampleState(
+    time: Double,
     sample: Double,
     mt:  Double,
     ct:  Double,
@@ -60,7 +62,7 @@ object FilterAr {
     val cov = fs.ct - (fs.ct * fs.ct * p.phi * p.phi) / ss.rt1
 
     val sample = Gaussian(mean, math.sqrt(cov)).draw
-    SampleState(sample, mean, cov, fs.at, fs.rt)
+    SampleState(fs.time, sample, mean, cov, fs.at, fs.rt)
   }
 
   def univariateSample(
@@ -68,13 +70,13 @@ object FilterAr {
     fs: Vector[FilterState]) = {
     val last = fs.last
     val lastState = Gaussian(last.mt, math.sqrt(last.ct)).draw
-    val init = SampleState(lastState, last.mt, last.ct, last.at, last.rt)
+    val init = SampleState(last.time, lastState, last.mt, last.ct, last.at, last.rt)
     Rand.always(fs.init.scanRight(init)(backStepUni(p)))
   }
 
   def ffbs(
     p: SvParameters,
-    ys: Vector[Option[Double]],
+    ys: Vector[(Double, Option[Double])],
     vs: Vector[Double]): Rand[Vector[SampleState]] = {
 
     val fs = filterUnivariate(ys, vs, p)
@@ -83,12 +85,12 @@ object FilterAr {
 
   def toKfState(
     ss: SampleState): FilterState = 
-    FilterState(ss.mt, ss.ct, ss.at1, ss.rt1)
+    FilterState(ss.time, ss.mt, ss.ct, ss.at1, ss.rt1)
 
   def conditionalFilter(
     start: SampleState,
     p:     SvParameters,
-    ys:    Vector[Option[Double]]) = {
+    ys:    Vector[(Double, Option[Double])]) = {
 
     val v = math.Pi * math.Pi * 0.5
     val s0 = toKfState(start)
@@ -105,7 +107,7 @@ object FilterAr {
     start: SampleState,
     end:   SampleState,
     p:     SvParameters,
-    ys:    Vector[Option[Double]]) = {
+    ys:    Vector[(Double, Option[Double])]) = {
 
     val fs = conditionalFilter(start, p, ys)
     val sampled = conditionalSampler(end, p, fs.init)

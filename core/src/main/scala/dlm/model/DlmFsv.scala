@@ -314,49 +314,49 @@ object DlmFsv {
       priorSigma, priorW, observations, dlm, p, k))
   }
 
-  def stepOu(
-    priorBeta:     Gaussian,
-    priorSigmaEta: InverseGamma,
-    priorPhi:      Beta,
-    priorMu:       Gaussian,
-    priorSigma:    InverseGamma,
-    priorW:        InverseGamma,
-    observations:  Vector[Data],
-    dlm:           Dlm,
-    p:             Int,
-    k:             Int)(s: State): Rand[State] = {
+  // def stepOu(
+  //   priorBeta:     Gaussian,
+  //   priorSigmaEta: InverseGamma,
+  //   priorPhi:      Beta,
+  //   priorMu:       Gaussian,
+  //   priorSigma:    InverseGamma,
+  //   priorW:        InverseGamma,
+  //   observations:  Vector[Data],
+  //   dlm:           Dlm,
+  //   p:             Int,
+  //   k:             Int)(s: State): Rand[State] = {
    
-    val fs = buildFactorState(s)
+  //   val fs = buildFactorState(s)
 
-    for {
-      fs1 <- FactorSv.stepOu(priorBeta, priorSigmaEta, priorMu, priorPhi,
-        priorSigma, factorObs(observations, s.theta, dlm.f), p, k)(fs)      
-      vs = DlmFsvSystem.calculateVariance(fs1.volatility.tail,
-        fs1.params.beta, diag(DenseVector.fill(p)(fs1.params.v)))
-      theta <- ffbsSvd(dlm, observations, s.p.dlm, vs)
-      newW <- GibbsSampling.sampleSystemMatrix(priorW, theta.toVector, dlm.g)
-      newP = DlmFsv.Parameters(s.p.dlm.copy(w = SvdFilter.sqrtSvd(newW)), fs1.params)
-    } yield State(newP, theta.toVector, fs1.factors, fs1.volatility)
-  }
+  //   for {
+  //     fs1 <- FactorSv.stepOu(priorBeta, priorSigmaEta, priorMu, priorPhi,
+  //       priorSigma, factorObs(observations, s.theta, dlm.f), p, k)(fs)      
+  //     vs = DlmFsvSystem.calculateVariance(fs1.volatility.tail,
+  //       fs1.params.beta, diag(DenseVector.fill(p)(fs1.params.v)))
+  //     theta <- ffbsSvd(dlm, observations, s.p.dlm, vs)
+  //     newW <- GibbsSampling.sampleSystemMatrix(priorW, theta.toVector, dlm.g)
+  //     newP = DlmFsv.Parameters(s.p.dlm.copy(w = SvdFilter.sqrtSvd(newW)), fs1.params)
+  //   } yield State(newP, theta.toVector, fs1.factors, fs1.volatility)
+  // }
 
-  def sampleOu(
-    priorBeta:     Gaussian,
-    priorSigmaEta: InverseGamma,
-    priorPhi:      Beta,
-    priorMu:       Gaussian,
-    priorSigma:    InverseGamma,
-    priorW:        InverseGamma,
-    observations:  Vector[Data],
-    dlm:           Dlm,
-    initP:         DlmFsv.Parameters): Process[State] = {
+  // def sampleOu(
+  //   priorBeta:     Gaussian,
+  //   priorSigmaEta: InverseGamma,
+  //   priorPhi:      Beta,
+  //   priorMu:       Gaussian,
+  //   priorSigma:    InverseGamma,
+  //   priorW:        InverseGamma,
+  //   observations:  Vector[Data],
+  //   dlm:           Dlm,
+  //   initP:         DlmFsv.Parameters): Process[State] = {
 
-    // specify number of factors and dimension of the observation
-    val beta = initP.fsv.beta
-    val k = beta.cols
-    val p = beta.rows
-    val init = initialiseState(dlm, observations, initP, p, k)
+  //   // specify number of factors and dimension of the observation
+  //   val beta = initP.fsv.beta
+  //   val k = beta.cols
+  //   val p = beta.rows
+  //   val init = initialiseState(dlm, observations, initP, p, k)
 
-    MarkovChain(init)(sampleStep(priorBeta, priorSigmaEta, priorPhi, priorMu,
-      priorSigma, priorW, observations, dlm, p, k))
-  }
+  //   MarkovChain(init)(sampleStep(priorBeta, priorSigmaEta, priorPhi, priorMu,
+  //     priorSigma, priorW, observations, dlm, p, k))
+  // }
 }
