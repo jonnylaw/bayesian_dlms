@@ -49,8 +49,8 @@ object FilterAr {
   case class SampleState(
     time: Double,
     sample: Double,
-    mt:  Double,
-    ct:  Double,
+    mean:  Double,
+    cov:  Double,
     at1: Double,
     rt1: Double)
 
@@ -85,7 +85,7 @@ object FilterAr {
 
   def toKfState(
     ss: SampleState): FilterState = 
-    FilterState(ss.time, ss.mt, ss.ct, ss.at1, ss.rt1)
+    FilterState(ss.time, ss.mean, ss.cov, ss.at1, ss.rt1)
 
   def conditionalFilter(
     start: SampleState,
@@ -161,7 +161,7 @@ object FilterAr {
 
   def backStep(params: SvParameters) = {
     val mod = Dlm.autoregressive(params.phi)
-    val p = StochasticVolatility.ar1DlmParams(params)
+    val p = StochVolKnotsMultivariate.ar1DlmParams(params)
     Smoothing.step(mod, p.w) _
   }
 
@@ -170,7 +170,7 @@ object FilterAr {
     filtered: Vector[KfState]) = {
 
     val mod = Dlm.autoregressive(params.phi)
-    val p = StochasticVolatility.ar1DlmParams(params)
+    val p = StochVolKnotsMultivariate.ar1DlmParams(params)
     Smoothing.sample(mod, filtered, Smoothing.step(mod, p.w))
   }
 

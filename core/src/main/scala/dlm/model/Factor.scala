@@ -311,8 +311,8 @@ object FactorSv {
         SamplingState(
           time = x.head.time,
           sample = DenseVector(x.map(_.sample).toArray),
-          mean = DenseVector(x.map(_.mt).toArray),
-          cov = diag(DenseVector(x.map(_.ct).toArray)),
+          mean = DenseVector(x.map(_.mean).toArray),
+          cov = diag(DenseVector(x.map(_.cov).toArray)),
           at1 = DenseVector(x.map(_.at1).toArray),
           rt1 = diag(DenseVector(x.map(_.rt1).toArray)))
       }

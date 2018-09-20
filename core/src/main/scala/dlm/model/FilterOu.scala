@@ -54,7 +54,7 @@ object FilterOu {
     val cov = fs.ct - (fs.ct * fs.ct * p.phi * p.phi) / ss.rt1
 
     val sample = Gaussian(mean, math.sqrt(cov)).draw
-    FilterAr.SampleState(fs.time, sample, mean, cov, fs.at, fs.rt)
+    FilterAr.SampleState(fs.time, sample, fs.mt, fs.ct, fs.at, fs.rt)
   }
 
   def univariateSample(
@@ -77,7 +77,7 @@ object FilterOu {
 
   def toKfState(
     ss: FilterAr.SampleState): FilterAr.FilterState = 
-    FilterAr.FilterState(ss.time, ss.mt, ss.ct, ss.at1, ss.rt1)
+    FilterAr.FilterState(ss.time, ss.mean, ss.cov, ss.at1, ss.rt1)
 
   def conditionalFilter(
     start: FilterAr.SampleState,

@@ -35,7 +35,7 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
     } assert(filteredTest(i).ct === (covs(i)))
   }
 
-  val ys = sims.map(d => (d.observation(0).get))
+  val ys = sims.map(d => (d.time, d.observation(0)))
   val filtered = FilterAr.filterUnivariate(ys, Vector.fill(ys.size)(1.0), p)
 
   test("Univariate Kalman filter is the same as the Kalman Filter") {

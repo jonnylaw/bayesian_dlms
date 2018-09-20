@@ -107,6 +107,22 @@ object Metropolis {
     } yield next
   }
 
+  def mAccept[A](
+    proposal: A => Rand[A],
+    logMeasure: A => Double)(param: A) = {
+
+    for {
+      propP <- proposal(param)
+      a = logMeasure(propP) - logMeasure(param)
+      u <- Uniform(0, 1)
+      next = if (log(u) < a) {
+        (propP, 1)
+      } else {
+        (param, 0)
+      }
+    } yield next
+  }
+
   /**
     * Run the metropolis algorithm for a DLM
     * using the kalman filter to calculate the likelihood
