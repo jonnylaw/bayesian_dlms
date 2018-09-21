@@ -48,10 +48,9 @@ object GibbsWishart {
     for {
       theta <- Smoothing.ffbsDlm(mod, observations, s.p)
       newW <- sampleSystemMatrix(priorW, mod.g, theta)
-      newV <- GibbsSampling.sampleObservationMatrix(priorV,
-                                                    mod.f,
-                                                    observations,
-                                                    theta)
+      newV <- GibbsSampling.
+      sampleObservationMatrix(priorV, mod.f,
+        observations.map(_.observation), theta.map(s => (s.time, s.sample)))
     } yield GibbsSampling.State(s.p.copy(v = newV, w = newW), theta)
   }
 

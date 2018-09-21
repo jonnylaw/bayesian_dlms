@@ -24,14 +24,14 @@ object GibbsSampling {
   def sampleObservationMatrix(
     prior: InverseGamma,
     f:     Double => DenseMatrix[Double],
-    ys:    Vector[Data],
-    theta: Vector[SamplingState]): Rand[DenseMatrix[Double]] = {
+    ys:    Vector[DenseVector[Option[Double]]],
+    theta: Vector[(Double, DenseVector[Double])]): Rand[DenseMatrix[Double]] = {
 
     val ssy: DenseVector[Double] = (theta.tail zip ys)
       .map {
         case (ss, d) =>
-          val ft = f(ss.time).t * ss.sample
-          val res: Array[Double] = d.observation.data.zipWithIndex.map { 
+          val ft = f(ss._1).t * ss._2
+          val res: Array[Double] = d.data.zipWithIndex.map { 
             case (Some(y), i) => (y - ft(i)) * (y - ft(i))
             case _ => 0.0
           }
@@ -39,7 +39,7 @@ object GibbsSampling {
       }
       .reduce(_ + _)
 
-    val ns = ys.map(_.observation.data.toVector).transpose.map(_.flatten.size)
+    val ns = ys.map(_.data.toVector).transpose.map(_.flatten.size)
     val shape = ns map (n => prior.shape + n * 0.5)
     val rate = ssy.data.map(ss => prior.scale + ss * 0.5)
 
@@ -141,7 +141,8 @@ object GibbsSampling {
     for {
       theta <- Smoothing.ffbs(mod, observations,
         KalmanFilter.advanceState(s.p, mod.g), Smoothing.step(mod, s.p.w), s.p)
-      newV <- sampleObservationMatrix(priorV, mod.f, observations, theta)
+      newV <- sampleObservationMatrix(priorV, mod.f,
+        observations.map(_.observation), theta.map(s => (s.time, s.sample)))
       newW <- sampleSystemMatrix(priorW, theta, mod.g)
     } yield State(s.p.copy(v = newV, w = newW), theta)
   }
@@ -182,7 +183,7 @@ object GibbsSampling {
     
     for {
       theta <- SvdSampler.ffbs(mod, observations, s.p, SvdFilter.advanceState(s.p, mod.g))
-      newV <- sampleObservationMatrix(priorV, mod.f, observations, theta.toVector)
+      newV <- sampleObservationMatrix(priorV, mod.f, observations.map(_.observation), theta.map(s => (s.time, s.sample)))
       newW <- sampleSystemMatrix(priorW, theta.toVector, mod.g)
     } yield State(s.p.copy(v = newV, w = newW), theta.toVector)
   }
@@ -263,7 +264,8 @@ object GibbsSampling {
     for {
       theta <- SvdSampler.ffbs(mod, observations, s.p,
         SvdFilter.advanceState(s.p, mod.g))
-      newV <- sampleObservationMatrix(priorV, mod.f, observations, theta)
+      newV <- sampleObservationMatrix(priorV, mod.f,
+        observations.map(_.observation), theta.map(s => (s.time, s.sample)))
       newW <- sampleSystemMatrix(priorW, theta, mod.g)
       newP <- metropStep(mod, theta, proposal)(s.p)
     } yield State(newP.copy(v = newV, w = newW), theta)

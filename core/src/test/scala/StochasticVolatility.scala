@@ -10,7 +10,7 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
   // simulate data
   val p = SvParameters(0.8, 1.0, 0.2)
   val model = Dlm.autoregressive(p.phi)
-  val params = StochasticVolatility.ar1DlmParams(p)
+  val params = StochVolKnotsMultivariate.ar1DlmParams(p)
   val sims = StochasticVolatility.simulate(p).
     steps.
     take(10).
@@ -108,5 +108,31 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
     }
 
     assert(normalise(w1) === normalise(weights))
+  }
+
+  test("Knots should remain unchanged in a single sample") {
+    import StochasticVolatilityKnots._
+
+    val arsims = Dlm.simulateRegular(model, params, 1.0).steps.take(1000)
+    val ys = arsims.map(_._1).map(d => (d.time, d.observation(0))).toVector
+    val alphas = FilterAr.ffbs(p, ys, Vector.fill(ys.size)(1.0)).draw
+
+    val knots = sampleKnots(10, 100)(ys.size).draw
+
+    val sampled = sampleState(
+        ffbsAr, filterAr, sampleAr)(ys, p, knots, alphas.toArray).toVector
+
+    // extract the knots
+    val resampled = for {
+      i <- knots.tail.init
+      sample = sampled(i)
+    } yield (sample.time, sample.sample)
+
+    val initialSample = for {
+      i <- knots.tail.init
+      sample = alphas(i)
+    } yield (sample.time, sample.sample)
+
+    assert(resampled === initialSample)
   }
 }
