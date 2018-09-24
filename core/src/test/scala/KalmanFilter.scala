@@ -93,19 +93,19 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
   // tolerance
   implicit val tol = 1e-4
 
-  test("advance state for first order model should be a1 = m0, R1 = C0 + W") {
+  test("advance state for second order model should be a1 = m0, R1 = C0 + W") {
     assert(a1 === p.m0)
     assert(r1 === p.c0 + p.w)
   }
 
   test(
-    "one step prediction for first order model should be, f1 = a1, Q1 = R1 + V") {
+    "one step prediction for second order model should be, f1 = a1, Q1 = R1 + V") {
     assert(f1 === a1)
     assert(q1 === r1 + p.v)
   }
 
   test(
-    "update for first order model should be, m1 = a1 + k1 * e1, c1 = r1 - k1 * r1") {
+    "update for second order model should be, m1 = a1 + k1 * e1, c1 = r1 - k1 * r1") {
     assert(m1 === a1 + k1 * e1)
     assert(c1 === r1 - k1 * r1)
   }
@@ -186,4 +186,13 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(fm.cols === obs.data.flatten.size)
     assert(fm.rows === 10)
   }
+
+  // val model = Dlm.polynomial(1)
+  // val params = 
+  // val ys = Dlm.simulateRegular(model, params, 1.0).
+  //   steps.take(100).map(_._1).toVector
+
+  // test("Univariate Kalman Filter should be equivalent to multivariate Kalman Filter") {
+  //   val uniFiltered = KalmanFilter.univariateKf(ys.map(d => (d.time, 
+  // }
 }

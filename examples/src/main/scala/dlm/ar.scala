@@ -108,9 +108,9 @@ object SimulateOuDlm extends App {
   val p = SvParameters(0.2, 1.0, 0.3)
   def stepDlm(t: Double, dt: Double, x: Double) = for {
     x1 <- StochasticVolatility.stepOu(p, x, dt)
-    y <- Gaussian(x1, 1.0)
+    y <- Gaussian(x1, 0.5)
   } yield (t + dt, y, x1)
-  val deltas = Vector.fill(1000)(scala.util.Random.nextDouble())
+  val deltas = Vector.fill(5000)(scala.util.Random.nextDouble())
 
   val init = Gaussian(p.mu, math.sqrt(p.sigmaEta * p.sigmaEta / p.phi * p.phi))
   val sims = deltas.scanLeft((0.0, 0.0, init.draw)){ case ((t, y, xt), dt) =>
@@ -121,8 +121,30 @@ object SimulateOuDlm extends App {
   out.writeCsv(sims, headers)
 }
 
+object FilterOuDlm extends App {
+  val rawData = Paths.get("examples/data/ou_dlm.csv")
+  val reader = rawData.asCsvReader[(Double, Double, Double)](rfc.withHeader)
+  val ys = reader.collect {
+    case Right(a) => (a._1, a._2.some)
+  }.toVector
+
+  val p = SvParameters(0.2, 1.0, 0.3)
+
+  val filtered = FilterOu.filterUnivariate(ys, Vector.fill(ys.size)(0.5), p)
+
+  val out = new java.io.File("examples/data/ou_dlm_filtered.csv")
+
+  def formatFiltered(f: FilterAr.FilterState) = {
+    (f.time, f.mt, f.ct)
+  }
+  val headers =
+    rfc.withHeader("time", "state_mean", "state_variance")
+
+  out.writeCsv(filtered.map(formatFiltered), headers)
+}
+
 object FitOuDlm extends App {
-  val rawData = Paths.get("examples/data/ar_dlm.csv")
+  val rawData = Paths.get("examples/data/ou_dlm.csv")
   val reader = rawData.asCsvReader[(Double, Double, Double)](rfc.withHeader)
   val ys = reader.collect {
     case Right(a) => (a._1, a._2.some)
@@ -131,10 +153,10 @@ object FitOuDlm extends App {
   val p = SvParameters(0.2, 1.0, 0.3)
   val priorPhi = new Beta(2.0, 5.0)
   val priorMu = Gaussian(1.0, 1.0)
-  val priorSigma = InverseGamma(10.0, 1.0)
+  val priorSigma = InverseGamma(5.0, 1.0)
   val priorV = InverseGamma(2.0, 2.0)
   val f = (dt: Double) => DenseMatrix(1.0)
-  val v = 1.0
+  val v = 0.5
 
   val step = (s: StochVolState) => for {
     theta <- FilterOu.ffbs(p, ys, Vector.fill(ys.size)(v))
@@ -145,8 +167,8 @@ object FitOuDlm extends App {
       s.params, st)(s.params.mu)
     (sigma, _) <- StochasticVolatility.sampleSigmaMetropOu(priorSigma,
       0.05, p, st)(s.params.sigmaEta)
-    // v <- GibbsSampling.sampleObservationMatrix(priorV, f,
-    //   data.map(x => Data(x._1, DenseVector(x._2))), theta)
+    v <- GibbsSampling.sampleObservationMatrix(priorV, f,
+      data.map(x => Data(x._1, DenseVector(x._2))), theta)
   } yield StochVolState(SvParameters(phi, mu, sigma), theta, 0)
 
   val initState = FilterOu.ffbs(p, ys, Vector.fill(ys.size)(v))
