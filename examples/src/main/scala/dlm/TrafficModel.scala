@@ -34,6 +34,10 @@ object TrafficPoisson extends App with ReadTrafficData {
   implicit val system = ActorSystem("traffic-poisson")
   implicit val materializer = ActorMaterializer()
 
+  // read particles and proposal matrix from command line
+  val (n, delta) = (args.lift(0).map(_.toInt).getOrElse(500),
+    args(1).lift(1).map(_.toDouble).getOrElse(0.05))
+
   val mod = Dglm.poisson(Dlm.polynomial(1) |+| Dlm.seasonal(24, 4))
   val params = DlmParameters(DenseMatrix(2.0),
     diag(DenseVector.fill(9)(0.05)),
@@ -50,7 +54,7 @@ object TrafficPoisson extends App with ReadTrafficData {
     } yield p.copy(w = propW)
 
 
-  val iters = Metropolis.dglm(mod, data, proposal(0.01), prior, params, 300)
+  val iters = Metropolis.dglm(mod, data, proposal(delta), prior, params, n)
 
   def diagonal(m: DenseMatrix[Double]) = {
     for {
@@ -64,13 +68,17 @@ object TrafficPoisson extends App with ReadTrafficData {
   }
 
   Streaming
-    .writeParallelChain(iters, 2, 100000, "examples/data/poisson_traffic_200_0.01_pmmh", format)
+    .writeParallelChain(iters, 2, 100000, s"examples/data/poisson_traffic_${n}_${delta}_pmmh", format)
     .runWith(Sink.onComplete(_ => system.terminate()))
 }
 
 object TrafficNegBin extends App with ReadTrafficData {
   implicit val system = ActorSystem("traffic-negbin")
   implicit val materializer = ActorMaterializer()
+
+  // read particles and proposal matrix from command line
+  val (n, delta) = (args.lift(0).map(_.toInt).getOrElse(500),
+    args(1).lift(1).map(_.toDouble).getOrElse(0.05))
 
   val mod = Dglm.negativeBinomial(Dlm.polynomial(1) |+| Dlm.seasonal(24, 4))
   val params = DlmParameters(
@@ -79,6 +87,7 @@ object TrafficNegBin extends App with ReadTrafficData {
     DenseVector.fill(9)(0.0),
     diag(DenseVector.fill(9)(10.0)))
 
+  // very vague prior
   def prior(params: DlmParameters) = {
     val ws = diag(params.w).
       map(wi => InverseGamma(0.001, 0.001).logPdf(wi)).
@@ -92,8 +101,7 @@ object TrafficNegBin extends App with ReadTrafficData {
       propW <- Metropolis.proposeDiagonalMatrix(delta)(p.w)
     } yield p.copy(v = DenseMatrix(logv), w = propW)
 
-  val iters = Metropolis.dglm(mod, data, proposal(0.01),
-    prior, params, 300)
+  val iters = Metropolis.dglm(mod, data, proposal(delta), prior, params, n)
 
   def format(s: Metropolis.State[DlmParameters]) = {
     DenseVector.vertcat(diag(s.parameters.v),
@@ -102,6 +110,6 @@ object TrafficNegBin extends App with ReadTrafficData {
   }
 
   Streaming
-    .writeParallelChain(iters, 2, 100000, "examples/data/negbin_traffic_300_0.01_pmmh", format)
+    .writeParallelChain(iters, 2, 100000, s"examples/data/negbin_traffic_${n}_${delta}_pmmh", format)
     .runWith(Sink.onComplete(_ => system.terminate()))
 }

@@ -3,11 +3,14 @@ package examples.dlm
 import dlm.core.model._
 import Dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
-import breeze.stats.distributions.{MarkovChain, Beta, Gaussian}
+import breeze.stats.distributions.{MarkovChain, Beta, Gaussian, Rand}
 import java.nio.file.Paths
 import cats.implicits._
 import kantan.csv._
 import kantan.csv.ops._
+import akka.actor.ActorSystem
+import akka.stream._
+import scaladsl._
 
 trait ArDlm {
   val mod = Dlm.autoregressive(phi = 0.9)
@@ -144,11 +147,16 @@ object FilterOuDlm extends App {
 }
 
 object FitOuDlm extends App {
+  implicit val system = ActorSystem("ou_dlm")
+  implicit val materializer = ActorMaterializer()
+
+  import StochasticVolatility._
   val rawData = Paths.get("examples/data/ou_dlm.csv")
   val reader = rawData.asCsvReader[(Double, Double, Double)](rfc.withHeader)
   val ys = reader.collect {
     case Right(a) => (a._1, a._2.some)
-  }.toVector
+  }.toVector.
+    take(500)
 
   val p = SvParameters(0.2, 1.0, 0.3)
   val priorPhi = new Beta(2.0, 5.0)
@@ -156,34 +164,29 @@ object FitOuDlm extends App {
   val priorSigma = InverseGamma(5.0, 1.0)
   val priorV = InverseGamma(2.0, 2.0)
   val f = (dt: Double) => DenseMatrix(1.0)
-  val v = 0.5
 
-  val step = (s: StochVolState) => for {
-    theta <- FilterOu.ffbs(p, ys, Vector.fill(ys.size)(v))
+  val step = (s: (StochasticVolatilityKnots.OuSvState, DenseMatrix[Double])) => for {
+    theta <- FilterOu.ffbs(p, ys, Vector.fill(ys.size)(s._2(0,0)))
     st = theta.map(x => (x.time, x.sample))
-    (phi, _) <- StochasticVolatility.samplePhiOu(priorPhi,
-      s.params, st, 0.05, 0.5)(s.params.phi)
-    (mu, _) <- StochasticVolatility.sampleMuOu(priorMu, 0.2,
-      s.params, st)(s.params.mu)
-    (sigma, _) <- StochasticVolatility.sampleSigmaMetropOu(priorSigma,
-      0.05, p, st)(s.params.sigmaEta)
+    (phi, acceptedPhi) <- samplePhiOu(priorPhi, s._1.params, st, 0.05, 0.25)(s._1.params.phi)
+    (mu, acceptedMu) <- sampleMuOu(priorMu, 0.2, s._1.params, st)(s._1.params.mu)
+    (sigma, acceptedSigma) <- sampleSigmaMetropOu(priorSigma, 0.05, p, st)(s._1.params.sigmaEta)
     v <- GibbsSampling.sampleObservationMatrix(priorV, f,
-      data.map(x => Data(x._1, DenseVector(x._2))), theta)
-  } yield StochVolState(SvParameters(phi, mu, sigma), theta, 0)
+      ys.map(x => DenseVector(x._2)),
+      st.map { case (t, x) => (t, DenseVector(x)) })
+    accepted = DenseVector(Array(acceptedPhi, acceptedMu, acceptedSigma))
+  } yield (StochasticVolatilityKnots.OuSvState(
+    SvParameters(phi, mu, sigma), theta, s._1.accepted + accepted), v)
+  val initState = FilterOu.ffbs(p, ys, Vector.fill(ys.size)(priorV.draw))
+  val init = (StochasticVolatilityKnots.OuSvState(p, initState.draw,
+    DenseVector.zeros[Int](3)), DenseMatrix(priorV.draw))
 
-  val initState = FilterOu.ffbs(p, ys, Vector.fill(ys.size)(v))
-  val init = StochVolState(p, initState.draw, 0)
-  val iters = MarkovChain(init)(step).steps.take(10000)
+  val iters = MarkovChain(init)(step)
 
-  val out = new java.io.File("examples/data/ou_dlm_params.csv")
-  val writer = out.asCsvWriter[List[Double]](rfc.withHeader("phi", "mu", "sigma"))
+  def formatParameters(s: (StochasticVolatilityKnots.OuSvState, DenseMatrix[Double])) = 
+    List(s._2(0,0), s._1.params.phi, s._1.params.mu, s._1.params.sigmaEta)// ++ s._1.accepted.map(_.toDouble).data.toList
 
-  def formatParameters(s: StochVolState) = 
-    List(s.params.phi, s.params.mu, s.params.sigmaEta)
-
-  while (iters.hasNext) {
-    writer.write(formatParameters(iters.next))
-  }
-
-  writer.close()
+  Streaming.writeParallelChain(
+    iters, 2, 10000, "examples/data/ou_dlm_params", formatParameters).
+    runWith(Sink.onComplete(_ => system.terminate()))
 }

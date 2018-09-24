@@ -62,7 +62,7 @@ object StochasticVolatility {
 
     val phi = exp(-p.phi * dt)
     val mean = p.mu + phi * (at - p.mu)
-    val variance = (math.pow(p.sigmaEta, 2) / (2*p.phi)) * (1 - exp(-2*p.phi*dt))
+    val variance = (math.pow(p.sigmaEta, 2) * (1 - exp(-2*p.phi*dt))) / (2*p.phi)
 
     Gaussian(mean, math.sqrt(variance))
   }
@@ -275,7 +275,7 @@ object StochasticVolatility {
 
     val phi = (dt: Double) => exp(-p.phi * dt)
     val variance = (dt: Double) =>
-      (math.pow(p.sigmaEta, 2) / (2*p.phi)) * (1 - exp(-2*p.phi*dt))
+      (math.pow(p.sigmaEta, 2) * (1 - exp(-2*p.phi*dt))) / (2*p.phi)
 
     (alphas.init zip alphas.tail).map { case (a0, a1) =>
       val dt = a1._1 - a0._1
@@ -351,7 +351,7 @@ object StochasticVolatility {
       prior.logPdf(newPhi) + ouLikelihood(newP, alphas)
     }
 
-    MetropolisHastings.mhAccept[Double](proposal, pos) _
+    Metropolis.mAccept[Double](proposal, pos) _
   }
 
   def sampleStateOu(
@@ -388,7 +388,8 @@ object StochasticVolatility {
     for {
       alphas <- sampleStateOu(ys, s.params, s.alphas)
       state = alphas map (x => (x.time, x.sample))
-      (newPhi, accepted) <- samplePhiOu(priorPhi, s.params, state, 0.05, 10)(s.params.phi)
+      (newPhi, accepted) <- samplePhiOu(priorPhi, s.params, state,
+        0.05)(s.params.phi)
       (newSigma, _) <- sampleSigmaMetropOu(priorSigma, 0.05,
         s.params.copy(phi = newPhi), state)(s.params.sigmaEta)
       (newMu, _) <- sampleMuOu(priorMu, 0.05,

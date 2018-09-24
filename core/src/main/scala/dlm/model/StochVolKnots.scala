@@ -369,8 +369,7 @@ object StochasticVolatilityKnots {
       alphas = sampleState(
         ffbsOu, filterOu, sampleOu)(ys, st.params, knots, st.alphas.toArray).toVector
       state = alphas.map(x => (x.time, x.sample))
-      (newPhi, acceptedPhi) <- StochasticVolatility.samplePhiOu(priorPhi, st.params, state,
-        0.05, 2)(st.params.phi)
+      (newPhi, acceptedPhi) <- StochasticVolatility.samplePhiOu(priorPhi, st.params, state, 0.05)(st.params.phi)
       (newMu, acceptedMu) <- StochasticVolatility.sampleMuOu(priorMu, 0.2,
         st.params.copy(phi = newPhi), state)(st.params.mu)
       (newSigma, acceptedSigma) <- StochasticVolatility.sampleSigmaMetropOu(priorSigma, 0.05,

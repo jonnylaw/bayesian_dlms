@@ -115,6 +115,46 @@ object RadianceRegression extends App with ReadRadianceData {
     runWith(Sink.onComplete(_ => system.terminate()))
 }
 
+object ForecastRadiance extends App with ReadRadianceData {
+  // Build a multivariate regression DLM
+  def model(x: Vector[Array[DenseVector[Double]]]) =
+    x.map(xi => Dlm.regression(xi)).
+      reduce(_ |*| _)
+
+  // read in the parameters from the MCMC chain and caculate the mean
+  val mcmcChain = Paths.get("examples/data/radiance_regression_params_0.csv")
+  val read = mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
+
+  val params: List[Double] =
+    read.collect { case Right(a) => a }.toList.transpose.map(a => mean(a))
+
+  val meanParameters = DlmParameters(
+    diag(DenseVector(params.take(6).toArray)),
+    diag(DenseVector(params.drop(6).take(12).toArray)),
+    DenseVector.fill(12)(0.0),
+    diag(DenseVector.fill(12)(10.0)))
+
+  // get the posterior distribution of the final state
+  val filtered = SvdFilter(SvdFilter.advanceState(meanParameters, model(forecast).g)).
+    filter(model(forecast), actual, meanParameters)
+  val (mt, ct, initTime) = filtered.map { a =>
+    val ct = a.uc * diag(a.dc) * a.uc.t
+    (a.mt, ct, a.time)
+  }.last
+
+  val forecasted: List[List[Double]] = Dlm.forecast(model(forecastTest),
+    mt, ct, 1.0, meanParameters).
+    map { case (t, ft, qt) =>
+      t :: Dlm.summariseForecast(ft, qt).toList.flatten }.
+    take(12).
+    toList
+
+  val out = new java.io.File("examples/data/radiance_regression_forecast.csv")
+  val headers = rfc.withHeader("time" :: (1 to 6).
+    flatMap(i => List(s"forecast_mean_$i", s"lower_$i", s"upper_$i")).toList: _*)
+  val writer = out.writeCsv(forecasted, headers)
+}
+
 trait RadFactorModel {
  // Build a multivariate regression DLM
   def model(x: Vector[Array[DenseVector[Double]]]) =
@@ -208,42 +248,6 @@ object RadianceFactorsSystem extends App with ReadRadianceData with RadFactorMod
     runWith(Sink.onComplete(_ => system.terminate()))
 }
 
-object ForecastRadiance extends App with ReadRadianceData {
-  // Build a multivariate regression DLM
-  def model(x: Vector[Array[DenseVector[Double]]]) =
-    x.map(xi => Dlm.regression(xi)).
-      reduce(_ |*| _)
-
-  // read in the parameters from the MCMC chain and caculate the mean
-  val mcmcChain = Paths.get("examples/data/radiance_regression_params_0.csv")
-  val read = mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
-
-  val params: List[Double] =
-    read.collect { case Right(a) => a }.toList.transpose.map(a => mean(a))
-
-  val meanParameters = DlmParameters(
-    diag(DenseVector(params.take(6).toArray)),
-    diag(DenseVector(params.drop(6).take(12).toArray)),
-    DenseVector.fill(12)(0.0),
-    diag(DenseVector.fill(12)(10.0)))
-
-  // get the posterior distribution of the final state
-  val filtered = SvdFilter(SvdFilter.advanceState(meanParameters, model(forecast).g)).
-    filter(model(forecast), actual, meanParameters)
-  val (mt, ct, initTime) = filtered.map { a =>
-    val ct = a.uc * diag(a.dc) * a.uc.t
-    (a.mt, ct, a.time)
-  }.last
-
-  val forecasted = Dlm.forecast(model(forecastTest), mt, ct, 1.0, meanParameters).
-    take(12).
-    toList
-
-  val out = new java.io.File("examples/data/radiance_regression_forecast.csv")
-  val headers = rfc.withHeader("time", "forecast", "variance")
-  val writer = out.writeCsv(forecasted, headers)
-}
-
 object ForecastRadianceFactors extends App with ReadRadianceData {
   // Build a multivariate regression DLM
   def model(x: Vector[Array[DenseVector[Double]]]) =
@@ -254,16 +258,17 @@ object ForecastRadianceFactors extends App with ReadRadianceData {
   val mcmcChain = Paths.get("examples/data/radiance_regression_params_0.csv")
   val read = mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
 
-  val params: Vector[DlmFsvSystem.Parameters] = ???
-    // collect { case Right(a) => DlmFsvParameters(a,  }.
-    // toVector
+  // TODO: Parse parameters
+  // val params: Vector[DlmFsvSystem.Parameters] = read.
+  //   collect { case Right(a) => DlmFsvParameters(a,  }.
+  //   toVector
 
-  val k = 100 // perform k samples from the parameter posterior for the forecast
-  val indices = Vector.fill(k)(StochasticVolatilityKnots.discreteUniform(0, params.size))
-  val ps = indices map (i => params(i))
+  // val k = 100 // perform k samples from the parameter posterior for the forecast
+  // val indices = Vector.fill(k)(StochasticVolatilityKnots.discreteUniform(0, params.size))
+  // val ps = indices map (i => params(i))
 
-  // get the posterior distribution of the final state
-  // using the MCMC samples
+  // // get the posterior distribution of the final state
+  // // using the MCMC samples
   // val filtered = SvdFilter(SvdFilter.advanceState(meanParameters, model(forecast).g)).
   //   filter(model(forecast), actual, meanParameters)
   // val (mt, ct, initTime) = filtered.map { a =>

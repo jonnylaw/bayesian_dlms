@@ -7,15 +7,15 @@ import breeze.stats.distributions.{MultivariateGaussian, Rand, Gaussian}
 object FilterOu {
   def stepUni(p: SvParameters)(
     v:  Double,
-    t: Double,
+    t:  Double,
     yo: Option[Double],
     st: FilterAr.FilterState) = {
 
     val dt = t - st.time
-    val variance = (p.sigmaEta / (2 * p.phi)) * (1 - exp(-2 * p.phi * dt))
+    val variance = (math.pow(p.sigmaEta, 2) * (1 - exp(-2*p.phi*dt))) / (2*p.phi)
 
-    val at = p.mu + exp(p.phi * dt) * (st.mt - p.mu)
-    val rt = exp(-p.phi * dt) * st.ct + variance
+    val at = p.mu + exp(-p.phi * dt) * (st.mt - p.mu)
+    val rt = exp(-2 * p.phi * dt) * st.ct + variance
 
     yo match {
       case Some(y) =>
@@ -50,8 +50,11 @@ object FilterOu {
     fs: FilterAr.FilterState,
     ss: FilterAr.SampleState) = {
 
-    val mean = fs.mt + (fs.ct * p.phi / ss.rt1) * (ss.sample - ss.at1)
-    val cov = fs.ct - (fs.ct * fs.ct * p.phi * p.phi) / ss.rt1
+    val dt = ss.time - fs.time
+    val phi = (dt: Double) => exp(-p.phi * dt)
+
+    val mean = fs.mt + (fs.ct * phi(dt) / ss.rt1) * (ss.sample - ss.at1)
+    val cov = fs.ct - (math.pow(fs.ct, 2) * math.pow(phi(dt), 2)) / ss.rt1
 
     val sample = Gaussian(mean, math.sqrt(cov)).draw
     FilterAr.SampleState(fs.time, sample, fs.mt, fs.ct, fs.at, fs.rt)
@@ -62,7 +65,8 @@ object FilterOu {
     fs: Vector[FilterAr.FilterState]) = {
     val last = fs.last
     val lastState = Gaussian(last.mt, math.sqrt(last.ct)).draw
-    val init = FilterAr.SampleState(last.time, lastState, last.mt, last.ct, last.at, last.rt)
+    val init = FilterAr.SampleState(last.time, lastState,
+      last.mt, last.ct, last.at, last.rt)
     Rand.always(fs.init.scanRight(init)(backStepUni(p)))
   }
 

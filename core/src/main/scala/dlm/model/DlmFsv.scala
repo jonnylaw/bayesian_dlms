@@ -173,42 +173,42 @@ object DlmFsv {
   def buildDlmState(s: State): GibbsSampling.State = 
     GibbsSampling.State(s.p.dlm, s.theta)
 
-  /**
-    * Helper function for DLM obs
-    */
-  def dlmMinusFactors(
-    obs:    Data,
-    factor: (Double, Option[DenseVector[Double]]),
-    beta:   DenseMatrix[Double]): Data = {
+  // /**
+  //   * Helper function for DLM obs
+  //   */
+  // def dlmMinusFactors(
+  //   obs:    Data,
+  //   factor: (Double, Option[DenseVector[Double]]),
+  //   beta:   DenseMatrix[Double]): Data = {
 
-    // remove all partially missing data
-    val ys = obs.observation.data.toVector.sequence.map { x =>
-      DenseVector(x.toArray)
-    }
+  //   // remove all partially missing data
+  //   val ys = obs.observation.data.toVector.sequence.map { x =>
+  //     DenseVector(x.toArray)
+  //   }
 
-    val observation = Applicative[Option].map2(factor._2, ys){
-      (f, y) => y - beta * f }.map(_.data.toVector).sequence
+  //   val observation = Applicative[Option].map2(factor._2, ys){
+  //     (f, y) => y - beta * f }.map(_.data.toVector).sequence
 
-    Data(obs.time, DenseVector(observation.toArray))
-  }
+  //   Data(obs.time, DenseVector(observation.toArray))
+  // }
 
-  /**
-    * Calculate the difference between the observations y_t and beta * f_t
-    * @param observations a vector of observations
-    * @param factors a vector of factors
-    * @param beta the value of the factor loading matrix
-    * @return a vector containing the difference between observations and 
-    * beta * f_t
-    */
-  def dlmObs(
-    observations: Vector[Data],
-    factors:      Vector[(Double, Option[DenseVector[Double]])],
-    beta:         DenseMatrix[Double]) = {
+  // /**
+  //   * Calculate the difference between the observations y_t and beta * f_t
+  //   * @param observations a vector of observations
+  //   * @param factors a vector of factors
+  //   * @param beta the value of the factor loading matrix
+  //   * @return a vector containing the difference between observations and 
+  //   * beta * f_t
+  //   */
+  // def dlmObs(
+  //   observations: Vector[Data],
+  //   factors:      Vector[(Double, Option[DenseVector[Double]])],
+  //   beta:         DenseMatrix[Double]) = {
 
-    for {
-      (y, f) <- observations zip factors
-    } yield dlmMinusFactors(y, f, beta)
-  }
+  //   for {
+  //     (y, f) <- observations zip factors
+  //   } yield dlmMinusFactors(y, f, beta)
+  // }
 
   /**
     * Perform forward filtering backward sampling using a

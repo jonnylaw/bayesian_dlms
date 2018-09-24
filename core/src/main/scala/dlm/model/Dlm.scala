@@ -297,7 +297,7 @@ object Dlm {
     * @param ct the posterior variance of the state at time t (start of forecast)
     * @param time the starting time of the forecast
     * @param p the parameters of the DLM
-    * @return a Stream of forecasts
+    * @return a Stream containing the time, forecast mean and variance 
     */
   def forecast(
     mod:  Dlm,
@@ -312,6 +312,18 @@ object Dlm {
       .iterate((time, mt, ct, ft, qt)) {
         case (t, m, c, _, _) => stepForecast(mod, t + 1, 1.0, m, c, p)
       }
-      .map(a => (a._1, a._4.data(0), a._5.data(0)))
+      .map(a => (a._1, a._4, a._5))
+  }
+
+  def summariseForecast(
+    ft: DenseVector[Double],
+    qt: DenseMatrix[Double]) = {
+
+    for {
+      i <- ft.data.indices
+      g = Gaussian(ft(i), qt(i, i))
+      upper = g.inverseCdf(0.975)
+      lower = g.inverseCdf(0.025)
+    } yield List(ft(i), lower, upper)
   }
 }
