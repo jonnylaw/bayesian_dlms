@@ -84,7 +84,7 @@ object Streaming {
     nChains: Int,
     nIters: Int,
     filename: String,
-    format: A => List[Double])(implicit m: Materializer): Source[IOResult, NotUsed] = {
+    format: A => List[Double])(implicit m: Materializer) = {
 
     Source((0 until nChains)).mapAsync(nChains) { i =>
       streamChain(chain, nIters).
@@ -102,4 +102,13 @@ object Streaming {
       filter { case (a, i) => i % n == 0 }.
       map(_._1)
   }
+
+  def readCsv[S](file: String) = {
+    FileIO.fromPath(Paths.get(file)).
+      via(Framing.delimiter(ByteString("\n"), 
+        maximumFrameLength = 8192, allowTruncation = true)).
+      map(_.utf8String).
+      map(a => a.split(",").toVector)
+  }
+
 }

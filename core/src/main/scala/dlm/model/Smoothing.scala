@@ -99,7 +99,7 @@ object Smoothing {
     val r = (covariance + covariance.t) /:/ 2.0
 
     SamplingState(kfState.time, MultivariateGaussianSvd(mean, r).draw,
-      mean, r, kfState.at, kfState.rt)
+      kfState.mt, kfState.ct, kfState.at, kfState.rt)
   }
 
   def initialise(filtered: Vector[KfState]) = {
