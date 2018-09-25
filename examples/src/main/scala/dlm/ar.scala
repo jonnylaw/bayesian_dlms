@@ -21,10 +21,10 @@ trait ArData {
 }
 
 object SimulateArDlm extends App {
-  val p = SvParameters(0.2, 1.0, 0.3)
+  val p = SvParameters(0.8, 1.0, 0.3)
   def stepDlm(t: Double, x: Double) = for {
     x1 <- StochasticVolatility.stepState(p, x, 1.0)
-    y <- Gaussian(x1, 0.5)
+    y <- Gaussian(x1, math.sqrt(0.5))
   } yield (t + 1.0, y, x1)
 
   val initVar = math.pow(p.sigmaEta, 2)/(1 - math.pow(p.phi, 2))
@@ -94,7 +94,7 @@ object ParametersAr extends App with ArData {
     List(s._2(0,0), s._1.params.phi, s._1.params.mu, s._1.params.sigmaEta)
 
   Streaming.writeParallelChain(
-    iters, 2, 10000, "examples/data/ou_dlm_params", formatParameters).
+    iters, 2, 10000, "examples/data/ar_dlm_params", formatParameters).
     runWith(Sink.onComplete(_ => system.terminate()))
 }
 
