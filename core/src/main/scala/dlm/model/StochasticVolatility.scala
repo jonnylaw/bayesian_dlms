@@ -166,11 +166,11 @@ object StochasticVolatility {
     * @return a Metropolis Hastings step sampling the value of Phi
     */
   def samplePhi(
-    tau:    Double,
-    lambda: Double,
     prior:  ContinuousDistr[Double],
     p:      SvParameters,
-    alpha:  Vector[Double]) = { 
+    alpha:  Vector[Double],
+    tau:    Double,
+    lambda: Double) = {
 
     val proposal = (phi: Double) => {
       new Beta(lambda * phi + tau, lambda * (1 - phi) + tau)
@@ -241,7 +241,7 @@ object StochasticVolatility {
     for {
       alphas <- sampleStateAr(ys, s.params, s.alphas)
       state = alphas.map(_.sample)
-      (newPhi, accepted) <- samplePhi(0.05, 100.0, priorPhi, s.params, state)(s.params.phi)
+      (newPhi, accepted) <- samplePhi(priorPhi, s.params, state, 0.05, 100.0)(s.params.phi)
       newSigma <- sampleSigma(priorSigma, s.params.copy(phi = newPhi), state)
       newMu <- sampleMu(priorMu, s.params.copy(phi = newPhi, sigmaEta = newSigma), state)
       p = SvParameters(newPhi, newMu, newSigma)

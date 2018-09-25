@@ -12,106 +12,97 @@ import akka.actor.ActorSystem
 import akka.stream._
 import scaladsl._
 
-trait ArDlm {
-  val mod = Dlm.autoregressive(phi = 0.9)
-  val p = DlmParameters(
-    DenseMatrix(4.0),
-    DenseMatrix(2.0),
-    DenseVector(0.0),
-    DenseMatrix(1.0))
-}
-
 trait ArData {
   val rawData = Paths.get("examples/data/ar_dlm.csv")
   val reader = rawData.asCsvReader[(Double, Double, Double)](rfc.withHeader)
   val data = reader.collect {
-    case Right(a) => Data(a._1, DenseVector(a._2.some))
+    case Right(a) => (a._1, a._2.some)
   }.toVector
 }
 
-object SimulateArDlm extends App with ArDlm {
-  val sims = simulateRegular(mod, p, 1.0).steps.take(1000)
+object SimulateArDlm extends App {
+  val p = SvParameters(0.2, 1.0, 0.3)
+  def stepDlm(t: Double, x: Double) = for {
+    x1 <- StochasticVolatility.stepState(p, x, 1.0)
+    y <- Gaussian(x1, 0.5)
+  } yield (t + 1.0, y, x1)
+
+  val initVar = math.pow(p.sigmaEta, 2)/(1 - math.pow(p.phi, 2))
+  val initState = Gaussian(p.mu, initVar).draw
+  val init = (0.0, initState, 0.0)
+  val sims = MarkovChain(init){ case (t, y, x) => stepDlm(t, x) }.
+    steps.
+    take(5000)
 
   val out = new java.io.File("examples/data/ar_dlm.csv")
   val headers = rfc.withHeader("time", "observation", "state")
-  val writer = out.asCsvWriter[List[Double]](headers)
-
-  def formatData(d: (Data, DenseVector[Double])) = d match {
-    case (Data(t, y), x) =>
-      t :: KalmanFilter.flattenObs(y).data.toList ::: x.data.toList
-  }
+  val writer = out.asCsvWriter[(Double, Double, Double)](headers)
 
   while (sims.hasNext) {
-    writer.write(formatData(sims.next))
+    writer.write(sims.next)
   }
 
   writer.close()
 }
 
-object FilterArDlm extends App with ArDlm with ArData {
-  val filtered = SvdFilter.filterDlm(mod, data, p)
+object FilterArDlm extends App with ArData {
+  val p = SvParameters(0.2, 1.0, 0.3)
+  val filtered = FilterAr.filterUnivariate(data, Vector.fill(data.size)(0.5), p)
 
-  val out = new java.io.File("examples/data/ar_dlm_filtered.csv")
+  val out = new java.io.File("examples/data/ou_dlm_filtered.csv")
 
-  def formatFiltered(f: SvdState) = {
-    val ct = f.uc * diag(f.dc) * f.uc.t
-    (f.time, f.mt(0), ct(0, 0), f.ft(0))
+  def formatFiltered(f: FilterAr.FilterState) = {
+    (f.time, f.mt, f.ct)
   }
   val headers =
-    rfc.withHeader("time", "state_mean", "state_variance", "one_step_forecast")
+    rfc.withHeader("time", "state_mean", "state_variance")
 
   out.writeCsv(filtered.map(formatFiltered), headers)
 }
 
-object ParametersAr extends App with ArDlm with ArData {
-  val priorV = InverseGamma(5.0, 20.0)
-  val priorW = InverseGamma(6.0, 10.0)
+object ParametersAr extends App with ArData {
+  implicit val system = ActorSystem("ou_dlm")
+  implicit val materializer = ActorMaterializer()
+
+  import StochasticVolatility._
+
+  val p = SvParameters(0.2, 1.0, 0.3)
+  val priorMu = Gaussian(1.0, 1.0)
   val priorPhi = new Beta(20, 2)
+  val priorSigma = InverseGamma(5.0, 1.0)
+  val priorV = InverseGamma(5.0, 20.0)
+  val f = (dt: Double) => DenseMatrix(1.0)
 
-  val prior = for {
-    v <- priorV
-    w <- priorW
-  } yield DlmParameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)
+  val step = (s: (StochVolState, DenseMatrix[Double])) => for {
+    theta <- FilterAr.ffbs(p, data, Vector.fill(data.size)(s._2(0,0)))
+    st = theta.map(x => (x.time, x.sample))
+    (phi, accepted) <- samplePhi(priorPhi, s._1.params,
+      st.map(_._2), 0.05, 0.25)(s._1.params.phi)
+    mu <- sampleMu(priorMu, s._1.params, st.map(_._2))
+    sigma <- sampleSigma(priorSigma, p, st.map(_._2))
+    v <- GibbsSampling.sampleObservationMatrix(priorV, f,
+      data.map(x => DenseVector(x._2)),
+      st.map { case (t, x) => (t, DenseVector(x)) })
+  } yield (StochVolState(
+    SvParameters(phi, mu, sigma), theta, s._1.accepted + accepted), v)
+  val initState = FilterAr.ffbs(p, data, Vector.fill(data.size)(priorV.draw))
+  val init = (StochVolState(p, initState.draw, 0), DenseMatrix(priorV.draw))
 
-  val step = (s: (Double, GibbsSampling.State)) =>
-    for {
-      newS <- GibbsSampling.dinvGammaStep(
-        GibbsSampling.updateModel(mod, s._1),
-        priorV,
-        priorW,
-        data)(s._2)
-      phi <- GibbsSampling.samplePhi(priorPhi, 1000, 0.5, newS)(s._1)
-    } yield (phi, newS)
+  val iters = MarkovChain(init)(step)
 
-  val init = for {
-    p <- prior
-    phi <- priorPhi
-    state <- Smoothing.ffbsDlm(mod, data, p)
-  } yield (phi, GibbsSampling.State(p, state))
+  def formatParameters(s: (StochVolState, DenseMatrix[Double])) =
+    List(s._2(0,0), s._1.params.phi, s._1.params.mu, s._1.params.sigmaEta)
 
-
-  val iters = MarkovChain(init.draw)(step).steps.take(100000)
-
-  val out = new java.io.File("examples/data/ar_dlm_gibbs.csv")
-  val writer = out.asCsvWriter[List[Double]](rfc.withHeader(false))
-
-  def formatParameters(s: (Double, GibbsSampling.State)) = {
-    s._1 :: s._2.p.v.data(0) :: s._2.p.w.data(0) :: Nil
-  }
-
-  // write iters to file
-  while (iters.hasNext) {
-    writer.write(formatParameters(iters.next))
-  }
-
-  writer.close()
+  Streaming.writeParallelChain(
+    iters, 2, 10000, "examples/data/ou_dlm_params", formatParameters).
+    runWith(Sink.onComplete(_ => system.terminate()))
 }
 
 object SimulateOuDlm extends App {
   val p = SvParameters(0.2, 1.0, 0.3)
   def stepDlm(t: Double, dt: Double, x: Double) = for {
     x1 <- StochasticVolatility.stepOu(p, x, dt)
-    y <- Gaussian(x1, 0.5)
+    y <- Gaussian(x1, math.sqrt(0.5))
   } yield (t + dt, y, x1)
   val deltas = Vector.fill(5000)(scala.util.Random.nextDouble())
 
