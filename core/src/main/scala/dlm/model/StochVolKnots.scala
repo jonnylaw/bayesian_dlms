@@ -35,11 +35,11 @@ object StochasticVolatilityKnots {
       tail.
       map(at => (at - p.mu)).
       map(x => x * x).
-      reduce(_ + _)
+      sum
 
     val sumStates2 = (alphas.tail.init zip alphas.drop(2)).
       map { case (at1, at) => (at1 - p.mu) * (at - p.mu) }.
-      reduce(_ + _)
+      sum
 
     val prec = 1 / psigma + (1 / p.sigmaEta * p.sigmaEta) * sumStates
     val mean = (pmu / psigma + (1 / p.sigmaEta * p.sigmaEta) * sumStates2) / prec
@@ -361,8 +361,7 @@ object StochasticVolatilityKnots {
     priorPhi:   ContinuousDistr[Double],
     priorMu:    ContinuousDistr[Double],
     priorSigma: ContinuousDistr[Double],
-    ys:         Vector[(Double, Option[Double])]
-  ): OuSvState => Rand[OuSvState] = { st =>
+    ys:         Vector[(Double, Option[Double])]): OuSvState => Rand[OuSvState] = { st =>
     for {
       knots <- sampleKnots(10, 100)(ys.size)
       alphas = sampleState(

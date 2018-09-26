@@ -24,7 +24,9 @@ case class PfState(
   */
 case class ParticleFilter(
   n: Int,
-  resample: (Vector[DenseVector[Double]], Vector[Double]) => Vector[DenseVector[Double]])
+  resample: (
+    Vector[DenseVector[Double]],
+    Vector[Double]) => Vector[DenseVector[Double]])
     extends FilterTs[PfState, DlmParameters, DglmModel] {
 
   import ParticleFilter._
@@ -33,8 +35,8 @@ case class ParticleFilter(
     * A single step of the Bootstrap Particle Filter
     */
   def step(
-    mod:      DglmModel,
-    p:        DlmParameters)
+    mod: DglmModel,
+    p:   DlmParameters)
     (s: PfState, d: Data): PfState = {
 
     val y = KalmanFilter.flattenObs(d.observation)
@@ -61,8 +63,10 @@ case class ParticleFilter(
     p: DlmParameters,
     ys: T[Data]): PfState = {
 
-    val initState = MultivariateGaussian(p.m0, p.c0).sample(n).toVector
-    val t0 = ys.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
+    val initState = MultivariateGaussian(p.m0, p.c0).
+      sample(n).toVector
+    val t0 = ys.map(_.time).
+      reduceLeftOption((t0, d) => math.min(t0, d))
     PfState(t0.get - 1.0, initState, Vector.fill(n)(1.0 / n), 0.0)
   }
 }

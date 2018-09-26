@@ -35,8 +35,10 @@ object TrafficPoisson extends App with ReadTrafficData {
   implicit val materializer = ActorMaterializer()
 
   // read particles and proposal matrix from command line
-  val (n, delta) = (args.lift(0).map(_.toInt).getOrElse(500),
-    args(1).lift(1).map(_.toDouble).getOrElse(0.05))
+  // val (n, delta) = (args.lift(0).map(_.toInt).getOrElse(500),
+  //   args(1).lift(1).map(_.toDouble).getOrElse(0.05))
+
+  val (n, delta) = (500, 0.05)
 
   val mod = Dglm.poisson(Dlm.polynomial(1) |+| Dlm.seasonal(24, 4))
   val params = DlmParameters(DenseMatrix(2.0),
@@ -53,8 +55,11 @@ object TrafficPoisson extends App with ReadTrafficData {
       propW <- Metropolis.proposeDiagonalMatrix(delta)(p.w)
     } yield p.copy(w = propW)
 
+  val initState = Metropolis.State[DlmParameters](params, -1e99, 0)
+  val ll = (p: DlmParameters) =>
+    AuxFilter.likelihood(mod, data, n)(p)
 
-  val iters = Metropolis.dglm(mod, data, proposal(delta), prior, params, n)
+  val iters = MarkovChain(initState)(Metropolis.mStep[DlmParameters](proposal(delta), prior, ll))
 
   def diagonal(m: DenseMatrix[Double]) = {
     for {
@@ -68,7 +73,7 @@ object TrafficPoisson extends App with ReadTrafficData {
   }
 
   Streaming
-    .writeParallelChain(iters, 2, 100000, s"examples/data/poisson_traffic_${n}_${delta}_pmmh", format)
+    .writeParallelChain(iters, 2, 10000, s"examples/data/poisson_traffic_auxiliary_${n}_${delta}_pmmh", format)
     .runWith(Sink.onComplete(_ => system.terminate()))
 }
 
@@ -77,8 +82,10 @@ object TrafficNegBin extends App with ReadTrafficData {
   implicit val materializer = ActorMaterializer()
 
   // read particles and proposal matrix from command line
-  val (n, delta) = (args.lift(0).map(_.toInt).getOrElse(500),
-    args(1).lift(1).map(_.toDouble).getOrElse(0.05))
+  // val (n, delta) = (args.lift(0).map(_.toInt).getOrElse(500),
+  //   args(1).lift(1).map(_.toDouble).getOrElse(0.05))
+
+  val (n, delta) = (500, 0.05)
 
   val mod = Dglm.negativeBinomial(Dlm.polynomial(1) |+| Dlm.seasonal(24, 4))
   val params = DlmParameters(
@@ -101,7 +108,11 @@ object TrafficNegBin extends App with ReadTrafficData {
       propW <- Metropolis.proposeDiagonalMatrix(delta)(p.w)
     } yield p.copy(v = DenseMatrix(logv), w = propW)
 
-  val iters = Metropolis.dglm(mod, data, proposal(delta), prior, params, n)
+  val initState = Metropolis.State[DlmParameters](params, -1e99, 0)
+  val ll = (p: DlmParameters) =>
+    AuxFilter.likelihood(mod, data, n)(p)
+
+  val iters = MarkovChain(initState)(Metropolis.mStep[DlmParameters](proposal(delta), prior, ll))
 
   def format(s: Metropolis.State[DlmParameters]) = {
     DenseVector.vertcat(diag(s.parameters.v),
@@ -110,6 +121,6 @@ object TrafficNegBin extends App with ReadTrafficData {
   }
 
   Streaming
-    .writeParallelChain(iters, 2, 100000, s"examples/data/negbin_traffic_${n}_${delta}_pmmh", format)
+    .writeParallelChain(iters, 2, 10000, s"examples/data/negbin_traffic_auxiliary_${n}_${delta}_pmmh", format)
     .runWith(Sink.onComplete(_ => system.terminate()))
 }

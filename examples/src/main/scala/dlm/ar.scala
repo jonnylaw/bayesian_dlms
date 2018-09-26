@@ -28,7 +28,7 @@ object SimulateArDlm extends App {
   } yield (t + 1.0, y, x1)
 
   val initVar = math.pow(p.sigmaEta, 2)/(1 - math.pow(p.phi, 2))
-  val initState = Gaussian(p.mu, initVar).draw
+  val initState = Gaussian(p.mu, math.sqrt(initVar)).draw
   val init = (0.0, initState, 0.0)
   val sims = MarkovChain(init){ case (t, y, x) => stepDlm(t, x) }.
     steps.
@@ -46,10 +46,10 @@ object SimulateArDlm extends App {
 }
 
 object FilterArDlm extends App with ArData {
-  val p = SvParameters(0.2, 1.0, 0.3)
+  val p = SvParameters(0.8, 1.0, 0.3)
   val filtered = FilterAr.filterUnivariate(data, Vector.fill(data.size)(0.5), p)
 
-  val out = new java.io.File("examples/data/ou_dlm_filtered.csv")
+  val out = new java.io.File("examples/data/ar_dlm_filtered.csv")
 
   def formatFiltered(f: FilterAr.FilterState) = {
     (f.time, f.mt, f.ct)
@@ -61,32 +61,33 @@ object FilterArDlm extends App with ArData {
 }
 
 object ParametersAr extends App with ArData {
-  implicit val system = ActorSystem("ou_dlm")
+  implicit val system = ActorSystem("ar_dlm")
   implicit val materializer = ActorMaterializer()
 
   import StochasticVolatility._
 
   val p = SvParameters(0.2, 1.0, 0.3)
   val priorMu = Gaussian(1.0, 1.0)
-  val priorPhi = new Beta(20, 2)
+  val priorPhi = Gaussian(0.8, 0.1)
   val priorSigma = InverseGamma(5.0, 1.0)
   val priorV = InverseGamma(5.0, 20.0)
   val f = (dt: Double) => DenseMatrix(1.0)
 
   val step = (s: (StochVolState, DenseMatrix[Double])) => for {
-    theta <- FilterAr.ffbs(p, data, Vector.fill(data.size)(s._2(0,0)))
+    theta <- FilterAr.ffbs(s._1.params, data, Vector.fill(data.size)(s._2(0,0)))
     st = theta.map(x => (x.time, x.sample))
-    (phi, accepted) <- samplePhi(priorPhi, s._1.params,
-      st.map(_._2), 0.05, 0.25)(s._1.params.phi)
+    (phi, accepted) <- samplePhi(priorPhi, s._1.params, st.map(_._2), 0.05, 10.0)(s._1.params.phi)
     mu <- sampleMu(priorMu, s._1.params, st.map(_._2))
-    sigma <- sampleSigma(priorSigma, p, st.map(_._2))
+    sigma <- sampleSigma(priorSigma, s._1.params, st.map(_._2))
     v <- GibbsSampling.sampleObservationMatrix(priorV, f,
       data.map(x => DenseVector(x._2)),
       st.map { case (t, x) => (t, DenseVector(x)) })
   } yield (StochVolState(
     SvParameters(phi, mu, sigma), theta, s._1.accepted + accepted), v)
+
   val initState = FilterAr.ffbs(p, data, Vector.fill(data.size)(priorV.draw))
-  val init = (StochVolState(p, initState.draw, 0), DenseMatrix(priorV.draw))
+  val init = (StochVolState(p, initState.draw, 0),
+    DenseMatrix(priorV.draw))
 
   val iters = MarkovChain(init)(step)
 
@@ -157,11 +158,12 @@ object FitOuDlm extends App {
   val f = (dt: Double) => DenseMatrix(1.0)
 
   val step = (s: (StochasticVolatilityKnots.OuSvState, DenseMatrix[Double])) => for {
-    theta <- FilterOu.ffbs(p, ys, Vector.fill(ys.size)(s._2(0,0)))
+    theta <- FilterOu.ffbs(s._1.params, ys, Vector.fill(ys.size)(s._2(0,0)))
     st = theta.map(x => (x.time, x.sample))
     (phi, acceptedPhi) <- samplePhiOu(priorPhi, s._1.params, st, 0.05, 0.25)(s._1.params.phi)
     (mu, acceptedMu) <- sampleMuOu(priorMu, 0.2, s._1.params, st)(s._1.params.mu)
-    (sigma, acceptedSigma) <- sampleSigmaMetropOu(priorSigma, 0.05, p, st)(s._1.params.sigmaEta)
+    (sigma, acceptedSigma) <- sampleSigmaMetropOu(priorSigma, 0.05,
+      s._1.params, st)(s._1.params.sigmaEta)
     v <- GibbsSampling.sampleObservationMatrix(priorV, f,
       ys.map(x => DenseVector(x._2)),
       st.map { case (t, x) => (t, DenseVector(x)) })

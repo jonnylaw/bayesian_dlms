@@ -40,10 +40,13 @@ object FilterAr {
     vs: Vector[Double],
     p:  SvParameters) = {
 
-    val (m0, c0) = (p.mu, p.sigmaEta * p.sigmaEta / (1 - p.phi * p.phi))
-    val init = FilterState(ys.head._1 - 1.0, m0, c0, m0, c0)
+    val m0 = p.mu
+    val c0 = p.sigmaEta * p.sigmaEta / (1 - p.phi * p.phi)
+    val t0 = ys.head._1
+    val init = FilterState(t0, m0, c0, m0, c0)
 
-    (ys zip vs).scanLeft(init){ case (st, (y, v)) => stepUni(p)(v, y, st) }
+    (ys zip vs).scanLeft(init){ case (st, (y, v)) =>
+      stepUni(p)(v, y, st) }
   }
 
   case class SampleState(
@@ -59,18 +62,20 @@ object FilterAr {
     ss: SampleState) = {
 
     val mean = fs.mt + (fs.ct * p.phi / ss.rt1) * (ss.sample - ss.at1)
-    val cov = fs.ct - (fs.ct * fs.ct * p.phi * p.phi) / ss.rt1
+    val cov = fs.ct - (math.pow(fs.ct, 2) * math.pow(p.phi, 2)) / ss.rt1
 
     val sample = Gaussian(mean, math.sqrt(cov)).draw
-    SampleState(fs.time, sample, mean, cov, fs.at, fs.rt)
+    SampleState(fs.time, sample, fs.mt, fs.ct, fs.at, fs.rt)
   }
 
   def univariateSample(
-    p: SvParameters,
+    p:  SvParameters,
     fs: Vector[FilterState]) = {
     val last = fs.last
     val lastState = Gaussian(last.mt, math.sqrt(last.ct)).draw
-    val init = SampleState(last.time, lastState, last.mt, last.ct, last.at, last.rt)
+    val init = SampleState(last.time, lastState, last.mt,
+      last.ct, last.at, last.rt)
+
     Rand.always(fs.init.scanRight(init)(backStepUni(p)))
   }
 

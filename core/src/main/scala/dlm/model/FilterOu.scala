@@ -46,7 +46,7 @@ object FilterOu {
       stepUni(p)(v, t, y, st) }
   }
 
-  def backStepUni(p: SvParameters)(
+ def backStepUni(p: SvParameters)(
     fs: FilterAr.FilterState,
     ss: FilterAr.SampleState) = {
 

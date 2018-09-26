@@ -64,3 +64,16 @@ case class AuxFilter(n: Int) extends FilterTs[PfState, DlmParameters, DglmModel]
     PfState(t0.get - 1.0, initState, Vector.fill(n)(1.0 / n), 0.0)
   }
 }
+
+object AuxFilter {
+  def likelihood[T[_]: Traverse](
+    mod: DglmModel,
+    ys: T[Data],
+    n: Int)
+    (p: DlmParameters): Double = {
+
+    val filter = AuxFilter(n)
+    val init = filter.initialiseState(mod, p, ys)
+    ys.foldLeft(init)(filter.step(mod, p)).ll
+  }
+}

@@ -29,7 +29,9 @@ object Smoothing {
     * @param state the state at time t + 1
     * @return
     */
-  def smoothStep(mod: Dlm)(kfState: KfState, state: SmoothingState) = {
+  def smoothStep(mod: Dlm)(
+    kfState: KfState,
+    state: SmoothingState) = {
 
     // extract elements from kalman state
     val time = kfState.time
