@@ -61,12 +61,13 @@ case class KalmanFilter(advState: (KfState, Double) => KfState)
     * @param v the variance of the measurement noise
     * @return the posterior mean and variance of the latent state at time t
     */
-  def updateState(f: Double => DenseMatrix[Double],
-                  at: DenseVector[Double],
-                  rt: DenseMatrix[Double],
-                  d: Data,
-                  v: DenseMatrix[Double],
-                  ll: Double) = {
+  def updateState(
+    f: Double => DenseMatrix[Double],
+    at: DenseVector[Double],
+    rt: DenseMatrix[Double],
+    d: Data,
+    v: DenseMatrix[Double],
+    ll: Double) = {
 
     val y = flattenObs(d.observation)
     // perform one step prediction
@@ -340,7 +341,7 @@ object KalmanFilter {
 }
 
   /**
-    * Univariate Kalman Filter
+    * Univariate Kalman Filter for the first-order polynomial model
     */
   def univariateKf(
     ys: Vector[(Double, Option[Double])],

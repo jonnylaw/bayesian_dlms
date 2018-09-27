@@ -157,18 +157,19 @@ object Storvik extends App with FirstOrderDlm with SimulatedData {
 }
 
 object RbFilter extends App with FirstOrderDlm with SimulatedData {
- // smoothing parameter for the mixture of gaussians, equal to (3 delta - 1) / 2 delta
-  val delta = 0.95
+  // smoothing parameter for the mixture of gaussians,
+  // equal to (3 delta - 1) / 2 delta
+  val delta = 0.99
   val a = (3 * delta - 1) / 2 * delta
 
   val prior = for {
-    v <- InverseGamma(3.0, 3.0)
-    w <- InverseGamma(3.0, 3.0)
+    v <- InverseGamma(3.0, 4.0)
+    w <- InverseGamma(3.0, 6.0)
   } yield DlmParameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)
 
-  val n = 300
-  val advState = (p: RbState, dt: Double) => p
-  val filtered = RaoBlackwellFilter(n, prior, a).filter(mod, data, p)
+  val n = 500
+  val filtered = RaoBlackwellFilter(n, prior, a).
+    filter(mod, data, p)
 
   val out = new java.io.File("examples/data/fo_raoblackwellfilter.csv")
 

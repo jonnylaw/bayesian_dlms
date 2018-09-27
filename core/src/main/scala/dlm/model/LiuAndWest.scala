@@ -86,16 +86,15 @@ case class LiuAndWestFilter(n: Int, prior: Rand[DlmParameters], a: Double)
 }
 
 object LiuAndWestFilter {
-
   /**
     * Calculate the auxiliary variables needed for online importance sampling
     */
   def auxiliaryVariables(
     weights: Vector[Double],
     states: Vector[DenseVector[Double]],
-    mod: DglmModel,
-    y:   DenseVector[Double],
-    mi:  Vector[DlmParameters]): Vector[Int] = {
+    mod:    DglmModel,
+    y:      DenseVector[Double],
+    mi:     Vector[DlmParameters]): Vector[Int] = {
 
     val logAuxWeights = (weights, mi, states).zipped map { case (weight, param, state) =>
       val ll = mod.conditionalLikelihood(param.v map exp)(state, y)
@@ -105,7 +104,8 @@ object LiuAndWestFilter {
     val max = logAuxWeights.max
     val auxWeights = logAuxWeights map (a => exp(a - max))
 
-    ParticleFilter.multinomialResample(states.indices.toVector, auxWeights)
+    ParticleFilter.multinomialResample(
+      states.indices.toVector, auxWeights)
   }
 
   def scaleParameters(
@@ -194,7 +194,8 @@ object LiuAndWestFilter {
     * @return perturbed logged DLM parameters 
     */
   def proposal(p: DlmParameters, delta: DenseMatrix[Double]) = {
-    val innov = delta.map(sqrt) * DenseVector(Gaussian(0.0, 1.0).sample(delta.cols).toArray)
+    val z = DenseVector.rand(delta.cols, Gaussian(0.0, 1.0))
+    val innov = delta.map(sqrt) * z
     val newV = diag(p.v) + innov(0 until p.v.cols)
     val newW = diag(p.w) + innov(p.v.cols until (p.v.cols + p.w.cols))
 

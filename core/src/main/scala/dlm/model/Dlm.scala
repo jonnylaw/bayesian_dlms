@@ -140,7 +140,7 @@ object Dlm {
   }
 
   /**
-    * Define a discrete time univariate first order autoregressive model
+    * Define a discrete time univariate autoregressive model
     * @param phi a sequence of autoregressive parameters of length equal
     * to the order of the autoregressive state
     */
