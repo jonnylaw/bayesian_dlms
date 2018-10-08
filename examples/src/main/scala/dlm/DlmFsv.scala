@@ -26,17 +26,19 @@ trait DlmFsvModel {
     (0.2,  0.23))
 
   val k = 2 // equivalent to number of columns in beta
-  val params = FactorSv.Parameters(v = 0.1, beta,
+  val params = FsvParameters(v = 0.1, beta,
     Vector.fill(k)(SvParameters(0.8, 2.0, 0.2))
   )
 
-  val dlmP = DlmParameters(
-    v = diag(DenseVector.fill(6)(2.0)),
-    w = diag(DenseVector.fill(6)(3.0)),
-    DenseVector.fill(6)(0.0),
-    diag(DenseVector.fill(6)(1.0)))
+  val foP = DlmParameters(
+    v = DenseMatrix(2.0),
+    w = DenseMatrix(3.0),
+    m0 = DenseVector(0.0),
+    c0 = DenseMatrix(1.0))
+  val dlmP = List.fill(6)(foP).
+    reduce(Dlm.outerSumParameters)
 
-  val p = DlmFsv.Parameters(dlmP, params)
+  val p = DlmFsvParameters(dlmP, params)
 }
 
 trait SimulatedDlmFsv {
@@ -93,6 +95,57 @@ object ParametersDlmFsv extends App with DlmFsvModel with SimulatedDlmFsv {
     runWith(Sink.onComplete(_ => system.terminate()))
 }
 
+object InterpolateDlmFsv extends App with DlmFsvModel {
+  val rawData = Paths.get("examples/data/dlm_fsv_sims.csv")
+  val reader = rawData.asCsvReader[List[Double]](rfc.withHeader(false))
+  val data = reader.
+    collect { 
+      case Right(a) => Data(a.head,
+        DenseVector(a.drop(1).take(6).toArray.map(_.some)))
+    }.
+    toVector.
+    map(d => if (d.time > 700 && d.time < 800) {
+      d.copy(observation = DenseVector(Array.fill[Option[Double]](6)(None)))
+    } else {
+      d
+    })
+
+  // TODO: Read parameters from file
+
+  val ps = DlmFsvParameters(dlmP, params)
+
+  val priorBeta = Gaussian(0.0, 5.0)
+  val priorSigmaEta = InverseGamma(10, 1)
+  val priorPhi = new Beta(5, 2)
+  val priorMu = Gaussian(0.0, 3.0)
+  val priorSigma = InverseGamma(10, 1)
+  val priorW = InverseGamma(10, 1)
+
+  val iters = DlmFsv.sample(priorBeta, priorSigmaEta, priorPhi, priorMu, priorSigma, priorW, data, mod, ps).
+    steps.
+    take(1000).
+    map { (s: DlmFsv.State) =>
+      val vol = s.volatility.map(x => (x.time, x.sample))
+      val st = s.theta.map(x => (x.time, x.sample))
+      DlmFsv.obsVolatility(vol, st, mod, ps)
+    }.
+    map(s => s.map { case (t, y) => (t, y(0).some) }).
+    toVector
+
+  val summary = DlmFsv.summariseInterpolation(iters, 0.995)
+
+  // write interpolated data
+  val out = new java.io.File("examples/data/interpolate_dlm_fsv.csv")
+  val headers = rfc.withHeader("time", "mean", "upper", "lower")
+
+  out.writeCsv(summary, headers)
+}
+
+/**
+  * A seasonal model with a time varying
+  * full-rank system noise covariance matrix
+  * represented using a factor stochastic volatility model
+  */
 trait DlmFsvSystemModel {
     val beta = DenseMatrix((1.0, 0.0),
     (4.94, 1.0),
@@ -111,16 +164,18 @@ trait DlmFsvSystemModel {
   val dlmMod = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3) |+| Dlm.seasonal(24 * 7, 3)
 
   // use two factors for the matrix
-  val errorP = FactorSv.Parameters(
+  val errorP = FsvParameters(
     v = 0.1,
     beta,
     Vector.fill(2)(SvParameters(0.2, 0.0, 0.2))
   )
-
-  val params = DlmFsvSystem.Parameters(
+  val dlmP = DlmParameters(
+    v = DenseMatrix(0.5),
+    w = DenseMatrix.eye[Double](13), // not used
     m0 = DenseVector.zeros[Double](13),
-    c0 = DenseMatrix.eye[Double](13),
-    0.5, errorP)
+    c0 = DenseMatrix.eye[Double](13))
+
+  val params = DlmFsvParameters(dlmP, errorP)
 }
 
 object SimulateDlmFsvSystem extends App with DlmFsvSystemModel {
@@ -176,7 +231,7 @@ object FitDlmFsvSystem extends App with DlmFsvSystemModel {
   //   DenseVector.fill(13)(0.0),
   //   diag(DenseVector.fill(13)(10.0)),
   //   priorV.draw,
-  //   FactorSv.Parameters(
+  //   FsvParameters(
   //     priorSigma.draw,
   //     FactorSv.drawBeta(13, 2, priorBeta).draw,
   //     initSv.draw

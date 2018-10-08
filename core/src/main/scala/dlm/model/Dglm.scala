@@ -8,16 +8,18 @@ import math.exp
 import breeze.stats.covmat
 
 /**
-  * A DGLM used for modelling non-linear non-Gaussian univariate time series
+  * A DGLM used for modelling non-linear
+  * non-Gaussian univariate time series
   */
 case class DglmModel(
-    observation: (DenseVector[Double],
-                  DenseMatrix[Double]) => Rand[DenseVector[Double]],
-    f: Double => DenseMatrix[Double],
-    g: Double => DenseMatrix[Double],
-    conditionalLikelihood: (DenseMatrix[Double]) => (
-        DenseVector[Double],
-        DenseVector[Double]) => Double
+  observation: (DenseVector[Double],
+    DenseMatrix[Double]) => Rand[DenseVector[Double]],
+  f: Double => DenseMatrix[Double],
+  g: Double => DenseMatrix[Double],
+  link: DenseVector[Double] => Double,
+  conditionalLikelihood: (DenseMatrix[Double]) => (
+    DenseVector[Double],
+    DenseVector[Double]) => Double
 )
 
 object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
@@ -43,10 +45,12 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
     */
   def studentT(nu: Int, mod: Dlm): DglmModel = {
     DglmModel(
-      observation = (x: DenseVector[Double], v: DenseMatrix[Double]) =>
-        ScaledStudentsT(nu, x(0), math.sqrt(v(0, 0))).map(DenseVector(_)),
+      (x: DenseVector[Double], v: DenseMatrix[Double]) =>
+      ScaledStudentsT(nu, x(0), math.sqrt(v(0, 0))).
+        map(DenseVector(_)),
       mod.f,
       mod.g,
+      x => x(0),
       conditionalLikelihood = (v: DenseMatrix[Double]) =>
         (x: DenseVector[Double], y: DenseVector[Double]) =>
           ScaledStudentsT(nu, x(0), math.sqrt(v(0, 0))).logPdf(y(0))
@@ -76,6 +80,7 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
       },
       mod.f,
       mod.g,
+      x => exp(x(0)),
       conditionalLikelihood = (v: DenseMatrix[Double]) =>
       (x: DenseVector[Double], y: DenseVector[Double]) => {
         val obs: Double = y(0)
@@ -105,6 +110,7 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
       },
       mod.f,
       mod.g,
+      x => exp(x(0)),
       conditionalLikelihood = (logv: DenseMatrix[Double]) =>
       (x: DenseVector[Double], y: DenseVector[Double]) => {
         val size = exp(logv(0,0))
@@ -144,6 +150,7 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
       },
       f = mod.f,
       g = mod.g,
+      x => logisticFunction(1.0)(x(0)),
       conditionalLikelihood = v =>
         (x, y) => {
           val mean = logisticFunction(1.0)(x(0))
@@ -161,6 +168,7 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
       observation = (x, v) => Poisson(exp(x(0))).map(DenseVector(_)),
       f = mod.f,
       g = mod.g,
+      x => exp(x(0)),
       conditionalLikelihood =
         v => (x, y) => Poisson(exp(x(0))).logProbabilityOf(y(0).toInt)
     )
@@ -186,7 +194,7 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
     state: DenseVector[Double],
     time: Double): Rand[DenseVector[Double]] = {
 
-    model.observation(state, params.v)
+    model.observation(model.f(1.0).t * state, params.v)
   }
 
   def initialiseState(
@@ -211,26 +219,21 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
     (sampleMean, sampleCovariance)
   }
 
-  /**
-    * Calculate the mean and variance of an observation at tim t given a particle
-    * cloud representing the latent-state at time t and the model specification
-    * @param mod a DGLM specification
-    * @param xt the particle cloud representing the latent state at time t
-    * @param v the observation noise variance
-    * @return mean and variance of observation
-    */
-  def meanVarObservation(mod: DglmModel,
-                         xt: Vector[DenseVector[Double]],
-                         v: DenseMatrix[Double]) = {
+  def meanAndIntervals(samples: Seq[DenseVector[Double]]) = {
+    val n = samples.size
+    val sampleMean = samples.reduce(_ + _).map(_ * 1.0 / n)
+    val tsp = samples.map(_.data).toArray.transpose.map(_.sorted)
+    val index = math.floor(n * 0.975).toInt
+    val upper = tsp.map(v => v(index))
+    val lower = tsp.map(v => v(n - index))
 
-    for {
-      ys <- xt traverse (x => mod.observation(x, v))
-      (ft, qt) = meanCovSamples(ys)
-    } yield (ft, qt)
+    (sampleMean, lower, upper)
   }
 
+
   /**
-    * Forecast a DGLM from a particle cloud representing the latent state
+    * Forecast a DGLM from a particle cloud 
+    * representing the latent state
     * at the end of the observations
     * @param mod the model
     * @param xt the particle cloud representing the latent state
@@ -238,16 +241,29 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
     * @param p the parameters of the model
     * @return the time, mean observation and variance of the observation
     */
-  def forecastParticles(mod: DglmModel,
-                        xt: Vector[DenseVector[Double]],
-                        time: Double,
-                        p: DlmParameters) = {
+  def forecastParticles(
+    mod: DglmModel,
+    xt:  Vector[DenseVector[Double]],
+    p:   DlmParameters,
+    ys:  Vector[Data]
+  ) = {
 
-    MarkovChain((time, xt)) {
-      case (t, x) =>
-        for {
-          x1 <- ParticleFilter.advanceState(mod, 1.0, x, p)
-        } yield (t + 1, x1)
-    }.steps.map { case (t, x) => (t, meanVarObservation(mod, x, p.v).draw) }
+    val init = (ys.head.time, xt,
+      Vector.fill(xt.size)(DenseVector.zeros[Double](xt.head.size)))
+
+    ys.scanLeft(init) { case ((t0, x, _), y) =>
+      val dt = y.time - t0
+      val x1 = ParticleFilter.advanceState(mod, dt, x, p).draw
+      // Linking function?
+      val meanForecast = x1 map (x => mod.f(1.0).t * x)
+      val w = ParticleFilter.calcWeights(mod, y.time,
+        x1, y.observation, p)
+      val max = w.max
+      val w1 = w map (a => exp(a - max))
+
+      val resampled = ParticleFilter.multinomialResample(x1, w1)
+
+      (y.time, resampled, meanForecast)
+    }
   }
 }

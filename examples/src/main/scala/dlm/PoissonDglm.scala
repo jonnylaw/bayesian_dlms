@@ -137,6 +137,12 @@ object FilterPoisson extends App with PoissonDglm with PoissonData {
   out.writeCsv(filtered.map(formatData), header)
 }
 
+// object PoissonParameters extends App
+//     with PoissonDglm with PoissonData {
+
+
+// }
+
 // object PoissonDglmGibbs extends App with PoissonDglm with PoissonData {
 //   val n = 200
 //   val model = Dlm(mod.f, mod.g)

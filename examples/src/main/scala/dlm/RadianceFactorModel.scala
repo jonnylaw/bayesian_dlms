@@ -98,11 +98,11 @@ trait RadFactorModel {
     c0 = diag(DenseVector.fill(12)(10.0))
   )
 
-  val factorP = FactorSv.Parameters(
+  val factorP = FsvParameters(
     v = 1.0,
     beta = FactorSv.makeBeta(6, 2),
     factorParams = Vector.fill(2)(SvParameters(0.5, 0.0, 0.1)))
-  val p = DlmFsv.Parameters(dlmP, factorP)
+  val p = DlmFsvParameters(dlmP, factorP)
 }
 
 object RadianceFactors extends App with ReadRadianceData with RadFactorModel {
@@ -140,16 +140,12 @@ object RadianceFactorsSystem extends App with ReadRadianceData with RadFactorMod
   implicit val system = ActorSystem("radiance_regression_system")
   implicit val materializer = ActorMaterializer()
 
-  val factorParams = FactorSv.Parameters(
+  val factorParams = FsvParameters(
     v = 1.0,
     beta = FactorSv.makeBeta(12, 2),
     factorParams = Vector.fill(2)(SvParameters(0.5, 0.0, 0.1)))
 
-  val sp = DlmFsvSystem.Parameters(
-    dlmP.m0,
-    dlmP.c0,
-    v = 1.0,
-    factorParams)
+  val sp = DlmFsvParameters(dlmP, factorParams)
 
   val priorBeta = Gaussian(0.0, 5.0)
   val priorSigma = InverseGamma(3.0, 5.0)
@@ -164,10 +160,8 @@ object RadianceFactorsSystem extends App with ReadRadianceData with RadFactorMod
     } yield m(i, i)
   }
 
-  def format(s: DlmFsvSystem.State): List[Double] = {
-    s.p.v :: s.p.factors.v :: s.p.factors.beta.data.toList :::
-    s.p.factors.factorParams.toList.flatMap(_.toList)
-  }
+  def format(s: DlmFsvSystem.State): List[Double] =
+    s.p.toList
 
   val iters = DlmFsvSystem.sample(priorBeta, priorSigmaEta, priorPhi, priorMu,
     priorSigma, priorW, actual, model(forecast), sp)

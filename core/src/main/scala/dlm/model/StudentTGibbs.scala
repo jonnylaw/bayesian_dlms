@@ -101,16 +101,9 @@ object StudentT {
     Gamma(shape, scale)
   }
 
-  /**
-    * Sample the state, incorporating the drawn variances for each observation
-    * @param variances the sampled auxiliary parameters
-    * @param mod the DLM
-    * @param observations
-    * @param params the parameters of the DLM model
-    */
-  def sampleState(
-    variances: Vector[Double],
+  def filter(
     mod: Dlm,
+    variances: Vector[Double],
     observations: Vector[Data],
     params: DlmParameters) = {
 
@@ -124,10 +117,25 @@ object StudentT {
     val init = kf(params).initialiseState(mod, params, observations)
 
     // fold over the list of variances and the observations
-    val filtered = (ps zip observations).scanLeft(init) {
+    (ps zip observations).scanLeft(init) {
       case (s, (p, y)) => kalmanStep(p)(s, y)
     }
+  }
 
+  /**
+    * Sample the state, incorporating the drawn variances for each observation
+    * @param variances the sampled auxiliary parameters
+    * @param mod the DLM
+    * @param observations
+    * @param params the parameters of the DLM model
+    */
+  def sampleState(
+    variances: Vector[Double],
+    mod: Dlm,
+    observations: Vector[Data],
+    params: DlmParameters) = {
+
+    val filtered = filter(mod, variances, observations, params)
     Rand.always(Smoothing.sampleDlm(mod, filtered, params.w))
   }
 

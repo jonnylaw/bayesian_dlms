@@ -3,7 +3,7 @@ package examples.dlm
 import dlm.core.model._
 import Dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
-import breeze.stats.distributions.{MarkovChain, Beta, Gaussian, Rand}
+import breeze.stats.distributions._
 import java.nio.file.Paths
 import cats.implicits._
 import kantan.csv._
@@ -23,7 +23,7 @@ trait ArData {
 object SimulateArDlm extends App {
   val p = SvParameters(0.8, 1.0, 0.3)
   def stepDlm(t: Double, x: Double) = for {
-    x1 <- StochasticVolatility.stepState(p, x, 1.0)
+    x1 <- StochasticVolatility.stepState(p, x)
     y <- Gaussian(x1, math.sqrt(0.5))
   } yield (t + 1.0, y, x1)
 
@@ -65,6 +65,7 @@ object ParametersAr extends App with ArData {
   implicit val materializer = ActorMaterializer()
 
   import StochasticVolatility._
+  import StochasticVolatilityKnots._
 
   val p = SvParameters(0.2, 1.0, 0.3)
   val priorMu = Gaussian(1.0, 1.0)
@@ -76,14 +77,14 @@ object ParametersAr extends App with ArData {
   val step = (s: (StochVolState, DenseMatrix[Double])) => for {
     theta <- FilterAr.ffbs(s._1.params, data, Vector.fill(data.size)(s._2(0,0)))
     st = theta.map(x => (x.time, x.sample))
-    (phi, accepted) <- samplePhi(priorPhi, s._1.params, st.map(_._2), 0.05, 10.0)(s._1.params.phi)
-    mu <- sampleMu(priorMu, s._1.params, st.map(_._2))
-    sigma <- sampleSigma(priorSigma, s._1.params, st.map(_._2))
+    phi <- samplePhiConjugate(priorPhi, s._1.params, st.map(_._2))
+    mu <- sampleMu(priorMu, s._1.params.copy(phi = phi), st.map(_._2))
+    sigma <- sampleSigma(priorSigma,
+      s._1.params.copy(mu = mu, phi = phi), st.map(_._2))
     v <- GibbsSampling.sampleObservationMatrix(priorV, f,
       data.map(x => DenseVector(x._2)),
-      st.map { case (t, x) => (t, DenseVector(x)) })
-  } yield (StochVolState(
-    SvParameters(phi, mu, sigma), theta, s._1.accepted + accepted), v)
+        st.map { case (t, x) => (t, DenseVector(x)) })
+  } yield (StochVolState(SvParameters(phi, mu, sigma), theta, 0), v)
 
   val initState = FilterAr.ffbs(p, data, Vector.fill(data.size)(priorV.draw))
   val init = (StochVolState(p, initState.draw, 0),
@@ -162,7 +163,7 @@ object FitOuDlm extends App {
     st = theta.map(x => (x.time, x.sample))
     (phi, acceptedPhi) <- samplePhiOu(priorPhi, s._1.params, st, 0.05, 0.25)(s._1.params.phi)
     (mu, acceptedMu) <- sampleMuOu(priorMu, 0.2, s._1.params, st)(s._1.params.mu)
-    (sigma, acceptedSigma) <- sampleSigmaMetropOu(priorSigma, 0.05,
+    (sigma, acceptedSigma) <- sampleSigmaMetropOu(priorSigma, 0.1,
       s._1.params, st)(s._1.params.sigmaEta)
     v <- GibbsSampling.sampleObservationMatrix(priorV, f,
       ys.map(x => DenseVector(x._2)),

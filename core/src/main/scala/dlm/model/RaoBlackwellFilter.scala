@@ -16,7 +16,8 @@ case class RbState(
   weights: Vector[Double])
 
 /**
-  * Extended Particle filter which approximates the parameters as a particle cloud
+  * Extended Particle filter which approximates 
+  * the parameters as a particle cloud
   */
 case class RaoBlackwellFilter(n: Int, prior: Rand[DlmParameters], a: Double)
     extends FilterTs[RbState, DlmParameters, Dlm] {

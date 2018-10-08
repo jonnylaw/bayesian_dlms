@@ -10,6 +10,7 @@ import kantan.csv.ops._
 import java.time._
 import java.time.format._
 import kantan.csv.java8._
+import scala.concurrent.ExecutionContext.Implicits.global
 import akka.actor.ActorSystem
 import akka.stream._
 import scaladsl._
@@ -36,16 +37,23 @@ trait NoData {
     .map(_._1)
     .toVector
     .take(5000)
+
+  val testData = Paths.get("examples/data/test_no.csv")
+  val testReader = testData.asCsvReader[(LocalDateTime, Double)](rfc.withHeader)
+  val test = testReader
+    .collect {
+      case Right(a) =>
+        Data(secondsToHours(a._1.toEpochSecond(ZoneOffset.UTC)),
+          DenseVector(Some(a._2)))
+    }.toVector
 }
 
-/**
-  * First order Students-t Distributed Model
-  */
 object NoStudentTModel extends App with NoData {
   implicit val system = ActorSystem("no-student-t-gibbs")
   implicit val materializer = ActorMaterializer()
 
-  val dlm = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3) |+| Dlm.seasonal(24 * 7, 3)
+  val dlm = Dlm.polynomial(1) |+|
+    Dlm.seasonal(24, 3) |+| Dlm.seasonal(24 * 7, 3)
   val mod = Dglm.studentT(3, dlm)
   val params = DlmParameters(
     DenseMatrix(3.0),
@@ -76,11 +84,11 @@ object NoStudentTModel extends App with NoData {
     .sample(data.toVector, priorW, priorNu, propNu(0.5), propNuP(0.5), mod, params)
 
   def formatParameters(s: StudentT.State) = {
-    s.nu.toDouble :: DenseVector.vertcat(diag(s.p.v), diag(s.p.w)).data.toList
+    s.nu.toDouble :: DenseVector.vertcat(diag(s.p.v), diag(s.p.w), s.state.last.mean).data.toList ::: s.state.last.cov.data.toList
   }
 
   Streaming
-    .writeParallelChain(iters, 2, 100000,
+    .writeParallelChain(iters, 2, 10000,
       "examples/data/no_dglm_seasonal_weekly_student_exact", formatParameters)
     .runWith(Sink.onComplete(_ => system.terminate()))
 }
@@ -106,8 +114,36 @@ object NoGaussianModel extends App with NoData {
   }
 
   Streaming
-    .writeParallelChain(iters, 2, 100000, "examples/data/no_dlm_seasonal_weekly", formatParameters)
+    .writeParallelChain(iters, 2, 10000, "examples/data/no_dlm_seasonal_weekly", formatParameters)
     .runWith(Sink.onComplete(_ => system.terminate()))
 }
 
-// TODO: Forecasting
+object ForecastNo extends App with NoData {
+  implicit val system = ActorSystem("forecast-no")
+  implicit val materializer = ActorMaterializer()
+
+  val dlm = Dlm.polynomial(1) |+|
+    Dlm.seasonal(24, 3) |+| Dlm.seasonal(24 * 7, 3)
+  val mod = Dglm.studentT(3, dlm)
+
+  val params = Streaming.
+    readCsv("examples/data/no_dlm_seasonal_weekly_1.csv").
+    map(_.map(_.toDouble)).
+    map(Streaming.parseDiagonalParameters(1, 13)).
+    via(Streaming.meanParameters(1, 13)).
+    runWith(Sink.head)
+
+  val out = new java.io.File("examples/data/forecast_no.csv")
+  val headers = rfc.withHeader("time", "mean", "lower", "upper")
+
+  val n = 1000
+  val forecast = for {
+    p <- params
+    lastState = MultivariateGaussianSvd(p.m0, p.c0).sample(n).toVector
+    fcst = Dglm.forecastParticles(mod, lastState, p, test).
+    map { case (t, x, f) => (t, Dglm.meanAndIntervals(f)) }.
+    map { case (t, (f, l, u)) => (t, f(0), l(0), u(0)) }
+  } yield out.writeCsv(fcst, headers)
+
+  forecast.onComplete(_ => system.terminate())
+}

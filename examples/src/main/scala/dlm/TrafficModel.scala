@@ -38,7 +38,7 @@ object TrafficPoisson extends App with ReadTrafficData {
   // val (n, delta) = (args.lift(0).map(_.toInt).getOrElse(500),
   //   args(1).lift(1).map(_.toDouble).getOrElse(0.05))
 
-  val (n, delta) = (500, 0.05)
+  val (n, delta) = (500, 0.01)
 
   val mod = Dglm.poisson(Dlm.polynomial(1) |+| Dlm.seasonal(24, 4))
   val params = DlmParameters(DenseMatrix(2.0),
@@ -48,7 +48,7 @@ object TrafficPoisson extends App with ReadTrafficData {
 
   def prior(p: DlmParameters) =
     diag(p.w).
-      map(wi => InverseGamma(0.001, 0.001).logPdf(wi)).
+      map(wi => InverseGamma(11.0, 1.0).logPdf(wi)).
       sum
 
   def proposal(delta: Double)(p: DlmParameters): Rand[DlmParameters] = for {
@@ -85,7 +85,7 @@ object TrafficNegBin extends App with ReadTrafficData {
   // val (n, delta) = (args.lift(0).map(_.toInt).getOrElse(500),
   //   args(1).lift(1).map(_.toDouble).getOrElse(0.05))
 
-  val (n, delta) = (500, 0.05)
+  val (n, delta) = (500, 0.01)
 
   val mod = Dglm.negativeBinomial(Dlm.polynomial(1) |+| Dlm.seasonal(24, 4))
   val params = DlmParameters(
@@ -97,10 +97,10 @@ object TrafficNegBin extends App with ReadTrafficData {
   // very vague prior
   def prior(params: DlmParameters) = {
     val ws = diag(params.w).
-      map(wi => InverseGamma(0.001, 0.001).logPdf(wi)).
+      map(wi => InverseGamma(11.0, 1.0).logPdf(wi)).
       sum
 
-    InverseGamma(0.001, 0.001).logPdf(params.v(0,0)) + ws
+    InverseGamma(2.0, 2.0).logPdf(params.v(0,0)) + ws
   }
 
   def proposal(delta: Double)(p: DlmParameters): Rand[DlmParameters] = for {
@@ -123,4 +123,28 @@ object TrafficNegBin extends App with ReadTrafficData {
   Streaming
     .writeParallelChain(iters, 2, 10000, s"examples/data/negbin_traffic_auxiliary_${n}_${delta}_pmmh", format)
     .runWith(Sink.onComplete(_ => system.terminate()))
+}
+
+object OneStepForecastTraffic extends App with ReadTrafficData {
+  val model = Dglm.negativeBinomial(Dlm.polynomial(1) |+| Dlm.seasonal(24, 4))
+
+  val params = DlmParameters(
+    DenseMatrix(1.0),
+    diag(DenseVector(0.5, 0.6, 0.5, 0.4, 0.4,
+      0.5, 0.5, 0.25, 0.25)),
+    DenseVector(2.3, -3.0, 3.3, 0.5, 3.1, 2.3, 0.8, 0.2, -0.9),
+    diag(DenseVector.fill(9)(1.0)))
+
+  val pf = ParticleFilter(500, ParticleFilter.multinomialResample)
+  val init = pf.initialiseState(model, params, data)
+  val filtered = data.take(2000).foldLeft(init)(pf.step(model, params))
+
+  val forecast = Dglm.forecastParticles(model, filtered.state,
+    params, data.drop(2000)).
+    map { case (t, x, f) => (t, Dglm.meanAndIntervals(f)) }.
+    map { case (t, (f, l, u)) => (t, f(0), l(0), u(0)) }
+
+  val out = new java.io.File("examples/data/forecast_traffic_negbin.csv")
+  val headers = rfc.withHeader("time", "mean", "lower", "upper")
+  out.writeCsv(forecast, headers)
 }

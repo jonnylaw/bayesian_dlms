@@ -7,6 +7,22 @@ import cats.implicits._
 
 case class SvParameters(phi: Double, mu: Double, sigmaEta: Double) {
   def toList: List[Double] = phi :: mu :: sigmaEta :: Nil
+
+  def map(f: Double => Double) =
+    SvParameters(f(phi), f(mu), f(sigmaEta))
+
+  def add(p: SvParameters) =
+    p.copy(phi = p.phi + phi, mu = p.mu + mu,
+      sigmaEta = p.sigmaEta + sigmaEta)
+
+}
+
+object SvParameters {
+  def empty: SvParameters =
+    SvParameters(0.0, 0.0, 0.0)
+
+  def fromList(l: List[Double]): SvParameters =
+    SvParameters(l.head, l(1), l(2))
 }
 
 /**
@@ -25,17 +41,16 @@ object StochasticVolatility {
     * The observation function for the stochastic volatility model
     */
   def observation(at: Double): Rand[Double] =
-    Gaussian(0.0, 1).map(s => s * exp(at * 0.5))
+    Gaussian(0.0, exp(at * 0.5))
 
   def stepState(
     p:  SvParameters,
-    at: Double,
-    dt: Double): ContinuousDistr[Double] =
-    Gaussian(p.mu + p.phi * (at - p.mu), p.sigmaEta * math.sqrt(dt))
+    at: Double): ContinuousDistr[Double] =
+    Gaussian(p.mu + p.phi * (at - p.mu), p.sigmaEta)
 
   def simStep(time: Double, p: SvParameters)(state: Double) = {
     for {
-      x <- stepState(p, state, 1.0)
+      x <- stepState(p, state)
       y <- observation(x)
     } yield (time, y.some, x)
   }
@@ -103,7 +118,7 @@ object StochasticVolatility {
         .getOrElse(0.0)
     }
 
-    // calculate the log weights for a single index
+    // calculate the log weights 
     def logWeights(yo: Option[Double], x: Double) =
       for {
         j <- 0 until variances.size
@@ -121,7 +136,7 @@ object StochasticVolatility {
   def sampleStateAr(
     ys:     Vector[(Double, Option[Double])],
     params: SvParameters,
-    alphas: Vector[FilterAr.SampleState])= {
+    alphas: Vector[FilterAr.SampleState]) = {
 
     // sample the T indices of the mixture
     val kt = sampleKt(ys.map(_._2), alphas.map(_.sample))
@@ -213,6 +228,8 @@ object StochasticVolatility {
   /**
     * Sample sigma from the an inverse gamma distribution (sqrt)
     * @param prior the prior for the variance of the noise of the latent-state
+    * @param p the current value of the parameters
+    * @param alphas the current value of the latent-state
     * @return a distribution over the system variance
     */
   def sampleSigma(
@@ -222,7 +239,7 @@ object StochasticVolatility {
 
     val squaredSum = (alphas.tail.init, alphas.drop(2)).zipped.
       map { case (mt, mt1) =>
-          val diff = (mt1 - p.mu) - p.phi * (mt - p.mu)
+          val diff = mt1 - (p.mu + p.phi * (mt - p.mu))
           (diff * diff)
       }.sum
 
@@ -242,18 +259,26 @@ object StochasticVolatility {
       alphas <- sampleStateAr(ys, s.params, s.alphas)
       state = alphas.map(_.sample)
       (newPhi, accepted) <- samplePhi(priorPhi, s.params, state, 0.05, 100.0)(s.params.phi)
-      newSigma <- sampleSigma(priorSigma, s.params.copy(phi = newPhi), state)
-      newMu <- sampleMu(priorMu, s.params.copy(phi = newPhi, sigmaEta = newSigma), state)
+      newMu <- sampleMu(priorMu, s.params.copy(phi = newPhi), state)
+      newSigma <- sampleSigma(priorSigma, s.params.copy(phi = newPhi, mu = newMu), state)
       p = SvParameters(newPhi, newMu, newSigma)
-    } yield s.copy(params = p, alphas = alphas, accepted = s.accepted + accepted)
+    } yield s.copy(params = p, alphas = alphas,
+      accepted = s.accepted + accepted)
   }
 
   def sampleUni(
     priorPhi:   ContinuousDistr[Double],
     priorMu:    Gaussian,
     priorSigma: InverseGamma,
-    params:     SvParameters,
     ys:         Vector[(Double, Option[Double])]) = {
+
+    // draw from the prior distributions
+    val initP = for {
+      phi <- priorPhi
+      mu <- priorMu
+      sigma <- priorSigma
+    } yield SvParameters(phi, mu, sigma)
+    val params = initP.draw
 
     // initialise the latent state
     val initState = StochasticVolatilityKnots.initialStateAr(params, ys).draw

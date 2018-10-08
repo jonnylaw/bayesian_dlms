@@ -22,7 +22,7 @@ trait FsvModel {
     (0.4,  0.25),
     (0.2,  0.23))
 
-  val params = FactorSv.Parameters(
+  val params = FsvParameters(
     v = 0.1,
     beta,
     Vector.fill(2)(SvParameters(0.8, 2.0, 0.2))

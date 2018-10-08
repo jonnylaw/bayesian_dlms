@@ -48,16 +48,33 @@ case class DlmParameters(
   def |*|(y: DlmParameters): DlmParameters =
     Dlm.outerSumParameters(self, y)
 
-  def toList = DenseVector.vertcat(diag(v), diag(w), m0, diag(c0)).data.toList
+  def toList =
+    DenseVector.vertcat(diag(v), diag(w), m0, diag(c0)).data.toList
 }
 
 object DlmParameters {
-  def apply(v: Double, w: Double, m0: Double, c0: Double): DlmParameters =
+  def apply(v: Double, w: Double,
+    m0: Double, c0: Double): DlmParameters =
     DlmParameters(
       DenseMatrix(v),
       DenseMatrix(w),
       DenseVector(m0),
       DenseMatrix(c0))
+
+  def empty(vDim: Int, wDim: Int): DlmParameters = 
+    DlmParameters(
+      v = DenseMatrix.zeros[Double](vDim, vDim),
+      w = DenseMatrix.zeros[Double](wDim, wDim),
+      m0 = DenseVector.zeros[Double](wDim),
+      c0 = DenseMatrix.zeros[Double](wDim, wDim))
+
+  def fromList(vDim: Int, wDim: Int)(l: List[Double]) =
+    DlmParameters(
+      diag(DenseVector(l.take(vDim).toArray)),
+      diag(DenseVector(l.slice(vDim, vDim + wDim).toArray)),
+      DenseVector(l.slice(vDim + wDim, vDim + 2 * wDim).toArray),
+      diag(DenseVector(l.slice(vDim + 2 * wDim, vDim + 3 * wDim).toArray))
+    )
 }
 
 /**

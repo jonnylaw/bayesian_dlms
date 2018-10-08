@@ -8,26 +8,49 @@ import breeze.linalg.svd._
 import cats.implicits._
 
 /**
+  * Factor Stochastic Volatility Parameters for a model with
+  * k factors and p time series, 
+  * k << p
+  * @param v the variance of the measurement error
+  * @param beta the factor loading matrix, p x k
+  * @param factorParams a vector of length k containing the 
+  * ISV parameters for the factors 
+  */
+case class FsvParameters(
+  v:            Double,
+  beta:         DenseMatrix[Double],
+  factorParams: Vector[SvParameters]) {
+
+  def toList = v :: beta.data.toList ::: factorParams.flatMap(_.toList).toList
+
+  def map(f: Double => Double) =
+    FsvParameters(f(v), beta.map(f), factorParams.map(_.map(f)))
+
+  def add(p: FsvParameters): FsvParameters =
+    FsvParameters(v + p.v, p.beta + beta,
+      (factorParams zip p.factorParams).
+        map { case (f, f1) => f add f1 })
+}
+
+object FsvParameters {
+  def empty(p: Int, k: Int): FsvParameters =
+    FsvParameters(0.0, FactorSv.makeBeta(p, k),
+      Vector.fill(k)(SvParameters.empty))
+
+  def fromList(p: Int, k: Int)(l: List[Double]): FsvParameters =
+    FsvParameters(l.head,
+      new DenseMatrix(p, k, l.slice(1, 1 + p * k).toArray),
+      l.drop(1 + p * k).
+        grouped(3).
+        map(SvParameters.fromList).
+        toVector
+    )
+}
+
+/**
   * Model a large covariance matrix using a factor structure
-  * Change to using the knots
-  * TODO: Could have a univariate Kalman filter for this... might be a bit faster
   */
 object FactorSv {
-  /**
-    * Factor Stochastic Volatility Parameters for a model with k factors and p time series, 
-    * k << p
-    * @param v the variance of the measurement error
-    * @param beta the factor loading matrix, p x k
-    * @param factorParams a vector of length k containing the ISV parameters for the factors 
-    */
-  case class Parameters(
-    v:            Double,
-    beta:         DenseMatrix[Double],
-    factorParams: Vector[SvParameters]) {
-
-    def toList = v :: beta.data.toList ::: factorParams.flatMap(_.toList).toList
-  }
-
   /**
     * The state of the Gibbs Sampler
     * @param p the current sample of the fsv parameters
@@ -35,7 +58,7 @@ object FactorSv {
     * @param volatility the current sample of the time series of variances, k x n dimensional
     */
   case class State(
-    params:     FactorSv.Parameters,
+    params:     FsvParameters,
     factors:    Vector[(Double, Option[DenseVector[Double]])],
     volatility: Vector[SamplingState]
   )
@@ -74,7 +97,7 @@ object FactorSv {
     */
   def simStep(
     t:      Double,
-    params: Parameters)(a: Vector[Double]) = {
+    params: FsvParameters)(a: Vector[Double]) = {
 
     for {
       vt <- MultivariateGaussian(
@@ -92,7 +115,7 @@ object FactorSv {
     } yield (Data(t, y.map(_.some)), f, a1)
   }
 
-  def simulate(p: Parameters) = {
+  def simulate(p: FsvParameters) = {
     val k = p.beta.cols
     val initState = Vector.fill(k)(Gaussian(0.0, 1.0).draw)
     val init = (Data(0.0, DenseVector[Option[Double]](None)),
@@ -128,7 +151,7 @@ object FactorSv {
     */
   def sampleFactors(
     observations: Vector[Data],
-    p: FactorSv.Parameters,
+    p: FsvParameters,
     volatility: Vector[SamplingState]) = {
 
     val precY = diag(DenseVector.fill(p.beta.rows)(1.0 / p.v))
@@ -275,7 +298,7 @@ object FactorSv {
     p:      Int,
     k:      Int,
     fs:     Vector[(Double, Option[DenseVector[Double]])],
-    params: Parameters
+    params: FsvParameters
   ) = {
 
     val newbeta = makeBeta(p, k)
@@ -350,7 +373,7 @@ object FactorSv {
       theseParameters = s.params.factorParams(i)
       factorState = StochVolState(theseParameters, thisState, 0)
       theseFactors = extractFactors(s.factors, i)
-      factor = StochasticVolatilityKnots.sampleStepArBeta(priorPhi,
+      factor = StochasticVolatility.stepUni(priorPhi,
         priorMu, priorSigmaEta, theseFactors)(factorState)
     } yield factor
 
@@ -363,38 +386,63 @@ object FactorSv {
   }
 
   /**
+    * Sample the log-volatility of a factor model
+    */
+  def sampleVolatilityAr(
+    p: Int,
+    params: FsvParameters,
+    factors: Vector[(Double, Option[DenseVector[Double]])],
+    volatility: Vector[SamplingState]
+  ): Rand[Vector[SamplingState]] = {
+
+    val k = params.beta.cols
+
+    val res = for {
+      i <- Vector.range(0, k)
+      thisState = extractState(volatility, i)
+      theseParameters = params.factorParams(i)
+      theseFactors = extractFactors(factors, i)
+      logVol = StochasticVolatility.sampleStateAr(theseFactors,
+        theseParameters, thisState)
+    } yield logVol
+
+    res.sequence.map(combineStates)
+  }
+
+  /**
     * Sample each of the factor states and parameters in turn
-    * @param priorMu a Normal prior for the mean of the AR(1) process
-    * @param priorSigmaEta an inverse Gamma prior for the variance of the AR(1) process
+    * @param priorMu a Normal prior for the mean of the OU
+    * @param priorSigmaEta an inverse Gamma prior for the variance of the OU process
     * @param piorPhi a Beta prior on the mean reversion parameter phi
     * @param p an integer specifying the dimension of the observations
     * @param s the current state of the MCMC algorithm
     * @return 
     */
-  // def sampleVolatilityParamsOu(
-  //   priorMu:       Gaussian,
-  //   priorSigmaEta: InverseGamma,
-  //   priorPhi:      Beta,
-  //   p:             Int)(s: State) = {
+  def sampleVolatilityParamsOu(
+    priorMu:       Gaussian,
+    priorSigmaEta: InverseGamma,
+    priorPhi:      Beta,
+    p:             Int)(s: State) = {
 
-  //   val k = s.params.beta.cols
+    val k = s.params.beta.cols
 
-  //   val res = for {
-  //     i <- Vector.range(0, k).par
-  //     thisState = extractState(s.volatility, i)
-  //     theseParameters = s.params.factorParams(i)
-  //     factorState = StochVolState(theseParameters, thisState, 0)
-  //     theseFactors = extractFactors(s.factors, i)
-  //     factor = StochasticVolatility.stepOu(priorSigmaEta, priorPhi, priorMu, theseFactors)(factorState)
-  //   } yield factor
+    val res = for {
+      i <- Vector.range(0, k).par
+      thisState = extractState(s.volatility, i)
+      theseParameters = s.params.factorParams(i)
+      factorState = StochVolState(theseParameters, thisState, 0)
+      theseFactors = extractFactors(s.factors, i)
+      factor = StochasticVolatility.stepOu(priorPhi, priorMu,
+        priorSigmaEta, theseFactors)(factorState)
+    } yield factor
 
-  //   for {
-  //     res <- res.seq.sequence
-  //     params = res.map(_.params)
-  //     state = res.map(_.alphas)
-  //   } yield State(
-  //     s.params.copy(factorParams = params), s.factors, combineStates(state.map(_.toVector)))
-  // }
+    for {
+      res <- res.seq.sequence
+      params = res.map(_.params)
+      state = res.map(_.alphas)
+    } yield State(
+      s.params.copy(factorParams = params), s.factors, combineStates(state.map(_.toVector)))
+  }
 
   /**
     * Remove rows from the factor loading matrix, beta, corresponding to 
@@ -420,7 +468,7 @@ object FactorSv {
   def sampleSigma(
     prior:  InverseGamma,
     ys:     Vector[Data],
-    params: Parameters,
+    params: FsvParameters,
     fs:     Vector[(Double, Option[DenseVector[Double]])]): Rand[Double] = {
 
     val n = ys.size
@@ -497,7 +545,7 @@ object FactorSv {
     * Initialise the state for the Factor SV model with AR(1) latent state
     */
   def initialiseStateAr(
-    initP:        FactorSv.Parameters,
+    initP:        FsvParameters,
     observations: Vector[Data],
     k:            Int) = {
     // initialise factors
@@ -531,7 +579,7 @@ object FactorSv {
     priorPhi:      Beta,
     priorSigma:    InverseGamma,
     observations:  Vector[Data],
-    initP:         FactorSv.Parameters): Process[State] = {
+    initP:         FsvParameters): Process[State] = {
 
     // specify number of factors and time series
     val k = initP.beta.cols
@@ -545,65 +593,61 @@ object FactorSv {
   }
  
   /**
-    * Initialise the state for the Factor SV model with AR(1) latent state
+    * Initialise the state for the Factor SV model with OU latent state
     */
-  // def initialiseStateOu(
-  //   initP:        FactorSv.Parameters,
-  //   observations: Vector[Data],
-  //   k:            Int) = {
-  //   // initialise factors
-  //   val factors = initialiseFactors(initP.beta, observations, initP.v).draw
+  def initialiseStateOu(
+    initP:        FsvParameters,
+    observations: Vector[Data],
+    k:            Int) = {
+    // initialise factors
+    val factors = initialiseFactors(initP.beta, observations, initP.v).draw
 
-  //   // initialise the latent state
-  //   val initState = for {
-  //     i <- Vector.range(0, k)
-  //     fps = initP.factorParams(i)
-  //     fs = extractFactors(factors, i)
-  //     p = StochasticVolatility.ar1DlmParams(fps)
-  //     mod = Dlm.autoregressive(fps.phi)
-  //     state = StochasticVolatilityKnots.initialState(fs, p, fps.phi,
-  //       FilterOu.advanceState(fps),
-  //       FilterOu.backwardStep(fps))
-  //   } yield state
+    // initialise the latent state
+    val initState = for {
+      i <- Vector.range(0, k)
+      fps = initP.factorParams(i)
+      fs = extractFactors(factors, i)
+      state = StochasticVolatility.initialStateOu(fps, fs)
+    } yield state
 
-  //   State(initP, factors, combineStates(initState.map(_.draw.toVector)))
-  // }
+    State(initP, factors, combineStates(initState.map(_.draw)))
+  }
 
-  // def stepOu(
-  //   priorBeta:     Gaussian,
-  //   priorSigmaEta: InverseGamma,
-  //   priorMu:       Gaussian,
-  //   priorPhi:      Beta,
-  //   priorSigma:    InverseGamma,
-  //   observations:  Vector[Data],
-  //   p:             Int,
-  //   k:             Int) = { (s: State) =>
+  def stepOu(
+    priorBeta:     Gaussian,
+    priorSigmaEta: InverseGamma,
+    priorMu:       Gaussian,
+    priorPhi:      Beta,
+    priorSigma:    InverseGamma,
+    observations:  Vector[Data],
+    p:             Int,
+    k:             Int) = { (s: State) =>
 
-  //   for {
-  //     svp <- sampleVolatilityParamsOu(priorMu, priorSigmaEta, priorPhi, p)(s)
-  //     fs <- sampleFactors(observations, svp.params, svp.volatility)
-  //     sigma <- sampleSigma(priorSigma, observations, svp.params, fs)
-  //     beta <- sampleBeta(priorBeta, observations, p, k, fs, svp.params.copy(v = sigma))
-  //   } yield svp.copy(params = svp.params.copy(beta = beta), factors = fs)
-  // }
+    for {
+      svp <- sampleVolatilityParamsOu(priorMu, priorSigmaEta, priorPhi, p)(s)
+      fs <- sampleFactors(observations, svp.params, svp.volatility)
+      sigma <- sampleSigma(priorSigma, observations, svp.params, fs)
+      beta <- sampleBeta(priorBeta, observations, p, k, fs, svp.params.copy(v = sigma))
+    } yield svp.copy(params = svp.params.copy(beta = beta), factors = fs)
+  }
 
-  // def sampleOu(    
-  //   priorBeta:     Gaussian,
-  //   priorSigmaEta: InverseGamma,
-  //   priorMu:       Gaussian,
-  //   priorPhi:      Beta,
-  //   priorSigma:    InverseGamma,
-  //   observations:  Vector[Data],
-  //   initP:         FactorSv.Parameters): Process[State] = {
+  def sampleOu(    
+    priorBeta:     Gaussian,
+    priorSigmaEta: InverseGamma,
+    priorMu:       Gaussian,
+    priorPhi:      Beta,
+    priorSigma:    InverseGamma,
+    observations:  Vector[Data],
+    initP:         FsvParameters): Process[State] = {
 
-  //   // specify number of factors and time series
-  //   val p = initP.beta.rows
-  //   val k = initP.beta.cols
+    // specify number of factors and time series
+    val p = initP.beta.rows
+    val k = initP.beta.cols
 
-  //   // initialise the latent state 
-  //   val init = initialiseStateAr(initP, observations, k)
+    // initialise the latent state 
+    val init = initialiseStateAr(initP, observations, k)
 
-  //   MarkovChain(init)(stepOu(priorBeta, priorSigmaEta, priorMu, priorPhi,
-  //     priorSigma, observations, p, k))
-  // }
+    MarkovChain(init)(stepOu(priorBeta, priorSigmaEta, priorMu, priorPhi,
+      priorSigma, observations, p, k))
+  }
 }

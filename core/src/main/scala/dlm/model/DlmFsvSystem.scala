@@ -20,28 +20,11 @@ object DlmFsvSystem {
     * @param volatility the log-volatility of the system variance
     */
   case class State(
-    p:          DlmFsvSystem.Parameters,
+    p:          DlmFsvParameters,
     theta:      Vector[SamplingState],
     factors:    Vector[(Double, Option[DenseVector[Double]])],
     volatility: Vector[SamplingState]
   )
-
-  /**
-    * Parameters of the DLM Factor Stochastic Volatility model
-    * @param m0 the mean of the initial state 
-    * @param c0 the variance of the initial state
-    * @param v the measurement variance
-    * @param factors the parameters of the Factor Stochastic volatility
-    * model for the measurement error 
-    */
-  case class Parameters(
-    m0:      DenseVector[Double],
-    c0:      DenseMatrix[Double],
-    v:       Double,
-    factors: FactorSv.Parameters) {
-
-    def toList = List(v) ::: factors.toList
-  }
 
   /**
     * Simulate a single step in the DLM FSV model
@@ -60,14 +43,16 @@ object DlmFsvSystem {
     x:      DenseVector[Double], 
     a0w:    Vector[Double], 
     dlm:    Dlm,
-    p:      Parameters,
+    p:      DlmFsvParameters,
     dt:     Double,
     dimObs: Int) = {
 
     for {
-      (w, f1w, a1w) <- FactorSv.simStep(time, p.factors)(a0w)
+      (w, f1w, a1w) <- FactorSv.simStep(time, p.fsv)(a0w)
       wt = KalmanFilter.flattenObs(w.observation)
-      vt = DenseVector.rand(dimObs, Gaussian(0.0, p.v))
+      vt <- MultivariateGaussian(
+        DenseVector.zeros[Double](dimObs),
+        p.dlm.v)
       x1 = dlm.g(dt) * x + wt
       y = dlm.f(time).t * x1 + vt
     } yield (Data(time, y.map(_.some)), x1, a1w)
@@ -83,13 +68,13 @@ object DlmFsvSystem {
     */
   def simulateRegular(
     dlm:    Dlm,
-    p:      Parameters,
+    p:      DlmFsvParameters,
     dimObs: Int) = {
 
-    val k = p.factors.beta.cols
+    val k = p.fsv.beta.cols
 
     val init = for {
-      initState <- MultivariateGaussian(p.m0, p.c0)
+      initState <- MultivariateGaussian(p.dlm.m0, p.dlm.c0)
       initFw = Vector.fill(k)(Gaussian(0.0, 1.0).draw)
     } yield (Data(0.0, DenseVector[Option[Double]](None)),
        initState, initFw)
@@ -197,17 +182,6 @@ object DlmFsvSystem {
     Rand.always(res)
   }
 
-  def toDlmParameters(
-    params: DlmFsvSystem.Parameters,
-    p:      Int): DlmParameters = {
-
-    DlmParameters(
-      v = diag(DenseVector.fill(p)(params.v)),
-      w = DenseMatrix.eye[Double](p),
-      m0 = params.m0,
-      c0 = params.c0)
-  }
-
   /**
     * Perform a single step of the Gibbs Sampling algorithm
     * for the DLM FSV where the system variance is modelled
@@ -224,15 +198,12 @@ object DlmFsvSystem {
     dlm:           Dlm)(s: State): Rand[State] = {
 
     // extract the system factors
-    val beta = s.p.factors.beta
-    val fs = FactorSv.State(s.p.factors, s.factors, s.volatility)
+    val beta = s.p.fsv.beta
+    val fs = FactorSv.State(s.p.fsv, s.factors, s.volatility)
 
     // calculate the dimensions of the system and assoc. factors
     val k = beta.cols
     val d = beta.rows
-
-    // observation dimension
-    val p = ys.head.observation.size
 
     for {
       fs1 <- FactorSv.sampleStep(priorBeta, priorSigmaEta, priorMu,
@@ -241,11 +212,11 @@ object DlmFsvSystem {
       // perform FFBS using time dependent system noise covariance
       ws = calculateVariance(fs1.volatility.tail, fs1.params.beta,
         diag(DenseVector.fill(d)(fs1.params.v)))
-      dlmP = toDlmParameters(s.p, p)
+      dlmP = s.p.dlm
       theta <- ffbs(dlm, ys, dlmP, ws)
 
       // newV <- sampleObservationVariance(priorV, dlm.f, theta, ys)
-      newP = s.p.copy(factors = fs1.params)
+      newP = s.p.copy(fsv = fs1.params)
         //, v = newV)
     } yield State(newP, theta, fs1.factors, fs1.volatility)
   }
@@ -259,20 +230,19 @@ object DlmFsvSystem {
     * @param dlm the description of the 
     */
   def initialise(
-    params: DlmFsvSystem.Parameters,
+    params: DlmFsvParameters,
     ys:     Vector[Data],
     dlm:    Dlm) = {
 
-    val k = params.factors.beta.cols
-    val p = ys.head.observation.size
-    val parameters = toDlmParameters(params, p)
+    val k = params.fsv.beta.cols
+    val parameters = params.dlm
 
     // initialise the variances of the system
     val ws = Vector.fill(ys.size)(DenseMatrix.eye[Double](dlm.f(1.0).rows))
 
     val theta = ffbs(dlm, ys, parameters, ws).draw
     val thetaObs = theta.map { ss => Data(ss.time, ss.sample.map(_.some)) }
-    val fs = FactorSv.initialiseStateAr(params.factors, thetaObs, k)
+    val fs = FactorSv.initialiseStateAr(params.fsv, thetaObs, k)
 
     State(params, theta.toVector, fs.factors, fs.volatility)
   }
@@ -286,7 +256,7 @@ object DlmFsvSystem {
     priorV:        InverseGamma,
     ys:            Vector[Data],
     dlm:           Dlm,
-    initP:         DlmFsvSystem.Parameters): Process[State] = {
+    initP:         DlmFsvParameters): Process[State] = {
 
     // initialise the latent state
     val init = initialise(initP, ys, dlm)
@@ -303,23 +273,23 @@ object DlmFsvSystem {
     */
   def forecast(
     dlm: Dlm,
-    ps:  Vector[DlmFsvSystem.Parameters],
+    ps:  Vector[DlmFsvParameters],
     t0:  Double,
     n:   Int,
     obsDim: Int) = ps map { p =>
 
     val dt = 1.0
     val times = Vector.iterate(t0, n)(t => t + dt)
-    val d = ps.head.m0.size // dimension of the state
+    val d = ps.head.dlm.m0.size // dimension of the state
     
-    val fps = p.factors.factorParams
+    val fps = p.fsv.factorParams
 
     // initialise the log-volatility at the stationary solution
     val a0 = fps map (vp => Gaussian(vp.mu, math.pow(vp.sigmaEta, 2) / (1 - math.pow(vp.phi, 2))).draw)
 
     // advance volatility using the parameters
     val as = Vector.iterate(a0, n)(a => (fps zip a) map { case (vp, at) =>
-      StochasticVolatility.stepState(vp, at, dt).draw
+      StochasticVolatility.stepState(vp, at).draw
     })
 
     // add times to latent state
@@ -329,14 +299,15 @@ object DlmFsvSystem {
         diag(DenseVector(a.toArray))) }
 
     // calculate the time dependent system variance matrix
-    val ws = calculateVariance(alphas, p.factors.beta, diag(DenseVector.fill(d)(p.factors.v)))
+    val ws = calculateVariance(alphas, p.fsv.beta,
+      diag(DenseVector.fill(d)(p.fsv.v)))
 
-    val init = (p.m0, p.c0)
+    val init = (p.dlm.m0, p.dlm.c0)
 
     // advance the state of the DLM using the time dependent system matrix
     (ws, times).zipped.foldLeft(init){ case ((m0, c0), (w, t)) =>
       val (at, rt) = KalmanFilter.advState(dlm.g, m0, c0, dt, w)
-      val v = diag(DenseVector.fill(obsDim)(p.v))
+      val v = p.dlm.v
       KalmanFilter.oneStepPrediction(dlm.f, at, rt, t, v)
     }
   }

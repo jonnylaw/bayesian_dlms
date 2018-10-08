@@ -13,7 +13,7 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
   val params = StochVolKnotsMultivariate.ar1DlmParams(p)
   val sims = StochasticVolatility.simulate(p).
     steps.
-    take(10).
+    take(1000).
     toVector.
     map { case (t, y, a) => Data(t, DenseVector(y)) }
 
@@ -110,22 +110,26 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
     assert(normalise(w1) === normalise(weights))
   }
 
+  import StochasticVolatilityKnots._
+
+  val arsims = Dlm.simulateRegular(model, params, 1.0).
+    steps.
+    take(1000).
+    map(_._1).
+    map(d => (d.time, d.observation(0))).
+    toVector
+  val alphas = FilterAr.ffbs(p, arsims, Vector.fill(arsims.size)(1.0)).draw
+
+  val knots = sampleKnots(10, 100, arsims.size).draw
+
+  val sampledAr = sampleState(
+    ffbsAr, filterAr, sampleAr)(arsims, p, knots, alphas.toArray).toVector
+
   test("Knots should remain unchanged in a single sample") {
-    import StochasticVolatilityKnots._
-
-    val arsims = Dlm.simulateRegular(model, params, 1.0).steps.take(1000)
-    val ys = arsims.map(_._1).map(d => (d.time, d.observation(0))).toVector
-    val alphas = FilterAr.ffbs(p, ys, Vector.fill(ys.size)(1.0)).draw
-
-    val knots = sampleKnots(10, 100)(ys.size).draw
-
-    val sampled = sampleState(
-        ffbsAr, filterAr, sampleAr)(ys, p, knots, alphas.toArray).toVector
-
     // extract the knots
     val resampled = for {
       i <- knots.tail.init
-      sample = sampled(i)
+      sample = sampledAr(i)
     } yield (sample.time, sample.sample)
 
     val initialSample = for {
@@ -134,5 +138,9 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
     } yield (sample.time, sample.sample)
 
     assert(resampled === initialSample)
+  }
+
+  test("Things in between the knots should be changed") {
+    assert(sampledAr !== alphas)
   }
 }

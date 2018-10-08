@@ -42,7 +42,7 @@ object FilterAr {
 
     val m0 = p.mu
     val c0 = p.sigmaEta * p.sigmaEta / (1 - p.phi * p.phi)
-    val t0 = ys.head._1
+    val t0 = ys.head._1 - 1.0
     val init = FilterState(t0, m0, c0, m0, c0)
 
     (ys zip vs).scanLeft(init){ case (st, (y, v)) =>

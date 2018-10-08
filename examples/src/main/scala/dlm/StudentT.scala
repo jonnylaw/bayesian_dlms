@@ -121,6 +121,6 @@ object StudentTpmmh extends App with StudenttDglm with StudenttData {
   }
 
   Streaming
-    .writeParallelChain(iters, 2, 100000, "examples/data/student_t_dglm_pmmh", format)
+    .writeParallelChain(iters, 2, 10000, "examples/data/student_t_dglm_pmmh", format)
     .runWith(Sink.onComplete(_ => system.terminate()))
 }

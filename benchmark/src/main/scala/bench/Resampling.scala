@@ -17,9 +17,6 @@ object ResamplingBenchmark {
 class ResamplingBenchmark {
   import ResamplingBenchmark._
 
-  @Param({50, 100, 1000})
-  val n
-
   @Benchmark
   def metropolisResampling(x: Weights) = {
     ParticleFilter.metropolisResampling(10)(x.x, x.ws)

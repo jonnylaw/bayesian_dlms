@@ -9,6 +9,7 @@ import akka.stream._
 import akka.stream.scaladsl._
 import akka.NotUsed
 import akka.util.ByteString
+import breeze.linalg.{DenseMatrix, DenseVector, diag}
 
 object Streaming {
   /**
@@ -38,11 +39,32 @@ object Streaming {
   }
 
   /**
+    * Parse parameters from a collection containing the diagonal
+    * entries of the v, w matrices
+    */
+  def parseDiagonalParameters(
+    vDim: Int, wDim: Int)(ps: Vector[Double]): DlmParameters = {
+
+    val v = ps.take(vDim).map(_.toDouble).toArray
+    val w = ps.drop(vDim).take(wDim).map(_.toDouble).toArray
+    val m0 = ps.drop(vDim + wDim).take(wDim).map(_.toDouble).toArray
+    val c0 = ps.drop(vDim + 2 * wDim).take(wDim * wDim).
+      map(_.toDouble).toArray
+
+    DlmParameters(
+      diag(DenseVector(v)),
+      diag(DenseVector(w)),
+      DenseVector(m0),
+      new DenseMatrix(wDim, wDim, c0))
+  }
+
+
+  /**
     * Read an MCMC Chain into a list of doubles
     */
   def readMcmcChain(filename: String) = {
-    val mcmcChain = Paths.get("data/seasonal_dlm_gibbs.csv")
-    mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
+    val mcmcChain = Paths.get(filename)
+    mcmcChain.asCsvReader[Vector[Double]](rfc.withHeader)
   }
 
   /**
@@ -50,6 +72,35 @@ object Streaming {
     */
   def colMeans(params: List[List[Double]]): List[Double] = {
     params.transpose.map(a => breeze.stats.mean(a))
+  }
+
+  /**
+    * Streaming mean
+    */
+  def mean = Flow[Double].
+    fold((0.0, 1.0)){ case ((avg, n), b) =>
+      ((avg * n + b) / (n + 1), n + 1)
+    }.
+    map(_._1)
+
+  def meanDlmFsvParameters(vDim: Int, wDim: Int, p: Int, k: Int) =
+    Flow[DlmFsvParameters].
+      fold((DlmFsvParameters.empty(vDim, wDim, p, k), 1.0)){
+        case ((avg, n), b) =>
+          (avg.map(_ * n).add(b).map(_  / (n + 1)), n + 1)
+      }.
+      map(_._1)
+
+  /**
+    * Calculate the streaming mean of DLM parameters
+    */
+  def meanParameters(vDim: Int, wDim: Int) = {
+    Flow[DlmParameters].
+      fold((DlmParameters.empty(vDim, wDim), 1.0))((acc, b) => {
+        val (avg: DlmParameters, n: Double) = acc
+        (avg.map(_ * n).add(b).map(_  / (n + 1)), n + 1)
+      }).
+      map(_._1)
   }
 
   /**
@@ -61,7 +112,7 @@ object Streaming {
     Source.fromIterator(() => chain.steps.take(nIters))
   }
 
-  def writeChain[A](
+  def writeChainSink[A](
       filename: String,
       format: A => List[Double]
   ): Sink[A, Future[IOResult]] = {
@@ -88,7 +139,7 @@ object Streaming {
 
     Source((0 until nChains)).mapAsync(nChains) { i =>
       streamChain(chain, nIters).
-        runWith(writeChain(s"${filename}_$i.csv", format))
+        runWith(writeChainSink(s"${filename}_$i.csv", format))
     }
   }
 
@@ -110,5 +161,4 @@ object Streaming {
       map(_.utf8String).
       map(a => a.split(",").toVector)
   }
-
 }

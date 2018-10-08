@@ -50,15 +50,24 @@ object SimulateDlm extends App with FirstOrderDlm {
   //   .write(new java.io.File("figures/first_order.png"))
 }
 
-object FilterDlm extends App with FirstOrderDlm with SimulatedData {
-  val filtered = SvdFilter(SvdFilter.advanceState(p, mod.g)).
+object FilterDlm extends App with SimulatedData {
+  val mod = Dlm.polynomial(1)
+  val p = DlmParameters(
+    v = DenseMatrix(2.0),
+    w = DenseMatrix(3.0),
+    DenseVector(0.0),
+    DenseMatrix(10.0))
+
+  val filtered = KalmanFilter(KalmanFilter.advanceState(p, mod.g)).
     filter(mod, data, p)
 
   val out = new java.io.File("examples/data/first_order_dlm_filtered.csv")
 
-  def formatFiltered(f: SvdState) = {
-    val ct = f.uc * diag(f.dc) * f.uc.t
-    List(f.time, f.mt(0), ct(0, 0), f.ft(0))
+  def formatFiltered(s: KfState) = s.ft match {
+    case Some(f) =>
+      List(s.time, s.mt(0), s.ct(0, 0), f(0), s.qt.get(0,0))
+    case _ =>
+      List(s.time, s.mt(0), s.ct(0, 0))
   }
   val headers = rfc.withHeader("time",
                                "state_mean",
@@ -73,6 +82,25 @@ object AuxFilterFo extends App with FirstOrderDlm with SimulatedData {
   val filtered = AuxFilter(200).filter(mod, data, p)
 
   val out = new java.io.File("examples/data/fodlm_aux_filtered.csv")
+
+  def formatFiltered(f: PfState) = {
+    List(f.time) ++ LiuAndWestFilter.meanState(f.state).data.toList ++
+    LiuAndWestFilter.varState(f.state).data.toList
+  }
+  val headers = rfc.withHeader("time",
+                               "state_mean",
+                               "state_variance")
+
+  out.writeCsv(filtered.map(formatFiltered), headers)
+}
+
+object ParticleFilterFo extends App
+    with FirstOrderDlm
+    with SimulatedData {
+
+  val filtered = ParticleFilter(200, ParticleFilter.multinomialResample).filter(mod, data, p)
+
+  val out = new java.io.File("examples/data/fodlm_pf.csv")
 
   def formatFiltered(f: PfState) = {
     List(f.time) ++ LiuAndWestFilter.meanState(f.state).data.toList ++
@@ -185,8 +213,14 @@ object RbFilter extends App with FirstOrderDlm with SimulatedData {
   out.writeCsv(filtered.map(formatFiltered), headers)
 }
 
+object SmoothDlm extends App with SimulatedData {
+  val mod = Dlm.polynomial(1)
+  val p = DlmParameters(
+    v = DenseMatrix(2.0),
+    w = DenseMatrix(3.0),
+    DenseVector(0.0),
+    DenseMatrix(10.0))
 
-object SmoothDlm extends App with FirstOrderDlm with SimulatedData {
   val filtered = KalmanFilter(KalmanFilter.advanceState(p, mod.g)).filter(mod, data, p)
   val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
 

@@ -104,11 +104,11 @@ object ParticleFilter {
   }
 
   def calcWeight(
-    mod: DglmModel,
+    mod:  DglmModel,
     time: Double,
-    x: DenseVector[Double],
-    y: DenseVector[Option[Double]],
-    p: DlmParameters) = {
+    x:    DenseVector[Double],
+    y:    DenseVector[Option[Double]],
+    p:    DlmParameters) = {
 
     val fm = KalmanFilter.missingF(mod.f, time, y)
     val vm = KalmanFilter.missingV(p.v, y)
