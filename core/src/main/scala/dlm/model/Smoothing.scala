@@ -1,10 +1,11 @@
 package dlm.core.model
 
 import breeze.linalg.{DenseVector, DenseMatrix}
-import breeze.stats.distributions.Rand
+import breeze.stats.distributions.{Rand, MultivariateGaussian}
 import cats.implicits._
 import spire.syntax.cfor._
 import scala.reflect.ClassTag
+import math.exp
 
 case class SamplingState(
   time:   Double,
@@ -183,5 +184,37 @@ object Smoothing {
     p: DlmParameters) = {
 
     Smoothing.ffbs(mod, ys, KalmanFilter.advanceState(p, mod.g), Smoothing.step(mod, p.w), p)
+  }
+
+  /**
+    * Perform a backward step of FFBS for the OU process
+    */
+  def backwardStepOu(
+    p:        SvParameters,
+  )(kfState:  KfState,
+    s:        SamplingState): SamplingState = {
+
+    val dt = s.time - kfState.time
+    val phi = exp(-p.phi * dt)
+    val variance = (math.pow(p.sigmaEta, 2) / (2*p.phi)) * (1 - exp(-2*p.phi*dt))
+
+    // extract elements from kalman state
+    val time = kfState.time
+    val mt = kfState.mt
+    val ct = kfState.ct
+    val at1 = s.at1
+    val rt1 = s.rt1
+
+    val identity = DenseMatrix.eye[Double](mt.size)
+    val g = identity * phi
+    val w = identity * variance
+    val cgrinv = (rt1.t \ (g * ct.t)).t
+    val mean = mt + cgrinv * (s.sample - at1)
+
+    val diff = (identity - cgrinv * g)
+    val cov = diff * ct * diff.t + cgrinv * w * cgrinv.t
+    val sample = MultivariateGaussian(mean, cov).draw
+
+    SamplingState(time, sample, mean, cov, kfState.at, kfState.rt)
   }
 }

@@ -239,7 +239,7 @@ object DlmFsv {
 
   /**
     * Perform forward filtering backward sampling using a
-    * time dependent observation variance and the SVD
+    * time dependent observation variance and the SVD Filter
     * @param model a DLM model
     * @param ys the time series of observations
     * @param p DLM parameters containing sqrtW for SVD filter / sampler
@@ -452,6 +452,44 @@ object DlmFsv {
           params.fsv, s.volatility)
         vol <- FactorSv.sampleVolatilityAr(p, params.fsv,
           factors, s.volatility)
+      } yield State(s.p, theta.toVector, factors, vol)
+    }
+
+    MarkovChain(init)(step)
+
+  }
+
+  /**
+    * Sample the factors, mean state and volatility while keeping the parameters constant
+    */
+  def sampleStateOu(
+    ys:     Vector[Data],
+    dlm:    Dlm,
+    params: DlmFsvParameters) = {
+
+    // specify number of factors and dimension of the observation
+    val beta = params.fsv.beta
+    val k = beta.cols
+    val p = beta.rows
+
+    // initialise the latent state
+    val initFactorState = FactorSv.
+      initialiseStateAr(params.fsv, ys, k)
+    val factors = initFactorState.factors
+    val vol = initFactorState.volatility
+    val vs = DlmFsvSystem.calculateVariance(vol.tail,
+      params.fsv.beta, diag(DenseVector.fill(p)(params.fsv.v)))
+    val initDlmState = ffbsSvd(dlm, ys, params.dlm, vs).draw
+    val init = State(params, initDlmState.toVector, factors, vol)
+
+    def step(s: State) = {
+      val vs = DlmFsvSystem.calculateVariance(s.volatility.tail,
+        params.fsv.beta, diag(DenseVector.fill(p)(params.fsv.v)))
+      for {
+        theta <- ffbsSvd(dlm, ys, params.dlm, vs)
+        fObs = factorObs(ys, s.theta, dlm.f)
+        factors <- FactorSv.sampleFactors(fObs, params.fsv, s.volatility)
+        vol = FactorSv.sampleVolatilityOu(p, params.fsv, factors, s.volatility)
       } yield State(s.p, theta.toVector, factors, vol)
     }
 

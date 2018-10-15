@@ -120,23 +120,26 @@ object FitContUo extends App with JointUoModel {
 }
 
 object InterpolateUo extends App with JointUoModel {
-  implicit val system = ActorSystem("dlm_fsv_uo")
-  implicit val materializer = ActorMaterializer()
-
   def readValue(a: String): Option[Double] = 
     if (a == "NA") None else Some(a.toDouble)
 
-  val file = "examples/data/uo_cont_gibbs_one_factor_0.csv"
+  val file = "examples/data/uo_cont_gibbs_two_factors_0.csv"
 
   // read in parameters
-  val ps: Future[DlmFsvParameters] = Streaming.readCsv(file).
-    map(_.map(_.toDouble).toList).
+  val rawMcmc = Paths.get(file)
+  val reader2 = rawMcmc.asCsvReader[List[Double]](rfc.withHeader)
+  val ps: DlmFsvParameters = reader2.
+    collect {
+      case Right(a) => a
+    }.
     map(x => DlmFsvParameters.fromList(4, 16, 4, 2)(x)).
-    via(Streaming.meanDlmFsvParameters(4, 16, 4, 2)).
-    runWith(Sink.head)
+    foldLeft((DlmFsvParameters.empty(4, 16, 4, 2), 1.0)){
+      case ((avg, n), b) =>
+        (avg.map(_ * n).add(b).map(_  / (n + 1)), n + 1)
+    }._1
 
   // read in data with encoded missing bits
-  val rawData1 = Paths.get("examples/data/new_new_emote_1108_rounded.csv")
+  val rawData1 = Paths.get("examples/data/new_new_emote_1108_wide.csv")
   val reader1 = rawData1.asCsvReader[(LocalDateTime, String, String, String, String)](rfc.withHeader)
   val testData = reader1.
     collect {
@@ -151,28 +154,22 @@ object InterpolateUo extends App with JointUoModel {
     sortBy(_.time)
 
   // use mcmc to sample the missing observations
-  val summary = for {
-    p <- ps
-    iters = DlmFsv.sampleStateAr(testData, dlmComp, p).
+  val iters = DlmFsv.sampleStateOu(testData, dlmComp, ps).
     steps.
     take(1000).
     map { (s: DlmFsv.State) =>
       val vol = s.volatility.map(x => (x.time, x.sample))
       val st = s.theta.map(x => (x.time, x.sample))
-      DlmFsv.obsVolatility(vol, st, dlmComp, p)
+      DlmFsv.obsVolatility(vol, st, dlmComp, ps)
     }.
     map(s => s.map { case (t, y) => (t, Some(y(0))) }).
     toVector
-    summary = DlmFsv.summariseInterpolation(iters, 0.995)
-  } yield summary
+
+  val summary = DlmFsv.summariseInterpolation(iters, 0.995)
 
   // write interpolated data
   val out = new java.io.File("data/interpolated_urbanobservatory.csv")
   val headers = rfc.withHeader("time", "mean", "upper", "lower")
 
-  summary.map(s => out.writeCsv(s, headers)).
-    onComplete{ s =>
-      println(s)
-      system.terminate()
-    }
+  out.writeCsv(summary, headers)
 }
