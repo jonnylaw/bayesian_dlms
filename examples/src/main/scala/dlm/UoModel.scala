@@ -4,6 +4,7 @@ import dlm.core.model._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions._
 import cats.implicits._
+import scala.util.control.Exception._
 import kantan.csv._
 import kantan.csv.ops._
 import kantan.csv.generic._
@@ -101,33 +102,41 @@ trait JointUoModel {
 // Write this up in DLM Chapter
 // Could additionally use Wishart for full rank Observation Matrix
 trait RoundedUoData {
-  val format = DateTimeFormatter.ISO_DATE_TIME
-  implicit val codec: CellCodec[LocalDateTime] =
-    localDateTimeCodec(format)
-
   val tempDlm = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
   val dlmComp = List.fill(4)(tempDlm).reduce(_ |*| _)
 
   case class EnvSensor(
+    sensorId:   String,
     datetime:    LocalDateTime,
     co:          Option[Double],
     humidity:    Option[Double],
     no:          Option[Double],
     temperature: Option[Double])
 
-  val rawData = Paths.get("examples/data/rounded_uo_data.csv")
-  val reader = rawData.asCsvReader[EnvSensor](rfc.withHeader)
-  val data = reader.
-    collect {
-      case Right(a) => a
-    }.
-    map(a => Data(a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0), 
-        DenseVector(a.co, a.humidity, a.no, a.temperature))).
-    toVector.
-    sortBy(_.time)
+  val format = DateTimeFormatter.ISO_DATE_TIME
+  def toDatetimeOpt(s: String, format: DateTimeFormatter) =
+    catching(classOf[DateTimeException]) opt LocalDateTime.parse(s, format)
+
+  def toDoubleOpt(s: String) =
+    catching(classOf[NumberFormatException]) opt s.toDouble
+
+  def parseEnvSensor(l: Vector[String]): Option[EnvSensor] =
+    for {
+      datetime <- toDatetimeOpt(l(1), format)
+    } yield EnvSensor(l.head, datetime, toDoubleOpt(l(2)),
+      toDoubleOpt(l(3)), toDoubleOpt(l(4)), toDoubleOpt(l(5)))
+
+  val data = Streaming.readCsv("examples/data/summarised_sensor_data.csv").    
+    map(parseEnvSensor).
+    collect { case Some(a) => a }
+
+  def envToData(a: EnvSensor): Data =
+    Data(a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
+      DenseVector(a.co, a.humidity, a.no, a.temperature))
 }
 
-object FitUoDlm extends App with RoundedUoData {
+// fit ten independent models
+object FitUoDlms extends App with RoundedUoData {
   implicit val system = ActorSystem("uo-dlm")
   implicit val materializer = ActorMaterializer()
 
@@ -144,76 +153,73 @@ object FitUoDlm extends App with RoundedUoData {
       c0 = DenseMatrix.eye[Double](7))
   } yield List.fill(4)(seasonalP).reduce(Dlm.outerSumParameters)
 
-  val iters = GibbsSampling.sample(dlmComp, priorV, priorW, dlmP.draw, data)
+  data.
+    groupBy(1000000, _.sensorId).
+    fold(("Hello", Vector.empty[Data]))((l, r) => (r.sensorId, l._2 :+ envToData(r))).
+    mergeSubstreams.
+    mapAsyncUnordered(4) { case (id: String, d: Vector[Data]) =>
+      println(s"Performing inference for station $id with ${d.size} observations")
 
-    Streaming
-      .writeParallelChain(iters, 2, 10000, "examples/data/uo_dlm_seasonal_daily", (s: GibbsSampling.State) => DlmParameters.toList(s.p))
-      .runWith(Sink.onComplete(_ => system.terminate()))
+      val iters = GibbsSampling.sample(dlmComp, priorV, priorW, dlmP.draw, d)
+
+      Streaming
+      .writeParallelChain(iters, 2, 10000, s"examples/data/uo_dlm_seasonal_daily_${id}_",
+        (s: GibbsSampling.State) => DlmParameters.toList(s.p)).
+        runWith(Sink.ignore)
+    }.
+    runWith(Sink.onComplete { s =>
+      println(s)
+      system.terminate()
+    })
 }
 
-object ForecastUoDlm extends App {
-  // implicit val system = ActorSystem("forecast_uo")
-  // implicit val materializer = ActorMaterializer()
+object ForecastUoDlm extends App with RoundedUoData {
+  implicit val system = ActorSystem("forecast_uo")
+  implicit val materializer = ActorMaterializer()
 
-  val format = DateTimeFormatter.ISO_DATE_TIME
-  implicit val codec: CellCodec[LocalDateTime] =
-    localDateTimeCodec(format)
+  def envToDataTime(a: EnvSensor): (LocalDateTime, Data) =
+    (a.datetime, Data(a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
+      DenseVector(a.co, a.humidity, a.no, a.temperature)))
 
-  val tempDlm = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
-  val dlmComp = List.fill(4)(tempDlm).reduce(_ |*| _)
+  data.
+    groupBy(1000000, _.sensorId).
+    fold(("Hello", Vector.empty[(LocalDateTime, Data)]))((l, r) =>
+      (r.sensorId, l._2 :+ envToDataTime(r))).
+    mergeSubstreams.
+    mapAsyncUnordered(4) { case (id: String, d: Vector[(LocalDateTime, Data)]) =>
+      val data = d.map(_._2)
+      val times = d.map(_._1)
 
-  case class EnvSensor(
-    datetime:    LocalDateTime,
-    co:          Option[Double],
-    humidity:    Option[Double],
-    no:          Option[Double],
-    temperature: Option[Double])
+      val file = s"examples/data/uo_dlm_seasonal_daily_${id}_0.csv"
 
-  val rawData = Paths.get("examples/data/rounded_missing_uo_data.csv")
-  val reader = rawData.asCsvReader[EnvSensor](rfc.withHeader)
-  val sensor = reader.
-    collect { case Right(a) => a }
+      val ps: Future[DlmParameters] = Streaming.readCsv(file).
+        map(_.map(_.toDouble).toList).
+        drop(1000).
+        map(x => DlmParameters.fromList(4, 28)(x)).
+        via(Streaming.meanParameters(4, 28)).
+        runWith(Sink.head)
 
-  val times = sensor.
-    map(_.datetime).
-    toVector
+      val out = new java.io.File(s"examples/data/forecast_urbanobservatory_${id}.csv")
+      val headers = rfc.withHeader(false)
 
-  val data = sensor.
-    map(a => Data(a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
-      DenseVector(a.co, a.humidity, a.no, a.temperature))).
-    toVector.
-    sortBy(_.time)
-
-  data.take(10).foreach(println)
-
-  val file = "examples/data/uo_dlm_seasonal_daily_0.csv"
-
-  val ps: Future[DlmParameters] = Streaming.readCsv(file).
-    map(_.map(_.toDouble).toList).
-    drop(1000).
-    map(x => DlmParameters.fromList(4, 28)(x)).
-    via(Streaming.meanParameters(4, 28)).
-    runWith(Sink.head)
-
-  // val out = new java.io.File("examples/data/forecast_urbanobservatory.csv")
-  // val headers = rfc.withHeader(false)
-
-  // (for {
-  //   p <- ps
-  //   filtered = KalmanFilter.filterDlm(dlmComp, data, p)
-  //   summary = filtered.flatMap(kf => (for {
-  //     f <- kf.ft
-  //     q <- kf.qt
-  //   } yield Dlm.summariseForecast(f, q)).
-  //     map(f => f.flatten.toList))
-  //   toWrite: Vector[(LocalDateTime, List[Double])] = times.zip(summary)
-  //   _ = println("summary is ${summary.take(3)}") 
-  //   io = out.writeCsv(toWrite, headers)
-  // } yield io).
-  //   onComplete{ s =>
-  //     println(s)
-  //     system.terminate()
-  //   }
+      for {
+        p <- ps
+        filtered = KalmanFilter.filterDlm(dlmComp, data, p)
+        summary = filtered.flatMap(kf => (for {
+          f <- kf.ft
+          q <- kf.qt
+        } yield Dlm.summariseForecast(f, q)).
+          map(f => f.flatten.toList))
+        toWrite: Vector[(String, LocalDateTime, List[Double])] = times.
+          zip(summary).
+          map(d => (id, d._1, d._2))
+        io = out.writeCsv(toWrite, headers)
+      } yield io
+    }.
+    runWith(Sink.onComplete { s =>
+      println(s)
+      system.terminate()
+    })
 }
 
 object FitContUo extends App with JointUoModel {
