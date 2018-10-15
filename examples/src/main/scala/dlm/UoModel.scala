@@ -3,6 +3,7 @@ package examples.dlm
 import dlm.core.model._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions._
+import cats.implicits._
 import kantan.csv._
 import kantan.csv.ops._
 import kantan.csv.generic._
@@ -97,6 +98,124 @@ trait JointUoModel {
     map(_._1)
 }
 
+// Write this up in DLM Chapter
+// Could additionally use Wishart for full rank Observation Matrix
+trait RoundedUoData {
+  val format = DateTimeFormatter.ISO_DATE_TIME
+  implicit val codec: CellCodec[LocalDateTime] =
+    localDateTimeCodec(format)
+
+  val tempDlm = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
+  val dlmComp = List.fill(4)(tempDlm).reduce(_ |*| _)
+
+  case class EnvSensor(
+    datetime:    LocalDateTime,
+    co:          Option[Double],
+    humidity:    Option[Double],
+    no:          Option[Double],
+    temperature: Option[Double])
+
+  val rawData = Paths.get("examples/data/rounded_uo_data.csv")
+  val reader = rawData.asCsvReader[EnvSensor](rfc.withHeader)
+  val data = reader.
+    collect {
+      case Right(a) => a
+    }.
+    map(a => Data(a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0), 
+        DenseVector(a.co, a.humidity, a.no, a.temperature))).
+    toVector.
+    sortBy(_.time)
+}
+
+object FitUoDlm extends App with RoundedUoData {
+  implicit val system = ActorSystem("uo-dlm")
+  implicit val materializer = ActorMaterializer()
+
+  val priorV = InverseGamma(2.0, 3.0)
+  val priorW = InverseGamma(2.0, 3.0)
+
+  val dlmP = for {
+    w <- priorW
+    v <- priorV
+    seasonalP = DlmParameters(
+      v = DenseMatrix(v),
+      w = diag(DenseVector.fill(7)(w)),
+      m0 = DenseVector.zeros[Double](7),
+      c0 = DenseMatrix.eye[Double](7))
+  } yield List.fill(4)(seasonalP).reduce(Dlm.outerSumParameters)
+
+  val iters = GibbsSampling.sample(dlmComp, priorV, priorW, dlmP.draw, data)
+
+    Streaming
+      .writeParallelChain(iters, 2, 10000, "examples/data/uo_dlm_seasonal_daily", (s: GibbsSampling.State) => DlmParameters.toList(s.p))
+      .runWith(Sink.onComplete(_ => system.terminate()))
+}
+
+object ForecastUoDlm extends App {
+  // implicit val system = ActorSystem("forecast_uo")
+  // implicit val materializer = ActorMaterializer()
+
+  val format = DateTimeFormatter.ISO_DATE_TIME
+  implicit val codec: CellCodec[LocalDateTime] =
+    localDateTimeCodec(format)
+
+  val tempDlm = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
+  val dlmComp = List.fill(4)(tempDlm).reduce(_ |*| _)
+
+  case class EnvSensor(
+    datetime:    LocalDateTime,
+    co:          Option[Double],
+    humidity:    Option[Double],
+    no:          Option[Double],
+    temperature: Option[Double])
+
+  val rawData = Paths.get("examples/data/rounded_missing_uo_data.csv")
+  val reader = rawData.asCsvReader[EnvSensor](rfc.withHeader)
+  val sensor = reader.
+    collect { case Right(a) => a }
+
+  val times = sensor.
+    map(_.datetime).
+    toVector
+
+  val data = sensor.
+    map(a => Data(a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
+      DenseVector(a.co, a.humidity, a.no, a.temperature))).
+    toVector.
+    sortBy(_.time)
+
+  data.take(10).foreach(println)
+
+  val file = "examples/data/uo_dlm_seasonal_daily_0.csv"
+
+  val ps: Future[DlmParameters] = Streaming.readCsv(file).
+    map(_.map(_.toDouble).toList).
+    drop(1000).
+    map(x => DlmParameters.fromList(4, 28)(x)).
+    via(Streaming.meanParameters(4, 28)).
+    runWith(Sink.head)
+
+  // val out = new java.io.File("examples/data/forecast_urbanobservatory.csv")
+  // val headers = rfc.withHeader(false)
+
+  // (for {
+  //   p <- ps
+  //   filtered = KalmanFilter.filterDlm(dlmComp, data, p)
+  //   summary = filtered.flatMap(kf => (for {
+  //     f <- kf.ft
+  //     q <- kf.qt
+  //   } yield Dlm.summariseForecast(f, q)).
+  //     map(f => f.flatten.toList))
+  //   toWrite: Vector[(LocalDateTime, List[Double])] = times.zip(summary)
+  //   _ = println("summary is ${summary.take(3)}") 
+  //   io = out.writeCsv(toWrite, headers)
+  // } yield io).
+  //   onComplete{ s =>
+  //     println(s)
+  //     system.terminate()
+  //   }
+}
+
 object FitContUo extends App with JointUoModel {
   implicit val system = ActorSystem("dlm_fsv_uo")
   implicit val materializer = ActorMaterializer()
@@ -168,7 +287,7 @@ object InterpolateUo extends App with JointUoModel {
   val summary = DlmFsv.summariseInterpolation(iters, 0.995)
 
   // write interpolated data
-  val out = new java.io.File("data/interpolated_urbanobservatory.csv")
+  val out = new java.io.File("examples/data/interpolated_urbanobservatory.csv")
   val headers = rfc.withHeader("time", "mean", "upper", "lower")
 
   out.writeCsv(summary, headers)
