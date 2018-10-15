@@ -10,54 +10,11 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
   // simulate data
   val p = SvParameters(0.8, 1.0, 0.2)
   val model = Dlm.autoregressive(p.phi)
-  val params = StochVolKnotsMultivariate.ar1DlmParams(p)
   val sims = StochasticVolatility.simulate(p).
     steps.
     take(1000).
     toVector.
     map { case (t, y, a) => Data(t, DenseVector(y)) }
-
-  val filteredTest = KalmanFilter(FilterAr.advanceState(p)).
-    filter(model, sims, params)
-  val filterSvdTest = SvdFilter(FilterAr.advanceStateSvd(p)).
-    filter(model, sims, params)
-
-  test("Svd filter AR(1) should return the same values as the Kalman Filter") {
-    for {
-      i <- 0 until sims.size
-    } assert(filteredTest(i).mt === (filterSvdTest(i).mt))
-  }
-
-  val covs = filterSvdTest.map(s => (diag(s.dc) * s.uc.t).t * (diag(s.dc) * s.uc.t))
-  test("svd filter AR(1) covariances should the same values as the Kalman Filter") {
-    for {
-      i <- 0 until sims.size
-    } assert(filteredTest(i).ct === (covs(i)))
-  }
-
-  val ys = sims.map(d => (d.time, d.observation(0)))
-  val filtered = FilterAr.filterUnivariate(ys, Vector.fill(ys.size)(1.0), p)
-
-  test("Univariate Kalman filter is the same as the Kalman Filter") {
-    for {
-      i <- 0 until sims.size
-      means = filtered.map(_.mt)
-      mvMeans = filteredTest.map(_.mt(0))
-    } assert(means(i) === (mvMeans(i)) +- 1e-3)
-
-    for {
-      i <- 0 until sims.size
-      covs = filtered.map(_.ct)
-      mvCovs = filteredTest.map(_.ct(0,0))
-    } assert(covs(i) === (mvCovs(i)) +- 1e-3)
-  }
-
-  val sampled = Smoothing.sample(model, filteredTest, FilterAr.backStep(p))
-  val sampledUni = FilterAr.univariateSample(p, filtered).draw
-
-  test("Univariate Sampler is the same size MV Sampler") {
-    assert(sampled.size === sampledUni.size)
-  }
 
   val mod = Dlm.polynomial(2)
   val firstOrderParams = DlmParameters(
@@ -112,6 +69,7 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
 
   import StochasticVolatilityKnots._
 
+  val params = DlmParameters(1.0, 0.8, 0.0, 1.0)
   val arsims = Dlm.simulateRegular(model, params, 1.0).
     steps.
     take(1000).

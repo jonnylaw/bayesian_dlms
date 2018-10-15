@@ -163,30 +163,4 @@ object FilterAr {
         ur = root.rightVectors.t)
     }
   }
-
-  def backStep(params: SvParameters) = {
-    val mod = Dlm.autoregressive(params.phi)
-    val p = StochVolKnotsMultivariate.ar1DlmParams(params)
-    Smoothing.step(mod, p.w) _
-  }
-
-  def sample(
-    params: SvParameters,
-    filtered: Vector[KfState]) = {
-
-    val mod = Dlm.autoregressive(params.phi)
-    val p = StochVolKnotsMultivariate.ar1DlmParams(params)
-    Smoothing.sample(mod, filtered, Smoothing.step(mod, p.w))
-  }
-
-  def sampleSvd(
-    w:        DenseMatrix[Double],
-    phi:      Double,
-    filtered: Vector[SvdState]): Vector[SamplingState] = {
-
-    val mod = Dlm.autoregressive(phi)
-    val sqrtW = w map math.sqrt
-
-    SvdSampler.sample(mod, filtered, sqrtW)
-  }
 }
