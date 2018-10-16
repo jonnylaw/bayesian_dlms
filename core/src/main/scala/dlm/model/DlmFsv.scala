@@ -36,10 +36,11 @@ case class DlmFsvParameters(
 
 object DlmFsvParameters {
   def empty(vDim: Int, wDim: Int, p: Int, k: Int): DlmFsvParameters =
-    DlmFsvParameters(
-      DlmParameters.empty(vDim, wDim),
-      FsvParameters.empty(p, k)
-    )
+      DlmFsvParameters(
+        DlmParameters.empty(vDim, wDim),
+        FsvParameters.empty(p, k)
+      )
+
 
   /**
     * Parse DLM FSV parameters from a list

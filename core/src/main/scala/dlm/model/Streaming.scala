@@ -2,6 +2,8 @@ package dlm.core.model
 
 import java.io.File
 import java.nio.file.Paths
+import cats._
+import cats.implicits._
 import kantan.csv._
 import kantan.csv.ops._
 import scala.concurrent.Future
@@ -85,9 +87,8 @@ object Streaming {
 
   def meanDlmFsvParameters(vDim: Int, wDim: Int, p: Int, k: Int) =
     Flow[DlmFsvParameters].
-      fold((DlmFsvParameters.empty(vDim, wDim, p, k), 1.0)){
-        case ((avg, n), b) =>
-          (avg.map(_ * n).add(b).map(_  / (n + 1)), n + 1)
+      fold((DlmFsvParameters.empty(vDim, wDim, p, k), 1.0)){ case ((avg, n), b) => 
+        (avg.map(_ * n).add(b).map(_  / (n + 1)), n + 1)
       }.
       map(_._1)
 
