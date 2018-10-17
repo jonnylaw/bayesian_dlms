@@ -155,9 +155,10 @@ object FitUoDlms extends App with RoundedUoData {
 
   data.
     groupBy(1000000, _.sensorId).
+    filter(_.sensorId != "new_new_emote_1171").
     fold(("Hello", Vector.empty[Data]))((l, r) => (r.sensorId, l._2 :+ envToData(r))).
     mergeSubstreams.
-    mapAsyncUnordered(4) { case (id: String, d: Vector[Data]) =>
+    mapAsyncUnordered(2) { case (id: String, d: Vector[Data]) =>
       println(s"Performing inference for station $id with ${d.size} observations")
 
       val iters = GibbsSampling.sample(dlmComp, priorV, priorW, dlmP.draw, d)
