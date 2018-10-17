@@ -28,6 +28,16 @@ trait ReadTrafficData {
     .toVector
     .zipWithIndex
     .map { case (x, t) => Data(t, DenseVector(x.some)) }
+
+  val rawData1 = Paths.get("examples/data/test_traffic.csv")
+  val reader1 = rawData1.asCsvReader[(LocalDateTime, Double)](rfc.withHeader)
+  val test = reader1
+    .collect {
+      case Right(a) => a._2
+    }
+    .toVector
+    .zipWithIndex
+    .map { case (x, t) => Data(t, DenseVector(x.some)) }
 }
 
 object TrafficPoisson extends App with ReadTrafficData {
@@ -126,25 +136,40 @@ object TrafficNegBin extends App with ReadTrafficData {
 }
 
 object OneStepForecastTraffic extends App with ReadTrafficData {
+  implicit val system = ActorSystem("forecast-traffic")
+  implicit val materializer = ActorMaterializer()
+
   val model = Dglm.negativeBinomial(Dlm.polynomial(1) |+| Dlm.seasonal(24, 4))
 
-  val params = DlmParameters(
-    DenseMatrix(1.0),
-    diag(DenseVector(0.5, 0.6, 0.5, 0.4, 0.4,
-      0.5, 0.5, 0.25, 0.25)),
-    DenseVector(2.3, -3.0, 3.3, 0.5, 3.1, 2.3, 0.8, 0.2, -0.9),
-    diag(DenseVector.fill(9)(1.0)))
+  Streaming.
+    readCsv("examples/data/negbin_traffic_auxiliary_500_0.05_pmmh_0.csv").
+    drop(1000).
+    map(_.map(_.toDouble).toList).
+    map(l =>
+      DlmParameters(
+        v = DenseMatrix(l.head),
+        w = diag(DenseVector(l.slice(1, 10).toArray)),
+        m0 = DenseVector.zeros[Double](9),
+        c0 = DenseMatrix.eye[Double](9) * 100.0)
+    ).
+    via(Streaming.meanParameters(1, 9)).
+    map { p =>
 
-  val pf = ParticleFilter(500, ParticleFilter.multinomialResample)
-  val init = pf.initialiseState(model, params, data)
-  val filtered = data.take(2000).foldLeft(init)(pf.step(model, params))
+      val out = new java.io.File("examples/data/forecast_traffic_negbin.csv")
+      val headers = rfc.withHeader("time", "median", "lower", "upper")
 
-  val forecast = Dglm.forecastParticles(model, filtered.state,
-    params, data.drop(2000)).
-    map { case (t, x, f) => (t, Dglm.meanAndIntervals(f)) }.
-    map { case (t, (f, l, u)) => (t, f(0), l(0), u(0)) }
+      val n = 1000
+      val pf = ParticleFilter(n, ParticleFilter.multinomialResample)
+      val initState = pf.initialiseState(model, p, data)
+      val lastState = data.foldLeft(initState)(pf.step(model, p)).state
+      val fcst = Dglm.forecastParticles(model, lastState, p, test).
+        map { case (t, x, f) => (t, Dglm.medianAndIntervals(0.75)(f)) }.
+        map { case (t, (f, l, u)) => (t, f(0), l(0), u(0)) }
 
-  val out = new java.io.File("examples/data/forecast_traffic_negbin.csv")
-  val headers = rfc.withHeader("time", "mean", "lower", "upper")
-  out.writeCsv(forecast, headers)
+      out.writeCsv(fcst, headers)
+    }.
+    runWith(Sink.onComplete{ s =>
+      println(s)
+      system.terminate()
+    })
 }

@@ -219,17 +219,29 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
     (sampleMean, sampleCovariance)
   }
 
-  def meanAndIntervals(samples: Seq[DenseVector[Double]]) = {
+  def meanAndIntervals(prob: Double)(samples: Seq[DenseVector[Double]]) = {
     val n = samples.size
     val sampleMean = samples.reduce(_ + _).map(_ * 1.0 / n)
     val tsp = samples.map(_.data).toArray.transpose.map(_.sorted)
-    val index = math.floor(n * 0.975).toInt
+    val index = math.floor(n * prob).toInt
     val upper = tsp.map(v => v(index))
     val lower = tsp.map(v => v(n - index))
 
     (sampleMean, lower, upper)
   }
 
+  def medianAndIntervals(prob: Double)(samples: Seq[DenseVector[Double]]) = {
+    val n = samples.size
+    val n2 = math.floor(n * 0.5).toInt
+    val tsp = samples.map(_.data).toArray.transpose.map(_.sorted)
+    val median = tsp.map(x => x(n2))
+
+    val index = math.floor(n * prob).toInt
+    val upper = tsp.map(v => v(index))
+    val lower = tsp.map(v => v(n - index))
+
+    (median, lower, upper)
+  }
 
   /**
     * Forecast a DGLM from a particle cloud 
@@ -245,8 +257,7 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
     mod: DglmModel,
     xt:  Vector[DenseVector[Double]],
     p:   DlmParameters,
-    ys:  Vector[Data]
-  ) = {
+    ys:  Vector[Data]) = {
 
     val init = (ys.head.time, xt,
       Vector.fill(xt.size)(DenseVector.zeros[Double](xt.head.size)))
@@ -255,9 +266,9 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
       val dt = y.time - t0
       val x1 = ParticleFilter.advanceState(mod, dt, x, p).draw
       // Linking function?
-      val meanForecast = x1 map (x => mod.f(1.0).t * x)
-      val w = ParticleFilter.calcWeights(mod, y.time,
-        x1, y.observation, p)
+      val eta = x1 map (x => mod.f(y.time).t * x)
+      val meanForecast = eta.map(e => mod.observation(e, p.v).draw)
+      val w = ParticleFilter.calcWeights(mod, y.time, x1, y.observation, p)
       val max = w.max
       val w1 = w map (a => exp(a - max))
 
