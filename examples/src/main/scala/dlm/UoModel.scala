@@ -154,16 +154,18 @@ object FitUoDlms extends App with RoundedUoData {
   } yield List.fill(4)(seasonalP).reduce(Dlm.outerSumParameters)
 
   data.
-    groupBy(1000000, _.sensorId).
+    filter(_.sensorId == "new_new_emote_1171").
+    groupBy(10000, _.sensorId).
     fold(("Hello", Vector.empty[Data]))((l, r) => (r.sensorId, l._2 :+ envToData(r))).
     mergeSubstreams.
-    mapAsyncUnordered(4) { case (id: String, d: Vector[Data]) =>
+
+    mapAsync(2) { case (id: String, d: Vector[Data]) =>
       println(s"Performing inference for station $id with ${d.size} observations")
 
       val iters = GibbsSampling.sample(dlmComp, priorV, priorW, dlmP.draw, d)
 
       Streaming
-      .writeParallelChain(iters, 2, 10000, s"examples/data/uo_dlm_seasonal_daily_${id}_",
+      .writeParallelChain(iters, 2, 10000, s"examples/data/uo_dlm_seasonal_daily_${id}",
         (s: GibbsSampling.State) => DlmParameters.toList(s.p)).
         runWith(Sink.ignore)
     }.
