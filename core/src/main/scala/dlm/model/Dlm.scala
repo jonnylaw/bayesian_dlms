@@ -334,15 +334,15 @@ object Dlm {
       .map(a => (a._1, a._4, a._5))
   }
 
-  def summariseForecast(
+  def summariseForecast(interval: Double)(
     ft: DenseVector[Double],
     qt: DenseMatrix[Double]) = {
 
     for {
       i <- ft.data.indices
       g = Gaussian(ft(i), qt(i, i))
-      upper = g.inverseCdf(0.975)
-      lower = g.inverseCdf(0.025)
+      upper = g.inverseCdf(interval)
+      lower = g.inverseCdf(1 - interval)
     } yield List(ft(i), lower, upper)
   }
 }

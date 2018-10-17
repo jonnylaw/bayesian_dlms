@@ -25,7 +25,8 @@ trait JointUoModel {
     localDateTimeCodec(format)
   val tempDlm = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
   val foDlm = Dlm.polynomial(1)
-  val dlmComp = List(foDlm, tempDlm, foDlm, tempDlm).reduce(_ |*| _)
+  val dlmComp = List(foDlm, tempDlm, foDlm, tempDlm).
+    reduce(_ |*| _)
 
   def millisToHours(dateTimeMillis: Long) = {
     dateTimeMillis / 1e3 * 60 * 60
@@ -130,6 +131,10 @@ trait RoundedUoData {
     map(parseEnvSensor).
     collect { case Some(a) => a }
 
+  val encodedData = Streaming.readCsv("examples/data/encoded_sensor_data.csv").
+    map(parseEnvSensor).
+    collect { case Some(a) => a }
+
   def envToData(a: EnvSensor): Data =
     Data(a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
       DenseVector(a.co, a.humidity, a.no, a.temperature))
@@ -154,17 +159,17 @@ object FitUoDlms extends App with RoundedUoData {
   } yield List.fill(4)(seasonalP).reduce(Dlm.outerSumParameters)
 
   data.
-    groupBy(1000000, _.sensorId).
-    filter(_.sensorId != "new_new_emote_1171").
+    groupBy(10000, _.sensorId).
     fold(("Hello", Vector.empty[Data]))((l, r) => (r.sensorId, l._2 :+ envToData(r))).
     mergeSubstreams.
-    mapAsyncUnordered(2) { case (id: String, d: Vector[Data]) =>
+
+    mapAsync(2) { case (id: String, d: Vector[Data]) =>
       println(s"Performing inference for station $id with ${d.size} observations")
 
       val iters = GibbsSampling.sample(dlmComp, priorV, priorW, dlmP.draw, d)
 
       Streaming
-      .writeParallelChain(iters, 2, 10000, s"examples/data/uo_dlm_seasonal_daily_${id}_",
+      .writeParallelChain(iters, 2, 10000, s"examples/data/uo_dlm_seasonal_daily_${id}",
         (s: GibbsSampling.State) => DlmParameters.toList(s.p)).
         runWith(Sink.ignore)
     }.
@@ -182,14 +187,18 @@ object ForecastUoDlm extends App with RoundedUoData {
     (a.datetime, Data(a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
       DenseVector(a.co, a.humidity, a.no, a.temperature)))
 
-  data.
-    groupBy(1000000, _.sensorId).
+  encodedData.
+    filter(_.sensorId == "new_new_emote_1171").
+    groupBy(10000, _.sensorId).
     fold(("Hello", Vector.empty[(LocalDateTime, Data)]))((l, r) =>
       (r.sensorId, l._2 :+ envToDataTime(r))).
     mergeSubstreams.
-    mapAsyncUnordered(4) { case (id: String, d: Vector[(LocalDateTime, Data)]) =>
+    mapAsyncUnordered(1) { case (id: String, d: Vector[(LocalDateTime, Data)]) =>
       val data = d.map(_._2)
       val times = d.map(_._1)
+
+      println("The data size is ")
+      println(data.size)
 
       val file = s"examples/data/uo_dlm_seasonal_daily_${id}_0.csv"
 
@@ -209,7 +218,7 @@ object ForecastUoDlm extends App with RoundedUoData {
         summary = filtered.flatMap(kf => (for {
           f <- kf.ft
           q <- kf.qt
-        } yield Dlm.summariseForecast(f, q)).
+        } yield Dlm.summariseForecast(0.75)(f, q)).
           map(f => f.flatten.toList))
         toWrite: Vector[(String, LocalDateTime, List[Double])] = times.
           zip(summary).
@@ -251,22 +260,21 @@ object InterpolateUo extends App with JointUoModel {
 
   val file = "examples/data/uo_cont_gibbs_two_factors_0.csv"
 
-  // read in parameters
-  val rawMcmc = Paths.get(file)
-  val reader2 = rawMcmc.asCsvReader[List[Double]](rfc.withHeader)
-  val ps: DlmFsvParameters = reader2.
-    collect {
-      case Right(a) => a
-    }.
+  // read in parameters and calculate the mean
+  val rawParams = Paths.get(file)
+  val reader2 = rawParams.asCsvReader[List[Double]](rfc.withHeader)
+  val params: DlmFsvParameters = reader2.
+    collect { case Right(a) => a }.
     map(x => DlmFsvParameters.fromList(4, 16, 4, 2)(x)).
     foldLeft((DlmFsvParameters.empty(4, 16, 4, 2), 1.0)){
-      case ((avg, n), b) =>
-        (avg.map(_ * n).add(b).map(_  / (n + 1)), n + 1)
-    }._1
+        case ((avg, n), b) =>
+          (avg.map(_ * n).add(b).map(_  / (n + 1)), n + 1)
+      }._1
 
   // read in data with encoded missing bits
-  val rawData1 = Paths.get("examples/data/new_new_emote_1108_wide.csv")
-  val reader1 = rawData1.asCsvReader[(LocalDateTime, String, String, String, String)](rfc.withHeader)
+  val rawData1 = Paths.get("examples/data/new_new_emote_1108_rounded.csv")
+  val reader1 = rawData1.asCsvReader[(LocalDateTime, String,
+    String, String, String)](rfc.withHeader)
   val testData = reader1.
     collect {
       case Right(a) => Data(a._1.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
@@ -274,23 +282,21 @@ object InterpolateUo extends App with JointUoModel {
           readValue(a._4), readValue(a._5)))
     }.
     toVector.
-    // zipWithIndex.
-    // filter { case (_, i) => i % 12 == 0 }. // thinned
-    // map(_._1).
     sortBy(_.time)
 
   // use mcmc to sample the missing observations
-  val iters = DlmFsv.sampleStateOu(testData, dlmComp, ps).
+  val iters = DlmFsv.sampleStateOu(testData, dlmComp, params).
     steps.
     take(1000).
     map { (s: DlmFsv.State) =>
       val vol = s.volatility.map(x => (x.time, x.sample))
       val st = s.theta.map(x => (x.time, x.sample))
-      DlmFsv.obsVolatility(vol, st, dlmComp, ps)
+      DlmFsv.obsVolatility(vol, st, dlmComp, params)
     }.
     map(s => s.map { case (t, y) => (t, Some(y(0))) }).
     toVector
 
+  // calculate credible intervals
   val summary = DlmFsv.summariseInterpolation(iters, 0.995)
 
   // write interpolated data
@@ -298,4 +304,27 @@ object InterpolateUo extends App with JointUoModel {
   val headers = rfc.withHeader("time", "mean", "upper", "lower")
 
   out.writeCsv(summary, headers)
+}
+
+object ForecastUo extends App {
+  implicit val system = ActorSystem("forecast-uo")
+  implicit val materializer = ActorMaterializer()
+
+  val dlm = Dlm.polynomial(1) |+|
+    Dlm.seasonal(24, 3) |+| Dlm.seasonal(24 * 7, 3)
+  val mod = Dglm.studentT(3, dlm)
+
+  val file = "examples/data/uo_cont_gibbs_two_factors_0.csv"
+
+  // read parameters from file
+  val ps: Future[DlmFsvParameters] = Streaming.readCsv(file).
+    map(_.map(_.toDouble).toList).
+    map(x => DlmFsvParameters.fromList(4, 16, 4, 2)(x)).
+    via(Streaming.meanDlmFsvParameters(4, 16, 4, 2)).
+    runWith(Sink.head)
+
+  val out = new java.io.File("examples/data/forecast_uo.csv")
+  val headers = rfc.withHeader("time", "mean", "lower", "upper")
+
+  val n = 1000
 }

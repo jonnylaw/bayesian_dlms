@@ -161,7 +161,7 @@ object ForecastSeasonal extends App with SeasonalModel with SeasonalData {
   val forecasted =
     Dlm.forecast(mod, mt, ct, initTime, meanParameters).
     map { case (t, ft, qt) =>
-      t :: Dlm.summariseForecast(ft, qt).toList.flatten }.
+      t :: Dlm.summariseForecast(0.75)(ft, qt).toList.flatten }.
       take(100).toList
 
   val out = new java.io.File("examples/data/seasonal_model_forecast.csv")

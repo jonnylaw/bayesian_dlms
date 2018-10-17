@@ -83,9 +83,8 @@ object NoStudentTModel extends App with NoData {
   val iters = StudentT
     .sample(data.toVector, priorW, priorNu, propNu(0.5), propNuP(0.5), mod, params)
 
-  def formatParameters(s: StudentT.State) = {
-    s.nu.toDouble :: DenseVector.vertcat(diag(s.p.v), diag(s.p.w), s.state.last.mean).data.toList ::: s.state.last.cov.data.toList
-  }
+  def formatParameters(s: StudentT.State) =
+    s.nu.toDouble :: s.p.toList
 
   Streaming
     .writeParallelChain(iters, 2, 10000,
@@ -109,13 +108,57 @@ object NoGaussianModel extends App with NoData {
 
   val iters = GibbsSampling.sampleSvd(dlm, priorV, priorW, params, data.toVector)
 
-  def formatParameters(s: GibbsSampling.State) = {
-    DenseVector.vertcat(diag(s.p.v), diag(s.p.w)).data.toList
-  }
+  def formatParameters(s: GibbsSampling.State) = 
+    s.p.toList
 
   Streaming
-    .writeParallelChain(iters, 2, 10000, "examples/data/no_dlm_seasonal_weekly", formatParameters)
+    .writeParallelChain(iters, 2, 10000,
+      "examples/data/no_dlm_seasonal_weekly", formatParameters)
     .runWith(Sink.onComplete(_ => system.terminate()))
+}
+
+object ForecastNoGaussian extends App with NoData {
+  implicit val system = ActorSystem("forecast-no")
+  implicit val materializer = ActorMaterializer()
+
+  val dlm = Dlm.polynomial(1) |+|
+    Dlm.seasonal(24, 3) |+| Dlm.seasonal(24 * 7, 3)
+
+  Streaming.
+    readCsv("examples/data/no_dlm_seasonal_weekly_0.csv").
+    drop(1000).
+    map(_.map(_.toDouble).toList).
+    map(DlmParameters.fromList(1, 13)).
+    via(Streaming.meanParameters(1, 13)).
+    map { params =>
+
+      val out = new java.io.File("examples/data/forecast_no_dlm.csv")
+      val headers = rfc.withHeader("mean", "lower", "upper")
+
+      val p = params.copy(
+        m0 = DenseVector.zeros[Double](13),
+        c0 = DenseMatrix.eye[Double](13) * 100.0)
+
+      val kf = KalmanFilter(KalmanFilter.advanceState(p, dlm.g))
+      val initState = kf.initialiseState(dlm, p, data)
+      val lastState = data.foldLeft(initState)(kf.step(dlm, p))
+
+      val newP = p.copy(m0 = lastState.mt, c0 = lastState.ct)
+
+      val filtered = kf.filter(dlm, test, p)
+
+      val summary = filtered.flatMap(x => (for {
+        f <- x.ft
+        q <- x.qt
+      } yield Dlm.summariseForecast(0.75)(f, q)).
+        map(f => f.flatten.toList))
+
+      out.writeCsv(summary, headers)
+    }.
+    runWith(Sink.onComplete{ s =>
+      println(s)
+      system.terminate()
+    })
 }
 
 object ForecastNo extends App with NoData {
@@ -124,26 +167,35 @@ object ForecastNo extends App with NoData {
 
   val dlm = Dlm.polynomial(1) |+|
     Dlm.seasonal(24, 3) |+| Dlm.seasonal(24 * 7, 3)
-  val mod = Dglm.studentT(3, dlm)
+  val mod = Dglm.studentT(5, dlm)
 
-  val params = Streaming.
-    readCsv("examples/data/no_dlm_seasonal_weekly_1.csv").
-    map(_.map(_.toDouble)).
-    map(Streaming.parseDiagonalParameters(1, 13)).
+  Streaming.
+    readCsv("examples/data/no_dglm_seasonal_weekly_student_exact_0.csv").
+    drop(1000).
+    map(_.map(_.toDouble).toList).
+    map(l => l.tail).
+    map(DlmParameters.fromList(1, 13)).
     via(Streaming.meanParameters(1, 13)).
-    runWith(Sink.head)
+    map { params =>
 
-  val out = new java.io.File("examples/data/forecast_no.csv")
-  val headers = rfc.withHeader("time", "mean", "lower", "upper")
+      val out = new java.io.File("examples/data/forecast_no.csv")
+      val headers = rfc.withHeader("time", "mean", "lower", "upper")
 
-  val n = 1000
-  val forecast = for {
-    p <- params
-    lastState = MultivariateGaussianSvd(p.m0, p.c0).sample(n).toVector
-    fcst = Dglm.forecastParticles(mod, lastState, p, test).
-    map { case (t, x, f) => (t, Dglm.meanAndIntervals(f)) }.
-    map { case (t, (f, l, u)) => (t, f(0), l(0), u(0)) }
-  } yield out.writeCsv(fcst, headers)
+      val p = params.copy(
+        m0 = DenseVector.zeros[Double](13),
+        c0 = DenseMatrix.eye[Double](13) * 100.0)
+      val n = 1000
+      val pf = ParticleFilter(n, ParticleFilter.multinomialResample)
+      val initState = pf.initialiseState(mod, p, data)
+      val lastState = data.foldLeft(initState)(pf.step(mod, p)).state
+      val fcst = Dglm.forecastParticles(mod, lastState, p, test).
+        map { case (t, x, f) => (t, Dglm.meanAndIntervals(0.975)(f)) }.
+        map { case (t, (f, l, u)) => (t, f(0), l(0), u(0)) }
 
-  forecast.onComplete(_ => system.terminate())
+      out.writeCsv(fcst, headers)
+    }.
+    runWith(Sink.onComplete{ s =>
+      println(s)
+      system.terminate()
+    })
 }
