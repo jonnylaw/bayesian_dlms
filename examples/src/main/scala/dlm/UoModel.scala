@@ -25,7 +25,8 @@ trait JointUoModel {
     localDateTimeCodec(format)
   val tempDlm = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
   val foDlm = Dlm.polynomial(1)
-  val dlmComp = List(foDlm, tempDlm, foDlm, tempDlm).reduce(_ |*| _)
+  val dlmComp = List(foDlm, tempDlm, foDlm, tempDlm).
+    reduce(_ |*| _)
 
   def millisToHours(dateTimeMillis: Long) = {
     dateTimeMillis / 1e3 * 60 * 60
@@ -130,6 +131,10 @@ trait RoundedUoData {
     map(parseEnvSensor).
     collect { case Some(a) => a }
 
+  val encodedData = Streaming.readCsv("examples/data/encoded_sensor_data.csv").
+    map(parseEnvSensor).
+    collect { case Some(a) => a }
+
   def envToData(a: EnvSensor): Data =
     Data(a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
       DenseVector(a.co, a.humidity, a.no, a.temperature))
@@ -154,7 +159,6 @@ object FitUoDlms extends App with RoundedUoData {
   } yield List.fill(4)(seasonalP).reduce(Dlm.outerSumParameters)
 
   data.
-    filter(_.sensorId == "new_new_emote_1171").
     groupBy(10000, _.sensorId).
     fold(("Hello", Vector.empty[Data]))((l, r) => (r.sensorId, l._2 :+ envToData(r))).
     mergeSubstreams.
@@ -183,14 +187,18 @@ object ForecastUoDlm extends App with RoundedUoData {
     (a.datetime, Data(a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
       DenseVector(a.co, a.humidity, a.no, a.temperature)))
 
-  data.
-    groupBy(1000000, _.sensorId).
+  encodedData.
+    filter(_.sensorId == "new_new_emote_1171").
+    groupBy(10000, _.sensorId).
     fold(("Hello", Vector.empty[(LocalDateTime, Data)]))((l, r) =>
       (r.sensorId, l._2 :+ envToDataTime(r))).
     mergeSubstreams.
-    mapAsyncUnordered(4) { case (id: String, d: Vector[(LocalDateTime, Data)]) =>
+    mapAsyncUnordered(1) { case (id: String, d: Vector[(LocalDateTime, Data)]) =>
       val data = d.map(_._2)
       val times = d.map(_._1)
+
+      println("The data size is ")
+      println(data.size)
 
       val file = s"examples/data/uo_dlm_seasonal_daily_${id}_0.csv"
 
@@ -210,7 +218,7 @@ object ForecastUoDlm extends App with RoundedUoData {
         summary = filtered.flatMap(kf => (for {
           f <- kf.ft
           q <- kf.qt
-        } yield Dlm.summariseForecast(f, q)).
+        } yield Dlm.summariseForecast(0.75)(f, q)).
           map(f => f.flatten.toList))
         toWrite: Vector[(String, LocalDateTime, List[Double])] = times.
           zip(summary).
@@ -277,7 +285,7 @@ object InterpolateUo extends App with JointUoModel {
     sortBy(_.time)
 
   // use mcmc to sample the missing observations
-  val iters = DlmFsv.sampleStateOu(testData, dlmComp, ps).
+  val iters = DlmFsv.sampleStateOu(testData, dlmComp, params).
     steps.
     take(1000).
     map { (s: DlmFsv.State) =>

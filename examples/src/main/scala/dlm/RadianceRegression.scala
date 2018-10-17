@@ -79,7 +79,7 @@ object ForecastRadiance extends App with ReadRadianceData {
   val forecasted: List[List[Double]] = Dlm.forecast(model(forecastTest),
     mt, ct, 1.0, meanParameters).
     map { case (t, ft, qt) =>
-      t :: Dlm.summariseForecast(ft, qt).toList.flatten }.
+      t :: Dlm.summariseForecast(0.75)(ft, qt).toList.flatten }.
     take(12).
     toList
 

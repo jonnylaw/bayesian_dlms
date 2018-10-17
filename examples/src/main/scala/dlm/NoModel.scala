@@ -125,7 +125,7 @@ object ForecastNoGaussian extends App with NoData {
     Dlm.seasonal(24, 3) |+| Dlm.seasonal(24 * 7, 3)
 
   Streaming.
-    readCsv("examples/data/no_dglm_seasonal_weekly_0.csv").
+    readCsv("examples/data/no_dlm_seasonal_weekly_0.csv").
     drop(1000).
     map(_.map(_.toDouble).toList).
     map(DlmParameters.fromList(1, 13)).
@@ -133,7 +133,7 @@ object ForecastNoGaussian extends App with NoData {
     map { params =>
 
       val out = new java.io.File("examples/data/forecast_no_dlm.csv")
-      val headers = rfc.withHeader("time", "mean", "lower", "upper")
+      val headers = rfc.withHeader("mean", "lower", "upper")
 
       val p = params.copy(
         m0 = DenseVector.zeros[Double](13),
@@ -150,7 +150,7 @@ object ForecastNoGaussian extends App with NoData {
       val summary = filtered.flatMap(x => (for {
         f <- x.ft
         q <- x.qt
-      } yield Dlm.summariseForecast(f, q)).
+      } yield Dlm.summariseForecast(0.75)(f, q)).
         map(f => f.flatten.toList))
 
       out.writeCsv(summary, headers)
