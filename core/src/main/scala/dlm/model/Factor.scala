@@ -327,7 +327,6 @@ object FactorSv {
       s.mean(i), s.cov(i,i), s.at1(i), s.rt1(i,i))
     }
 
-
   def combineStates(s: Vector[Vector[FilterAr.SampleState]]): Vector[SamplingState] =
     s.transpose.
       map { x =>
@@ -373,7 +372,7 @@ object FactorSv {
       theseParameters = s.params.factorParams(i)
       factorState = StochVolState(theseParameters, thisState, 0)
       theseFactors = extractFactors(s.factors, i)
-      factor = StochasticVolatility.stepUni(priorPhi,
+      factor = StochasticVolatilityKnots.sampleStepArBeta(priorPhi,
         priorMu, priorSigmaEta, theseFactors)(factorState)
     } yield factor
 
@@ -442,6 +441,34 @@ object FactorSv {
       state = res.map(_.alphas)
     } yield State(
       s.params.copy(factorParams = params), s.factors, combineStates(state.map(_.toVector)))
+  }
+
+  /**
+    * Sample the log-volatility of a factor model
+    */
+  def sampleVolatilityOu(
+    p: Int,
+    params: FsvParameters,
+    factors: Vector[(Double, Option[DenseVector[Double]])],
+    volatility: Vector[SamplingState]
+  ): Vector[SamplingState] = {
+
+    val k = params.beta.cols
+
+    val res: Vector[Vector[FilterAr.SampleState]] = for {
+      i <- Vector.range(0, k)
+      thisState = extractState(volatility, i)
+      theseParameters = params.factorParams(i)
+      theseFactors = extractFactors(factors, i)
+      knots = StochasticVolatilityKnots.sampleKnots(10, 100, theseFactors.size).draw
+      logVol = StochasticVolatilityKnots.sampleState(
+        StochasticVolatilityKnots.ffbsOu,
+        StochasticVolatilityKnots.filterOu,
+        StochasticVolatilityKnots.sampleOu)(theseFactors, theseParameters,
+          knots, thisState.toArray)
+    } yield logVol.toVector
+
+    combineStates(res)
   }
 
   /**

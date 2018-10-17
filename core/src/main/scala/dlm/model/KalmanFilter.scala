@@ -4,6 +4,7 @@ import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.distributions._
 import cats.Traverse
 import cats.implicits._
+import math.exp
 
 /**
   * State for the Kalman Filter
@@ -206,7 +207,7 @@ object KalmanFilter {
       DenseVector.zeros[Double](1),
       DenseMatrix.eye[Double](1))
 
-    KalmanFilter(FilterAr.advanceState(p)).filterTraverse(mod, ys, dlmP)
+    KalmanFilter(advanceStateAr(p)).filterTraverse(mod, ys, dlmP)
   }
 
   /**
@@ -227,7 +228,7 @@ object KalmanFilter {
       DenseVector.zeros[Double](1),
       DenseMatrix.eye[Double](1))
 
-    KalmanFilter(FilterOu.advanceState(p)).filterTraverse(mod, ys, dlmP)
+    KalmanFilter(advanceStateOu(p)).filterTraverse(mod, ys, dlmP)
   }
 
   /**
@@ -350,5 +351,42 @@ object KalmanFilter {
 
     ys.scanLeft((ys.head._1, p.m0(0), p.c0(0,0))){ case ((t, mt, ct), y) =>
       stepUni(y, t, mt, ct, p, mod) }
+  }
+
+  /**
+    * Advance the state mean and variance to the a-priori
+    * value of the state at time t
+    * @param st the kalman filter state
+    * @param dt the time difference between observations (1.0)
+    * @param p the parameters of the SV Model
+    * @return the a-priori mean and covariance of the state at time t
+    */
+  def advanceStateAr(
+    p:  SvParameters)(
+    st: KfState,
+    dt: Double) = st.copy(
+      time = st.time + dt,
+      at = st.mt map (m => p.mu + p.phi * (m - p.mu)),
+      rt = st.ct map (c => p.phi * p.phi * c + p.sigmaEta * p.sigmaEta))
+
+  /**
+    * Advance the distribution of the state using the OU process
+    * @param svp the parameters of the stochastic volatility model
+    * @param st the state at time t
+    * @param dt the time difference to the next observation or point of interest
+    * @param p the parameters of the DlM
+    * @return the a-priori distribution of the latent state at time t + dt 
+    */
+  def advanceStateOu(
+    p: SvParameters)(
+    st: KfState,
+    dt: Double): KfState = {
+
+    val variance = (p.sigmaEta / (2 * p.phi)) * (1 - exp(-2 * p.phi * dt))
+    val identity = DenseMatrix.eye[Double](st.mt.size)
+
+    st.copy(time = st.time + dt,
+      at = st.mt map (m => p.mu + exp(p.phi * dt) * (m - p.mu)),
+      rt = (identity * exp(-p.phi * dt)) * st.ct + (identity * variance))
   }
 }

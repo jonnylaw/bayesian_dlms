@@ -249,4 +249,32 @@ object SvdFilter {
         if (i == j) d(i) else 0.0
     }
   }
+
+  /**
+    * Advance the state mean and variance to the a-priori
+    * value of the state at time t
+    * @param st the kalman filter state
+    * @param dt the time difference between observations (1.0)
+    * @param p the parameters of the SV Model
+    * @return the a-priori mean and covariance of the state at time t
+    */
+  def advanceStateArSvd(
+    p:  SvParameters)(
+    st: SvdState,
+    dt: Double): SvdState = {
+    
+    if (dt == 0) {
+      st
+    } else {
+      val identity = DenseMatrix.eye[Double](st.mt.size)
+      val g = identity * p.phi
+      val sqrtW = identity * p.sigmaEta
+      val rt = DenseMatrix.vertcat(diag(st.dc) * st.uc.t * g.t, sqrtW *:* math.sqrt(dt))
+      val root = svd(rt)
+
+      st.copy(at = st.mt map (m => p.mu + p.phi * (m - p.mu)),
+        dr = root.singularValues,
+        ur = root.rightVectors.t)
+    }
+  }
 }

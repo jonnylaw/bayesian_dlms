@@ -136,7 +136,7 @@ object StochasticVolatility {
   def sampleStateAr(
     ys:     Vector[(Double, Option[Double])],
     params: SvParameters,
-    alphas: Vector[FilterAr.SampleState]) = {
+    alphas: Vector[FilterAr.SampleState]): Rand[Vector[FilterAr.SampleState]] = {
 
     // sample the T indices of the mixture
     val kt = sampleKt(ys.map(_._2), alphas.map(_.sample))

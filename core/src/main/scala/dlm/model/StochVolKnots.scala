@@ -222,7 +222,7 @@ object StochasticVolatilityKnots {
     ys:   Vector[(Double, Option[Double])],
     p:     SvParameters,
     knots: Vector[Int],
-    state: Array[FilterAr.SampleState]) = { 
+    state: Array[FilterAr.SampleState]): Array[FilterAr.SampleState] = { 
 
     for (i <- knots.indices.init) {
       val selectedObs = ys.slice(knots(i), knots(i + 1))

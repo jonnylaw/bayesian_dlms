@@ -48,8 +48,7 @@ case class DlmParameters(
   def |*|(y: DlmParameters): DlmParameters =
     Dlm.outerSumParameters(self, y)
 
-  def toList =
-    DenseVector.vertcat(diag(v), diag(w), m0, diag(c0)).data.toList
+  def toList = DlmParameters.toList(self)
 }
 
 object DlmParameters {
@@ -75,6 +74,9 @@ object DlmParameters {
       DenseVector(l.slice(vDim + wDim, vDim + 2 * wDim).toArray),
       diag(DenseVector(l.slice(vDim + 2 * wDim, vDim + 3 * wDim).toArray))
     )
+
+  def toList(p: DlmParameters): List[Double] =
+    DenseVector.vertcat(diag(p.v), diag(p.w), p.m0, diag(p.c0)).data.toList
 }
 
 /**
