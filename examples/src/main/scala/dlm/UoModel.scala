@@ -197,9 +197,6 @@ object ForecastUoDlm extends App with RoundedUoData {
       val data = d.map(_._2)
       val times = d.map(_._1)
 
-      println("The data size is ")
-      println(data.size)
-
       val file = s"examples/data/uo_dlm_seasonal_daily_${id}_0.csv"
 
       val ps: Future[DlmParameters] = Streaming.readCsv(file).
