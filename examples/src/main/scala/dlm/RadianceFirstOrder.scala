@@ -4,7 +4,14 @@ import breeze.linalg.{DenseVector, DenseMatrix, diag}
 import dlm.core.model._
 import akka.actor.ActorSystem
 import cats.implicits._
+import kantan.csv._
+import kantan.csv.ops._
+import kantan.csv.generic._
+import java.time._
+import java.time.format._
+import kantan.csv.java8._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.util.ByteString
@@ -14,6 +21,7 @@ import java.nio.file.Paths
 import java.time._
 import java.time.format._
 import java.time.temporal.ChronoUnit
+
 
 trait ReadRadianceDifference {
   /**
@@ -81,7 +89,7 @@ trait ReadRadianceDifference {
   def radianceToData(r: Radiance): (Int, Int, Data) = 
     (r.stationId, 
       r.forecastHour,
-      Data(r.forecastDatetime.toEpochSecond(ZoneOffset.UTC),
+      Data(r.forecastDatetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
         DenseVector(r.difference.toArray))
     )
 
@@ -143,9 +151,8 @@ object FirstOrderRadiance extends App with ReadRadianceDifference {
       steps.
       take(10000)
 
-  def formatParameters(p: DlmParameters): List[Double] = {
-    DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
-  }
+  def formatParameters(p: DlmParameters): List[Double] = 
+    p.toList
 
   readRadiance("examples/data/radiance_difference_training.csv").
     collect { case Some(a) => a }.
@@ -165,15 +172,9 @@ object FirstOrderRadiance extends App with ReadRadianceDifference {
         via(Streaming.meanParameters(18, 18)).
         runWith(Sink.head)
 
-      val state: Future[(DenseVector[Double], DenseMatrix[Double])] = iters.
-        map(_.state.last.sample).
-        runWith(Sink.seq).
-        map(Dglm.meanCovSamples)
-
       val res: Future[(Int, Int, DlmParameters)] = for {
         p <- params
-        st <- state
-      } yield (stationId, fcstTime, DlmParameters(p.v, p.w, st._1, st._2))
+      } yield (stationId, fcstTime, DlmParameters(p.v, p.w, p.m0, p.c0))
 
       Source.fromFuture(res).
         runWith(writeMeanParams(formatParameters, "examples/data/first_order_mean_radiance.csv"))
@@ -188,6 +189,8 @@ object ForecastFirstOrderRadiance extends App
 
   implicit val system = ActorSystem("NationalGrid")
   implicit val materializer = ActorMaterializer()
+  val format = DateTimeFormatter.ISO_DATE_TIME
+  implicit val codec: CellCodec[LocalDateTime] = localDateTimeCodec(format)
 
   val model = List.fill(18)(Dlm.polynomial(1)).
     reduce(_ |*| _)
@@ -205,34 +208,61 @@ object ForecastFirstOrderRadiance extends App
     ss / forecast.size
   }
 
-  val params = scala.io.Source.
-    fromFile(new java.io.File("examples/data/first_order_mean_radiance.csv")).
-    getLines.
-    map(a => a.split(",").toVector).
-    map(parseParameters(18, 18)).
-    collect { case Some(a) => a }
+  // convert hours from the epoch to datetime
+  def hoursToDatetime(hours: Double) = {
+    val inst = Instant.ofEpochSecond(hours.toLong * 60 * 60)
+    val tz = ZoneOffset.UTC
+    LocalDateTime.ofInstant(inst, tz)
+  }
 
   readRadiance("examples/data/radiance_difference_test.csv").
     collect { case Some(a) => a }.
-    filter(_.stationId == 41).
     via(radianceToData).
-    groupBy(100, a => (a._1, a._2)).
-    map { case (stationId, fcstTime, data) =>
+    groupBy(1000, a => (a._1, a._2)).
+    mapAsync(1) { case (stationId, fcstTime, data) =>
 
-      // extract the parameters for the appropriate station
-      // and forecast datetime
-      val p = params.
-        filter(x => x._1 == stationId & x._2 == fcstTime).
-        map(_._3).toVector.head
+      println(s"Getting file for station $stationId")
+      val paramFile = s"examples/data/station_${stationId}_2_first_order.csv"
 
-      // Perform an 18 hour forecast
-      val f = Dlm.forecast(model, p.m0, p.c0, data.head.time, p).
-        take(18).
-        toVector
+      val out = new java.io.File(s"examples/data/forecast_radiance_${stationId}_fo.csv")
+      val headers = rfc.withHeader(false)
 
-      meanSquaredError(f, data)
+      val times = data.map(x => hoursToDatetime(x.time))
+
+      for {
+        p <- Streaming.readCsv(paramFile).
+          map(_.map(_.toDouble).toList).
+          drop(1000).
+          map(a => DlmParameters(
+            v = diag(DenseVector(a.take(18).toArray)),
+            w = diag(DenseVector(a.drop(18).toArray)),
+            m0 = DenseVector.zeros[Double](18),
+            c0 = DenseMatrix.eye[Double](18) * 100.0
+          )).
+          via(Streaming.meanParameters(18, 18)).
+          runWith(Sink.head)
+        training <- readRadiance("examples/data/radiance_difference_training.csv").
+          collect { case Some(a) => a }.
+          via(radianceToData).
+          filter(_._1 == stationId).
+          map(_._3).
+          runWith(Sink.head)
+        kf = KalmanFilter(KalmanFilter.advanceState(p, model.g))
+        init = kf.initialiseState(model, p, training)
+        lastState = training.foldLeft(init)(kf.step(model, p))
+        newP = p.copy(m0 = lastState.mt, c0 = lastState.ct)
+        filtered = kf.filter(model, data, newP)
+        summary = filtered.flatMap(x => (for {
+          f <- x.ft
+          q <- x.qt
+        } yield Dlm.summariseForecast(0.75)(f, q)).
+          map(f => f.flatten.toList))
+        io = out.writeCsv(times.zip(summary), headers)
+      } yield io
     }.
     mergeSubstreams.
-    runForeach(println).
-    onComplete(_ => system.terminate())
+    runWith(Sink.onComplete { s =>
+      println(s)
+      system.terminate()
+    })
 }
