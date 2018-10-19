@@ -59,6 +59,34 @@ object StudentT {
   }
 
   /**
+    * Sample the auxiliary diagonal covariance matrices 
+    */
+  def sampleCovariances(
+    ys:    Vector[Data],
+    index: Vector[Int],
+    f:     Double => DenseMatrix[Double],
+    dof:   Int,
+    theta: Vector[SamplingState],
+    p:     DlmParameters): Vector[DenseMatrix[Double]] = {
+
+    val scale = p.v(0, 0)
+    val alpha = (dof + 1) * 0.5
+
+    val diff: Vector[Array[Double]] = (ys.map(_.observation) zip theta)
+      .map { case (y, s) =>
+        val ft = f(s.time).t * s.sample
+        y.data.zipWithIndex.map {
+          case (Some(y), i) => (y - ft(i)) * (y - ft(i))
+          case _ => 0.0
+        }
+      }
+
+    val beta: Vector[Array[Double]] = diff.map(_.map(d => (dof * scale * 0.5) + d * 0.5))
+
+    beta map (x => diag(DenseVector(x.map(b => InverseGamma(alpha, b).draw))))
+  }
+
+  /**
     * Calculate the log-likelihood of the student's t-distributed model
     * @param mod the Student t DGLM
     * @param ys a vector of observations
@@ -83,6 +111,23 @@ object StudentT {
         case (_, None) => 0.0
       }
       .reduce(_ + _)
+  }
+
+  /**
+    * Sample the (square of the) scale of the Student's t distribution
+    * @param dof the degrees of freedom of the Student's t observation distribution
+    * @param vs the current sampled scales
+    */
+  def sampleScaleMvT(dof: Int,
+    variances: Vector[DenseMatrix[Double]]): DenseMatrix[Double] = {
+
+    val t = variances.size
+
+    val shape = t * dof * 0.5 + 1
+    val rate = dof * 0.5 * variances.map(_.map(1.0 / _)).reduce(_ + _)
+    val scale = rate.map(1.0 / _)
+
+    diag(diag(scale).map(s =>  Gamma(shape, s).draw))
   }
 
   /**
@@ -121,6 +166,45 @@ object StudentT {
       case (s, (p, y)) => kalmanStep(p)(s, y)
     }
   }
+
+  def filterMultivariate(
+    mod: Dlm,
+    variances: Vector[DenseMatrix[Double]],
+    observations: Vector[Data],
+    params: DlmParameters) = {
+
+    // create a list of parameters with the variance in them
+    val ps = variances.map(vi => params.copy(v = vi))
+
+    val kf = (p: DlmParameters) => KalmanFilter(KalmanFilter.advanceState(p, mod.g))
+    def kalmanStep(p: DlmParameters) = kf(p).step(mod, p) _
+
+    val (at, rt) = KalmanFilter.advState(mod.g, params.m0, params.c0, 0, params.w)
+    val init = kf(params).initialiseState(mod, params, observations)
+
+    // fold over the list of variances and the observations
+    (ps zip observations).scanLeft(init) {
+      case (s, (p, y)) => kalmanStep(p)(s, y)
+    }
+  }
+
+  /**
+    * Sample the state, incorporating the drawn variances for each observation
+    * @param variances the sampled auxiliary parameters
+    * @param mod the DLM
+    * @param observations
+    * @param params the parameters of the DLM model
+    */
+  def sampleStateMultivariate(
+    variances: Vector[DenseMatrix[Double]],
+    mod: Dlm,
+    observations: Vector[Data],
+    params: DlmParameters) = {
+
+    val filtered = filterMultivariate(mod, variances, observations, params)
+    Rand.always(Smoothing.sampleDlm(mod, filtered, params.w))
+  }
+
 
   /**
     * Sample the state, incorporating the drawn variances for each observation
@@ -205,6 +289,62 @@ object StudentT {
     val init = State(params, initVariances, priorNu.draw, initState.draw, 0)
 
     MarkovChain(init)(step(data, priorW, priorNu, propNu, propNuP, mod, params))
+  }
+
+  case class MvState(
+    p:         DlmParameters,
+    variances: Vector[DenseMatrix[Double]],
+    nu:        Int,
+    state:     Vector[SamplingState],
+    accepted:  Int)
+
+
+  def stepMultivariate(
+    data:    Vector[Data],
+    index:   Vector[Int],
+    priorW:  InverseGamma,
+    priorNu: DiscreteDistr[Int],
+    propNu:  Int => Rand[Int],
+    propNuP: (Int, Int) => Double,
+    mod:     DglmModel,
+    p:       DlmParameters)(s: MvState) = {
+
+    val dlm = Dlm(mod.f, mod.g)
+
+    for {
+      theta <- sampleStateMultivariate(s.variances, dlm, data, p)
+      newW <- GibbsSampling.sampleSystemMatrix(priorW, theta, mod.g)
+      vs = sampleCovariances(data, mod.f, s.nu, theta, p)
+      scale = sampleScaleMvT(s.nu, vs)
+      (nu, accepted) <- sampleNu(propNu, propNuP,
+        priorNu.logProbabilityOf, ll(mod, data, theta, p))(s.nu)
+    } yield MvState(s.p.copy(v = scale, w = newW),
+      vs, nu, theta, s.accepted + (if (accepted) 1 else 0))
+  }
+
+  /**
+    * Given a DLM with a p-dimensional observation, can one or more 
+    * processes by modelled using a Student's-t distribution?
+    * @param data the collection of observations
+    * @param index the index of the observations which are t-distributed
+    */
+  def sampleMultivariate(
+    data:    Vector[Data],
+    index:   Vector[Int],
+    priorW:  InverseGamma,
+    priorNu: DiscreteDistr[Int],
+    propNu:  Int => Rand[Int],
+    propNuP: (Int, Int) => Double,
+    mod:     DglmModel,
+    params:  DlmParameters): Process[MvState] = {
+
+    val dlm = Dlm(mod.f, mod.g)
+    val initVariances = Vector.fill(data.size)(params.v)
+    val initState = sampleStateMultivariate(initVariances, dlm, data, params)
+    val init = MvState(params, initVariances, priorNu.draw, initState.draw, 0)
+
+    MarkovChain(init)(stepMultivariate(data, index, priorW, priorNu,
+      propNu, propNuP, mod, params))
   }
 
   case class PmmhState(

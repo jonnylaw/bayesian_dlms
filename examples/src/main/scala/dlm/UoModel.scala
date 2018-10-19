@@ -229,6 +229,10 @@ object ForecastUoDlm extends App with RoundedUoData {
     })
 }
 
+object FitUoDlmStudent extends App with JointUoModel {
+
+}
+
 object FitContUo extends App with JointUoModel {
   implicit val system = ActorSystem("dlm_fsv_uo")
   implicit val materializer = ActorMaterializer()
