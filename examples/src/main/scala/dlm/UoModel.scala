@@ -14,6 +14,7 @@ import java.time.temporal.ChronoUnit
 import kantan.csv.java8._
 import java.nio.file.Paths
 import akka.actor.ActorSystem
+import akka.Done
 import akka.stream._
 import scaladsl._
 import scala.concurrent.Future
@@ -158,25 +159,28 @@ object FitUoDlms extends App with RoundedUoData {
       c0 = DenseMatrix.eye[Double](7))
   } yield List.fill(4)(seasonalP).reduce(Dlm.outerSumParameters)
 
-  data.
-    groupBy(10000, _.sensorId).
-    fold(("Hello", Vector.empty[Data]))((l, r) => (r.sensorId, l._2 :+ envToData(r))).
-    mergeSubstreams.
-
-    mapAsync(2) { case (id: String, d: Vector[Data]) =>
-      println(s"Performing inference for station $id with ${d.size} observations")
-
-      val iters = GibbsSampling.sample(dlmComp, priorV, priorW, dlmP.draw, d)
-
-      Streaming
+  def writeSensor(id: String): Future[Done] = for {
+    d <- data.
+      filter(_.sensorId == id).
+      map(envToData).
+      runWith(Sink.seq)
+    iters = GibbsSampling.sample(dlmComp, priorV, priorW, dlmP.draw, d.toVector)
+    io <- Streaming
       .writeParallelChain(iters, 2, 10000, s"examples/data/uo_dlm_seasonal_daily_${id}",
         (s: GibbsSampling.State) => DlmParameters.toList(s.p)).
-        runWith(Sink.ignore)
-    }.
-    runWith(Sink.onComplete { s =>
+    runWith(Sink.ignore)
+  } yield io
+
+  val ids = List("new_new_emote_1171", "new_new_emote_1172", "new_new_emote_1702",
+    "new_new_emote_1708", "new_new_emote_2602", "new_new_emote_2603",
+    "new_new_emote_2604", "new_new_emote_2605", "new_new_emote_2606",
+    "new_new_emote_1108")
+
+  ids.map(writeSensor).sequence.
+    onComplete { s =>
       println(s)
       system.terminate()
-    })
+    }
 }
 
 object ForecastUoDlm extends App with RoundedUoData {

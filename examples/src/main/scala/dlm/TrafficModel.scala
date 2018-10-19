@@ -23,21 +23,20 @@ trait ReadTrafficData {
   val reader = rawData.asCsvReader[(LocalDateTime, Double)](rfc.withHeader)
   val data = reader
     .collect {
-      case Right(a) => a._2
+      case Right(a) => a
     }
     .toVector
-    .zipWithIndex
-    .map { case (x, t) => Data(t, DenseVector(x.some)) }
+    .map { case (t, x) =>
+      Data(t.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
+        DenseVector(x.some)) }
 
   val rawData1 = Paths.get("examples/data/test_traffic.csv")
   val reader1 = rawData1.asCsvReader[(LocalDateTime, Double)](rfc.withHeader)
   val test = reader1
-    .collect {
-      case Right(a) => a._2
-    }
+    .collect { case Right(a) => a }
     .toVector
-    .zipWithIndex
-    .map { case (x, t) => Data(t, DenseVector(x.some)) }
+    .map { x => Data(x._1.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
+      DenseVector(x._2.some)) }
 }
 
 object TrafficPoisson extends App with ReadTrafficData {
@@ -141,6 +140,13 @@ object OneStepForecastTraffic extends App with ReadTrafficData {
 
   val model = Dglm.negativeBinomial(Dlm.polynomial(1) |+| Dlm.seasonal(24, 4))
 
+  // convert hours from the epoch to datetime
+  def hoursToDatetime(hours: Double) = {
+    val inst = Instant.ofEpochSecond(hours.toLong * 60 * 60)
+    val tz = ZoneOffset.UTC
+    LocalDateTime.ofInstant(inst, tz)
+  }
+
   Streaming.
     readCsv("examples/data/negbin_traffic_auxiliary_500_0.05_pmmh_0.csv").
     drop(1000).
@@ -163,7 +169,7 @@ object OneStepForecastTraffic extends App with ReadTrafficData {
       val initState = pf.initialiseState(model, p, data)
       val lastState = data.foldLeft(initState)(pf.step(model, p)).state
       val fcst = Dglm.forecastParticles(model, lastState, p, test).
-        map { case (t, x, f) => (t, Dglm.medianAndIntervals(0.75)(f)) }.
+        map { case (t, x, f) => (hoursToDatetime(t), Dglm.medianAndIntervals(0.75)(f)) }.
         map { case (t, (f, l, u)) => (t, f(0), l(0), u(0)) }
 
       out.writeCsv(fcst, headers)

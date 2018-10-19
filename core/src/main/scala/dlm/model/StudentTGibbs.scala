@@ -314,7 +314,7 @@ object StudentT {
     for {
       theta <- sampleStateMultivariate(s.variances, dlm, data, p)
       newW <- GibbsSampling.sampleSystemMatrix(priorW, theta, mod.g)
-      vs = sampleCovariances(data, mod.f, s.nu, theta, p)
+      vs = sampleCovariances(data, index, mod.f, s.nu, theta, p)
       scale = sampleScaleMvT(s.nu, vs)
       (nu, accepted) <- sampleNu(propNu, propNuP,
         priorNu.logProbabilityOf, ll(mod, data, theta, p))(s.nu)
