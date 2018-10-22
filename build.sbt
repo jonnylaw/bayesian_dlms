@@ -75,7 +75,8 @@ lazy val plot = project
 lazy val examples = project.
   settings(
     libraryDependencies ++= Seq(
-      "com.stripe" %% "rainier-core" % "0.1.3"
+      "com.stripe" %% "rainier-core" % "0.1.3",
+      "com.stripe" %% "rainier-cats" % "0.1.3"
     )
   )
   .dependsOn(core, plot)
