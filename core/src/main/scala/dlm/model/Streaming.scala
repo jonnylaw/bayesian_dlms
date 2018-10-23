@@ -92,6 +92,13 @@ object Streaming {
       }.
       map(_._1)
 
+  def meanDlmFsvSystemParameters(vDim: Int, wDim: Int, p: Int, k: Int) =
+    Flow[DlmFsvParameters].
+      fold((DlmFsvSystem.emptyParams(vDim, wDim, k), 1.0)){ case ((avg, n), b) => 
+        (avg.map(_ * n).add(b).map(_  / (n + 1)), n + 1)
+      }.
+      map(_._1)
+
   /**
     * Calculate the streaming mean of DLM parameters
     */

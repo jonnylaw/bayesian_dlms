@@ -111,3 +111,68 @@ object FitAqMesh extends App with AqmeshModel {
       system.terminate()
     })
 }
+
+object ForecastAqmesh extends App with AqmeshModel {
+  val training = reader.
+    collect { case Right(a) => a }.
+    filter(_.datetime.compareTo(
+      LocalDateTime.of(2018, Month.JANUARY, 1, 0, 0)) > 0).
+    filter(_.datetime.compareTo(
+      LocalDateTime.of(2018, Month.FEBRUARY, 1, 0, 0)) < 0).
+    toVector.
+    zipWithIndex.
+    filter { case (_, i) => i % 5 == 0 }. // thinned
+    map(_._1).
+    map(a => Data(
+      a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
+      DenseVector(a.no, a.no2, a.o3))
+    ).
+    sortBy(_.time)
+
+  val test = reader.
+    collect { case Right(a) => a }.
+    filter(_.datetime.compareTo(
+      LocalDateTime.of(2018, Month.FEBRUARY, 1, 0, 0)) > 0).
+    filter(_.datetime.compareTo(
+      LocalDateTime.of(2018, Month.FEBRUARY, 7, 0, 0)) < 0).
+    toVector.
+    zipWithIndex.
+    filter { case (_, i) => i % 5 == 0 }. // thinned
+    map(_._1).
+    map(a => Data(
+      a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
+      DenseVector(a.no, a.no2, a.o3))
+    ).
+    sortBy(_.time)
+
+  Streaming.
+    readCsv("examples/data/aqmesh_gibbs_no_no2_o3_0.csv").
+    drop(10000).
+    map(_.map(_.toDouble).toList).
+    map(DlmFsvSystem.paramsFromList(3, 21, 2)).
+    via(Streaming.meanDlmFsvSystemParameters(3, 21, 2)).
+    map { params =>
+
+      val out = new java.io.File("examples/data/forecast_aqmesh.csv")
+      val headers = rfc.withHeader(false)
+
+      // 1. perform the kalman filter on the training data to extract the
+      // final state
+
+      // 2. perform the kalman filter on the test data by sampling the volatility
+      val filtered = kf.filter(dlm, test, p)
+
+      val summary = filtered.flatMap(x => (for {
+        f <- x.ft
+        q <- x.qt
+      } yield Dlm.summariseForecast(0.75)(f, q)).
+        map(f => f.flatten.toList))
+
+      out.writeCsv(summary, headers)
+    }.
+    runWith(Sink.onComplete{ s =>
+      println(s)
+      system.terminate()
+    })
+
+}

@@ -27,6 +27,32 @@ object DlmFsvSystem {
   )
 
   /**
+    * Read DLM FSV parameters with a factor structure on the system matrix
+    * from a list of doubles
+    * @param vDim the dimension of the observation matrix
+    * @param wDim the dimension of the latent-state
+    * @param k the number of factors
+    * @param l a list of doubles representing parameter from a DLM FSV system model
+    */
+  def paramsFromList(
+    vDim: Int,
+    wDim: Int,
+    k: Int)(l: List[Double]): DlmFsvParameters =
+    DlmFsvParameters(
+      DlmParameters.fromList(vDim, wDim)(l.take(vDim + wDim * 3)),
+      FsvParameters.fromList(wDim, k)(l.drop(vDim + wDim * 3))
+    )
+
+  def emptyParams(
+    vDim: Int,
+    wDim: Int,
+    k: Int)(l: List[Double]): DlmFsvParameters =
+      DlmFsvParameters(
+        DlmParameters.empty(vDim, wDim),
+        FsvParameters.empty(wDim, k)
+      )
+
+  /**
     * Simulate a single step in the DLM FSV model
     * @param time the time of the next observation
     * @param x the state of the DLM
@@ -215,9 +241,8 @@ object DlmFsvSystem {
       dlmP = s.p.dlm
       theta <- ffbs(dlm, ys, dlmP, ws)
 
-      // newV <- sampleObservationVariance(priorV, dlm.f, theta, ys)
-      newP = s.p.copy(fsv = fs1.params)
-        //, v = newV)
+      newV <- sampleObservationVariance(priorV, dlm.f, theta, ys)
+      newP = s.p.copy(fsv = fs1.params, v = newV)
     } yield State(newP, theta, fs1.factors, fs1.volatility)
   }
 
