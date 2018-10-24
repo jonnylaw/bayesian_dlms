@@ -9,8 +9,8 @@ package object model {
     * A Gaussian DLM can be implicitly converted to a DGLM
     * Then particle filtering methods can be used on Gaussian Models
     */
-  implicit def dlm2dglm(dlmModel: Dlm): DglmModel = {
-    DglmModel(
+  implicit def dlm2dglm(dlmModel: Dlm): Dglm = {
+    Dglm(
       (x: DenseVector[Double], v: DenseMatrix[Double]) =>
         MultivariateGaussianSvd(x, v),
       dlmModel.f,

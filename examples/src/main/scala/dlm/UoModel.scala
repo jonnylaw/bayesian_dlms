@@ -128,7 +128,7 @@ trait RoundedUoData {
     } yield EnvSensor(l.head, datetime, toDoubleOpt(l(2)),
       toDoubleOpt(l(3)), toDoubleOpt(l(4)), toDoubleOpt(l(5)))
 
-  val data = Streaming.readCsv("examples/data/summarised_sensor_data.csv").    
+  val data = Streaming.readCsv("examples/data/summarised_sensor_data.csv").
     map(parseEnvSensor).
     collect { case Some(a) => a }
 
@@ -192,7 +192,6 @@ object ForecastUoDlm extends App with RoundedUoData {
       DenseVector(a.co, a.humidity, a.no, a.temperature)))
 
   encodedData.
-    filter(_.sensorId == "new_new_emote_1171").
     groupBy(10000, _.sensorId).
     fold(("Hello", Vector.empty[(LocalDateTime, Data)]))((l, r) =>
       (r.sensorId, l._2 :+ envToDataTime(r))).
@@ -200,6 +199,8 @@ object ForecastUoDlm extends App with RoundedUoData {
     mapAsyncUnordered(1) { case (id: String, d: Vector[(LocalDateTime, Data)]) =>
       val data = d.map(_._2)
       val times = d.map(_._1)
+
+      println(s"Forecasting sensor $id")
 
       val file = s"examples/data/uo_dlm_seasonal_daily_${id}_0.csv"
 
@@ -231,10 +232,6 @@ object ForecastUoDlm extends App with RoundedUoData {
       println(s)
       system.terminate()
     })
-}
-
-object FitUoDlmStudent extends App with JointUoModel {
-
 }
 
 object FitContUo extends App with JointUoModel {

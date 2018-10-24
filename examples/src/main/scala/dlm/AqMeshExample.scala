@@ -77,8 +77,8 @@ trait AqmeshModel {
 }
 
 object FitAqMeshFull extends App with AqmeshModel {
-  // implicit val system = ActorSystem("aqmesh")
-  // implicit val materializer = ActorMaterializer()
+  implicit val system = ActorSystem("aqmesh")
+  implicit val materializer = ActorMaterializer()
 
   override val dlmComp = List.fill(7)(seasonalDlm).
     reduce(_ |*| _)
@@ -119,23 +119,21 @@ object FitAqMeshFull extends App with AqmeshModel {
     ).
     sortBy(_.time)
 
-  println(training.size)
+  val initialParams = initP.draw
 
-  // val initialParams = initP.draw
+  val iters = DlmFsvSystem.sample(priorBeta, priorSigmaEta,
+    priorPhi, priorMu, priorSigma, priorW, training,
+    dlmComp, initialParams)
 
-  // val iters = DlmFsvSystem.sample(priorBeta, priorSigmaEta,
-  //   priorPhi, priorMu, priorSigma, priorW, training,
-  //   dlmComp, initialParams)
+  def formatParameters(s: DlmFsvSystem.State) =
+    s.p.toList
 
-  // def formatParameters(s: DlmFsvSystem.State) =
-  //   s.p.toList
-
-  // Streaming.writeParallelChain(
-  //   iters, 2, 100000, "examples/data/aqmesh_gibbs_no_no2_o3", formatParameters).
-  //   runWith(Sink.onComplete { s =>
-  //     println(s)
-  //     system.terminate()
-  //   })
+  Streaming.writeParallelChain(
+    iters, 2, 100000, "examples/data/aqmesh_gibbs_no_no2_o3", formatParameters).
+    runWith(Sink.onComplete { s =>
+      println(s)
+      system.terminate()
+    })
 }
 
 object FitAqMesh extends App with AqmeshModel {

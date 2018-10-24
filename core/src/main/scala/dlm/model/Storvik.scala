@@ -25,10 +25,10 @@ case class StorvikState(
 case class StorvikFilter(
   n:      Int,
   priorW: InverseGamma,
-  priorV: InverseGamma) extends FilterTs[StorvikState, DlmParameters, DglmModel] {
+  priorV: InverseGamma) extends FilterTs[StorvikState, DlmParameters, Dglm] {
 
   def initialiseState[T[_]: Traverse](
-    model: DglmModel,
+    model: Dglm,
     p: DlmParameters,
     ys: T[Data]): StorvikState = {
 
@@ -50,7 +50,7 @@ case class StorvikFilter(
     */
   def updateStatsW(
     dt:    Double,
-    mod:   DglmModel,
+    mod:   Dglm,
     stats: Vector[InverseGamma],
     x0:    DenseVector[Double],
     x1:    DenseVector[Double]): Vector[InverseGamma] = {
@@ -67,7 +67,7 @@ case class StorvikFilter(
     */
   def updateStatsV(
     time:  Double,
-    mod:   DglmModel,
+    mod:   Dglm,
     stats: Vector[InverseGamma],
     x: DenseVector[Double],
     y:   DenseVector[Double]): Vector[InverseGamma] = {
@@ -80,7 +80,7 @@ case class StorvikFilter(
   }
 
   def advanceState(
-    mod: DglmModel,
+    mod: Dglm,
     dt: Double,
     ps: Vector[DlmParameters],
     xs: Vector[DenseVector[Double]]) = {
@@ -90,7 +90,7 @@ case class StorvikFilter(
   }
 
   def step(
-    mod: DglmModel,
+    mod: Dglm,
     p:   DlmParameters)
     (s:  StorvikState, d: Data): StorvikState = {
 
@@ -141,7 +141,7 @@ case class StorvikFilter(
 
 
   def calcWeights(
-    mod: DglmModel,
+    mod: Dglm,
     time: Double,
     state: Vector[DenseVector[Double]],
     y: DenseVector[Option[Double]],

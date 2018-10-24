@@ -24,11 +24,11 @@ case class PfStateParams(
   * Extended Particle filter which approximates the parameters as a particle cloud
   */
 case class LiuAndWestFilter(n: Int, prior: Rand[DlmParameters], a: Double)
-    extends FilterTs[PfStateParams, DlmParameters, DglmModel] {
+    extends FilterTs[PfStateParams, DlmParameters, Dglm] {
   import LiuAndWestFilter._
 
   def initialiseState[T[_]: Traverse](
-    model: DglmModel,
+    model: Dglm,
     p: DlmParameters,
     ys: T[Data]
   ): PfStateParams = {
@@ -41,7 +41,7 @@ case class LiuAndWestFilter(n: Int, prior: Rand[DlmParameters], a: Double)
   }
 
   def step(
-    mod: DglmModel,
+    mod: Dglm,
     p:   DlmParameters)
     (x:  PfStateParams, d: Data): PfStateParams = {
 
@@ -92,7 +92,7 @@ object LiuAndWestFilter {
   def auxiliaryVariables(
     weights: Vector[Double],
     states: Vector[DenseVector[Double]],
-    mod:    DglmModel,
+    mod:    Dglm,
     y:      DenseVector[Double],
     mi:     Vector[DlmParameters]): Vector[Int] = {
 
@@ -129,7 +129,7 @@ object LiuAndWestFilter {
     */
   def advanceState(
     p: DlmParameters,
-    model: DglmModel)
+    model: Dglm)
     (s:  PfStateParams, dt: Double) = {
 
     val adv = s.state traverse (x => Dglm.stepState(model, p, x, dt))

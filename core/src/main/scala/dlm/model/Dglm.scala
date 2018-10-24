@@ -10,8 +10,9 @@ import breeze.stats.covmat
 /**
   * A DGLM used for modelling non-linear
   * non-Gaussian univariate time series
+  * TODO: Multivariate DGLMS with different observation distributions
   */
-case class DglmModel(
+case class Dglm(
   observation: (DenseVector[Double],
     DenseMatrix[Double]) => Rand[DenseVector[Double]],
   f: Double => DenseMatrix[Double],
@@ -22,8 +23,7 @@ case class DglmModel(
     DenseVector[Double]) => Double
 )
 
-object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
-
+object Dglm extends Simulate[Dglm, DlmParameters, DenseVector[Double]] {
   /**
     * Logistic function to transform the number onto a range between 0 and upper
     * @param upper the upper limit of the logistic function
@@ -43,8 +43,8 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
   /**
     * Define a DGLM with Student's t observation errors
     */
-  def studentT(nu: Int, mod: Dlm): DglmModel = {
-    DglmModel(
+  def studentT(nu: Int, mod: Dlm): Dglm = {
+    Dglm(
       (x: DenseVector[Double], v: DenseMatrix[Double]) =>
       ScaledStudentsT(nu, x(0), math.sqrt(v(0, 0))).
         map(DenseVector(_)),
@@ -68,8 +68,8 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
     * probability of observing a zero
     * @param mod the DLM model specifying the latent-state
     */
-  def zip(mod: Dlm): DglmModel = {
-    DglmModel(
+  def zip(mod: Dlm): Dglm = {
+    Dglm(
       observation = (x: DenseVector[Double], v: DenseMatrix[Double]) => {
         val p = expit(v(0,0))
         for {
@@ -97,8 +97,8 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
   /**
     * Negative Binomial Model for overdispersed count data
     */
-  def negativeBinomial(mod: Dlm): DglmModel = {
-    DglmModel(
+  def negativeBinomial(mod: Dlm): Dglm = {
+    Dglm(
       observation = (x: DenseVector[Double], logv: DenseMatrix[Double]) => {
         val size = exp(logv(0,0))
         val prob = exp(x(0)) / (size + exp(x(0)))
@@ -140,9 +140,9 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
     * Construct a DGLM with Beta distributed observations,
     * with variance < mean (1 - mean)
     */
-  def beta(mod: Dlm): DglmModel = {
+  def beta(mod: Dlm): Dglm = {
 
-    DglmModel(
+    Dglm(
       observation = (x, v) => {
         val mean = logisticFunction(1.0)(x(0))
 
@@ -163,8 +163,8 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
   /**
     * Construct a DGLM with Poisson distributed observations
     */
-  def poisson(mod: Dlm): DglmModel = {
-    DglmModel(
+  def poisson(mod: Dlm): Dglm = {
+    Dglm(
       observation = (x, v) => Poisson(exp(x(0))).map(DenseVector(_)),
       f = mod.f,
       g = mod.g,
@@ -175,7 +175,7 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
   }
 
   def stepState(
-    model: DglmModel,
+    model: Dglm,
     params: DlmParameters,
     state: DenseVector[Double],
     dt: Double): Rand[DenseVector[Double]] = {
@@ -189,7 +189,7 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
   }
 
   def observation(
-    model: DglmModel,
+    model: Dglm,
     params: DlmParameters,
     state: DenseVector[Double],
     time: Double): Rand[DenseVector[Double]] = {
@@ -198,7 +198,7 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
   }
 
   def initialiseState(
-      model: DglmModel,
+      model: Dglm,
       params: DlmParameters): (Data, DenseVector[Double]) = {
 
     val initState = MultivariateGaussianSvd(params.m0, params.c0).draw
@@ -254,7 +254,7 @@ object Dglm extends Simulate[DglmModel, DlmParameters, DenseVector[Double]] {
     * @return the time, mean observation and variance of the observation
     */
   def forecastParticles(
-    mod: DglmModel,
+    mod: Dglm,
     xt:  Vector[DenseVector[Double]],
     p:   DlmParameters,
     ys:  Vector[Data]) = {

@@ -27,7 +27,7 @@ case class ParticleFilter(
   resample: (
     Vector[DenseVector[Double]],
     Vector[Double]) => Vector[DenseVector[Double]])
-    extends FilterTs[PfState, DlmParameters, DglmModel] {
+    extends FilterTs[PfState, DlmParameters, Dglm] {
 
   import ParticleFilter._
 
@@ -35,7 +35,7 @@ case class ParticleFilter(
     * A single step of the Bootstrap Particle Filter
     */
   def step(
-    mod: DglmModel,
+    mod: Dglm,
     p:   DlmParameters)
     (s: PfState, d: Data): PfState = {
 
@@ -59,7 +59,7 @@ case class ParticleFilter(
   }
 
   def initialiseState[T[_]: Traverse](
-    model: DglmModel,
+    model: Dglm,
     p: DlmParameters,
     ys: T[Data]): PfState = {
 
@@ -76,7 +76,7 @@ object ParticleFilter {
     * Run a Bootstrap Particle Filter over a DGLM to calculate the log-likelihood
     */
   def likelihood[T[_]: Traverse](
-    mod: DglmModel,
+    mod: Dglm,
     ys: T[Data],
     n: Int)
     (p: DlmParameters): Double = {
@@ -95,7 +95,7 @@ object ParticleFilter {
     * @return a distribution over a collection of particles at this time
     */
   def advanceState[T[_]: Traverse](
-    model: DglmModel,
+    model: Dglm,
     dt:    Double,
     state: T[DenseVector[Double]],
     p:     DlmParameters) = {
@@ -104,7 +104,7 @@ object ParticleFilter {
   }
 
   def calcWeight(
-    mod:  DglmModel,
+    mod:  Dglm,
     time: Double,
     x:    DenseVector[Double],
     y:    DenseVector[Option[Double]],
@@ -128,7 +128,7 @@ object ParticleFilter {
     * @return a collection of weights corresponding to each particle
     */
   def calcWeights[F[_]: Functor](
-    mod:   DglmModel,
+    mod:   Dglm,
     time:  Double,
     state: F[DenseVector[Double]],
     y:     DenseVector[Option[Double]],

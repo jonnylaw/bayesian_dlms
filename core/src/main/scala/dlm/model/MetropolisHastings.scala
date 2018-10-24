@@ -145,7 +145,7 @@ object Metropolis {
     * Use particle marginal metropolis algorithm for a DGLM model
     */
   def dglm[T[_]: Traverse](
-    mod: DglmModel,
+    mod: Dglm,
     observations: T[Data],
     proposal: DlmParameters => Rand[DlmParameters],
     prior: DlmParameters => Double,
@@ -227,7 +227,7 @@ object MetropolisHastings {
     * @param n the number of particles in the PF
     * @return a Markov Chain Process which can be drawn from
     */
-  def pmmh(mod: DglmModel,
+  def pmmh(mod: Dglm,
            observations: Vector[Data],
            proposal: DlmParameters => ContinuousDistr[DlmParameters],
            prior: DlmParameters => Double,

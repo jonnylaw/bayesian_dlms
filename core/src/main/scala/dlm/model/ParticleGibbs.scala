@@ -15,12 +15,12 @@ case class PgState(
   ll: Double)
 
 /**
-  * Particle Gibbs Sampler for A Dynamic Generalised Linear DglmModel
+  * Particle Gibbs Sampler for A Dynamic Generalised Linear Dglm
   */
 object ParticleGibbs {
   def initialiseState[T[_]: Traverse](
     n: Int,
-    model: DglmModel,
+    model: Dglm,
     p: DlmParameters,
     ys: T[Data]) = {
 
@@ -40,7 +40,7 @@ object ParticleGibbs {
     PgState(conditionedState, List(x0), List.fill(n - 1)(1.0 / n), 0.0)
   }
 
-  def step(mod: DglmModel, p: DlmParameters)(s: PgState, d: Data): PgState = {
+  def step(mod: Dglm, p: DlmParameters)(s: PgState, d: Data): PgState = {
 
     val y = KalmanFilter.flattenObs(d.observation)
     // resample using the previous weights
@@ -94,7 +94,7 @@ object ParticleGibbs {
     * Perform the PG filter
     */
   def filter[T[_]: Traverse](n: Int,
-                             model: DglmModel,
+                             model: Dglm,
                              ys: T[Data],
                              p: DlmParameters): PgState = {
 
@@ -105,7 +105,7 @@ object ParticleGibbs {
   /**
     * Sample the conditioned state from the Particle Gibbs Sampler
     */
-  def sample(n: Int, p: DlmParameters, mod: DglmModel, ys: List[Data]) = {
+  def sample(n: Int, p: DlmParameters, mod: Dglm, ys: List[Data]) = {
 
     val filtered = filter(n, mod, ys, p)
     sampleState(filtered.states, filtered.weights) map ((filtered.ll, _))

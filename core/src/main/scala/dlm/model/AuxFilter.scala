@@ -9,14 +9,14 @@ import breeze.stats.mean
 /**
   * Calculate an one-dimensional unknown observation variance 
   */
-case class AuxFilter(n: Int) extends FilterTs[PfState, DlmParameters, DglmModel] {
+case class AuxFilter(n: Int) extends FilterTs[PfState, DlmParameters, Dglm] {
   import ParticleFilter._
 
   /**
     * A single step of the Auxiliary Particle Filter
     */
   def step(
-    mod: DglmModel,
+    mod: Dglm,
     p:   DlmParameters)
     (s: PfState, d: Data): PfState = {
 
@@ -55,7 +55,7 @@ case class AuxFilter(n: Int) extends FilterTs[PfState, DlmParameters, DglmModel]
   }
 
   def initialiseState[T[_]: Traverse](
-    model: DglmModel,
+    model: Dglm,
     p: DlmParameters,
     ys: T[Data]): PfState = {
 
@@ -67,7 +67,7 @@ case class AuxFilter(n: Int) extends FilterTs[PfState, DlmParameters, DglmModel]
 
 object AuxFilter {
   def likelihood[T[_]: Traverse](
-    mod: DglmModel,
+    mod: Dglm,
     ys: T[Data],
     n: Int)
     (p: DlmParameters): Double = {
