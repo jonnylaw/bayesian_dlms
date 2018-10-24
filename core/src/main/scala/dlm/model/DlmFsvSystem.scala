@@ -46,7 +46,7 @@ object DlmFsvSystem {
   def emptyParams(
     vDim: Int,
     wDim: Int,
-    k: Int)(l: List[Double]): DlmFsvParameters =
+    k: Int): DlmFsvParameters =
       DlmFsvParameters(
         DlmParameters.empty(vDim, wDim),
         FsvParameters.empty(wDim, k)
@@ -124,37 +124,6 @@ object DlmFsvSystem {
       dt = x1.time - x0.time
       diff = x1.sample - g(dt) * x0.sample
     } yield Data(x1.time, diff.mapValues(_.some))
-  }
-
-  /**
-    * Sample from the full conditional distribution of the measurement variance
-    * @param priorV an inverse gamma prior
-    * @param f the observation matrix
-    * @param theta the current sample of the state
-    * @param ys observations of the process
-    * @return a distribution over the measurement variance
-    */
-  def sampleObservationVariance(
-    prior: InverseGamma,
-    f:      Double => DenseMatrix[Double],
-    theta:  Vector[(Double, DenseVector[Double])],
-    ys:     Vector[Data]): Rand[Double] = {
-
-    val n = ys.size
-    val shape = prior.shape + n * 0.5
-
-    val ssy = (theta.tail zip ys).
-      map { case ((time, x), y) => 
-        val fm = KalmanFilter.missingF(f, time, y.observation)
-        val yt = KalmanFilter.flattenObs(y.observation)
-        val centered = (yt - fm.t * x)
-        centered.t * centered
-      }.
-      reduce(_ + _)
-
-    val rate = prior.scale + ssy * 0.5
-
-    InverseGamma(shape, rate)
   }
 
   /**
@@ -240,9 +209,11 @@ object DlmFsvSystem {
         diag(DenseVector.fill(d)(fs1.params.v)))
       dlmP = s.p.dlm
       theta <- ffbs(dlm, ys, dlmP, ws)
-
-      newV <- sampleObservationVariance(priorV, dlm.f, theta, ys)
-      newP = s.p.copy(fsv = fs1.params, v = newV)
+      state = theta.map(x => (x.time, x.sample))
+      newV <- GibbsSampling.
+        sampleObservationMatrix(priorV, dlm.f,
+          ys.map(_.observation), state)
+      newP = s.p.copy(fsv = fs1.params, dlm = s.p.dlm.copy(v = newV))
     } yield State(newP, theta, fs1.factors, fs1.volatility)
   }
 
@@ -291,29 +262,30 @@ object DlmFsvSystem {
   }
 
   /**
-    * Perform a forecast using the DLM FSV Model
+    * Perform a forecast online using the DLM FSV Model
     * Given a collection of parameters sampled from the
     * parameter posterior
     * @param
     */
   def forecast(
     dlm: Dlm,
-    ps:  Vector[DlmFsvParameters],
-    t0:  Double,
-    n:   Int,
-    obsDim: Int) = ps map { p =>
+    p:  DlmFsvParameters,
+    ys:  Vector[Data]) = {
 
-    val dt = 1.0
-    val times = Vector.iterate(t0, n)(t => t + dt)
-    val d = ps.head.dlm.m0.size // dimension of the state
-    
     val fps = p.fsv.factorParams
 
     // initialise the log-volatility at the stationary solution
-    val a0 = fps map (vp => Gaussian(vp.mu, math.pow(vp.sigmaEta, 2) / (1 - math.pow(vp.phi, 2))).draw)
+    val a0 = fps map { vp =>
+      val initVar = math.pow(vp.sigmaEta, 2) / (1 - math.pow(vp.phi, 2))
+      Gaussian(vp.mu, initVar).draw
+    }
+
+    val n = ys.size
+    val times = ys.map(_.time)
 
     // advance volatility using the parameters
-    val as = Vector.iterate(a0, n)(a => (fps zip a) map { case (vp, at) =>
+    val as = Vector.iterate(a0, n)(a => (fps zip a).map {
+      case (vp, at) =>
       StochasticVolatility.stepState(vp, at).draw
     })
 
@@ -324,16 +296,32 @@ object DlmFsvSystem {
         diag(DenseVector(a.toArray))) }
 
     // calculate the time dependent system variance matrix
-    val ws = calculateVariance(alphas, p.fsv.beta,
-      diag(DenseVector.fill(d)(p.fsv.v)))
+    val ws = calculateVariance(alphas, p.fsv.beta, p.dlm.v)
 
-    val init = (p.dlm.m0, p.dlm.c0)
+    val kf = KalmanFilter(KalmanFilter.advanceState(p.dlm, dlm.g))
+
+    val init: KfState = kf.initialiseState(dlm, p.dlm, ys)
 
     // advance the state of the DLM using the time dependent system matrix
-    (ws, times).zipped.foldLeft(init){ case ((m0, c0), (w, t)) =>
-      val (at, rt) = KalmanFilter.advState(dlm.g, m0, c0, dt, w)
-      val v = p.dlm.v
-      KalmanFilter.oneStepPrediction(dlm.f, at, rt, t, v)
+    (ws, ys).zipped.scanLeft(init){ case (st, (w, y)) =>
+      kf.step(dlm, p.dlm)(st, y)
     }
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

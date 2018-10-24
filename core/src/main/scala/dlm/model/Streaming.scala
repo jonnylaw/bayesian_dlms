@@ -2,8 +2,6 @@ package dlm.core.model
 
 import java.io.File
 import java.nio.file.Paths
-import cats._
-import cats.implicits._
 import kantan.csv._
 import kantan.csv.ops._
 import scala.concurrent.Future
@@ -22,7 +20,6 @@ object Streaming {
     * @param file the file to write the parameters to
     * @param config additional configuration as CsvConfiguration
     * from the kantan CSV package
-    * @return a Monix Task for writing an iterator to a file
     */
   def writeChain(
       formatParameters: DlmParameters => List[Double],
@@ -92,7 +89,7 @@ object Streaming {
       }.
       map(_._1)
 
-  def meanDlmFsvSystemParameters(vDim: Int, wDim: Int, p: Int, k: Int) =
+  def meanDlmFsvSystemParameters(vDim: Int, wDim: Int, k: Int) =
     Flow[DlmFsvParameters].
       fold((DlmFsvSystem.emptyParams(vDim, wDim, k), 1.0)){ case ((avg, n), b) => 
         (avg.map(_ * n).add(b).map(_  / (n + 1)), n + 1)
