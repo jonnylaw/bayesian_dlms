@@ -207,6 +207,50 @@ object DlmFsvSystem {
       // perform FFBS using time dependent system noise covariance
       ws = calculateVariance(fs1.volatility.tail, fs1.params.beta,
         diag(DenseVector.fill(d)(fs1.params.v)))
+
+      _ = ws foreach println
+
+      dlmP = s.p.dlm
+      theta <- ffbs(dlm, ys, dlmP, ws)
+      state = theta.map(x => (x.time, x.sample))
+      newV <- GibbsSampling.
+        sampleObservationMatrix(priorV, dlm.f,
+          ys.map(_.observation), state)
+      newP = s.p.copy(fsv = fs1.params, dlm = s.p.dlm.copy(v = newV))
+    } yield State(newP, theta, fs1.factors, fs1.volatility)
+  }
+
+
+  /**
+    * Perform a single step of the Gibbs Sampling algorithm
+    * for the DLM FSV where the system variance is modelled
+    * using FSV model
+    */
+  def sampleStepOu(
+    priorBeta:     Gaussian,
+    priorSigmaEta: InverseGamma,
+    priorPhi:      Beta,
+    priorMu:       Gaussian,
+    priorSigma:    InverseGamma,
+    priorV:        InverseGamma,
+    ys:            Vector[Data],
+    dlm:           Dlm)(s: State): Rand[State] = {
+
+    // extract the system factors
+    val beta = s.p.fsv.beta
+    val fs = FactorSv.State(s.p.fsv, s.factors, s.volatility)
+
+    // calculate the dimensions of the system and assoc. factors
+    val k = beta.cols
+    val d = beta.rows
+
+    for {
+      fs1 <- FactorSv.stepOu(priorBeta, priorSigmaEta, priorMu,
+        priorPhi, priorSigma, factorState(s.theta, dlm.g), d, k)(fs)
+
+      // perform FFBS using time dependent system noise covariance
+      ws = calculateVariance(fs1.volatility.tail, fs1.params.beta,
+        diag(DenseVector.fill(d)(fs1.params.v)))
       dlmP = s.p.dlm
       theta <- ffbs(dlm, ys, dlmP, ws)
       state = theta.map(x => (x.time, x.sample))
@@ -258,6 +302,50 @@ object DlmFsvSystem {
     val init = initialise(initP, ys, dlm)
 
     MarkovChain(init)(sampleStep(priorBeta, priorSigmaEta, priorPhi, priorMu,
+      priorSigma, priorV, ys, dlm))
+  }
+
+  /**
+    * Initialise the state of the DLM FSV system Model
+    * by initialising variance matrices for the system, performing FFBS for
+    * the mean state
+    * @param params parameters of the DLM FSV system model
+    * @param ys time series of observations
+    * @param dlm the description of the 
+    */
+  def initialiseOu(
+    params: DlmFsvParameters,
+    ys:     Vector[Data],
+    dlm:    Dlm) = {
+
+    val k = params.fsv.beta.cols
+    val parameters = params.dlm
+
+    // initialise the variances of the system
+    val ws = Vector.fill(ys.size)(DenseMatrix.eye[Double](dlm.f(1.0).rows))
+
+    val theta = ffbs(dlm, ys, parameters, ws).draw
+    val thetaObs = theta.map { ss => Data(ss.time, ss.sample.map(_.some)) }
+    val fs = FactorSv.initialiseStateOu(params.fsv, thetaObs, k)
+
+    State(params, theta.toVector, fs.factors, fs.volatility)
+  }
+
+  def sampleOu(
+    priorBeta:     Gaussian,
+    priorSigmaEta: InverseGamma,
+    priorPhi:      Beta,
+    priorMu:       Gaussian,
+    priorSigma:    InverseGamma,
+    priorV:        InverseGamma,
+    ys:            Vector[Data],
+    dlm:           Dlm,
+    initP:         DlmFsvParameters): Process[State] = {
+
+    // initialise the latent state
+    val init = initialiseOu(initP, ys, dlm)
+
+    MarkovChain(init)(sampleStepOu(priorBeta, priorSigmaEta, priorPhi, priorMu,
       priorSigma, priorV, ys, dlm))
   }
 

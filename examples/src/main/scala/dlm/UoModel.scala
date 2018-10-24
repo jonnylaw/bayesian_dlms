@@ -20,87 +20,6 @@ import scaladsl._
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 
-trait JointUoModel {
-  val format = DateTimeFormatter.ISO_DATE_TIME
-  implicit val codec: CellCodec[LocalDateTime] =
-    localDateTimeCodec(format)
-  val tempDlm = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
-  val foDlm = Dlm.polynomial(1)
-  val dlmComp = List(foDlm, tempDlm, foDlm, tempDlm).
-    reduce(_ |*| _)
-
-  def millisToHours(dateTimeMillis: Long) = {
-    dateTimeMillis / 1e3 * 60 * 60
-  }
-
-  val priorBeta = Gaussian(0.0, 3.0)
-  val priorSigmaEta = InverseGamma(2.5, 3.0)
-  val priorPhi = new Beta(20, 2)
-  val priorSigma = InverseGamma(2.5, 3.0)
-  val priorW = InverseGamma(2.5, 3.0)
-  val priorMu = Gaussian(0.0, 1.0)
-
-  val volP = for {
-    se <- priorSigmaEta
-    phi <- priorPhi
-    mu <- priorMu
-  } yield SvParameters(phi, mu, se)
-
-  val fsvP = for {
-    bij <- priorBeta
-    sigma <- priorSigma
-    vp <- volP
-  } yield FsvParameters(sigma,
-    FactorSv.buildBeta(4, 2, bij),
-    Vector.fill(2)(vp))
-
-  val dlmP = for {
-    w <- priorW
-    foP = DlmParameters(
-      v = DenseMatrix.eye[Double](1),
-      w = DenseMatrix(w),
-      m0 = DenseVector.zeros[Double](1),
-      c0 = DenseMatrix.eye[Double](1))
-    seasonalP = DlmParameters(
-      v = DenseMatrix.eye[Double](1),
-      w = diag(DenseVector.fill(7)(w)),
-      m0 = DenseVector.zeros[Double](7),
-      c0 = DenseMatrix.eye[Double](7))
-  } yield List(foP, seasonalP, foP, seasonalP).
-    reduce(Dlm.outerSumParameters)
-
-  val initP: Rand[DlmFsvParameters] = for {
-    fsv <- fsvP
-    dlm <- dlmP
-  } yield DlmFsvParameters(dlm, fsv) 
-
-  case class EnvSensor(
-    datetime:    LocalDateTime,
-    co:          Option[Double],
-    humidity:    Option[Double],
-    no:          Option[Double],
-    temperature: Option[Double])
-
-  val rawData = Paths.get("examples/data/new_new_emote_1108_wide.csv")
-  val reader = rawData.asCsvReader[EnvSensor](rfc.withHeader)
-  val data = reader.
-    collect {
-      case Right(a) => a
-    }.
-    filter(_.datetime.compareTo(
-      LocalDateTime.of(2017, Month.SEPTEMBER, 1, 0, 0)) > 0).
-    filter(_.datetime.compareTo(
-      LocalDateTime.of(2017, Month.OCTOBER, 1, 0, 0)) < 0).
-    // time in hours
-    map(a => Data(a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0), 
-        DenseVector(a.co, a.humidity, a.no, a.temperature))).
-    toVector.
-    sortBy(_.time).
-    zipWithIndex.
-    filter { case (_, i) => i % 10 == 0 }. // thinned
-    map(_._1)
-}
-
 // Write this up in DLM Chapter
 // Could additionally use Wishart for full rank Observation Matrix
 trait RoundedUoData {
@@ -167,7 +86,7 @@ object FitUoDlms extends App with RoundedUoData {
     iters = GibbsSampling.sample(dlmComp, priorV, priorW, dlmP.draw, d.toVector)
     io <- Streaming
       .writeParallelChain(iters, 2, 10000, s"examples/data/uo_dlm_seasonal_daily_${id}",
-        (s: GibbsSampling.State) => DlmParameters.toList(s.p)).
+        (s: GibbsSampling.State) => s.p.toList).
     runWith(Sink.ignore)
   } yield io
 
@@ -234,78 +153,108 @@ object ForecastUoDlm extends App with RoundedUoData {
     })
 }
 
-object FitContUo extends App with JointUoModel {
+object FitContUo extends App with RoundedUoData {
   implicit val system = ActorSystem("dlm_fsv_uo")
   implicit val materializer = ActorMaterializer()
 
-  val iters = DlmFsv.sampleOu(priorBeta, priorSigmaEta,
-    priorPhi, priorMu, priorSigma, priorW,
-    data, dlmComp, initP.draw)
+  val priorBeta = Gaussian(0.0, 3.0)
+  val priorSigmaEta = InverseGamma(2.5, 3.0)
+  val priorPhi = new Beta(20, 2)
+  val priorSigma = InverseGamma(2.5, 3.0)
+  val priorW = InverseGamma(2.5, 3.0)
+  val priorMu = Gaussian(0.0, 1.0)
 
-  def diagonal(m: DenseMatrix[Double]): List[Double] =
-    for {
-      i <- List.range(0, m.cols)
-    } yield m(i,i)
+  val volP = for {
+    se <- priorSigmaEta
+    phi <- priorPhi
+    mu <- priorMu
+  } yield SvParameters(phi, mu, se)
 
-  def format(s: DlmFsv.State): List[Double] =
-    s.p.toList
+  val fsvP = for {
+    bij <- priorBeta
+    sigma <- priorSigma
+    vp <- volP
+  } yield FsvParameters(sigma,
+    FactorSv.buildBeta(28, 2, bij),
+    Vector.fill(2)(vp))
 
-  // write iterations
-  Streaming.writeParallelChain(
-    iters, 2, 100000, "examples/data/uo_cont_gibbs_two_factors", format).
-    runWith(Sink.onComplete(_ => system.terminate()))
+  val dlmP = for {
+    w <- priorW
+    seasonalP = DlmParameters(
+      v = DenseMatrix.eye[Double](1),
+      w = diag(DenseVector.fill(7)(w)),
+      m0 = DenseVector.zeros[Double](7),
+      c0 = DenseMatrix.eye[Double](7))
+  } yield List.fill(4)(seasonalP).
+    reduce(Dlm.outerSumParameters)
+
+  val initP: Rand[DlmFsvParameters] = for {
+    fsv <- fsvP
+    dlm <- dlmP
+  } yield DlmFsvParameters(dlm, fsv) 
+
+  val id = "new_new_emote_2603"
+
+  (for {
+    d <- data.
+      filter(_.sensorId == id).
+      map(envToData).
+      runWith(Sink.seq)
+    iters = DlmFsvSystem.sample(priorBeta, priorSigmaEta,
+      priorPhi, priorMu, priorSigma, priorW, d.toVector, dlmComp, initP.draw)
+    io <- Streaming
+      .writeParallelChain(iters, 2, 10000, s"examples/data/uo_gibbs_two_factors_${id}",
+        (s: DlmFsvSystem.State) => s.p.toList).
+    runWith(Sink.ignore)
+  } yield io).
+    onComplete { s =>
+      println(s)
+      system.terminate()
+    }
 }
 
-object InterpolateUo extends App with JointUoModel {
-  def readValue(a: String): Option[Double] = 
-    if (a == "NA") None else Some(a.toDouble)
+object InterpolateUo extends App with RoundedUoData {
+  implicit val system = ActorSystem("interpolate-uo")
+  implicit val materializer = ActorMaterializer()
 
-  val file = "examples/data/uo_cont_gibbs_two_factors_0.csv"
+  encodedData.
+    groupBy(10000, _.sensorId).
+    fold(("Hello", Vector.empty[Data]))((l, r) =>
+      (r.sensorId, l._2 :+ envToData(r))).
+    mergeSubstreams.
+    mapAsync(1) { case (id, d) =>
 
-  // read in parameters and calculate the mean
-  val rawParams = Paths.get(file)
-  val reader2 = rawParams.asCsvReader[List[Double]](rfc.withHeader)
-  val params: DlmFsvParameters = reader2.
-    collect { case Right(a) => a }.
-    map(x => DlmFsvParameters.fromList(4, 16, 4, 2)(x)).
-    foldLeft((DlmFsvParameters.empty(4, 16, 4, 2), 1.0)){
-        case ((avg, n), b) =>
-          (avg.map(_ * n).add(b).map(_  / (n + 1)), n + 1)
-      }._1
+      val file = s"examples/data/uo_gibbs_two_factors_${id}_0.csv"
+    
+      val ps: Future[DlmFsvParameters] = Streaming.readCsv(file).
+        map(_.map(_.toDouble).toList).
+        drop(1000).
+        map(x => DlmFsvSystem.paramsFromList(4, 28, 2)(x)).
+        via(Streaming.meanDlmFsvSystemParameters(4, 28, 2)).
+        runWith(Sink.head)
 
-  // read in data with encoded missing bits
-  val rawData1 = Paths.get("examples/data/new_new_emote_1108_rounded.csv")
-  val reader1 = rawData1.asCsvReader[(LocalDateTime, String,
-    String, String, String)](rfc.withHeader)
-  val testData = reader1.
-    collect {
-      case Right(a) => Data(a._1.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
-        DenseVector(readValue(a._2), readValue(a._3),
-          readValue(a._4), readValue(a._5)))
-    }.
-    toVector.
-    sortBy(_.time)
+      val out = new java.io.File(s"examples/data/interpolate_urbanobservatory_${id}.csv")
+      val headers = rfc.withHeader(false)
 
-  // use mcmc to sample the missing observations
-  val iters = DlmFsv.sampleStateOu(testData, dlmComp, params).
-    steps.
-    take(1000).
-    map { (s: DlmFsv.State) =>
-      val vol = s.volatility.map(x => (x.time, x.sample))
-      val st = s.theta.map(x => (x.time, x.sample))
-      DlmFsv.obsVolatility(vol, st, dlmComp, params)
-    }.
-    map(s => s.map { case (t, y) => (t, Some(y(0))) }).
-    toVector
+      // use mcmc to sample the missing observations
+      // val iters = DlmFsvSystem.sampleState(testData, dlmComp, params).
+      //   steps.
+      //   take(1000).
+      //   map { (s: DlmFsv.State) =>
+      //     val vol = s.volatility.map(x => (x.time, x.sample))
+      //     val st = s.theta.map(x => (x.time, x.sample))
+      //     DlmFsv.obsVolatility(vol, st, dlmComp, params)
+      //   }.
+      //   map(s => s.map { case (t, y) => (t, Some(y(0))) }).
+      //   toVector
 
-  // calculate credible intervals
-  val summary = DlmFsv.summariseInterpolation(iters, 0.995)
+      // // calculate credible intervals
+      // val summary = DlmFsvSystem.summariseInterpolation(iters, 0.995)
 
-  // write interpolated data
-  val out = new java.io.File("examples/data/interpolated_urbanobservatory.csv")
-  val headers = rfc.withHeader("time", "mean", "upper", "lower")
+      // write interpolated data
+      Future.successful("hello")
 
-  out.writeCsv(summary, headers)
+    }.runWith(Sink.onComplete(_ => system.terminate()))
 }
 
 object ForecastUo extends App {
