@@ -208,8 +208,6 @@ object DlmFsvSystem {
       ws = calculateVariance(fs1.volatility.tail, fs1.params.beta,
         diag(DenseVector.fill(d)(fs1.params.v)))
 
-      _ = ws foreach println
-
       dlmP = s.p.dlm
       theta <- ffbs(dlm, ys, dlmP, ws)
       state = theta.map(x => (x.time, x.sample))
