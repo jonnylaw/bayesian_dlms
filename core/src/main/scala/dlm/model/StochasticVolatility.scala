@@ -31,6 +31,7 @@ object SvParameters {
   * 
   * Y_t = sigma * exp(a_t / 2), sigma ~ N(0, 1)
   * a_t = phi * a_t + eta, eta ~ N(0, sigma_eta)
+  * 
   */
 object StochasticVolatility {
   private val pis = Array(0.0073, 0.1056, 0.00002, 0.044, 0.34, 0.2457, 0.2575)
@@ -129,7 +130,10 @@ object StochasticVolatility {
       lw = logWeights(y, x)
       max = lw.max
       weights = lw.map(w => exp(w - max))
-      kt = Multinomial(DenseVector(weights.toArray)).draw
+      total = weights.sum
+      normed = weights.map(w => w / total)
+      // weights = lw map (exp(_))
+      kt = Multinomial(DenseVector(normed.toArray)).draw
     } yield kt
   }
 
@@ -249,11 +253,50 @@ object StochasticVolatility {
     InverseGamma(shape, scale).map(math.sqrt)
   }
 
+  def sampleTau(
+    prior:  Gamma,
+    p:      SvParameters,
+    alphas: Vector[Double]) = {
+
+    val squaredSum = (alphas.tail.init, alphas.drop(2)).zipped.
+      map { case (mt, mt1) =>
+        val diff = mt1 - (p.mu + p.phi * (mt - p.mu))
+        (diff * diff)
+      }.sum
+
+    val shape = prior.shape + alphas.size * 0.5
+    val rate = prior.scale + squaredSum * 0.5
+    val scale = 1.0 / rate
+
+    Gamma(shape, scale)
+  }
+
+
   def stepUni(
-    priorPhi:   ContinuousDistr[Double],
-    priorMu:    Gaussian,
+    // priorPhi: ContinuousDistr[Double],
+    priorPhi: Gaussian,
+    priorMu:  Gaussian,
     priorSigma: InverseGamma,
-    ys:         Vector[(Double, Option[Double])]) = { s: StochVolState =>
+    ys:    Vector[(Double, Option[Double])]) = { s: StochVolState =>
+
+    for {
+      alphas <- sampleStateAr(ys, s.params, s.alphas)
+      state = alphas.map(_.sample)
+      // (newPhi, accepted) <- samplePhi(priorPhi, s.params, state, 0.05, 100.0)(s.params.phi)
+      newPhi <- StochasticVolatilityKnots.
+        samplePhiConjugate(priorPhi, s.params, state)
+      newMu <- sampleMu(priorMu, s.params.copy(phi = newPhi), state)
+      newSigma <- sampleSigma(priorSigma, s.params.copy(phi = newPhi, mu = newMu), state)
+      p = SvParameters(newPhi, newMu, newSigma)
+    } yield s.copy(params = p, alphas = alphas)
+                   // accepted = s.accepted + accepted)
+  }
+
+  def stepBeta(
+    priorPhi: ContinuousDistr[Double],
+    priorMu:  Gaussian,
+    priorSigma: InverseGamma,
+    ys:    Vector[(Double, Option[Double])]) = { s: StochVolState =>
 
     for {
       alphas <- sampleStateAr(ys, s.params, s.alphas)
@@ -262,12 +305,33 @@ object StochasticVolatility {
       newMu <- sampleMu(priorMu, s.params.copy(phi = newPhi), state)
       newSigma <- sampleSigma(priorSigma, s.params.copy(phi = newPhi, mu = newMu), state)
       p = SvParameters(newPhi, newMu, newSigma)
-    } yield s.copy(params = p, alphas = alphas,
-      accepted = s.accepted + accepted)
+    } yield s.copy(params = p, alphas = alphas)
+    // accepted = s.accepted + accepted)
+  }
+
+  def sampleBeta(
+    priorPhi: ContinuousDistr[Double],
+    priorMu:  Gaussian,
+    priorSigma: InverseGamma,
+    ys:       Vector[(Double, Option[Double])]) = {
+
+    // draw from the prior distributions
+    val initP = for {
+      phi <- priorPhi
+      mu <- priorMu
+      sigma <- priorSigma
+    } yield SvParameters(phi, mu, sigma)
+    val params = initP.draw
+
+    // initialise the latent state
+    val initState = StochasticVolatilityKnots.initialStateAr(params, ys).draw
+    val init = StochVolState(params, initState, 0)
+
+    MarkovChain(init)(stepBeta(priorPhi, priorMu, priorSigma, ys))
   }
 
   def sampleUni(
-    priorPhi:   ContinuousDistr[Double],
+    priorPhi:   Gaussian,
     priorMu:    Gaussian,
     priorSigma: InverseGamma,
     ys:         Vector[(Double, Option[Double])]) = {

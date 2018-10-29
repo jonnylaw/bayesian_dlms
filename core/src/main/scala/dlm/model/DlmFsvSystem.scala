@@ -185,7 +185,7 @@ object DlmFsvSystem {
   def sampleStep(
     priorBeta:     Gaussian,
     priorSigmaEta: InverseGamma,
-    priorPhi:      Beta,
+    priorPhi:      Gaussian,
     priorMu:       Gaussian,
     priorSigma:    InverseGamma,
     priorV:        InverseGamma,
@@ -206,9 +206,7 @@ object DlmFsvSystem {
 
       // perform FFBS using time dependent system noise covariance
       ws = calculateVariance(fs1.volatility.tail, fs1.params.beta,
-        diag(DenseVector.fill(d)(fs1.params.v)))
-
-      _ = ws foreach println
+        fs1.params.v)
 
       dlmP = s.p.dlm
       theta <- ffbs(dlm, ys, dlmP, ws)
@@ -250,7 +248,7 @@ object DlmFsvSystem {
 
       // perform FFBS using time dependent system noise covariance
       ws = calculateVariance(fs1.volatility.tail, fs1.params.beta,
-        diag(DenseVector.fill(d)(fs1.params.v)))
+        fs1.params.v)
       dlmP = s.p.dlm
       theta <- ffbs(dlm, ys, dlmP, ws)
       state = theta.map(x => (x.time, x.sample))
@@ -290,7 +288,7 @@ object DlmFsvSystem {
   def sample(
     priorBeta:     Gaussian,
     priorSigmaEta: InverseGamma,
-    priorPhi:      Beta,
+    priorPhi:      Gaussian,
     priorMu:       Gaussian,
     priorSigma:    InverseGamma,
     priorV:        InverseGamma,

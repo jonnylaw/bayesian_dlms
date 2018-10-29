@@ -23,9 +23,9 @@ trait FsvModel {
     (0.2,  0.23))
 
   val params = FsvParameters(
-    v = 0.1,
+    v = DenseMatrix.eye[Double](6) * 0.1,
     beta,
-    Vector.fill(2)(SvParameters(0.8, 2.0, 0.2))
+    Vector.fill(2)(SvParameters(0.8, 2.0, 0.3))
   )
 }
 /**
@@ -63,9 +63,10 @@ object FitFsv extends App with FsvModel {
     case Right(a) => Data(a.head, DenseVector(a.slice(1, 7).toArray.map(_.some)))
   }.toVector
 
-  val priorBeta = Gaussian(1.0, 5.0)
-  val priorSigmaEta = InverseGamma(2.5, 1.0)
-  val priorPhi = new Beta(20, 2)
+  val priorBeta = Gaussian(0.0, 1.0)
+  val priorSigmaEta = InverseGamma(2, 2.0)
+    //  val priorPhi = new Beta(20, 2)
+  val priorPhi = Gaussian(0.8, 0.1)
   val priorMu = Gaussian(2.0, 1.0)
   val priorSigma = InverseGamma(2.5, 3.0)
 
@@ -74,9 +75,14 @@ object FitFsv extends App with FsvModel {
 
   def formatParameters(s: FactorSv.State) = s.params.toList
 
-  Streaming.writeParallelChain(
-    iters, 2, 100000, "examples/data/factor_sv_gibbs", formatParameters).
-    runWith(Sink.onComplete(_ => system.terminate()))
+
+  iters.steps.take(1000).
+    map(s => formatParameters(s)).
+    foreach(println)
+
+  // Streaming.writeParallelChain(
+  //   iters, 2, 10000, "examples/data/factor_sv_gibbs", formatParameters).
+  //   runWith(Sink.onComplete(_ => system.terminate()))
 }
 
 object SampleStateFvs extends App with FsvModel {
@@ -94,7 +100,7 @@ object SampleStateFvs extends App with FsvModel {
 
   val priorBeta = Gaussian(1.0, 5.0)
   val priorSigmaEta = InverseGamma(2.5, 1.0)
-  val priorPhi = new Beta(20, 2)
+  val priorPhi = Gaussian(0.8, 0.1)
   val priorMu = Gaussian(2.0, 1.0)
   val priorSigma = InverseGamma(2.5, 3.0)
 

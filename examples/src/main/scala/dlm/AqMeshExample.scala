@@ -22,12 +22,12 @@ trait AqmeshModel {
   val seasonalDlm = Dlm.polynomial(1) |+| Dlm.seasonal(12, 3)
   val dlmComp = List.fill(3)(seasonalDlm).reduce(_ |*| _)
 
-  def millisToHours(dateTimeMillis: Long) = 
+  def millisToHours(dateTimeMillis: Long) =
     dateTimeMillis / 1e3 * 60 * 60
 
   val priorBeta = Gaussian(0.0, 3.0)
   val priorSigmaEta = InverseGamma(2.5, 3.0)
-  val priorPhi = new Beta(20, 2)
+  val priorPhi = Gaussian(0.8, 0.1)
   val priorSigma = InverseGamma(2.5, 3.0)
   val priorW = InverseGamma(2.5, 3.0)
   val priorMu = Gaussian(0.0, 1.0)
@@ -44,7 +44,7 @@ trait AqmeshModel {
     sigmaX <- priorSigma
     vp <- volP
   } yield FsvParameters(
-    sigmaX,
+    DenseMatrix.eye[Double](3) * sigmaX,
     FactorSv.buildBeta(21, 2, bij),
     Vector.fill(2)(vp))
 
@@ -88,7 +88,7 @@ object FitAqMeshFull extends App with AqmeshModel {
     sigmaX <- priorSigma
     vp <- volP
   } yield FsvParameters(
-    sigmaX,
+    DenseMatrix.eye[Double](3) * sigmaX,
     FactorSv.buildBeta(49, 2, bij),
     Vector.fill(2)(vp))
 
@@ -129,7 +129,7 @@ object FitAqMeshFull extends App with AqmeshModel {
     s.p.toList
 
   Streaming.writeParallelChain(
-    iters, 2, 100000, "examples/data/aqmesh_gibbs_no_no2_o3", formatParameters).
+    iters, 2, 100000, "examples/data/aqmesh_gibbs_full", formatParameters).
     runWith(Sink.onComplete { s =>
       println(s)
       system.terminate()
@@ -167,10 +167,7 @@ object FitAqMesh extends App with AqmeshModel {
 
   Streaming.writeParallelChain(
     iters, 2, 100000, "examples/data/aqmesh_params", formatParameters).
-    runWith(Sink.onComplete { s =>
-      println(s)
-      system.terminate()
-    })
+    runWith(Sink.onComplete { _ => system.terminate() })
 }
 
 object OneStepForecastAqmesh extends App with AqmeshModel {

@@ -80,7 +80,7 @@ object StochasticVolatilityKnots {
 
     val n = ys.length
 
-    val sums = (ys zip state.tail).
+    val sums = (ys zip state).
       map {
         case ((t, Some(y)), a) => log(y * y) + 1.27 - a
         case _ => 0.0
@@ -103,7 +103,7 @@ object StochasticVolatilityKnots {
 
     val n = ys.length
 
-    val sums = (ys zip state.tail).
+    val sums = (ys zip state).
       map {
         case ((t, Some(y)), a) => a + y * y * exp(-a)
         case _ => 0.0
@@ -139,10 +139,12 @@ object StochasticVolatilityKnots {
 
     val transObs = transformObs(ys)
 
-    val prop = (vs: Vector[FilterAr.SampleState]) => 
+    val prop = (vs: Vector[FilterAr.SampleState]) => {
       filter(vs.head, vs.last, p, transObs)
+    }
+    
     val ll = (vs: Vector[FilterAr.SampleState]) => {
-      val state = vs.map(_.sample)
+      val state = vs.map(_.sample).tail
       exactLl(state, ys) - approxLl(state, ys)
     }
 
@@ -185,35 +187,35 @@ object StochasticVolatilityKnots {
     Metropolis.mAccept[Vector[FilterAr.SampleState]](prop, ll) _
   }
 
-  // def sampleStateFold(
-  //   ffbs: ConditionalFFBS,
-  //   filter: ConditionalFilter,
-  //   sampler: ConditionalSample)(
-  //   ys:   Vector[(Double, Option[Double])],
-  //   p:     SvParameters,
-  //   knots: Vector[Int],
-  //   state: Array[FilterAr.SampleState]) = { 
+  def sampleStateFold(
+    ffbs: ConditionalFFBS,
+    filter: ConditionalFilter,
+    sampler: ConditionalSample)(
+    ys:   Vector[(Double, Option[Double])],
+    p:     SvParameters,
+    knots: Vector[Int],
+    state: Array[FilterAr.SampleState]) = { 
 
-  //   (knots.init zip knots.tail).foldLeft(state) { case (st, (start, end)) =>
-  //     val selectedObs = ys.slice(start, end)
+    (knots.init zip knots.tail).foldLeft(state) { case (st, (start, end)) =>
+      val selectedObs = ys.slice(start, end)
 
-  //     val newBlock = if (start == 0) {
-  //       val vs = st.slice(1, end + 1).toVector
-  //       val (res, a) = sampleStart(selectedObs, p, sampler)(vs).draw
-  //       res
-  //     } else if (end == knots.size - 1) {
-  //       val vs = st.slice(start, end + 1).toVector
-  //       val (res, a) = sampleEnd(selectedObs, p, filter)(vs).draw
-  //       res
-  //     } else {
-  //       val vs = st.slice(start, end + 1).toVector
-  //       val (res, a) = sampleBlock(selectedObs, p, ffbs)(vs).draw
-  //       res
-  //     }
+      val newBlock = if (start == 0) {
+        val vs = st.slice(1, end + 1).toVector
+        val (res, a) = sampleStart(selectedObs, p, sampler)(vs).draw
+        res
+      } else if (end == knots.size - 1) {
+        val vs = st.slice(start, end + 1).toVector
+        val (res, a) = sampleEnd(selectedObs, p, filter)(vs).draw
+        res
+      } else {
+        val vs = st.slice(start, end + 1).toVector
+        val (res, a) = sampleBlock(selectedObs, p, ffbs)(vs).draw
+        res
+      }
 
-  //     st.take(start) ++ newBlock ++ st.drop(end + 1)
-  //   }
-  // }
+      st.take(start) ++ newBlock ++ st.drop(end + 1)
+    }
+  }
 
   def sampleState(
     ffbs: ConditionalFFBS,

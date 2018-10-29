@@ -39,7 +39,7 @@ object GibbsSampling {
       }
       .reduce(_ + _)
 
-    val ns = ys.map(_.data.toVector).transpose.map(_.flatten.size)
+    val ns: Vector[Int] = ys.map(_.data.toVector).transpose.map(_.flatten.size)
     val shape = ns map (n => prior.shape + n * 0.5)
     val rate = ssy.data.map(ss => prior.scale + ss * 0.5)
 

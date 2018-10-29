@@ -276,7 +276,7 @@ object DlmFsv {
   def sampleStep(
     priorBeta:     Gaussian,
     priorSigmaEta: InverseGamma,
-    priorPhi:      Beta,
+    priorPhi:      Gaussian,
     priorMu:       Gaussian,
     priorSigma:    InverseGamma,
     priorW:        InverseGamma,
@@ -284,14 +284,14 @@ object DlmFsv {
     dlm:           Dlm,
     p:             Int,
     k:             Int)(s: State): Rand[State] = {
-   
+
     val fs = buildFactorState(s)
 
     for {
       fs1 <- FactorSv.sampleStep(priorBeta, priorSigmaEta, priorMu, priorPhi,
-        priorSigma, factorObs(observations, s.theta, dlm.f), p, k)(fs)      
+        priorSigma, factorObs(observations, s.theta, dlm.f), p, k)(fs)
       vs = DlmFsvSystem.calculateVariance(fs1.volatility.tail,
-        fs1.params.beta, diag(DenseVector.fill(p)(fs1.params.v)))
+        fs1.params.beta, fs1.params.v)
       theta <- ffbsSvd(dlm, observations, s.p.dlm, vs)
       newW <- GibbsSampling.sampleSystemMatrix(priorW, theta, dlm.g)
       newP = DlmFsvParameters(s.p.dlm.copy(w = SvdFilter.sqrtSvd(newW)), fs1.params)
@@ -324,7 +324,7 @@ object DlmFsv {
   def sample(
     priorBeta:     Gaussian,
     priorSigmaEta: InverseGamma,
-    priorPhi:      Beta,
+    priorPhi:      Gaussian,
     priorMu:       Gaussian,
     priorSigma:    InverseGamma,
     priorW:        InverseGamma,
@@ -360,7 +360,7 @@ object DlmFsv {
       fs1 <- FactorSv.stepOu(priorBeta, priorSigmaEta, priorMu, priorPhi,
         priorSigma, factorObs(observations, s.theta, dlm.f), p, k)(fs)      
       vs = DlmFsvSystem.calculateVariance(fs1.volatility.tail,
-        fs1.params.beta, diag(DenseVector.fill(p)(fs1.params.v)))
+        fs1.params.beta, fs1.params.v)
       theta <- ffbsSvd(dlm, observations, s.p.dlm, vs)
       newW <- GibbsSampling.sampleSystemMatrix(priorW, theta.toVector, dlm.g)
       newP = DlmFsvParameters(s.p.dlm.copy(w = SvdFilter.sqrtSvd(newW)), fs1.params)
@@ -370,7 +370,7 @@ object DlmFsv {
   def sampleOu(
     priorBeta:     Gaussian,
     priorSigmaEta: InverseGamma,
-    priorPhi:      Beta,
+    priorPhi:      Gaussian,
     priorMu:       Gaussian,
     priorSigma:    InverseGamma,
     priorW:        InverseGamma,
@@ -439,13 +439,13 @@ object DlmFsv {
     val factors = initFactorState.factors
     val vol = initFactorState.volatility
     val vs = DlmFsvSystem.calculateVariance(vol.tail,
-      params.fsv.beta, diag(DenseVector.fill(p)(params.fsv.v)))
+      params.fsv.beta, params.fsv.v)
     val initDlmState = ffbsSvd(dlm, ys, params.dlm, vs).draw
     val init = State(params, initDlmState.toVector, factors, vol)
 
     def step(s: State) = {
       val vs = DlmFsvSystem.calculateVariance(s.volatility.tail,
-        params.fsv.beta, diag(DenseVector.fill(p)(params.fsv.v)))
+        params.fsv.beta, params.fsv.v)
       for {
         theta <- ffbsSvd(dlm, ys, params.dlm, vs)
         fObs = factorObs(ys, s.theta, dlm.f)
@@ -479,13 +479,13 @@ object DlmFsv {
     val factors = initFactorState.factors
     val vol = initFactorState.volatility
     val vs = DlmFsvSystem.calculateVariance(vol.tail,
-      params.fsv.beta, diag(DenseVector.fill(p)(params.fsv.v)))
+      params.fsv.beta, params.fsv.v)
     val initDlmState = ffbsSvd(dlm, ys, params.dlm, vs).draw
     val init = State(params, initDlmState.toVector, factors, vol)
 
     def step(s: State) = {
       val vs = DlmFsvSystem.calculateVariance(s.volatility.tail,
-        params.fsv.beta, diag(DenseVector.fill(p)(params.fsv.v)))
+        params.fsv.beta, params.fsv.v)
       for {
         theta <- ffbsSvd(dlm, ys, params.dlm, vs)
         fObs = factorObs(ys, s.theta, dlm.f)

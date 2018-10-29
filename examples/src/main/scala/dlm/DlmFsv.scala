@@ -26,7 +26,7 @@ trait DlmFsvModel {
     (0.2,  0.23))
 
   val k = 2 // equivalent to number of columns in beta
-  val params = FsvParameters(v = 0.1, beta,
+  val params = FsvParameters(v = DenseMatrix.eye[Double](6) * 0.1, beta,
     Vector.fill(k)(SvParameters(0.8, 2.0, 0.2))
   )
 
@@ -79,7 +79,7 @@ object ParametersDlmFsv extends App with DlmFsvModel with SimulatedDlmFsv {
 
   val priorBeta = Gaussian(0.0, 5.0)
   val priorSigmaEta = InverseGamma(10, 1)
-  val priorPhi = new Beta(5, 2)
+  val priorPhi = Gaussian(0.8, 0.1)
   val priorMu = Gaussian(0.0, 3.0)
   val priorSigma = InverseGamma(10, 1)
   val priorW = InverseGamma(10, 1)
@@ -116,7 +116,7 @@ object InterpolateDlmFsv extends App with DlmFsvModel {
 
   val priorBeta = Gaussian(0.0, 5.0)
   val priorSigmaEta = InverseGamma(10, 1)
-  val priorPhi = new Beta(5, 2)
+  val priorPhi = Gaussian(0.8, 0.1)
   val priorMu = Gaussian(0.0, 3.0)
   val priorSigma = InverseGamma(10, 1)
   val priorW = InverseGamma(10, 1)
@@ -165,7 +165,7 @@ trait DlmFsvSystemModel {
 
   // use two factors for the matrix
   val errorP = FsvParameters(
-    v = 0.1,
+    v = DenseMatrix.eye[Double](13) * 0.1,
     beta,
     Vector.fill(2)(SvParameters(0.2, 0.0, 0.2))
   )
@@ -216,7 +216,7 @@ object FitDlmFsvSystem extends App with DlmFsvSystemModel {
 
   val priorBeta = Gaussian(0.0, 5.0)
   val priorSigmaEta = InverseGamma(0.01, 0.01)
-  val priorPhi = new Beta(5, 2)
+  val priorPhi = Gaussian(0.8, 0.1)
   val priorMu = Gaussian(0.0, 3.0)
   val priorSigma = InverseGamma(0.01, 0.01)
   val priorV = InverseGamma(0.01, 0.01)

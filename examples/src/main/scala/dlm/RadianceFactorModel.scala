@@ -99,7 +99,7 @@ trait RadFactorModel {
   )
 
   val factorP = FsvParameters(
-    v = 1.0,
+    v = DenseMatrix.eye[Double](6),
     beta = FactorSv.makeBeta(6, 2),
     factorParams = Vector.fill(2)(SvParameters(0.5, 0.0, 0.1)))
   val p = DlmFsvParameters(dlmP, factorP)
@@ -113,7 +113,7 @@ object RadianceFactors extends App with ReadRadianceData with RadFactorModel {
   val priorSigma = InverseGamma(3.0, 5.0)
   val priorW = InverseGamma(10.0, 1.0)
   val priorSigmaEta = InverseGamma(3.0, 5.0)
-  val priorPhi = new Beta(5, 2)
+  val priorPhi = Gaussian(0.8, 0.1)
   val priorMu = Gaussian(0.0, 5.0)
 
   def diagonal(m: DenseMatrix[Double]) = {
@@ -123,7 +123,7 @@ object RadianceFactors extends App with ReadRadianceData with RadFactorModel {
   }
 
   def format(s: DlmFsv.State): List[Double] = {
-    s.p.fsv.v :: s.p.fsv.beta.data.toList ::: diagonal(s.p.dlm.w) :::
+    diagonal(s.p.fsv.v) ::: s.p.fsv.beta.data.toList ::: diagonal(s.p.dlm.w) :::
     s.p.fsv.factorParams.toList.flatMap(_.toList)
   }
 
@@ -141,7 +141,7 @@ object RadianceFactorsSystem extends App with ReadRadianceData with RadFactorMod
   implicit val materializer = ActorMaterializer()
 
   val factorParams = FsvParameters(
-    v = 1.0,
+    v = DenseMatrix.eye[Double](6),
     beta = FactorSv.makeBeta(12, 2),
     factorParams = Vector.fill(2)(SvParameters(0.5, 0.0, 0.1)))
 
@@ -151,7 +151,7 @@ object RadianceFactorsSystem extends App with ReadRadianceData with RadFactorMod
   val priorSigma = InverseGamma(3.0, 5.0)
   val priorW = InverseGamma(10.0, 1.0)
   val priorSigmaEta = InverseGamma(3.0, 5.0)
-  val priorPhi = new Beta(5, 2)
+  val priorPhi = Gaussian(0.8, 0.1)
   val priorMu = Gaussian(0.0, 5.0)
 
   def diagonal(m: DenseMatrix[Double]) = {

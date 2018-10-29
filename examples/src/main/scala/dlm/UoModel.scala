@@ -111,9 +111,12 @@ object ForecastUoDlm extends App with RoundedUoData {
       DenseVector(a.co, a.humidity, a.no, a.temperature)))
 
   encodedData.
+    filter(_.sensorId != "new_new_emote_1702").
+    filter(_.sensorId != "new_new_emote_1108").
     groupBy(10000, _.sensorId).
-    fold(("Hello", Vector.empty[(LocalDateTime, Data)]))((l, r) =>
+    fold(("", Vector.empty[(LocalDateTime, Data)]))((l, r) =>
       (r.sensorId, l._2 :+ envToDataTime(r))).
+
     mergeSubstreams.
     mapAsyncUnordered(1) { case (id: String, d: Vector[(LocalDateTime, Data)]) =>
       val data = d.map(_._2)
@@ -123,13 +126,13 @@ object ForecastUoDlm extends App with RoundedUoData {
 
       val file = s"examples/data/uo_dlm_seasonal_daily_${id}_0.csv"
 
-      val ps: Future[DlmParameters] = Streaming.readCsv(file).
+      val ps = Streaming.readCsv(file).
         map(_.map(_.toDouble).toList).
         drop(1000).
         map(x => DlmParameters.fromList(4, 28)(x)).
         via(Streaming.meanParameters(4, 28)).
         runWith(Sink.head)
-
+ 
       val out = new java.io.File(s"examples/data/forecast_urbanobservatory_${id}.csv")
       val headers = rfc.withHeader(false)
 
@@ -153,13 +156,13 @@ object ForecastUoDlm extends App with RoundedUoData {
     })
 }
 
-object FitContUo extends App with RoundedUoData {
+object FitFactorUo extends App with RoundedUoData {
   implicit val system = ActorSystem("dlm_fsv_uo")
   implicit val materializer = ActorMaterializer()
 
   val priorBeta = Gaussian(0.0, 3.0)
   val priorSigmaEta = InverseGamma(2.5, 3.0)
-  val priorPhi = new Beta(20, 2)
+  val priorPhi = Gaussian(0.8, 0.1)
   val priorSigma = InverseGamma(2.5, 3.0)
   val priorW = InverseGamma(2.5, 3.0)
   val priorMu = Gaussian(0.0, 1.0)
@@ -174,7 +177,7 @@ object FitContUo extends App with RoundedUoData {
     bij <- priorBeta
     sigma <- priorSigma
     vp <- volP
-  } yield FsvParameters(sigma,
+  } yield FsvParameters(DenseMatrix.eye[Double](28) * sigma,
     FactorSv.buildBeta(28, 2, bij),
     Vector.fill(2)(vp))
 
