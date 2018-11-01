@@ -120,9 +120,9 @@ object StochasticVolatility {
     }
 
     // calculate the log weights 
-    def logWeights(yo: Option[Double], x: Double) =
+    def logWeights(yo: Option[Double], x: Double): Vector[Double] =
       for {
-        j <- 0 until variances.size
+        j <- Vector.range(0, variances.size)
       } yield log(pis(j)) + ll(j, yo, x)
 
     for {
@@ -130,9 +130,7 @@ object StochasticVolatility {
       lw = logWeights(y, x)
       max = lw.max
       weights = lw.map(w => exp(w - max))
-      total = weights.sum
-      normed = weights.map(w => w / total)
-      // weights = lw map (exp(_))
+      normed = ParticleFilter.normaliseWeights(weights)
       kt = Multinomial(DenseVector(normed.toArray)).draw
     } yield kt
   }
@@ -191,15 +189,13 @@ object StochasticVolatility {
     tau:    Double,
     lambda: Double) = {
 
-    val proposal = (phi: Double) => {
+    val proposal = (phi: Double) => 
       new Beta(lambda * phi + tau, lambda * (1 - phi) + tau)
-    }
 
-    val pos = (phi: Double) => {
+    val pos = (phi: Double) => 
       prior.logPdf(phi) + arLikelihood(alpha, p.copy(phi = phi))
-    }
 
-    MetropolisHastings.mhAccept[Double](proposal, pos) _
+    MarkovChain.Kernels.metropolisHastings(proposal)(pos)
   }
 
   /**
@@ -273,7 +269,6 @@ object StochasticVolatility {
 
 
   def stepUni(
-    // priorPhi: ContinuousDistr[Double],
     priorPhi: Gaussian,
     priorMu:  Gaussian,
     priorSigma: InverseGamma,
@@ -282,14 +277,12 @@ object StochasticVolatility {
     for {
       alphas <- sampleStateAr(ys, s.params, s.alphas)
       state = alphas.map(_.sample)
-      // (newPhi, accepted) <- samplePhi(priorPhi, s.params, state, 0.05, 100.0)(s.params.phi)
       newPhi <- StochasticVolatilityKnots.
         samplePhiConjugate(priorPhi, s.params, state)
       newMu <- sampleMu(priorMu, s.params.copy(phi = newPhi), state)
       newSigma <- sampleSigma(priorSigma, s.params.copy(phi = newPhi, mu = newMu), state)
       p = SvParameters(newPhi, newMu, newSigma)
     } yield s.copy(params = p, alphas = alphas)
-                   // accepted = s.accepted + accepted)
   }
 
   def stepBeta(
@@ -301,12 +294,11 @@ object StochasticVolatility {
     for {
       alphas <- sampleStateAr(ys, s.params, s.alphas)
       state = alphas.map(_.sample)
-      (newPhi, accepted) <- samplePhi(priorPhi, s.params, state, 0.05, 100.0)(s.params.phi)
+      newPhi <- samplePhi(priorPhi, s.params, state, 0.05, 100.0)(s.params.phi)
       newMu <- sampleMu(priorMu, s.params.copy(phi = newPhi), state)
       newSigma <- sampleSigma(priorSigma, s.params.copy(phi = newPhi, mu = newMu), state)
       p = SvParameters(newPhi, newMu, newSigma)
     } yield s.copy(params = p, alphas = alphas)
-    // accepted = s.accepted + accepted)
   }
 
   def sampleBeta(
@@ -325,7 +317,7 @@ object StochasticVolatility {
 
     // initialise the latent state
     val initState = StochasticVolatilityKnots.initialStateAr(params, ys).draw
-    val init = StochVolState(params, initState, 0)
+    val init = StochVolState(params, initState)
 
     MarkovChain(init)(stepBeta(priorPhi, priorMu, priorSigma, ys))
   }
@@ -346,7 +338,7 @@ object StochasticVolatility {
 
     // initialise the latent state
     val initState = StochasticVolatilityKnots.initialStateAr(params, ys).draw
-    val init = StochVolState(params, initState, 0)
+    val init = StochVolState(params, initState)
 
     MarkovChain(init)(stepUni(priorPhi, priorMu, priorSigma, ys))
   }
@@ -477,14 +469,14 @@ object StochasticVolatility {
     for {
       alphas <- sampleStateOu(ys, s.params, s.alphas)
       state = alphas map (x => (x.time, x.sample))
-      (newPhi, accepted) <- samplePhiOu(priorPhi, s.params, state,
+      (newPhi, _) <- samplePhiOu(priorPhi, s.params, state,
         0.05)(s.params.phi)
       (newSigma, _) <- sampleSigmaMetropOu(priorSigma, 0.05,
         s.params.copy(phi = newPhi), state)(s.params.sigmaEta)
       (newMu, _) <- sampleMuOu(priorMu, 0.05,
         s.params.copy(phi = newPhi, sigmaEta = newSigma), state)(s.params.mu)
       p = SvParameters(newPhi, newMu, newSigma)
-    } yield StochVolState(p, alphas, accepted)
+    } yield StochVolState(p, alphas)
   }
 
   def initialStateOu(
@@ -506,7 +498,7 @@ object StochasticVolatility {
 
     // initialise the latent state
     val alphas = initialStateOu(params, ys).draw
-    val init = StochVolState(params, alphas, 0)
+    val init = StochVolState(params, alphas)
 
     MarkovChain(init)(stepOu(priorPhi, priorMu, priorSigma, ys))
   }

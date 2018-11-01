@@ -174,6 +174,8 @@ object DlmFsvSystem {
         sampleStep(params)(fs, s) }.
       toVector
 
+
+
     Rand.always(res)
   }
 
@@ -181,6 +183,8 @@ object DlmFsvSystem {
     * Perform a single step of the Gibbs Sampling algorithm
     * for the DLM FSV where the system variance is modelled
     * using FSV model
+    * TODO: Look at the output of sample sigma from factorSv, I think the
+    * factors are coming out weird
     */
   def sampleStep(
     priorBeta:     Gaussian,
@@ -211,9 +215,9 @@ object DlmFsvSystem {
       dlmP = s.p.dlm
       theta <- ffbs(dlm, ys, dlmP, ws)
       state = theta.map(x => (x.time, x.sample))
-      newV <- GibbsSampling.
-        sampleObservationMatrix(priorV, dlm.f,
-          ys.map(_.observation), state)
+      newV = s.p.dlm.v
+      // newV <- GibbsSampling.sampleObservationMatrix(priorV, dlm.f,
+      //     ys.map(_.observation), state)
       newP = s.p.copy(fsv = fs1.params, dlm = s.p.dlm.copy(v = newV))
     } yield State(newP, theta, fs1.factors, fs1.volatility)
   }

@@ -9,12 +9,12 @@ import cats.implicits._
 
 /**
   * Factor Stochastic Volatility Parameters for a model with
-  * k factors and p time series, 
+  * k factors and p time series
   * k << p
   * @param v the variance of the measurement error
   * @param beta the factor loading matrix, p x k
-  * @param factorParams a vector of length k containing the 
-  * ISV parameters for the factors 
+  * @param factorParams a vector of length k containing the
+  * ISV parameters for the factors
   */
 case class FsvParameters(
   v:            DenseMatrix[Double],
@@ -161,17 +161,16 @@ object FactorSv {
     * @return
     */
   def sampleFactors(
-    observations: Vector[Data],
+    ys: Vector[Data],
     p: FsvParameters,
     volatility: Vector[SamplingState]) = {
 
-    val precY = diag(p.v).map(1.0 / _)
-    val obs = encodePartiallyMissing(observations)
+    val precY = diag(diag(p.v).map(1.0 / _))
     val beta = p.beta
 
     // sample factors independently
     val res = for {
-      ((time, ys), at) <- obs zip volatility
+      ((time, ys), at) <- obs zip volatility.tail
       fVar = diag(exp(-at.sample))
       prec = fVar + (beta.t * precY * beta)
       mean = ys.map(y => prec \ (beta.t * (precY * y)))
@@ -304,25 +303,25 @@ object FactorSv {
     * @return
     */
   def sampleBeta(
-    prior:  Gaussian,
-    ys:     Vector[Data],
-    p:      Int,
-    k:      Int,
-    fs:     Vector[(Double, Option[DenseVector[Double]])],
-    params: FsvParameters
-  ) = {
+    prior: Gaussian,
+    ys:    Vector[Data],
+    p:     Int,
+    k:     Int,
+    fs:    Vector[(Double, Option[DenseVector[Double]])],
+    v:     DenseMatrix[Double]): DenseMatrix[Double] = {
 
     val newbeta = makeBeta(p, k)
     val fls = flattenFactors(fs.sortBy(_._1)).map(_._2)
 
+    // mutate the beta matrix
     (1 until p).foreach { i =>
       if (i < k) {
-        newbeta(i, 0 until i).t := sampleBetaRow(prior, fls, ys, params.v(i, i), i, k)
+        newbeta(i, 0 until i).t := sampleBetaRow(prior, fls, ys, v(i, i), i, k)
       } else {
-        newbeta(i, ::).t := sampleBetaRow(prior, fls, ys, params.v(i, i), i, k)
+        newbeta(i, ::).t := sampleBetaRow(prior, fls, ys, v(i, i), i, k)
       }}
 
-    Rand.always(newbeta)
+    newbeta
   }
 
   /**
@@ -381,7 +380,7 @@ object FactorSv {
       i <- Vector.range(0, k).par
       thisState = extractState(s.volatility, i)
       theseParameters = s.params.factorParams(i)
-      factorState = StochVolState(theseParameters, thisState, 0)
+      factorState = StochVolState(theseParameters, thisState)
       theseFactors = extractFactors(s.factors, i)
       factor = StochasticVolatility.stepUni(priorPhi,
         priorMu, priorSigmaEta, theseFactors)(factorState)
@@ -426,7 +425,7 @@ object FactorSv {
     * @param priorPhi a Beta prior on the mean reversion parameter phi
     * @param p an integer specifying the dimension of the observations
     * @param s the current state of the MCMC algorithm
-    * @return 
+    * @return
     */
   def sampleVolatilityParamsOu(
     priorMu:       Gaussian,
@@ -440,7 +439,7 @@ object FactorSv {
       i <- Vector.range(0, k).par
       thisState = extractState(s.volatility, i)
       theseParameters = s.params.factorParams(i)
-      factorState = StochVolState(theseParameters, thisState, 0)
+      factorState = StochVolState(theseParameters, thisState)
       theseFactors = extractFactors(s.factors, i)
       factor = StochasticVolatility.stepOu(priorPhi, priorMu,
         priorSigmaEta, theseFactors)(factorState)
@@ -451,7 +450,8 @@ object FactorSv {
       params = res.map(_.params)
       state = res.map(_.alphas)
     } yield State(
-      s.params.copy(factorParams = params), s.factors, combineStates(state.map(_.toVector)))
+      s.params.copy(factorParams = params), s.factors,
+      combineStates(state.map(_.toVector)))
   }
 
   /**
@@ -483,7 +483,8 @@ object FactorSv {
   }
 
   /**
-    * Replace rows from the factor loading matrix with zeros, beta, corresponding to 
+    * Replace rows from the factor loading matrix with zeros, beta,
+    * corresponding to 
     * partially missing observations
     */
   def missingBeta(
@@ -528,7 +529,7 @@ object FactorSv {
       reduce(_ + _)
 
     val scale = prior.scale + 0.5 * ssy
-    
+
     InverseGamma(shape, scale)
   }
 
@@ -586,16 +587,15 @@ object FactorSv {
     priorSigma:    InverseGamma,
     observations:  Vector[Data],
     p:             Int,
-    k:             Int) = { (s: State) => 
+    k:             Int)(s: State): Rand[State] = {
 
     for {
       svp <- sampleVolatilityParamsAr(priorPhi, priorMu, priorSigmaEta, p)(s)
       fs <- sampleFactors(observations, svp.params, svp.volatility)
-      beta <- sampleBeta(priorBeta, observations, p, k, fs, svp.params)
-      sigma <- sampleSigmaUni(priorSigma, observations,
-                              svp.params.copy(beta = beta), fs)
-      newV = diag(DenseVector.fill(p)(sigma))
-    } yield svp.copy(params = svp.params.copy(beta = beta), factors = fs)
+      sigma <- sampleSigma(priorSigma, observations, svp.params, fs)
+      newBeta = sampleBeta(priorBeta, observations, p, k, fs, svp.params.v)
+    } yield State(svp.params.copy(v = sigma, beta = newBeta),
+                  fs, svp.volatility)
   }
 
   /**
@@ -611,7 +611,7 @@ object FactorSv {
     sigmaY:       DenseMatrix[Double]) = {
 
     val k = beta.cols
-    val precY = sigmaY.map(1.0 / _)
+    val precY = diag(diag(sigmaY).map(1.0 / _))
     val obs = encodePartiallyMissing(observations)
 
     // sample factors independently
@@ -669,7 +669,7 @@ object FactorSv {
     val k = initP.beta.cols
     val p = initP.beta.rows
 
-    // initialise the latent state 
+    // initialise the latent state
     val init = initialiseStateAr(initP, observations, k)
 
     MarkovChain(init)(sampleStep(priorBeta, priorSigmaEta, priorMu, priorPhi,
@@ -711,11 +711,11 @@ object FactorSv {
       svp <- sampleVolatilityParamsOu(priorMu, priorSigmaEta, priorPhi, p)(s)
       fs <- sampleFactors(observations, svp.params, svp.volatility)
       sigma <- sampleSigma(priorSigma, observations, svp.params, fs)
-      beta <- sampleBeta(priorBeta, observations, p, k, fs, svp.params.copy(v = sigma))
+      beta = sampleBeta(priorBeta, observations, p, k, fs, sigma)
     } yield svp.copy(params = svp.params.copy(beta = beta, v = sigma), factors = fs)
   }
 
-  def sampleOu(    
+  def sampleOu(
     priorBeta:     Gaussian,
     priorSigmaEta: InverseGamma,
     priorMu:       Gaussian,

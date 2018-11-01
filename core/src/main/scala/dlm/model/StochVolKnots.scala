@@ -6,8 +6,7 @@ import math._
 
 case class StochVolState(
   params:   SvParameters,
-  alphas:   Vector[FilterAr.SampleState],
-  accepted: Int)
+  alphas:   Vector[FilterAr.SampleState])
 
 /**
   * Use a Gaussian approximation to the state space to sample the
@@ -318,7 +317,7 @@ object StochasticVolatilityKnots {
       newMu <- StochasticVolatility.sampleMu(priorMu, st.params.copy(phi = newPhi), state)
       newSigma <- StochasticVolatility.sampleSigma(priorSigmaEta, st.params.copy(phi = newPhi, mu = newMu), state)
       newP = SvParameters(newPhi, newMu, newSigma)
-    } yield StochVolState(newP, alphas, 0)
+    } yield StochVolState(newP, alphas)
   }
 
   def sampleStepArBeta(
@@ -331,12 +330,12 @@ object StochasticVolatilityKnots {
       alphas = sampleState(
         ffbsAr, filterAr, sampleAr)(ys, st.params, knots, st.alphas.toArray).toVector
       state = alphas.map(_.sample)
-      (phi, accepted) <- StochasticVolatility.samplePhi(priorPhi, st.params, state, 0.05, 100.0)(st.params.phi)
+      phi <- StochasticVolatility.samplePhi(priorPhi, st.params, state, 0.05, 100.0)(st.params.phi)
       mu <- StochasticVolatility.sampleMu(priorMu,
         st.params.copy(phi = phi), state)
       se <- StochasticVolatility.sampleSigma(priorSigmaEta,
         st.params.copy(phi = phi, mu = mu), state)
-    } yield StochVolState(SvParameters(phi, mu, se), alphas, st.accepted + accepted)
+    } yield StochVolState(SvParameters(phi, mu, se), alphas)
   }
 
   def initialStateAr(
@@ -363,7 +362,7 @@ object StochasticVolatilityKnots {
     } yield SvParameters(phi, mu, sigma)
     val params = initP.draw
 
-    val init = StochVolState(params, initialStateAr(params, ys).draw, 0)
+    val init = StochVolState(params, initialStateAr(params, ys).draw)
     MarkovChain(init)(sampleStepAr(priorPhi, priorMu, priorSigmaEta, ys))
   }
 
@@ -374,7 +373,7 @@ object StochasticVolatilityKnots {
     ys:            Vector[(Double, Option[Double])],
     initP:         SvParameters) = {
 
-    val init = StochVolState(initP, initialStateAr(initP, ys).draw, 0)
+    val init = StochVolState(initP, initialStateAr(initP, ys).draw)
     MarkovChain(init)(sampleStepArBeta(priorPhi, priorMu, priorSigmaEta, ys))
   }
 
