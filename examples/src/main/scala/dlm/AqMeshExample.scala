@@ -44,7 +44,7 @@ trait AqmeshModel {
     sigmaX <- priorSigma
     vp <- volP
   } yield FsvParameters(
-    DenseMatrix.eye[Double](3) * sigmaX,
+    DenseMatrix.eye[Double](21) * sigmaX,
     FactorSv.buildBeta(21, 2, bij),
     Vector.fill(2)(vp))
 
@@ -88,7 +88,7 @@ object FitAqMeshFull extends App with AqmeshModel {
     sigmaX <- priorSigma
     vp <- volP
   } yield FsvParameters(
-    DenseMatrix.eye[Double](3) * sigmaX,
+    DenseMatrix.eye[Double](49) * sigmaX,
     FactorSv.buildBeta(49, 2, bij),
     Vector.fill(2)(vp))
 
@@ -137,8 +137,8 @@ object FitAqMeshFull extends App with AqmeshModel {
 }
 
 object FitAqMesh extends App with AqmeshModel {
-  implicit val system = ActorSystem("aqmesh")
-  implicit val materializer = ActorMaterializer()
+  // implicit val system = ActorSystem("aqmesh")
+  // implicit val materializer = ActorMaterializer()
 
   val training = reader.
     collect { case Right(a) => a }.
@@ -165,9 +165,14 @@ object FitAqMesh extends App with AqmeshModel {
   def formatParameters(s: DlmFsvSystem.State) =
     s.p.toList
 
-  Streaming.writeParallelChain(
-    iters, 2, 100000, "examples/data/aqmesh_params", formatParameters).
-    runWith(Sink.onComplete { _ => system.terminate() })
+  iters.steps.
+    take(100).
+    map(_.p).
+    foreach(println)
+
+  // Streaming.writeParallelChain(
+  //   iters, 2, 100000, "examples/data/aqmesh_params", formatParameters).
+  //   runWith(Sink.onComplete { _ => system.terminate() })
 }
 
 object OneStepForecastAqmesh extends App with AqmeshModel {

@@ -71,18 +71,14 @@ object FitFsv extends App with FsvModel {
   val priorSigma = InverseGamma(2.5, 3.0)
 
   val iters = FactorSv
-    .sampleAr(priorBeta, priorSigmaEta, priorMu, priorPhi, priorSigma, data, params)
+    .sampleAr(priorBeta, priorSigmaEta, priorMu, priorPhi,
+              priorSigma, data, params)
 
   def formatParameters(s: FactorSv.State) = s.params.toList
 
-
-  iters.steps.take(1000).
-    map(s => formatParameters(s)).
-    foreach(println)
-
-  // Streaming.writeParallelChain(
-  //   iters, 2, 10000, "examples/data/factor_sv_gibbs", formatParameters).
-  //   runWith(Sink.onComplete(_ => system.terminate()))
+  Streaming.writeParallelChain(
+    iters, 2, 100000, "examples/data/factor_sv_gibbs", formatParameters).
+    runWith(Sink.onComplete(_ => system.terminate()))
 }
 
 object SampleStateFvs extends App with FsvModel {

@@ -84,10 +84,10 @@ object ParametersAr extends App with ArData {
     v <- GibbsSampling.sampleObservationMatrix(priorV, f,
       data.map(x => DenseVector(x._2)),
         st.map { case (t, x) => (t, DenseVector(x)) })
-  } yield (StochVolState(SvParameters(phi, mu, sigma), theta, 0), v)
+  } yield (StochVolState(SvParameters(phi, mu, sigma), theta), v)
 
   val initState = FilterAr.ffbs(p, data, Vector.fill(data.size)(priorV.draw))
-  val init = (StochVolState(p, initState.draw, 0),
+  val init = (StochVolState(p, initState.draw),
     DenseMatrix(priorV.draw))
 
   val iters = MarkovChain(init)(step)
