@@ -202,18 +202,16 @@ object DlmFsvSystem {
 
     for {
       fs1 <- FactorSv.sampleStep(priorBeta, priorSigmaEta, priorMu,
-        priorPhi, priorSigma, factorState(s.theta, dlm.g), d, k)(fs)
+                                 priorPhi, priorSigma, factorState(s.theta, dlm.g), d, k)(fs)
 
       // perform FFBS using time dependent system noise covariance
       ws = calculateVariance(fs1.volatility.tail, fs1.params.beta,
         fs1.params.v)
-
-      dlmP = s.p.dlm
-      theta <- ffbs(dlm, ys, dlmP, ws)
+      theta <- ffbs(dlm, ys, s.p.dlm, ws)
       state = theta.map(x => (x.time, x.sample))
-      newV <- GibbsSampling.
-        sampleObservationMatrix(priorV, dlm.f,
-          ys.map(_.observation), state)
+      // newV <- GibbsSampling.sampleObservationMatrix(priorV, dlm.f,
+      //     ys.map(_.observation), state)
+      newV = s.p.dlm.v
       newP = s.p.copy(fsv = fs1.params, dlm = s.p.dlm.copy(v = newV))
     } yield State(newP, theta, fs1.factors, fs1.volatility)
   }
@@ -249,11 +247,9 @@ object DlmFsvSystem {
       // perform FFBS using time dependent system noise covariance
       ws = calculateVariance(fs1.volatility.tail, fs1.params.beta,
         fs1.params.v)
-      dlmP = s.p.dlm
-      theta <- ffbs(dlm, ys, dlmP, ws)
+      theta <- ffbs(dlm, ys, s.p.dlm, ws)
       state = theta.map(x => (x.time, x.sample))
-      newV <- GibbsSampling.
-        sampleObservationMatrix(priorV, dlm.f,
+      newV <- GibbsSampling.sampleObservationMatrix(priorV, dlm.f,
           ys.map(_.observation), state)
       newP = s.p.copy(fsv = fs1.params, dlm = s.p.dlm.copy(v = newV))
     } yield State(newP, theta, fs1.factors, fs1.volatility)
@@ -276,7 +272,7 @@ object DlmFsvSystem {
     val parameters = params.dlm
 
     // initialise the variances of the system
-    val ws = Vector.fill(ys.size)(DenseMatrix.eye[Double](dlm.f(1.0).rows))
+    val ws = Vector.fill(ys.size)(DenseMatrix.eye[Double](dlm.f(1.0).rows) * 0.1)
 
     val theta = ffbs(dlm, ys, parameters, ws).draw
     val thetaObs = theta.map { ss => Data(ss.time, ss.sample.map(_.some)) }

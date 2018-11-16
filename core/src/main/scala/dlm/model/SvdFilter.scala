@@ -73,8 +73,8 @@ case class SvdFilter(advState: (SvdState, Double) => SvdState)
   }
 
   def step(
-    mod:      Dlm,
-    p:        DlmParameters)
+    mod: Dlm,
+    p:   DlmParameters)
     (s: SvdState, y: Data) = {
 
     val dt = y.time - s.time

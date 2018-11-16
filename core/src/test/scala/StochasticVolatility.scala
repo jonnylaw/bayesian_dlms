@@ -22,7 +22,7 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
     DenseMatrix.eye[Double](2) * 2.0,
     DenseVector.zeros[Double](2),
     DenseMatrix.eye[Double](2) * 10.0)
-  
+
   val firstOrderSims = Dlm.simulateRegular(mod, firstOrderParams, 1.0).
     steps.take(2).
     toVector.
@@ -101,4 +101,43 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
   test("Things in between the knots should be changed") {
     assert(sampledAr !== alphas)
   }
+
+  test("The final sampled state should be altered") {
+    assert(sampledAr.last !== alphas.last)
+  }
+
+  test("The initial sampled state should be altered") {
+    assert(sampledAr.head !== alphas.head)
+  }
+
+  val sampledArFold = sampleStateFold(
+    ffbsAr, filterAr, sampleAr)(arsims, p, knots, alphas.toArray).toVector
+
+  test("Folded state is the same length as initial state") {
+    assert(sampledArFold.size === alphas.size)
+  }
+
+  test("Folded knots should remain unchanged in a single sample") {
+    // extract the knots
+    val resampled = for {
+      i <- knots.tail.init
+      sample = sampledArFold(i)
+    } yield (sample.time, sample.sample)
+
+    val initialSample = for {
+      i <- knots.tail.init
+      sample = alphas(i)
+    } yield (sample.time, sample.sample)
+
+    assert(resampled === initialSample)
+  }
+
+  test("The final sampled state folded should be altered") {
+    assert(sampledArFold.last !== alphas.last)
+  }
+
+  test("The initial sampled state folded should be altered") {
+    assert(sampledArFold.head !== alphas.head)
+  }
+
 }

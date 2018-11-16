@@ -31,7 +31,7 @@ object GibbsSampling {
       .map {
         case (ss, d) =>
           val ft = f(ss._1).t * ss._2
-          val res: Array[Double] = d.data.zipWithIndex.map { 
+          val res: Array[Double] = d.data.zipWithIndex.map {
             case (Some(y), i) => (y - ft(i)) * (y - ft(i))
             case _ => 0.0
           }
@@ -137,14 +137,15 @@ object GibbsSampling {
     priorV: InverseGamma,
     priorW: InverseGamma,
     observations: Vector[Data]) = { s: State =>
-    
+
     for {
       theta <- Smoothing.ffbs(mod, observations,
         KalmanFilter.advanceState(s.p, mod.g), Smoothing.step(mod, s.p.w), s.p)
       newV <- sampleObservationMatrix(priorV, mod.f,
         observations.map(_.observation), theta.map(s => (s.time, s.sample)))
       newW <- sampleSystemMatrix(priorW, theta, mod.g)
-    } yield State(s.p.copy(v = newV, w = newW), theta)
+    } yield State(s.p.copy(w = newW), theta)
+    //v = newV,
   }
 
   /**
@@ -180,7 +181,7 @@ object GibbsSampling {
     priorV: InverseGamma,
     priorW: InverseGamma,
     observations: Vector[Data]) = { s: State =>
-    
+
     for {
       theta <- SvdSampler.ffbs(mod, observations, s.p, SvdFilter.advanceState(s.p, mod.g))
       newV <- sampleObservationMatrix(priorV, mod.f, observations.map(_.observation), theta.map(s => (s.time, s.sample)))

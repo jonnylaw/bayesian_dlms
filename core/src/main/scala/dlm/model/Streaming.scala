@@ -73,6 +73,12 @@ object Streaming {
     params.transpose.map(a => breeze.stats.mean(a))
   }
 
+  def quantile[A: Ordering](xs: Seq[A], prob: Double): A = {
+    val index = math.floor(xs.length * prob).toInt
+    val ordered = xs.sorted
+    ordered(index)
+  }
+
   /**
     * Streaming mean
     */
@@ -107,6 +113,14 @@ object Streaming {
       }).
       map(_._1)
   }
+
+  def meanSvParameters = Flow[SvParameters].
+    fold((SvParameters.empty, 1.0)){(acc, b) =>
+           val (avg: SvParameters, n: Double) = acc
+           (avg.map(_ * n).add(b).map(_  / (n + 1)), n + 1)
+         }.
+    map(_._1)
+
 
   /**
     * Create an Akka stream from a Markov Chain

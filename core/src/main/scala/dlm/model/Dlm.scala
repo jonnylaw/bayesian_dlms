@@ -268,8 +268,8 @@ object Dlm {
     model: Dlm,
     params: DlmParameters)(
     state: DenseVector[Double],
-      time: Double,
-      dt: Double): Rand[(Data, DenseVector[Double])] =
+    time: Double,
+    dt: Double): Rand[(Data, DenseVector[Double])] =
     for {
       x1 <- stepState(model, params, state, dt)
       y <- observation(model, params, x1, time)

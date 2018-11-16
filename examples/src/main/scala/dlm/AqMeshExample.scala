@@ -44,7 +44,7 @@ trait AqmeshModel {
     sigmaX <- priorSigma
     vp <- volP
   } yield FsvParameters(
-    DenseMatrix.eye[Double](3) * sigmaX,
+    DenseMatrix.eye[Double](21) * sigmaX,
     FactorSv.buildBeta(21, 2, bij),
     Vector.fill(2)(vp))
 
@@ -88,7 +88,7 @@ object FitAqMeshFull extends App with AqmeshModel {
     sigmaX <- priorSigma
     vp <- volP
   } yield FsvParameters(
-    DenseMatrix.eye[Double](3) * sigmaX,
+    DenseMatrix.eye[Double](49) * sigmaX,
     FactorSv.buildBeta(49, 2, bij),
     Vector.fill(2)(vp))
 
@@ -148,7 +148,7 @@ object FitAqMesh extends App with AqmeshModel {
       LocalDateTime.of(2018, Month.FEBRUARY, 1, 0, 0)) < 0).
     toVector.
     zipWithIndex.
-    filter { case (_, i) => i % 4 == 0 }. // thinned
+    filter { case (_, i) => i % 4 == 0 }. // thinned 
     map(_._1).
     map(a => Data(
       a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),

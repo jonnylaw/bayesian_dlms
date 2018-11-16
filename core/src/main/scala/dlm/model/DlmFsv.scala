@@ -1,6 +1,6 @@
 package dlm.core.model
 
-import breeze.linalg.{DenseVector, DenseMatrix, diag}
+import breeze.linalg.{DenseVector, DenseMatrix}
 import breeze.stats.distributions._
 import breeze.stats.mean
 import breeze.numerics.exp
@@ -40,7 +40,6 @@ object DlmFsvParameters {
         DlmParameters.empty(vDim, wDim),
         FsvParameters.empty(p, k)
       )
-
 
   /**
     * Parse DLM FSV parameters from a list
@@ -201,43 +200,6 @@ object DlmFsv {
   def buildDlmState(s: State): GibbsSampling.State = 
     GibbsSampling.State(s.p.dlm, s.theta)
 
-  // /**
-  //   * Helper function for DLM obs
-  //   */
-  // def dlmMinusFactors(
-  //   obs:    Data,
-  //   factor: (Double, Option[DenseVector[Double]]),
-  //   beta:   DenseMatrix[Double]): Data = {
-
-  //   // remove all partially missing data
-  //   val ys = obs.observation.data.toVector.sequence.map { x =>
-  //     DenseVector(x.toArray)
-  //   }
-
-  //   val observation = Applicative[Option].map2(factor._2, ys){
-  //     (f, y) => y - beta * f }.map(_.data.toVector).sequence
-
-  //   Data(obs.time, DenseVector(observation.toArray))
-  // }
-
-  // /**
-  //   * Calculate the difference between the observations y_t and beta * f_t
-  //   * @param observations a vector of observations
-  //   * @param factors a vector of factors
-  //   * @param beta the value of the factor loading matrix
-  //   * @return a vector containing the difference between observations and 
-  //   * beta * f_t
-  //   */
-  // def dlmObs(
-  //   observations: Vector[Data],
-  //   factors:      Vector[(Double, Option[DenseVector[Double]])],
-  //   beta:         DenseMatrix[Double]) = {
-
-  //   for {
-  //     (y, f) <- observations zip factors
-  //   } yield dlmMinusFactors(y, f, beta)
-  // }
-
   /**
     * Perform forward filtering backward sampling using a
     * time dependent observation variance and the SVD Filter
@@ -252,7 +214,7 @@ object DlmFsv {
     p:     DlmParameters,
     vs:    Vector[DenseMatrix[Double]]) = {
 
-    val ps = vs.map(vi => p.copy(v = SvdFilter.sqrtInvSvd(vi)))
+    val ps = vs.map(vi => SvdFilter.transformParams(p.copy(v = vi)))
 
     val filterStep = (params: DlmParameters) => {
       val advState = SvdFilter.advanceState(params, model.g) _
@@ -294,7 +256,7 @@ object DlmFsv {
         fs1.params.beta, fs1.params.v)
       theta <- ffbsSvd(dlm, observations, s.p.dlm, vs)
       newW <- GibbsSampling.sampleSystemMatrix(priorW, theta, dlm.g)
-      newP = DlmFsvParameters(s.p.dlm.copy(w = SvdFilter.sqrtSvd(newW)), fs1.params)
+      newP = DlmFsvParameters(s.p.dlm.copy(w = newW), fs1.params)
     } yield State(newP, theta.toVector, fs1.factors, fs1.volatility)
   }
 
@@ -495,6 +457,5 @@ object DlmFsv {
     }
 
     MarkovChain(init)(step)
-
   }
 }
