@@ -194,7 +194,7 @@ object FitFactorUo extends App with RoundedUoData {
   val initP: Rand[DlmFsvParameters] = for {
     fsv <- fsvP
     dlm <- dlmP
-  } yield DlmFsvParameters(dlm, fsv) 
+  } yield DlmFsvParameters(dlm, fsv)
 
   val id = "new_new_emote_2603"
 
@@ -228,7 +228,7 @@ object InterpolateUo extends App with RoundedUoData {
     mapAsync(1) { case (id, d) =>
 
       val file = s"examples/data/uo_gibbs_two_factors_${id}_0.csv"
-    
+
       val ps: Future[DlmFsvParameters] = Streaming.readCsv(file).
         map(_.map(_.toDouble).toList).
         drop(1000).
