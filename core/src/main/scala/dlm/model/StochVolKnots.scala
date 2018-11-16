@@ -141,7 +141,7 @@ object StochasticVolatilityKnots {
     val prop = (vs: Vector[FilterAr.SampleState]) => {
       filter(vs.head, vs.last, p, transObs)
     }
-    
+
     val ll = (vs: Vector[FilterAr.SampleState]) => {
       val state = vs.map(_.sample).tail
       exactLl(state, ys) - approxLl(state, ys)
@@ -193,27 +193,27 @@ object StochasticVolatilityKnots {
     ys:   Vector[(Double, Option[Double])],
     p:     SvParameters,
     knots: Vector[Int],
-    state: Array[FilterAr.SampleState]) = { 
+    state: Array[FilterAr.SampleState]) = {
 
-    (knots.init zip knots.tail).foldLeft(state) { case (st, (start, end)) =>
+    val finalKnot = knots.last
+
+    (knots.init zip knots.tail).foldLeft(state.toVector) { case (st, (start, end)) =>
       val selectedObs = ys.slice(start, end)
 
-      val newBlock = if (start == 0) {
+      if (start == 0) {
         val vs = st.slice(1, end + 1).toVector
         val (res, a) = sampleStart(selectedObs, p, sampler)(vs).draw
-        res
-      } else if (end == knots.size - 1) {
-        val vs = st.slice(start, end + 1).toVector
-        println("Sampling end")
+        res ++ st.drop(end + 1)
+      } else if (end == finalKnot) {
+        val vs = st.slice(start + 1, end + 1).toVector
         val (res, a) = sampleEnd(selectedObs, p, filter)(vs).draw
-        res
+        st.take(start + 1) ++ res
       } else {
         val vs = st.slice(start, end + 1).toVector
         val (res, a) = sampleBlock(selectedObs, p, ffbs)(vs).draw
-        res
+        st.take(start) ++ res ++ st.drop(end + 1)
       }
 
-      st.take(start) ++ newBlock ++ st.drop(end + 1)
     }
   }
 
@@ -226,6 +226,8 @@ object StochasticVolatilityKnots {
     knots: Vector[Int],
     state: Array[FilterAr.SampleState]): Array[FilterAr.SampleState] = { 
 
+    val finalKnot = knots.last
+
     for (i <- knots.indices.init) {
       val selectedObs = ys.slice(knots(i), knots(i + 1))
 
@@ -233,10 +235,10 @@ object StochasticVolatilityKnots {
         val vs = state.slice(1, knots(i + 1) + 1).toVector
         val (res, a) = sampleStart(selectedObs, p, sampler)(vs).draw
         res.copyToArray(state, 0)
-      } else if (i == knots.size - 2) {
-        val vs = state.slice(knots(i), knots(i + 1) + 1).toVector
+      } else if (knots(i + 1) == finalKnot) {
+        val vs = state.slice(knots(i) + 1, knots(i + 1) + 1).toVector
         val (res, a) = sampleEnd(selectedObs, p, filter)(vs).draw
-        res.copyToArray(state, knots(i))
+        res.copyToArray(state, knots(i) + 1)
       } else {
         val vs = state.slice(knots(i), knots(i + 1) + 1).toVector
         val (res, a) = sampleBlock(selectedObs, p, ffbs)(vs).draw

@@ -50,7 +50,7 @@ object FsvParameters {
 
   def fromList(p: Int, k: Int)(l: List[Double]): FsvParameters =
     FsvParameters(diag(DenseVector(l.take(p).toArray)),
-      new DenseMatrix(p, k, l.slice(1, p + p * k).toArray),
+      new DenseMatrix(p, k, l.slice(p, p + p * k).toArray),
       l.drop(p + p * k).
         grouped(3).
         map(SvParameters.fromList).
