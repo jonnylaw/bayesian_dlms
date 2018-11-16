@@ -88,7 +88,7 @@ object FilterAr {
   }
 
   def toKfState(
-    ss: SampleState): FilterState = 
+    ss: SampleState): FilterState =
     FilterState(ss.time, ss.mean, ss.cov, ss.at1, ss.rt1)
 
   def conditionalFilter(

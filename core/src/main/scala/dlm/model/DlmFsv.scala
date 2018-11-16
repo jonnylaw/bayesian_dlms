@@ -41,7 +41,6 @@ object DlmFsvParameters {
         FsvParameters.empty(p, k)
       )
 
-
   /**
     * Parse DLM FSV parameters from a list
     * @return vDim
@@ -458,6 +457,5 @@ object DlmFsv {
     }
 
     MarkovChain(init)(step)
-
   }
 }

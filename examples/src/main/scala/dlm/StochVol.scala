@@ -78,7 +78,8 @@ object FitSvKnots extends App {
   val reader = rawData.asCsvReader[SvSims](rfc.withHeader)
   val data = reader.collect {
     case Right(a) => (a.time, a.observation.some)
-  }.toVector
+  }.toVector.
+    take(1000)
 
   val priorPhi = Gaussian(0.8, 0.1)
   val priorMu = Gaussian(2.0, 1.0)
@@ -87,9 +88,9 @@ object FitSvKnots extends App {
   val iters = StochasticVolatilityKnots.sampleParametersAr(priorPhi,
     priorMu, priorSigma, data)
 
-  def formatParameters(s: StochVolState) = {
-    List(s.params.phi, s.params.mu, s.params.sigmaEta)
-  }
+  def formatParameters(s: StochVolState) = 
+    s.params.toList
+
 
   Streaming.writeParallelChain(
     iters, 2, 100000, "examples/data/sv_knot_params", formatParameters).
@@ -123,7 +124,9 @@ object FitSvMixBeta extends App {
 } 
 
 object SvSampleStateMixture extends App {
-  val params = SvParameters(0.8, 2.0, 0.3)
+  implicit val system = ActorSystem("stochastic_volatility_knots")
+  implicit val materializer = ActorMaterializer()
+
   val rawData = Paths.get("examples/data/sv_sims.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
@@ -131,33 +134,39 @@ object SvSampleStateMixture extends App {
   }.toVector.
     take(1000)
 
-  val initState = StochasticVolatilityKnots.initialStateAr(params, data)
-  val iters = MarkovChain(initState.draw)(StochasticVolatility.sampleStateAr(data, params, _)).
-    steps.
-    take(1000).
-    toVector
+  Streaming.
+    readCsv("examples/data/sv_params_0.csv").
+    drop(10000).
+    via(Streaming.thinChain(20)).
+    map(_.map(_.toDouble).toList).
+    map(SvParameters.fromList).
+    via(Streaming.meanSvParameters).
+    map { params =>
 
-  def quantile[A: Ordering](xs: Seq[A], prob: Double): A = {
-    val index = math.floor(xs.length * prob).toInt
-    val ordered = xs.sorted
-    ordered(index)
-  }
+      val initState = StochasticVolatilityKnots.initialStateAr(params, data)
+      val iters = MarkovChain(initState.draw)(StochasticVolatility.sampleStateAr(data, params, _)).
+        steps.
+        take(1000).
+        toVector
 
-  val summary = iters.transpose.map { x =>
-    val sample = x.map(_.sample)
-    (x.head.time, mean(sample), quantile(sample, 0.995), quantile(sample, 0.005))
-  }
+      val out = new java.io.File("examples/data/sv_state_mixture.csv")
+      val headers = rfc.withHeader("time", "mean", "upper", "lower")
 
-  // write state
-  val out = new java.io.File("examples/data/sv_state_mixture.csv")
-  val headers = rfc.withHeader("time", "mean", "upper", "lower")
-  out.writeCsv(summary, headers)
+      val summary = iters.transpose.map { x =>
+        val xt = x.map(_.sample)
+        (x.head.time, mean(xt),
+         Streaming.quantile(xt, 0.95), Streaming.quantile(xt, 0.05))
+      }
+      out.writeCsv(summary, headers)
+    }.runWith(Sink.onComplete(_ => system.terminate()))
 }
 
 object SvSampleStateKnots extends App {
+  implicit val system = ActorSystem("stochastic_volatility_knots")
+  implicit val materializer = ActorMaterializer()
+
   import StochasticVolatilityKnots._
 
-  val params = SvParameters(0.8, 2.0, 0.3)
   val rawData = Paths.get("examples/data/sv_sims.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
@@ -165,34 +174,37 @@ object SvSampleStateKnots extends App {
   }.toVector.
     take(1000)
 
-  val initState = initialStateAr(params, data).draw.toArray
+  Streaming.
+    readCsv("examples/data/sv_params_0.csv").
+    drop(10000).
+    via(Streaming.thinChain(20)).
+    map(_.map(_.toDouble).toList).
+    map(SvParameters.fromList).
+    via(Streaming.meanSvParameters).
+    map { p =>
+      val sampleStep = (st: Array[FilterAr.SampleState]) => for {
+        knots <- sampleKnots(10, 100, data.size)
+        state = sampleState(ffbsAr, filterAr, sampleAr)(data, p, knots, st)
+      } yield state
 
-  val sample = (st: Array[FilterAr.SampleState]) => for {
-    knots <- sampleKnots(10, 100, data.size)
-    state = sampleState(ffbsAr, filterAr, sampleAr)(data, params, knots, st)
-  } yield state
+      val initState = initialStateAr(p, data).draw.toArray
 
-  val iters = MarkovChain(initState)(sample).
-    steps.
-    take(1000).
-    map(_.map(x => (x.time, x.sample)).toVector).
-    toVector
+      val iters = MarkovChain(initState)(sampleStep).
+          steps.
+          take(1000).
+          map(_.map(x => (x.time, x.sample)).toVector).
+          toVector
 
-  def quantile[A: Ordering](xs: Seq[A], prob: Double): A = {
-    val index = math.floor(xs.length * prob).toInt
-    val ordered = xs.sorted
-    ordered(index)
-  }
+      val out = new java.io.File("examples/data/sv_state_knots.csv")
+      val headers = rfc.withHeader("time", "mean", "upper", "lower")
 
-  val summary = iters.transpose.map { x =>
-    val xt = x.map(_._2)
-    (x.head._1, mean(xt), quantile(xt, 0.95), quantile(xt, 0.05))
-  }
-
-  // // write state
-  val out = new java.io.File("examples/data/sv_state_knots.csv")
-  val headers = rfc.withHeader("time", "mean", "upper", "lower")
-  out.writeCsv(summary, headers)
+         val summary = iters.transpose.map { x =>
+           val xt = x.map(_._2)
+           (x.head._1, mean(xt),
+            Streaming.quantile(xt, 0.95), Streaming.quantile(xt, 0.05))
+         }
+         out.writeCsv(summary, headers)
+    }.runWith(Sink.onComplete(_ => system.terminate()))
 }
 
 object SimulateOu extends App {

@@ -161,12 +161,13 @@ object FactorSv {
     * @return
     */
   def sampleFactors(
-    ys: Vector[Data],
+    observations: Vector[Data],
     p: FsvParameters,
     volatility: Vector[SamplingState]) = {
 
     val precY = diag(diag(p.v).map(1.0 / _))
     val beta = p.beta
+    val obs = encodePartiallyMissing(observations)
 
     // sample factors independently
     val res = for {
@@ -377,7 +378,7 @@ object FactorSv {
     val k = s.params.beta.cols
 
     val res = for {
-      i <- Vector.range(0, k).par
+      i <- Vector.range(0, k)
       thisState = extractState(s.volatility, i)
       theseParameters = s.params.factorParams(i)
       factorState = StochVolState(theseParameters, thisState)
@@ -387,7 +388,7 @@ object FactorSv {
     } yield factor
 
     for {
-      res <- res.seq.sequence
+      res <- res.sequence
       params = res.map(_.params)
       state = res.map(_.alphas)
     } yield State(
@@ -560,7 +561,9 @@ object FactorSv {
           val betam = missingBeta(d.observation, params.beta)
           val fi = betam * f
           val res = d.observation.data.zipWithIndex.map {
-            case (Some(y), i) => y - fi(i)
+            case (Some(y), i) =>
+              val centered = y - fi(i)
+              centered * centered
             case _ => 0.0
           }
           DenseVector(res)

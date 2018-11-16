@@ -123,6 +123,9 @@ object StochasticVolatility {
     def logWeights(yo: Option[Double], x: Double): Vector[Double] =
       for {
         j <- Vector.range(0, variances.size)
+        _ = if (x.isNaN) {
+          println(s"Calculating the ll for $yo, with state $x, mean ${means(j)}, variance ${variances(j)}")
+        }
       } yield log(pis(j)) + ll(j, yo, x)
 
     for {
@@ -189,10 +192,10 @@ object StochasticVolatility {
     tau:    Double,
     lambda: Double) = {
 
-    val proposal = (phi: Double) => 
+    val proposal = (phi: Double) =>
       new Beta(lambda * phi + tau, lambda * (1 - phi) + tau)
 
-    val pos = (phi: Double) => 
+    val pos = (phi: Double) =>
       prior.logPdf(phi) + arLikelihood(alpha, p.copy(phi = phi))
 
     MarkovChain.Kernels.metropolisHastings(proposal)(pos)
@@ -200,10 +203,10 @@ object StochasticVolatility {
 
   /**
     * Sample mu from the autoregressive state space,
-    * from a Gaussian distribution 
+    * from a Gaussian distribution
     * @param prior a Gaussian prior for the parameter
     * @return a function from the current state of the Markov chain to
-    * a new state with a new mu sampled from the Gaussian 
+    * a new state with a new mu sampled from the Gaussian
     * posterior distribution
     */
   def sampleMu(

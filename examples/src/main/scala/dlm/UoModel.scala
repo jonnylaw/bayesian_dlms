@@ -57,7 +57,7 @@ trait RoundedUoData {
 
   def envToData(a: EnvSensor): Data =
     Data(a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
-      DenseVector(a.co, a.humidity, a.no, a.temperature))
+      DenseVector(a.co, a.humidity, a.no map math.log, a.temperature))
 }
 
 // fit ten independent models
@@ -79,7 +79,7 @@ object FitUoDlms extends App with RoundedUoData {
   } yield List.fill(4)(seasonalP).reduce(Dlm.outerSumParameters)
 
   def writeSensor(id: String): Future[Done] = for {
-    d <- data.
+    d <- encodedData.
       filter(_.sensorId == id).
       map(envToData).
       runWith(Sink.seq)
@@ -90,12 +90,16 @@ object FitUoDlms extends App with RoundedUoData {
     runWith(Sink.ignore)
   } yield io
 
-  val ids = List("new_new_emote_1171", "new_new_emote_1172", "new_new_emote_1702",
-    "new_new_emote_1708", "new_new_emote_2602", "new_new_emote_2603",
-    "new_new_emote_2604", "new_new_emote_2605", "new_new_emote_2606",
-    "new_new_emote_1108")
+  // val ids = List("new_new_emote_1171", "new_new_emote_1172", "new_new_emote_1702",
+  //   "new_new_emote_1708", "new_new_emote_2602", "new_new_emote_2603",
+  //   "new_new_emote_2604", "new_new_emote_2605", "new_new_emote_2606",
+  //                "new_new_emote_1108")
 
-  ids.map(writeSensor).sequence.
+  val id = "new_new_emote_2603"
+
+  // ids.map(writeSensor).sequence.
+
+  writeSensor(id).
     onComplete { s =>
       println(s)
       system.terminate()
@@ -199,7 +203,7 @@ object FitFactorUo extends App with RoundedUoData {
   val id = "new_new_emote_2603"
 
   (for {
-    d <- data.
+    d <- encodedData.
       filter(_.sensorId == id).
       map(envToData).
       runWith(Sink.seq)

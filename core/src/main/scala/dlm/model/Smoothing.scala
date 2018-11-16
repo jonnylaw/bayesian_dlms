@@ -190,8 +190,7 @@ object Smoothing {
     * Perform a backward step of FFBS for the OU process
     */
   def backwardStepOu(
-    p:        SvParameters,
-  )(kfState:  KfState,
+    p:        SvParameters)(kfState:  KfState,
     s:        SamplingState): SamplingState = {
 
     val dt = s.time - kfState.time

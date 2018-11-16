@@ -167,7 +167,7 @@ trait DlmFsvSystemModel {
   val errorP = FsvParameters(
     v = DenseMatrix.eye[Double](13) * 0.1,
     beta,
-    Vector.fill(2)(SvParameters(0.2, 0.0, 0.2))
+    Vector.fill(2)(SvParameters(0.8, 0.0, 0.2))
   )
   val dlmP = DlmParameters(
     v = DenseMatrix(0.5),
@@ -204,22 +204,22 @@ object SimulateDlmFsvSystem extends App with DlmFsvSystemModel {
 }
 
 object FitDlmFsvSystem extends App with DlmFsvSystemModel {
-  implicit val system = ActorSystem("dlm_fsv_system")
-  implicit val materializer = ActorMaterializer()
+  // implicit val system = ActorSystem("dlm_fsv_system")
+  // implicit val materializer = ActorMaterializer()
 
   val rawData = Paths.get("examples/data/dlm_fsv_system_sims.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
   val data = reader.collect {
-    case Right(a) => Data(a.head, DenseVector(a.slice(1, 2).map(_.some).toArray))
+    case Right(a) => Data(a.head, DenseVector(a(1).some))
   }.toVector.
     take(1000)
 
   val priorBeta = Gaussian(0.0, 5.0)
-  val priorSigmaEta = InverseGamma(0.01, 0.01)
+  val priorSigmaEta = InverseGamma(2, 2)
   val priorPhi = Gaussian(0.8, 0.1)
   val priorMu = Gaussian(0.0, 3.0)
-  val priorSigma = InverseGamma(0.01, 0.01)
-  val priorV = InverseGamma(0.01, 0.01)
+  val priorSigma = InverseGamma(2, 2)
+  val priorV = InverseGamma(2, 2)
 
   val initSv = for {
     phi <- priorPhi
@@ -227,26 +227,30 @@ object FitDlmFsvSystem extends App with DlmFsvSystemModel {
     sigma <- priorSigmaEta
   } yield Vector.fill(2)(SvParameters(phi, mu, sigma))
 
-  // val initP = DlmFsvSystem.Parameters(
-  //   DenseVector.fill(13)(0.0),
-  //   diag(DenseVector.fill(13)(10.0)),
-  //   priorV.draw,
-  //   FsvParameters(
-  //     priorSigma.draw,
-  //     FactorSv.drawBeta(13, 2, priorBeta).draw,
-  //     initSv.draw
-  //   )
-  // )
+  val initP = DlmFsvParameters(
+    DlmParameters(
+      v = DenseMatrix(0.5),
+      w = DenseMatrix.eye[Double](13),
+      DenseVector.zeros[Double](13),
+      DenseMatrix.eye[Double](13)
+    ),
+    FsvParameters(
+      diag(DenseVector(Array.fill(13)(priorSigma.draw))),
+      FactorSv.buildBeta(13, 2, priorBeta.draw),
+      initSv.draw
+    )
+  )
 
-  def formatParameters(s: DlmFsvSystem.State): List[Double] = {
+  def formatParameters(s: DlmFsvSystem.State): List[Double] =
     s.p.toList
-  }
 
   val iters = DlmFsvSystem.sample(priorBeta, priorSigmaEta, priorPhi,
-    priorMu, priorSigma, priorV, data, dlmMod, params)
+    priorMu, priorSigma, priorV, data, dlmMod, initP)
+
+  iters.steps.take(100).map(_.p.toList).foreach(println)
 
   // write iters to file
-  Streaming.writeParallelChain(
-    iters, 2, 100000, "examples/data/dlm_fsv_system_params", formatParameters).
-    runWith(Sink.onComplete(_ => system.terminate()))
+  // Streaming.writeParallelChain(
+  //   iters, 2, 100000, "examples/data/dlm_fsv_system_params", formatParameters).
+  //   runWith(Sink.onComplete(_ => system.terminate()))
 }

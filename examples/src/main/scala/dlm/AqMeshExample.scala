@@ -137,8 +137,8 @@ object FitAqMeshFull extends App with AqmeshModel {
 }
 
 object FitAqMesh extends App with AqmeshModel {
-  // implicit val system = ActorSystem("aqmesh")
-  // implicit val materializer = ActorMaterializer()
+  implicit val system = ActorSystem("aqmesh")
+  implicit val materializer = ActorMaterializer()
 
   val training = reader.
     collect { case Right(a) => a }.
@@ -148,7 +148,7 @@ object FitAqMesh extends App with AqmeshModel {
       LocalDateTime.of(2018, Month.FEBRUARY, 1, 0, 0)) < 0).
     toVector.
     zipWithIndex.
-    filter { case (_, i) => i % 4 == 0 }. // thinned
+    filter { case (_, i) => i % 4 == 0 }. // thinned 
     map(_._1).
     map(a => Data(
       a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
@@ -165,14 +165,9 @@ object FitAqMesh extends App with AqmeshModel {
   def formatParameters(s: DlmFsvSystem.State) =
     s.p.toList
 
-  iters.steps.
-    take(100).
-    map(_.p).
-    foreach(println)
-
-  // Streaming.writeParallelChain(
-  //   iters, 2, 100000, "examples/data/aqmesh_params", formatParameters).
-  //   runWith(Sink.onComplete { _ => system.terminate() })
+  Streaming.writeParallelChain(
+    iters, 2, 100000, "examples/data/aqmesh_params", formatParameters).
+    runWith(Sink.onComplete { _ => system.terminate() })
 }
 
 object OneStepForecastAqmesh extends App with AqmeshModel {

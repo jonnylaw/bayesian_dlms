@@ -204,6 +204,7 @@ object StochasticVolatilityKnots {
         res
       } else if (end == knots.size - 1) {
         val vs = st.slice(start, end + 1).toVector
+        println("Sampling end")
         val (res, a) = sampleEnd(selectedObs, p, filter)(vs).draw
         res
       } else {
