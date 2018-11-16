@@ -78,8 +78,7 @@ object FitSvKnots extends App {
   val reader = rawData.asCsvReader[SvSims](rfc.withHeader)
   val data = reader.collect {
     case Right(a) => (a.time, a.observation.some)
-  }.toVector.
-    take(1000)
+  }.toVector
 
   val priorPhi = Gaussian(0.8, 0.1)
   val priorMu = Gaussian(2.0, 1.0)
@@ -121,7 +120,7 @@ object FitSvMixBeta extends App {
   Streaming.writeParallelChain(
     iters, 2, 100000, "examples/data/sv_mix_beta", formatParameters).
     runWith(Sink.onComplete(_ => system.terminate()))
-} 
+}
 
 object SvSampleStateMixture extends App {
   implicit val system = ActorSystem("stochastic_volatility_knots")

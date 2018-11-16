@@ -75,7 +75,7 @@ object TemperatureDlm extends App with TemperatureModel {
     s.p.toList
 
   Streaming.writeParallelChain(
-    iters, 2, 10000, "examples/data/temperature_dlm", formatParameters).
+    iters, 2, 100000, "examples/data/temperature_dlm", formatParameters).
     runWith(Sink.onComplete { s =>
               println(s)
               system.terminate()

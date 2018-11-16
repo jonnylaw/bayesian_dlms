@@ -1,4 +1,4 @@
-package dlm.core.model
+ package dlm.core.model
 
 import breeze.stats.distributions._
 import breeze.linalg.DenseVector
@@ -10,7 +10,7 @@ case class StochVolState(
 
 /**
   * Use a Gaussian approximation to the state space to sample the
-  * stochastic volatility model with discrete regular observations 
+  * stochastic volatility model with discrete regular observations
   * and an AR(1) latent state
   */
 object StochasticVolatilityKnots {
@@ -19,7 +19,7 @@ object StochasticVolatilityKnots {
     * from a conjugate Gaussian distribution
     * @param prior a Gaussian prior distribution
     * @return a function from the current state
-    * to the next state with a new value for 
+    * to the next state with a new value for
     * phi sample from a Gaussian posterior distribution
     */
   def samplePhiConjugate(
@@ -186,6 +186,7 @@ object StochasticVolatilityKnots {
     Metropolis.mAccept[Vector[FilterAr.SampleState]](prop, ll) _
   }
 
+  // TODO: Fix this
   def sampleStateFold(
     ffbs: ConditionalFFBS,
     filter: ConditionalFilter,
@@ -195,8 +196,6 @@ object StochasticVolatilityKnots {
     knots: Vector[Int],
     state: Array[FilterAr.SampleState]) = {
 
-    val finalKnot = knots.last
-
     (knots.init zip knots.tail).foldLeft(state.toVector) { case (st, (start, end)) =>
       val selectedObs = ys.slice(start, end)
 
@@ -204,16 +203,15 @@ object StochasticVolatilityKnots {
         val vs = st.slice(1, end + 1).toVector
         val (res, a) = sampleStart(selectedObs, p, sampler)(vs).draw
         res ++ st.drop(end + 1)
-      } else if (end == finalKnot) {
+      } else if (end == knots.last) {
         val vs = st.slice(start + 1, end + 1).toVector
         val (res, a) = sampleEnd(selectedObs, p, filter)(vs).draw
         st.take(start + 1) ++ res
       } else {
         val vs = st.slice(start, end + 1).toVector
         val (res, a) = sampleBlock(selectedObs, p, ffbs)(vs).draw
-        st.take(start) ++ res ++ st.drop(end + 1)
+        st.take(start) ++ res ++ st.drop(end)
       }
-
     }
   }
 

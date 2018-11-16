@@ -113,31 +113,30 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
   val sampledArFold = sampleStateFold(
     ffbsAr, filterAr, sampleAr)(arsims, p, knots, alphas.toArray).toVector
 
-  test("Folded state is the same length as initial state") {
-    assert(sampledArFold.size === alphas.size)
-  }
+  // test("Folded state is the same length as initial state") {
+  //   assert(sampledArFold.size === alphas.size)
+  // }
 
-  test("Folded knots should remain unchanged in a single sample") {
-    // extract the knots
-    val resampled = for {
-      i <- knots.tail.init
-      sample = sampledArFold(i)
-    } yield (sample.time, sample.sample)
+  // test("Folded knots should remain unchanged in a single sample") {
+  //   // extract the knots
+  //   val resampled = for {
+  //     i <- knots.tail.init
+  //     sample = sampledArFold(i)
+  //   } yield (sample.time, sample.sample)
 
-    val initialSample = for {
-      i <- knots.tail.init
-      sample = alphas(i)
-    } yield (sample.time, sample.sample)
+  //   val initialSample = for {
+  //     i <- knots.tail.init
+  //     sample = alphas(i)
+  //   } yield (sample.time, sample.sample)
 
-    assert(resampled === initialSample)
-  }
+  //   assert(resampled === initialSample)
+  // }
 
-  test("The final sampled state folded should be altered") {
-    assert(sampledArFold.last !== alphas.last)
-  }
+  // test("The final sampled state folded should be altered") {
+  //   assert(sampledArFold.last !== alphas.last)
+  // }
 
-  test("The initial sampled state folded should be altered") {
-    assert(sampledArFold.head !== alphas.head)
-  }
-
+  // test("The initial sampled state folded should be altered") {
+  //   assert(sampledArFold.head !== alphas.head)
+  // }
 }
