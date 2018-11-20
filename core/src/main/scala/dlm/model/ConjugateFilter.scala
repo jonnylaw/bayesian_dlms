@@ -6,11 +6,10 @@ import cats.implicits._
 
 /**
   * State for the conjugate filter
-  * 
   * @param kfState the latent-state
   * @param variance the distribution of the observation precision 
   */
-case class GammaState(
+case class InverseGammaState(
   kfState:   KfState,
   variance:  Vector[InverseGamma])
 
@@ -19,17 +18,17 @@ case class GammaState(
   */
 case class ConjugateFilter(
   prior: InverseGamma,
-  advState: (GammaState, Double) => GammaState)
-    extends FilterTs[GammaState, DlmParameters, Dlm] {
+  advState: (InverseGammaState, Double) => InverseGammaState)
+    extends FilterTs[InverseGammaState, DlmParameters, Dlm] {
 
   def initialiseState[T[_]: Traverse](
     model: Dlm,
     p: DlmParameters,
-    ys: T[Data]): GammaState = {
+    ys: T[Data]): InverseGammaState = {
 
     val t0 = ys.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
     val p0 = Vector.fill(p.v.cols)(prior)
-    GammaState(KfState(t0.get - 1.0, p.m0, p.c0, p.m0, p.c0, None, None, 0.0), p0)
+    InverseGammaState(KfState(t0.get - 1.0, p.m0, p.c0, p.m0, p.c0, None, None, 0.0), p0)
   }
 
   def diagonal(m: DenseMatrix[Double]): Vector[Double] = {
@@ -57,7 +56,7 @@ case class ConjugateFilter(
   def step(
     mod: Dlm,
     p: DlmParameters)
-    (s: GammaState, d: Data): GammaState = {
+    (s: InverseGammaState, d: Data): InverseGammaState = {
 
     // calculate the time difference
     val dt = d.time - s.kfState.time
@@ -90,8 +89,7 @@ case class ConjugateFilter(
     val newll = s.kfState.ll + KalmanFilter.conditionalLikelihood(ft, qt, y)
     val m = st.kfState.mt + k * e
 
-    // In Breeze, Gamma is parameterised using shape and scale (scale = 1/rate)
-    GammaState(KfState(d.time, m, covariance, st.kfState.at, st.kfState.rt,  Some(ft), Some(qt), newll), vs)
+    InverseGammaState(KfState(d.time, m, covariance, st.kfState.at, st.kfState.rt,  Some(ft), Some(qt), newll), vs)
   }
 }
 
@@ -107,7 +105,7 @@ object ConjugateFilter {
   def advanceState(
     p: DlmParameters,
     g: Double => DenseMatrix[Double])
-    (s:  GammaState,
+    (s:  InverseGammaState,
      dt: Double) = {
 
     s.copy(kfState = KalmanFilter.advanceState(p, g)(s.kfState, dt))

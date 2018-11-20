@@ -78,18 +78,18 @@ object FitSvKnots extends App {
   val reader = rawData.asCsvReader[SvSims](rfc.withHeader)
   val data = reader.collect {
     case Right(a) => (a.time, a.observation.some)
-  }.toVector
+  }.toVector.
+    take(1000)
 
-  val priorPhi = Gaussian(0.8, 0.1)
+  val priorPhi = Gaussian(0.8, 0.01)
   val priorMu = Gaussian(2.0, 1.0)
   val priorSigma = InverseGamma(2, 2)
 
   val iters = StochasticVolatilityKnots.sampleParametersAr(priorPhi,
     priorMu, priorSigma, data)
 
-  def formatParameters(s: StochVolState) = 
+  def formatParameters(s: StochVolState) =
     s.params.toList
-
 
   Streaming.writeParallelChain(
     iters, 2, 100000, "examples/data/sv_knot_params", formatParameters).

@@ -142,10 +142,47 @@ object DlmFsvSystem {
   }
 
   /**
-    * Perform forward filtering backward sampling using a 
+    * Perform forward filtering backward sampling using a
     * time dependent state covariance matrix
     */
   def ffbs(
+    model: Dlm,
+    ys:    Vector[Data],
+    p:     DlmParameters,
+    ws:    Vector[DenseMatrix[Double]]) = {
+
+    val ps = ws.map(wi => p.copy(w = wi))
+
+    val filterStep = (params: DlmParameters) => {
+      val advState = KalmanFilter.advanceState(params, model.g) _
+      KalmanFilter(advState).step(model, params) _
+    }
+    val initFilter = KalmanFilter(KalmanFilter.advanceState(p, model.g)).
+      initialiseState(model, p, ys)
+    val filtered = (ps, ys).
+      zipped.
+      scanLeft(initFilter){ case (s, (params, y)) =>
+        filterStep(params)(s, y) }.
+      toVector
+
+    val init = Smoothing.initialise(filtered)
+    val sampleStep = (params: DlmParameters) => {
+      Smoothing.step(model, params.w) _
+    }
+    val res = (ps, filtered.init).zipped.
+      scanRight(init){ case ((params, fs), s) =>
+        sampleStep(params)(fs, s) }.
+      toVector
+
+    Rand.always(res)
+  }
+
+  /**
+    * Perform forward filtering backward sampling using a
+    * time dependent state covariance matrix updating the SVD
+    * of the parameters
+    */
+  def ffbsSvd(
     model: Dlm,
     ys:    Vector[Data],
     p:     DlmParameters,
@@ -207,11 +244,10 @@ object DlmFsvSystem {
       // perform FFBS using time dependent system noise covariance
       ws = calculateVariance(fs1.volatility.tail, fs1.params.beta,
         fs1.params.v)
-      theta <- ffbs(dlm, ys, s.p.dlm, ws)
+      theta <- ffbsSvd(dlm, ys, s.p.dlm, ws)
       state = theta.map(x => (x.time, x.sample))
-      // newV <- GibbsSampling.sampleObservationMatrix(priorV, dlm.f,
-      //     ys.map(_.observation), state)
-      newV = s.p.dlm.v
+      newV <- GibbsSampling.sampleObservationMatrix(priorV, dlm.f,
+          ys.map(_.observation), state)
       newP = s.p.copy(fsv = fs1.params, dlm = s.p.dlm.copy(v = newV))
     } yield State(newP, theta, fs1.factors, fs1.volatility)
   }
@@ -261,7 +297,7 @@ object DlmFsvSystem {
     * the mean state
     * @param params parameters of the DLM FSV system model
     * @param ys time series of observations
-    * @param dlm the description of the 
+    * @param dlm the description of the
     */
   def initialise(
     params: DlmFsvParameters,
@@ -274,8 +310,8 @@ object DlmFsvSystem {
     // initialise the variances of the system
     val ws = Vector.fill(ys.size)(DenseMatrix.eye[Double](dlm.f(1.0).rows) * 0.1)
 
-    val theta = ffbs(dlm, ys, parameters, ws).draw
-    val thetaObs = theta.map { ss => Data(ss.time, ss.sample.map(_.some)) }
+    val theta = ffbsSvd(dlm, ys, parameters, ws).draw
+    val thetaObs = factorState(theta, dlm.g)
     val fs = FactorSv.initialiseStateAr(params.fsv, thetaObs, k)
 
     State(params, theta.toVector, fs.factors, fs.volatility)
@@ -390,20 +426,3 @@ object DlmFsvSystem {
     }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

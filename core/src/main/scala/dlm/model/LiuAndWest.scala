@@ -8,10 +8,11 @@ import cats.implicits._
 import math.{exp, sqrt, log}
 
 /**
-  * State for the conjugate filter
+  * State for the particle filter with parameters
+  * TODO: Gamma mixture distribution
   * @param time the time of the observation
   * @param state a particle cloud representing the latent-state
-  * @param weights the conditional log-likelihood of the latent-state 
+  * @param weights the conditional log-likelihood of the latent-state
   * @param params a particle cloud representing the values of the parameters
   */
 case class PfStateParams(
@@ -23,7 +24,8 @@ case class PfStateParams(
 /**
   * Extended Particle filter which approximates the parameters as a particle cloud
   */
-case class LiuAndWestFilter(n: Int, prior: Rand[DlmParameters], a: Double)
+case class LiuAndWestFilter(n: Int, prior: Rand[DlmParameters],
+                            a: Double, n0: Int)
     extends FilterTs[PfStateParams, DlmParameters, Dglm] {
   import LiuAndWestFilter._
 
@@ -36,7 +38,8 @@ case class LiuAndWestFilter(n: Int, prior: Rand[DlmParameters], a: Double)
     val t0 = ys.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
     val x0 = MultivariateGaussian(p.m0, p.c0).sample(n)
     val p0 = prior.sample(n).map(_.map(log))
-    val w0 = Vector.fill(n)(1.0 / n)
+    val w0 = Vector.fill(n)(1.0 / n).map(math.log)
+
     PfStateParams(t0.get - 1.0, x0.toVector, w0, p0.toVector)
   }
 
@@ -51,37 +54,30 @@ case class LiuAndWestFilter(n: Int, prior: Rand[DlmParameters], a: Double)
     val y = KalmanFilter.flattenObs(d.observation)
     val auxVars = auxiliaryVariables(x.weights, x.state, mod, y, mi)
 
-    // propose new log-parameters
-    val newParams = for {
-      i <- auxVars
-      param = mi(i)
-      p = proposal(param, diag(varParams * (1 - a * a)))
-    } yield p
-
     val dt = d.time - x.time
-    val newState: Vector[DenseVector[Double]] = for {
-      i <- auxVars
-      param = newParams(i)
-      state = x.state(i)
-    } yield Dglm.stepState(mod, param map exp, state, dt).draw
 
-    val topw = (newState zip newParams) map { case (state, param) =>
-      mod.conditionalLikelihood(param.v map exp)(state, y)
+    val (newParams, newState, logw) = (for {
+      i <- auxVars
+      p = mi(i)
+      param = proposal(p, diag(varParams * (1 - a * a)))
+      state = x.state(i)
+      newState = Dglm.stepState(mod, param map exp, state, dt).draw
+      topw = mod.conditionalLikelihood(param.v map exp)(newState, y)
+      meanP = mi(i)
+      bottomw = mod.conditionalLikelihood(meanP.v map exp)(state, y)
+    } yield (param, newState, topw - bottomw)).unzip3
+
+    val maxWeight = logw.max
+    val ws = logw map (w => exp(w - maxWeight))
+    val ess = ParticleFilter.effectiveSampleSize(
+      ParticleFilter.normaliseWeights(ws))
+
+    if (ess < n0) {
+      val (np, ns) = ParticleFilter.multinomialResample(newParams zip newState, ws).unzip
+      PfStateParams(d.time, ns, Vector.fill(n)(1.0 / n).map(log), np)
+    } else {
+      PfStateParams(d.time, newState, logw, newParams)
     }
-
-    val bottomw = for {
-      i <- auxVars
-      state = x.state(i)
-      param = mi(i)
-    } yield mod.conditionalLikelihood(param.v map exp)(state, y)
-
-    val logw = (topw zip bottomw).map {
-      case (tw, bw) => tw - bw }
-
-    val max1 = logw.max
-    val w = logw map (a => exp(a - max1))
-
-    PfStateParams(d.time, newState, w, newParams)
   }
 }
 
@@ -104,13 +100,13 @@ object LiuAndWestFilter {
     val max = logAuxWeights.max
     val auxWeights = logAuxWeights map (a => exp(a - max))
 
-    ParticleFilter.multinomialResample(
-      states.indices.toVector, auxWeights)
+    ParticleFilter.multinomialResample(states.indices.toVector, auxWeights)
   }
 
   def scaleParameters(
     params: Vector[DlmParameters],
     a: Double): Vector[DlmParameters] = {
+
     val meanParams: DlmParameters = meanParameters(params)
 
     for {

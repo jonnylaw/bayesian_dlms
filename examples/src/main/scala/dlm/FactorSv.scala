@@ -87,7 +87,7 @@ object SampleStateFvs extends App with FsvModel {
   val rawData = Paths.get("examples/data/fsv_sims.csv")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader(false))
   val data = reader.
-    collect { 
+    collect {
       case Right(a) => Data(a.head,
         DenseVector(a.drop(1).take(p).toArray.map(_.some)))
     }.
@@ -108,16 +108,10 @@ object SampleStateFvs extends App with FsvModel {
     map(x => FactorSv.extractFactors(x.factors, 1)).
     toVector
 
-  def quantile[A: Ordering](xs: Seq[A], prob: Double): A = {
-    val index = math.floor(xs.length * prob).toInt
-    val ordered = xs.sorted
-    ordered(index)
-  }
-
   val summary = iters.transpose.map { x =>
     val t = x.head._1
     val sample = x.map(_._2).flatten
-    (t + 1, mean(sample), quantile(sample, 0.995), quantile(sample, 0.005))
+    (t + 1, mean(sample), Streaming.quantile(sample, 0.995), Streaming.quantile(sample, 0.005))
   }
 
   // write state

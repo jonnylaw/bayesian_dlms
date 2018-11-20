@@ -60,8 +60,8 @@ trait RoundedUoData {
       DenseVector(a.co, a.humidity, a.no map math.log, a.temperature))
 }
 
-// fit ten independent models
-object FitUoDlms extends App with RoundedUoData {
+// fit nine independent models
+object FitUoDlms extends App with EmoteData {
   implicit val system = ActorSystem("uo-dlm")
   implicit val materializer = ActorMaterializer()
 
@@ -78,28 +78,23 @@ object FitUoDlms extends App with RoundedUoData {
       c0 = DenseMatrix.eye[Double](7))
   } yield List.fill(4)(seasonalP).reduce(Dlm.outerSumParameters)
 
-  def writeSensor(id: String): Future[Done] = for {
-    d <- encodedData.
+  def writeSensor(id: String): Future[Done] = {
+    val d = data.
       filter(_.sensorId == id).
-      map(envToData).
-      runWith(Sink.seq)
-    iters = GibbsSampling.sample(dlmComp, priorV, priorW, dlmP.draw, d.toVector)
-    io <- Streaming
-      .writeParallelChain(iters, 2, 10000, s"examples/data/uo_dlm_seasonal_daily_${id}",
+      map(envToData)
+
+    val iters = GibbsSampling.sample(dlmComp, priorV, priorW, dlmP.draw, d.toVector)
+    Streaming
+      .writeParallelChain(iters, 2, 10000, s"examples/data/uo_dlm_seasonal_daily_log_no_${id}",
         (s: GibbsSampling.State) => s.p.toList).
     runWith(Sink.ignore)
-  } yield io
+  }
 
-  // val ids = List("new_new_emote_1171", "new_new_emote_1172", "new_new_emote_1702",
-  //   "new_new_emote_1708", "new_new_emote_2602", "new_new_emote_2603",
-  //   "new_new_emote_2604", "new_new_emote_2605", "new_new_emote_2606",
-  //                "new_new_emote_1108")
+  val ids = List("new_new_emote_1171", "new_new_emote_1172", "new_new_emote_1702",
+              "new_new_emote_1708", "new_new_emote_2602", "new_new_emote_2603",
+              "new_new_emote_2604", "new_new_emote_2605", "new_new_emote_2606")
 
-  val id = "new_new_emote_2603"
-
-  // ids.map(writeSensor).sequence.
-
-  writeSensor(id).
+  ids.map(writeSensor).sequence.
     onComplete { s =>
       println(s)
       system.terminate()
@@ -158,131 +153,4 @@ object ForecastUoDlm extends App with RoundedUoData {
       println(s)
       system.terminate()
     })
-}
-
-object FitFactorUo extends App with RoundedUoData {
-  implicit val system = ActorSystem("dlm_fsv_uo")
-  implicit val materializer = ActorMaterializer()
-
-  val priorBeta = Gaussian(0.0, 3.0)
-  val priorSigmaEta = InverseGamma(2.5, 3.0)
-  val priorPhi = Gaussian(0.8, 0.1)
-  val priorSigma = InverseGamma(2.5, 3.0)
-  val priorW = InverseGamma(2.5, 3.0)
-  val priorMu = Gaussian(0.0, 1.0)
-
-  val volP = for {
-    se <- priorSigmaEta
-    phi <- priorPhi
-    mu <- priorMu
-  } yield SvParameters(phi, mu, se)
-
-  val fsvP = for {
-    bij <- priorBeta
-    sigma <- priorSigma
-    vp <- volP
-  } yield FsvParameters(DenseMatrix.eye[Double](28) * sigma,
-    FactorSv.buildBeta(28, 2, bij),
-    Vector.fill(2)(vp))
-
-  val dlmP = for {
-    w <- priorW
-    seasonalP = DlmParameters(
-      v = DenseMatrix.eye[Double](1),
-      w = diag(DenseVector.fill(7)(w)),
-      m0 = DenseVector.zeros[Double](7),
-      c0 = DenseMatrix.eye[Double](7))
-  } yield List.fill(4)(seasonalP).
-    reduce(Dlm.outerSumParameters)
-
-  val initP: Rand[DlmFsvParameters] = for {
-    fsv <- fsvP
-    dlm <- dlmP
-  } yield DlmFsvParameters(dlm, fsv)
-
-  val id = "new_new_emote_2603"
-
-  (for {
-    d <- encodedData.
-      filter(_.sensorId == id).
-      map(envToData).
-      runWith(Sink.seq)
-    iters = DlmFsvSystem.sample(priorBeta, priorSigmaEta,
-      priorPhi, priorMu, priorSigma, priorW, d.toVector, dlmComp, initP.draw)
-    io <- Streaming
-      .writeParallelChain(iters, 2, 10000, s"examples/data/uo_gibbs_two_factors_${id}",
-        (s: DlmFsvSystem.State) => s.p.toList).
-    runWith(Sink.ignore)
-  } yield io).
-    onComplete { s =>
-      println(s)
-      system.terminate()
-    }
-}
-
-object InterpolateUo extends App with RoundedUoData {
-  implicit val system = ActorSystem("interpolate-uo")
-  implicit val materializer = ActorMaterializer()
-
-  encodedData.
-    groupBy(10000, _.sensorId).
-    fold(("Hello", Vector.empty[Data]))((l, r) =>
-      (r.sensorId, l._2 :+ envToData(r))).
-    mergeSubstreams.
-    mapAsync(1) { case (id, d) =>
-
-      val file = s"examples/data/uo_gibbs_two_factors_${id}_0.csv"
-
-      val ps: Future[DlmFsvParameters] = Streaming.readCsv(file).
-        map(_.map(_.toDouble).toList).
-        drop(1000).
-        map(x => DlmFsvSystem.paramsFromList(4, 28, 2)(x)).
-        via(Streaming.meanDlmFsvSystemParameters(4, 28, 2)).
-        runWith(Sink.head)
-
-      val out = new java.io.File(s"examples/data/interpolate_urbanobservatory_${id}.csv")
-      val headers = rfc.withHeader(false)
-
-      // use mcmc to sample the missing observations
-      // val iters = DlmFsvSystem.sampleState(testData, dlmComp, params).
-      //   steps.
-      //   take(1000).
-      //   map { (s: DlmFsv.State) =>
-      //     val vol = s.volatility.map(x => (x.time, x.sample))
-      //     val st = s.theta.map(x => (x.time, x.sample))
-      //     DlmFsv.obsVolatility(vol, st, dlmComp, params)
-      //   }.
-      //   map(s => s.map { case (t, y) => (t, Some(y(0))) }).
-      //   toVector
-
-      // // calculate credible intervals
-      // val summary = DlmFsvSystem.summariseInterpolation(iters, 0.995)
-
-      // write interpolated data
-      Future.successful("hello")
-
-    }.runWith(Sink.onComplete(_ => system.terminate()))
-}
-
-object ForecastUo extends App {
-  implicit val system = ActorSystem("forecast-uo")
-  implicit val materializer = ActorMaterializer()
-
-  val dlm = Dlm.polynomial(1) |+|
-    Dlm.seasonal(24, 3) |+| Dlm.seasonal(24 * 7, 3)
-  val mod = Dglm.studentT(3, dlm)
-
-  val file = "examples/data/uo_cont_gibbs_two_factors_0.csv"
-
-  // read parameters from file
-  val ps: Future[DlmFsvParameters] = Streaming.readCsv(file).
-    map(_.map(_.toDouble).toList).
-    map(x => DlmFsvParameters.fromList(4, 16, 4, 2)(x)).
-    via(Streaming.meanDlmFsvParameters(4, 16, 4, 2)).
-    runWith(Sink.head)
-
-  val out = new java.io.File("examples/data/forecast_uo.csv")
-  val headers = rfc.withHeader("time", "mean", "lower", "upper")
-
-  val n = 1000
 }

@@ -6,7 +6,6 @@ import breeze.stats.distributions._
 import cats.Traverse
 import cats.implicits._
 import math.{log, exp}
-import LiuAndWestFilter._
 
 case class RbState(
   time:    Double,
@@ -19,7 +18,8 @@ case class RbState(
   * Extended Particle filter which approximates 
   * the parameters as a particle cloud
   */
-case class RaoBlackwellFilter(n: Int, prior: Rand[DlmParameters], a: Double)
+case class RaoBlackwellFilter(n: Int, prior: Rand[DlmParameters],
+                              a: Double, n0: Int)
     extends FilterTs[RbState, DlmParameters, Dlm] {
 
   def initialiseState[T[_]: Traverse](
@@ -62,34 +62,39 @@ case class RaoBlackwellFilter(n: Int, prior: Rand[DlmParameters], a: Double)
     p:   DlmParameters)
     (x:  RbState, d: Data): RbState = {
 
-    val varParams = varParameters(x.params)
-    val mi = scaleParameters(x.params, a)
+    val varParams = LiuAndWestFilter.varParameters(x.params)
+    val mi = LiuAndWestFilter.scaleParameters(x.params, a)
 
     val y = KalmanFilter.flattenObs(d.observation)
-    val auxVars = auxiliaryVariables(x.weights, x.mt, mod, y, mi)
+    val auxVars = LiuAndWestFilter.auxiliaryVariables(x.weights, x.mt, mod, y, mi)
 
     // propose new log-parameters
     val propVariance = diag(varParams * (1 - a * a))
     val newParams = auxVars.
-      map(i => proposal(mi(i), propVariance))
+      map(i => LiuAndWestFilter.proposal(mi(i), propVariance))
 
     // update the state
     val dt = d.time - x.time
 
     // use each parameter particle for a different Kalman Filter
-    val (mean, covariance, ws) =  (x.mt, x.ct, x.weights, newParams).
+    val (mean, covariance, logw) =  (x.mt, x.ct, x.weights, newParams).
       parMapN { case (m, c, w, ps) => kfStep(mod, dt, m, c, w, ps, d) }.unzip3
 
     // resample the states and parameters
-    val maxWeight = ws.max
-    val weights = ws map { a => exp(a - maxWeight) }
-    val indices = ParticleFilter.
-      multinomialResample(ws.indices.toVector, weights)
+    val maxWeight = logw.max
+    val ws = logw map (w => exp(w - maxWeight))
+    val ess = ParticleFilter.effectiveSampleSize(
+      ParticleFilter.normaliseWeights(ws))
 
-    val (rMean, rCov, rParams) = indices.
-      map(i => (mean(i), covariance(i), newParams(i))).
-      unzip3
+    if (ess < n0) {
+      val indices = ParticleFilter.multinomialResample(mean.indices.toVector, ws)
+      val (rMean, rCov, rParams) = indices.
+        map(i => (mean(i), covariance(i), newParams(i))).
+        unzip3
 
-    RbState(d.time, rParams, rMean, rCov, weights)
+      RbState(d.time, rParams, rMean, rCov, Vector.fill(n)(1.0 / n).map(log))
+    } else {
+      RbState(d.time, newParams, mean, covariance, logw)
+    }
   }
 }

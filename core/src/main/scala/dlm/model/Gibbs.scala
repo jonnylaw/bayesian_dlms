@@ -144,8 +144,7 @@ object GibbsSampling {
       newV <- sampleObservationMatrix(priorV, mod.f,
         observations.map(_.observation), theta.map(s => (s.time, s.sample)))
       newW <- sampleSystemMatrix(priorW, theta, mod.g)
-    } yield State(s.p.copy(w = newW), theta)
-    //v = newV,
+    } yield State(s.p.copy(w = newW, v = newV), theta)
   }
 
   /**

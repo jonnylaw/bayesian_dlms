@@ -22,6 +22,11 @@ trait FirstOrderDlm {
     w = DenseMatrix(3.0),
     DenseVector(0.0),
     DenseMatrix(1.0))
+
+  // particles in particle filter
+  val n = 500
+  // if neff < n0 then resample
+  val n0 = 250
 }
 
 trait SimulatedData {
@@ -79,7 +84,7 @@ object FilterDlm extends App with SimulatedData {
 }
 
 object AuxFilterFo extends App with FirstOrderDlm with SimulatedData {
-  val filtered = AuxFilter(200).filter(mod, data, p)
+  val filtered = AuxFilter(n).filter(mod, data, p)
 
   val out = new java.io.File("examples/data/fodlm_aux_filtered.csv")
 
@@ -98,7 +103,7 @@ object ParticleFilterFo extends App
     with FirstOrderDlm
     with SimulatedData {
 
-  val filtered = ParticleFilter(200, ParticleFilter.multinomialResample).filter(mod, data, p)
+  val filtered = ParticleFilter(n, ParticleFilter.multinomialResample).filter(mod, data, p)
 
   val out = new java.io.File("examples/data/fodlm_pf.csv")
 
@@ -118,11 +123,12 @@ object LiuAndWest extends App with FirstOrderDlm with SimulatedData {
   val a = (3 * 0.95 - 1) / 2 * 0.95
 
   val prior = for {
-    v <- InverseGamma(3.0, 3.0)
-    w <- InverseGamma(3.0, 3.0)
+    v <- InverseGamma(3.0, 4.0)
+    w <- InverseGamma(3.0, 10.0)
   } yield DlmParameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)
 
-  val filtered = LiuAndWestFilter(200, prior, a).filter(mod, data, p)
+  val filtered = LiuAndWestFilter(n, prior, a, n0).
+    filter(mod, data, p)
 
   val out = new java.io.File("examples/data/liuandwest_filtered.csv")
 
@@ -144,12 +150,12 @@ object ConjFilter extends App with FirstOrderDlm with SimulatedData {
     m0 = DenseVector(0.0),
     c0 = DenseMatrix(100.0))
 
-  val prior = InverseGamma(3.0, 3.0)
+  val prior = InverseGamma(3.0, 4.0)
   val filtered = ConjugateFilter(prior, ConjugateFilter.advanceState(p, mod.g)).filter(mod, data, p)
 
   val out = new java.io.File("examples/data/first_order_dlm_conjugate_filtered.csv")
 
-  def formatFiltered(s: GammaState) = {
+  def formatFiltered(s: InverseGammaState) = {
     List(s.kfState.time, s.kfState.mt(0),
       s.kfState.ct(0,0), s.variance.head.mean, s.variance.head.variance)
   }
@@ -164,11 +170,10 @@ object ConjFilter extends App with FirstOrderDlm with SimulatedData {
 }
 
 object Storvik extends App with FirstOrderDlm with SimulatedData {
-  val priorV = InverseGamma(3.0, 3.0)
-  val priorW = InverseGamma(3.0, 3.0)
-  val n = 300
+  val priorV = InverseGamma(3.0, 4.0)
+  val priorW = InverseGamma(3.0, 10.0)
 
-  val filtered = StorvikFilter(n, priorW, priorV).filter(mod, data, p)
+  val filtered = StorvikFilter.filterTs(mod, data, p, priorV, priorW, n, n0)
 
   val out = new java.io.File("examples/data/fo_storvik_filtered.csv")
 
@@ -192,11 +197,10 @@ object RbFilter extends App with FirstOrderDlm with SimulatedData {
 
   val prior = for {
     v <- InverseGamma(3.0, 4.0)
-    w <- InverseGamma(3.0, 6.0)
+    w <- InverseGamma(3.0, 10.0)
   } yield DlmParameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)
 
-  val n = 500
-  val filtered = RaoBlackwellFilter(n, prior, a).
+  val filtered = RaoBlackwellFilter(500, prior, a, 250).
     filter(mod, data, p)
 
   val out = new java.io.File("examples/data/fo_raoblackwellfilter.csv")
@@ -207,8 +211,8 @@ object RbFilter extends App with FirstOrderDlm with SimulatedData {
     LiuAndWestFilter.varParameters(s.params map(_.map(exp))).data.toList
   }
 
-  val headers = rfc.withHeader("time", "state_mean", "v_mean", "w_mean", "m0_mean", "c0_mean",
-    "v_variance", "w_variance", "m0_variance", "c0_variance")
+  val headers = rfc.withHeader("time", "state_mean", "v_mean", "w_mean",
+    "m0_mean", "c0_mean", "v_variance", "w_variance", "m0_variance", "c0_variance")
 
   out.writeCsv(filtered.map(formatFiltered), headers)
 }

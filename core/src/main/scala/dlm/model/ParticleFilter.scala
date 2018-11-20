@@ -185,8 +185,8 @@ object ParticleFilter {
   }
 
 
-  def effectiveSampleSize(w: Seq[Double]): Int = {
-    val ss = (w zip w).map { case (a, b) => a * b }.sum
+  def effectiveSampleSize(ws: Seq[Double]): Int = {
+    val ss = ws.map(w => w * w).sum
     math.floor(1 / ss).toInt
   }
 
