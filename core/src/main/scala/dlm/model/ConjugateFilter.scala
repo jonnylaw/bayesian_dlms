@@ -7,14 +7,14 @@ import cats.implicits._
 /**
   * State for the conjugate filter
   * @param kfState the latent-state
-  * @param variance the distribution of the observation precision 
+  * @param variance the distribution of the observation precision
   */
 case class InverseGammaState(
   kfState:   KfState,
   variance:  Vector[InverseGamma])
 
 /**
-  * Calculate an one-dimensional unknown observation variance 
+  * Calculate an one-dimensional unknown observation variance
   */
 case class ConjugateFilter(
   prior: InverseGamma,

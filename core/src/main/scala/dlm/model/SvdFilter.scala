@@ -17,7 +17,7 @@ case class SvdState(
 /**
   * Perform the Kalman Filter by updating the value of the Singular Value Decomp.
   * of the state covariance matrix, C = UDU^T
-  * 
+  *
   * https://arxiv.org/pdf/1611.03686.pdf
   */
 case class SvdFilter(advState: (SvdState, Double) => SvdState)
@@ -155,6 +155,16 @@ case class SvdFilter(advState: (SvdState, Double) => SvdState)
 
 object SvdFilter {
   /**
+    * Transform the svd matrix into the original matrix
+    */
+  def toMatrix(root: DenseMatrix[Double]) = {
+    val u = root.rightVectors.t
+    val d = root.singularValues
+
+    u * diag(d) * u.t
+  }
+
+  /**
     * Filter a DLM using the SVD Filter
     */
   def filterDlm[T[_]: Traverse](
@@ -186,7 +196,7 @@ object SvdFilter {
     val (at, dr, ur) = SvdFilter.advState(g, dt, s.mt, s.dc, s.uc, p.w)
     s.copy(at = at, dr = dr, ur = ur)
   }
-  
+
   def advState(
     g:  Double => DenseMatrix[Double],
     dt: Double,
@@ -194,7 +204,7 @@ object SvdFilter {
     dc: DenseVector[Double],
     uc: DenseMatrix[Double],
     w:  DenseMatrix[Double]) = {
-    
+
     if (dt == 0) {
       (mt, dc, uc)
     } else {
@@ -262,7 +272,7 @@ object SvdFilter {
     p:  SvParameters)(
     st: SvdState,
     dt: Double): SvdState = {
-    
+
     if (dt == 0) {
       st
     } else {
