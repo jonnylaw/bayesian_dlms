@@ -73,8 +73,7 @@ object StudentTGibbs extends App with StudenttDglm with StudenttData {
     NegativeBinomial(size, p).logProbabilityOf(to)
   }
 
-  val iters =
-    StudentT.sample(data.toVector, priorW, priorNu, propNu(1.0), propNuP(1.0), mod, params)
+  val iters = StudentT.sample(data.toVector, priorW, priorNu, propNu(1.0), propNuP(1.0), mod, params)
 
   def format(s: StudentT.State): List[Double] = {
     s.nu.toDouble :: DenseVector.vertcat(diag(s.p.v), diag(s.p.w)).data.toList :::
@@ -82,7 +81,7 @@ object StudentTGibbs extends App with StudenttDglm with StudenttData {
   }
 
   Streaming
-    .writeParallelChain(iters, 2, 10000, "examples/data/student_t_dglm_gibbs", format)
+    .writeParallelChain(iters, 2, 100000, "examples/data/student_t_dglm_gibbs", format)
     .runWith(Sink.onComplete(_ => system.terminate()))
 }
 
@@ -109,7 +108,7 @@ object StudentTpmmh extends App with StudenttDglm with StudenttData {
     val p = from / (r + from)
     NegativeBinomial(p, r).logProbabilityOf(to)
   }
-  
+
   val n = 200
   val iters = StudentT.samplePmmh(data,
     priorW, priorV, priorNu, Metropolis.symmetricProposal(0.01),

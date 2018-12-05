@@ -11,7 +11,7 @@ case class SamplingState(
   time:   Double,
   sample: DenseVector[Double],
   mean:   DenseVector[Double],
-  cov:    DenseMatrix[Double], 
+  cov:    DenseMatrix[Double],
   at1:    DenseVector[Double],
   rt1:    DenseMatrix[Double])
 

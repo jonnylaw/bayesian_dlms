@@ -108,7 +108,7 @@ object NoGaussianModel extends App with NoData {
 
   val iters = GibbsSampling.sampleSvd(dlm, priorV, priorW, params, data.toVector)
 
-  def formatParameters(s: GibbsSampling.State) = 
+  def formatParameters(s: GibbsSampling.State) =
     s.p.toList
 
   Streaming
@@ -185,7 +185,8 @@ object ForecastNo extends App with NoData {
         m0 = DenseVector.zeros[Double](13),
         c0 = DenseMatrix.eye[Double](13) * 100.0)
       val n = 1000
-      val pf = ParticleFilter(n, ParticleFilter.multinomialResample)
+      val pf = ParticleFilter(n, math.floor(n/5).toInt,
+                              ParticleFilter.multinomialResample)
       val initState = pf.initialiseState(mod, p, data)
       val lastState = data.foldLeft(initState)(pf.step(mod, p)).state
       val fcst = Dglm.forecastParticles(mod, lastState, p, test).

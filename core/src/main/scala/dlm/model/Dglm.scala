@@ -10,7 +10,6 @@ import breeze.stats.covmat
 /**
   * A DGLM used for modelling non-linear
   * non-Gaussian univariate time series
-  * TODO: Multivariate DGLMS with different observation distributions
   */
 case class Dglm(
   observation: (DenseVector[Double],
@@ -23,7 +22,7 @@ case class Dglm(
     DenseVector[Double]) => Double
 )
 
-object Dglm extends Simulate[Dglm, DlmParameters, DenseVector[Double]] {
+object Dglm {
   /**
     * Logistic function to transform the number onto a range between 0 and upper
     * @param upper the upper limit of the logistic function
@@ -174,9 +173,37 @@ object Dglm extends Simulate[Dglm, DlmParameters, DenseVector[Double]] {
     )
   }
 
+  def diagonal(m: DenseMatrix[Double]): Vector[Double] = {
+    val res = for {
+      i <- 0 until m.cols
+    } yield m(i, i)
+
+    res.toVector
+  }
+
+  /**
+    * Advance the a multivariate state independently according to the
+    * ornstein uhlenbeck process
+    */
+  def stepOu(
+    model: Dglm,
+    params: DlmParameters)
+    (state: DenseVector[Double],
+     dt: Double): Rand[DenseVector[Double]] = {
+
+    val phi = model.g(dt)
+    val variance = diagonal(params.w).zip(diagonal(phi)).
+      map{ case (w, ph) => (math.pow(w, 2) * (1 - exp(-2*ph*dt))) / (2*ph) }
+    val mean = state.data.zip(diagonal(phi)).map  { case (x, ph) => exp(-ph * dt) * x }
+
+    val res = (mean zip variance).map { case (m, v) => Gaussian(m, v).draw }
+
+    Rand.always(DenseVector(res))
+  }
+
   def stepState(
     model: Dglm,
-    params: DlmParameters,
+    params: DlmParameters)(
     state: DenseVector[Double],
     dt: Double): Rand[DenseVector[Double]] = {
 
@@ -186,6 +213,31 @@ object Dglm extends Simulate[Dglm, DlmParameters, DenseVector[Double]] {
         params.w * dt)
       x1 = model.g(dt) * state + w
     } yield x1
+  }
+
+  def simStep(
+    model: Dglm,
+    params: DlmParameters)(
+    state: DenseVector[Double],
+    time: Double,
+    dt: Double): Rand[(Data, DenseVector[Double])] =
+    for {
+      x1 <- stepState(model, params)(state, dt)
+      y <- observation(model, params, x1, time)
+    } yield (Data(time, y.map(_.some)), x1)
+
+  /**
+    * Simulate from a model using regular steps
+    */
+  def simulateRegular(
+    model: Dglm,
+    params: DlmParameters,
+    dt: Double): Process[(Data, DenseVector[Double])] = {
+
+    val init = initialiseState(model, params)
+    MarkovChain(init) {
+      case (y, x) => simStep(model, params)(x, y.time + dt, dt)
+    }
   }
 
   def observation(
@@ -244,7 +296,7 @@ object Dglm extends Simulate[Dglm, DlmParameters, DenseVector[Double]] {
   }
 
   /**
-    * Forecast a DGLM from a particle cloud 
+    * Forecast a DGLM from a particle cloud
     * representing the latent state
     * at the end of the observations
     * @param mod the model
@@ -260,12 +312,15 @@ object Dglm extends Simulate[Dglm, DlmParameters, DenseVector[Double]] {
     ys:  Vector[Data]) = {
 
     val init = (ys.head.time, xt,
-      Vector.fill(xt.size)(DenseVector.zeros[Double](xt.head.size)))
+      Vector.fill(xt.size)(DenseVector.zeros[Double](ys.head.observation.size)))
 
     ys.scanLeft(init) { case ((t0, x, _), y) =>
       val dt = y.time - t0
-      val x1 = ParticleFilter.advanceState(mod, dt, x, p).draw
-      // Linking function?
+      val x1 = if (dt == 0) {
+        x
+      } else {
+        ParticleFilter.advanceState(dt, x, mod, p).draw
+      }
       val eta = x1 map (x => mod.f(y.time).t * x)
       val meanForecast = eta.map(e => mod.observation(e, p.v).draw)
       val w = ParticleFilter.calcWeights(mod, y.time, x1, y.observation, p)

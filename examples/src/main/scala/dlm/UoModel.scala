@@ -90,12 +90,66 @@ object FitUoDlms extends App with EmoteData {
     runWith(Sink.ignore)
   }
 
-  val ids = List("new_new_emote_1171", "new_new_emote_1172", "new_new_emote_1702",
-              "new_new_emote_1708", "new_new_emote_2602", "new_new_emote_2603",
-              "new_new_emote_2604", "new_new_emote_2605", "new_new_emote_2606")
+  // val ids = List("new_new_emote_1171", "new_new_emote_1172", "new_new_emote_1702",
+  //             "new_new_emote_1708", "new_new_emote_2602", "new_new_emote_2603",
+  //             "new_new_emote_2604", "new_new_emote_2605", "new_new_emote_2606")
 
-  ids.map(writeSensor).sequence.
+  val id = "new_new_emote_2603"
+
+  writeSensor(id).
     onComplete { s =>
+      println(s)
+      system.terminate()
+    }
+
+  // ids.map(writeSensor).sequence.
+  //   onComplete { s =>
+  //     println(s)
+  //     system.terminate()
+  //   }
+}
+
+object ForecastUoDlmLog extends App with RoundedUoData {
+  implicit val system = ActorSystem("forecast_uo")
+  implicit val materializer = ActorMaterializer()
+
+  def envToDataTime(a: EnvSensor): (LocalDateTime, Data) =
+    (a.datetime, Data(a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
+                      DenseVector(a.co, a.humidity, a.no map math.log, a.temperature)))
+
+  val file = s"examples/data/uo_dlm_seasonal_daily_log_no_new_new_emote_2603_0.csv"
+
+  val ps = Streaming.readCsv(file).
+    map(_.map(_.toDouble).toList).
+    drop(1000).
+    map(x => DlmParameters.fromList(4, 28)(x)).
+    via(Streaming.meanParameters(4, 28)).
+    runWith(Sink.head)
+
+  val out = new java.io.File(s"examples/data/forecast_urbanobservatory_logno_new_new_emote_2603.csv")
+  val headers = rfc.withHeader(false)
+
+  val sensor2603 = encodedData.
+    filter(_.sensorId == "new_new_emote_2603").
+    map(envToDataTime).
+    runWith(Sink.seq)
+
+  (for {
+     p <- ps
+     data <- sensor2603
+     times = data.map(_._1)
+     filtered = KalmanFilter.filterDlm(dlmComp, data.map(_._2).toVector, p)
+     summary = filtered.flatMap(kf => (for {
+                                         f <- kf.ft
+                                         q <- kf.qt
+                                       } yield Dlm.summariseForecast(0.75)(f, q)).
+                                  map(f => f.flatten.toList))
+     toWrite: Seq[(String, LocalDateTime, List[Double])] = times.
+     zip(summary).
+     map(d => ("new_new_emote_2603", d._1, d._2))
+     io = out.writeCsv(toWrite, headers)
+   } yield io)
+    .onComplete { s =>
       println(s)
       system.terminate()
     }
@@ -110,8 +164,6 @@ object ForecastUoDlm extends App with RoundedUoData {
       DenseVector(a.co, a.humidity, a.no, a.temperature)))
 
   encodedData.
-    filter(_.sensorId != "new_new_emote_1702").
-    filter(_.sensorId != "new_new_emote_1108").
     groupBy(10000, _.sensorId).
     fold(("", Vector.empty[(LocalDateTime, Data)]))((l, r) =>
       (r.sensorId, l._2 :+ envToDataTime(r))).

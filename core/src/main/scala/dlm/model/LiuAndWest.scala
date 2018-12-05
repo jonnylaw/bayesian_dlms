@@ -61,7 +61,7 @@ case class LiuAndWestFilter(n: Int, prior: Rand[DlmParameters],
       p = mi(i)
       param = proposal(p, diag(varParams * (1 - a * a)))
       state = x.state(i)
-      newState = Dglm.stepState(mod, param map exp, state, dt).draw
+      newState = Dglm.stepState(mod, param map exp)(state, dt).draw
       topw = mod.conditionalLikelihood(param.v map exp)(newState, y)
       meanP = mi(i)
       bottomw = mod.conditionalLikelihood(meanP.v map exp)(state, y)
@@ -128,7 +128,7 @@ object LiuAndWestFilter {
     model: Dglm)
     (s:  PfStateParams, dt: Double) = {
 
-    val adv = s.state traverse (x => Dglm.stepState(model, p, x, dt))
+    val adv = s.state traverse (x => Dglm.stepState(model, p)(x, dt))
     s.copy(state = adv.draw)
   }
 

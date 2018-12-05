@@ -86,7 +86,7 @@ object FitFactorUo extends App with EmoteData {
     dlm <- dlmP
   } yield DlmFsvParameters(dlm, fsv)
 
-  val id = "new_new_emote_93"
+  val id = "new_new_emote_2063"
 
   val d = data.
     filter(_.sensorId == id).

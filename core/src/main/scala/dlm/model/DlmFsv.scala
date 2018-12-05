@@ -68,12 +68,12 @@ object DlmFsv {
     * @param mod the stochastic volatility model
     * @param p the parameters of the DLM and FSV Model
     * @param dt the time difference between successive observations
-    * @return the next simulated value 
+    * @return the next simulated value
     */
   def simStep(
     time: Double,
-    x:    DenseVector[Double], 
-    a:    Vector[Double], 
+    x:    DenseVector[Double],
+    a:    Vector[Double],
     dlm:  Dlm,
     p:    DlmFsvParameters) = {
     for {
@@ -255,7 +255,8 @@ object DlmFsv {
       vs = DlmFsvSystem.calculateVariance(fs1.volatility.tail,
         fs1.params.beta, fs1.params.v)
       theta <- ffbsSvd(dlm, observations, s.p.dlm, vs)
-      newW <- GibbsSampling.sampleSystemMatrix(priorW, theta, dlm.g)
+      state = theta.map(s => (s.time, s.sample))
+      newW <- GibbsSampling.sampleSystemMatrix(priorW, state, dlm.g)
       newP = DlmFsvParameters(s.p.dlm.copy(w = newW), fs1.params)
     } yield State(newP, theta.toVector, fs1.factors, fs1.volatility)
   }
@@ -315,16 +316,17 @@ object DlmFsv {
     dlm:           Dlm,
     p:             Int,
     k:             Int)(s: State): Rand[State] = {
-   
+
     val fs = buildFactorState(s)
 
     for {
       fs1 <- FactorSv.stepOu(priorBeta, priorSigmaEta, priorMu, priorPhi,
-        priorSigma, factorObs(observations, s.theta, dlm.f), p, k)(fs)      
+        priorSigma, factorObs(observations, s.theta, dlm.f), p, k)(fs)
       vs = DlmFsvSystem.calculateVariance(fs1.volatility.tail,
         fs1.params.beta, fs1.params.v)
       theta <- ffbsSvd(dlm, observations, s.p.dlm, vs)
-      newW <- GibbsSampling.sampleSystemMatrix(priorW, theta.toVector, dlm.g)
+      state = theta.map(s => (s.time, s.sample))
+      newW <- GibbsSampling.sampleSystemMatrix(priorW, state, dlm.g)
       newP = DlmFsvParameters(s.p.dlm.copy(w = SvdFilter.sqrtSvd(newW)), fs1.params)
     } yield State(newP, theta.toVector, fs1.factors, fs1.volatility)
   }

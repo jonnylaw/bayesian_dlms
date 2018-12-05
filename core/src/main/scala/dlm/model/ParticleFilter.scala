@@ -21,9 +21,12 @@ case class PfState(
   * A bootstrap particle filter which can be used for inference of
   * Dynamic Generalised Linear Models (DGLMs),
   * where the observation distribution is not Gaussian.
+  * @param n the number of particles used in the filter
+  * @param n0 if ESS < n0 then resample
   */
 case class ParticleFilter(
   n: Int,
+  n0: Int,
   resample: (
     Vector[DenseVector[Double]],
     Vector[Double]) => Vector[DenseVector[Double]])
@@ -43,18 +46,22 @@ case class ParticleFilter(
     val dt = d.time - s.time
 
     if (y.data.isEmpty) {
-      val x = advanceState(mod, dt, s.state, p).draw
+      val x = advanceState(dt, s.state, mod, p).draw
       s.copy(state = x)
     } else {
-      val x1 = advanceState(mod, dt, s.state, p).draw
+      val x1 = advanceState(dt, s.state, mod, p).draw
       val w = calcWeights(mod, d.time, x1, d.observation, p)
       val max = w.max
       val w1 = w map (a => exp(a - max))
       val ll = s.ll + max + log(mean(w1))
+      val ess = effectiveSampleSize(normaliseWeights(w1))
 
-      val resampled = resample(x1, w1)
-
-      PfState(d.time, resampled, w1, ll)
+      if (ess < n0) {
+        val resampled = resample(x1, w1)
+        PfState(d.time, resampled, Vector.fill(n)(1.0 / n), ll)
+      } else {
+        PfState(d.time, x1, w1, ll)
+      }
     }
   }
 
@@ -67,7 +74,7 @@ case class ParticleFilter(
       sample(n).toVector
     val t0 = ys.map(_.time).
       reduceLeftOption((t0, d) => math.min(t0, d))
-    PfState(t0.get - 1.0, initState, Vector.fill(n)(1.0 / n), 0.0)
+    PfState(t0.get, initState, Vector.fill(n)(1.0 / n), 0.0)
   }
 }
 
@@ -81,7 +88,8 @@ object ParticleFilter {
     n: Int)
     (p: DlmParameters): Double = {
 
-    val filter = ParticleFilter(n, multinomialResample)
+    val n0 = math.floor(n / 5).toInt
+    val filter = ParticleFilter(n, n0, multinomialResample)
     val init = filter.initialiseState(mod, p, ys)
     ys.foldLeft(init)(filter.step(mod, p)).ll
   }
@@ -91,16 +99,15 @@ object ParticleFilter {
     * @param dt the time increment to the next observation
     * @param state a collection of particles representing time emprical posterior
     * distribution of the state at time - 1
-    * @param p the parameters of the model, containing the system evolution matrix, W
     * @return a distribution over a collection of particles at this time
     */
   def advanceState[T[_]: Traverse](
-    model: Dglm,
     dt:    Double,
     state: T[DenseVector[Double]],
+    model: Dglm,
     p:     DlmParameters) = {
 
-    state traverse (x => Dglm.stepState(model, p, x, dt))
+    state traverse (x => Dglm.stepState(model, p)(x, dt))
   }
 
   def calcWeight(
@@ -159,7 +166,7 @@ object ParticleFilter {
     * Metropolis resampling which only computes the ratio between pairs of weights making
     * it amenable to parallelisation
     * @param b the number of iterations
-    * @param w
+    * @param w a vector of normalised weights
     */
   def metropolisResampling[A](b: Int)(x: Vector[A], w: Vector[Double]): Vector[A] = {
     val n = w.size
@@ -184,7 +191,10 @@ object ParticleFilter {
     }.seq
   }
 
-
+  /**
+    * Calculate the effective sample size of a particle cloud
+    * allowing
+    */
   def effectiveSampleSize(ws: Seq[Double]): Int = {
     val ss = ws.map(w => w * w).sum
     math.floor(1 / ss).toInt

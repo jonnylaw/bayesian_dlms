@@ -24,11 +24,11 @@ case class AuxFilter(n: Int) extends FilterTs[PfState, DlmParameters, Dglm] {
     val dt = d.time - s.time
 
     if (y.data.isEmpty) {
-      val x = advanceState(mod, dt, s.state, p).draw
+      val x = advanceState(dt, s.state, mod, p).draw
       s.copy(state = x)
     } else {
       // draw from the prior (latent-state transition kernel)
-      val newState = advanceState(mod, d.time, s.state, p).draw
+      val newState = advanceState(dt, s.state, mod, p).draw
 
       // calculate likelihood of new observation, conditional on newState
       val probs = (s.weights, newState).zipped.
@@ -39,7 +39,7 @@ case class AuxFilter(n: Int) extends FilterTs[PfState, DlmParameters, Dglm] {
       val particles = multinomialResample(s.state, w1)
 
       // advance new particles
-      val x1 = advanceState(mod, dt, particles.toVector, p).draw
+      val x1 = advanceState(dt, particles.toVector, mod, p).draw
 
       // calculate weights
       val w = calcWeights(mod, d.time, x1, d.observation, p)

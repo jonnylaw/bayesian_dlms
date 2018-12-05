@@ -101,7 +101,7 @@ object StorvikFilter {
     xs: Vector[DenseVector[Double]]) = {
 
     (xs zip ps).
-      map { case (x, p) => Dglm.stepState(mod, p, x, dt).draw }
+      map { case (x, p) => Dglm.stepState(mod, p)(x, dt).draw }
   }
 
   def step(mod: Dglm, n0: Int)(s: StorvikState, d: Data): StorvikState = {

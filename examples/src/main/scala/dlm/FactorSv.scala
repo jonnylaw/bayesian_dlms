@@ -68,7 +68,7 @@ object FitFsv extends App with FsvModel {
     //  val priorPhi = new Beta(20, 2)
   val priorPhi = Gaussian(0.8, 0.1)
   val priorMu = Gaussian(2.0, 1.0)
-  val priorSigma = InverseGamma(2.5, 3.0)
+  val priorSigma = InverseGamma(10, 2.0)
 
   val iters = FactorSv
     .sampleAr(priorBeta, priorSigmaEta, priorMu, priorPhi,
@@ -81,7 +81,7 @@ object FitFsv extends App with FsvModel {
     runWith(Sink.onComplete(_ => system.terminate()))
 }
 
-object SampleStateFvs extends App with FsvModel {
+object SampleStateFsv extends App with FsvModel {
   val p = 6
   val k = 2
   val rawData = Paths.get("examples/data/fsv_sims.csv")

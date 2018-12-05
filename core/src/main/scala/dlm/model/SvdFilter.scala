@@ -157,7 +157,7 @@ object SvdFilter {
   /**
     * Transform the svd matrix into the original matrix
     */
-  def toMatrix(root: DenseMatrix[Double]) = {
+  def toMatrix(root: svd.SVD[DenseVector[Double], DenseMatrix[Double]]) = {
     val u = root.rightVectors.t
     val d = root.singularValues
 

@@ -165,7 +165,8 @@ object OneStepForecastTraffic extends App with ReadTrafficData {
       val headers = rfc.withHeader("time", "median", "lower", "upper")
 
       val n = 1000
-      val pf = ParticleFilter(n, ParticleFilter.multinomialResample)
+      val pf = ParticleFilter(n, math.floor(n/5).toInt,
+                              ParticleFilter.multinomialResample)
       val initState = pf.initialiseState(model, p, data)
       val lastState = data.foldLeft(initState)(pf.step(model, p)).state
       val fcst = Dglm.forecastParticles(model, lastState, p, test).

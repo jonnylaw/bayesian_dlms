@@ -169,7 +169,8 @@ object StudentT {
 
     for {
       theta <- sampleState(s.variances, dlm, data, p)
-      newW <- GibbsSampling.sampleSystemMatrix(priorW, theta, mod.g)
+      state = theta.map(s => (s.time, s.sample))
+      newW <- GibbsSampling.sampleSystemMatrix(priorW, state, mod.g)
       vs = sampleVariances(data, mod.f, s.nu, theta, p)
       scale <- sampleScaleT(s.nu, vs)
       (nu, accepted) <- sampleNu(propNu, propNuP,

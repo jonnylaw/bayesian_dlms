@@ -29,22 +29,6 @@ trait Simulate[M, P, S] {
       y <- observation(model, params, x1, time)
     } yield (Data(time, y.map(_.some)), x1)
 
-  // /**
-  //   * Simulate from a model at the given times
-  //   */
-  // def simulate[T[_]: Traverse](times: T[Double],
-  //                              model: M,
-  //                              params: P): T[(Data, S)] = {
-  //   val init = initialiseState(model, params)
-  //   Filter.scan(times,
-  //               init,
-  //               p: (Double, (Data, S)) =>
-  //                 p match {
-  //                   case (t: Double, x: (Data, S)) =>
-  //                     simStep(model, params)(x._2, t, t - x._1.time).draw
-  //               })
-  // }
-
   /**
     * Simulate from a model using regular steps
     */
@@ -55,6 +39,4 @@ trait Simulate[M, P, S] {
       case (y, x) => simStep(model, params)(x, y.time + dt, dt)
     }
   }
-
-// def forecast(
 }

@@ -37,7 +37,7 @@ trait TemperatureModel {
     }.
     toVector
 
-  val seasonalDlm = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
+  val seasonalDlm = Dlm.polynomial(1) |+| Dlm.seasonal(7, 3)
   val mvDlm = List.fill(8)(seasonalDlm).reduce(_ |*| _)
   val mvDlmShareState = seasonalDlm.
     copy(f = (t: Double) => List.fill(8)(seasonalDlm.f(t)).
@@ -46,7 +46,7 @@ trait TemperatureModel {
   val ys = data.
     groupBy(_.date).
     map { case (t, temps) =>
-      Data(t.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0), // time in hours
+      Data(t.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0 * 24), // time in days
            DenseVector(temps.map(s => s.obs).toArray))
     }.
     toVector.
@@ -152,4 +152,133 @@ object StateTemperatureDlm extends App with TemperatureModel {
     println(s)
     system.terminate()
   }
+}
+
+object TemperatureStudentT extends App with RoundedUoData {
+  implicit val system = ActorSystem("temperature_dlm")
+  implicit val materializer = ActorMaterializer()
+
+  val seasonalDlm = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
+
+  val ys = encodedData.
+    filter(_.sensorId == "new_new_emote_2603").
+    filter(_.datetime.compareTo(
+             LocalDateTime.of(2018, Month.AUGUST, 1, 0, 0)) < 0).
+    map(d =>
+      Data(d.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
+           DenseVector(d.temperature))
+    ).
+    runWith(Sink.seq).
+    map(_.toVector.sortBy(_.time))
+
+  val priorScale = InverseGamma(3.0, 3.0)
+  val priorDof = Poisson(10)
+  val priorW = InverseGamma(3.0, 3.0)
+
+  val prior = for {
+    v <- Applicative[Rand].replicateA(1, priorScale)
+    w <- Applicative[Rand].replicateA(7, priorW)
+    m0 = Array.fill(7)(0.0)
+    c0 = Array.fill(7)(10.0)
+  } yield DlmParameters(
+    v = diag(DenseVector(v.toArray)),
+    w = diag(DenseVector(w.toArray)),
+    m0 = DenseVector(m0),
+    c0 = diag(DenseVector(c0)))
+
+  // nu is the mean of the negative binomial proposal (A Gamma mixture of Poissons)
+  // should this be a sensored distribution?
+  val propNu = (size: Double) => (nu: Int) => {
+    val prob = nu / (size + nu)
+
+    NegativeBinomial(size, prob).map(_ + 1)
+  }
+
+  val propNuP = (size: Double) => (from: Int, to: Int) => {
+    val p = from / (size + from)
+    NegativeBinomial(size, p).logProbabilityOf(to)
+  }
+
+  def formatParameters(s: StudentT.State) =
+    s.nu.toDouble :: s.p.toList
+
+  (for {
+     data <- ys
+     iters = StudentT.sample(data, priorW, priorDof, propNu(1.0),
+                             propNuP(1.0), seasonalDlm, prior.draw)
+     io <- Streaming.writeParallelChain(
+       iters, 2, 10000, "examples/data/temperature_student_dlm", formatParameters).
+       runWith(Sink.head)
+   } yield io)
+    .onComplete { s =>
+      println(s)
+      system.terminate()
+    }
+}
+
+object ForecastStudentTemperature extends App with RoundedUoData {
+  implicit val system = ActorSystem("forecast-temp-student")
+  implicit val materializer = ActorMaterializer()
+
+  val seasonalDlm = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
+  val model = Dglm.studentT(20, seasonalDlm)
+
+  Streaming.
+    readCsv("examples/data/temperature_student_dlm_0.csv").
+    drop(1000).
+    map(_.map(_.toDouble).toList).
+    map(l => l.tail).
+    map(DlmParameters.fromList(1, 7)).
+    via(Streaming.meanParameters(1, 7)).
+    mapAsync(1) { params =>
+
+      val out = new java.io.File("examples/data/forecast_temp_student.csv")
+      val headers = rfc.withHeader("time", "mean", "lower", "upper")
+
+      println(params.toList)
+
+      for {
+        train <- encodedData.
+        filter(_.datetime.compareTo(
+                 LocalDateTime.of(2018, Month.AUGUST, 1, 0, 0)) < 0).
+        filter(_.sensorId == "new_new_emote_2603").
+        map(d =>
+          Data(d.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
+               DenseVector(d.temperature))
+        ).
+        runWith(Sink.seq).
+        map(_.toVector.sortBy(_.time))
+        _ = println(s"Training data has ${train.size} observations")
+        test <- encodedData.
+        filter(_.datetime.compareTo(
+                 LocalDateTime.of(2018, Month.AUGUST, 1, 0, 0)) > 0).
+        filter(_.datetime.compareTo(
+                 LocalDateTime.of(2018, Month.SEPTEMBER, 1, 0, 0)) < 0).
+        filter(_.sensorId == "new_new_emote_2603").
+        map(d =>
+          Data(d.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
+               DenseVector(d.temperature))
+        ).
+        runWith(Sink.seq).
+        map(_.toVector.sortBy(_.time))
+        _ = println(s"Testing data has ${test.size} observations")
+        p = params.copy(
+          m0 = DenseVector.zeros[Double](7),
+          c0 = DenseMatrix.eye[Double](7) * 100.0)
+        n = 1000
+        pf = ParticleFilter(n, n, ParticleFilter.multinomialResample)
+        initState = pf.initialiseState(model, p, train)
+        lastState = train.foldLeft(initState)(pf.step(model, p)).state
+        forecast = Dglm.forecastParticles(model, lastState, p, test)
+        _ = forecast.foreach(println)
+        fcst = forecast.
+          map { case (t, x, f) => (t, Dglm.meanAndIntervals(0.75)(f)) }.
+          map { case (t, (f, l, u)) => (t, f(0), l(0), u(0)) }
+        io = out.writeCsv(fcst, headers)
+      } yield io
+    }.
+    runWith(Sink.onComplete{ s =>
+              println(s)
+              system.terminate()
+            })
 }

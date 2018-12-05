@@ -103,7 +103,9 @@ object ParticleFilterFo extends App
     with FirstOrderDlm
     with SimulatedData {
 
-  val filtered = ParticleFilter(n, ParticleFilter.multinomialResample).filter(mod, data, p)
+  val filtered = ParticleFilter(n, math.floor(n / 5).toInt,
+                                ParticleFilter.multinomialResample).
+    filter(mod, data, p)
 
   val out = new java.io.File("examples/data/fodlm_pf.csv")
 

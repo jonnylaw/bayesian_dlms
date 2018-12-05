@@ -199,14 +199,15 @@ object FactorSv {
     * @return the squared sum of the product of factors and observations
     */
   def sumFactorsObservations(
-    facs: Vector[DenseVector[Double]],
+    facs: Vector[(Double, Option[DenseVector[Double]])],
     obs:  Vector[Option[Double]]): DenseVector[Double] = {
 
     (obs zip facs).
       map {
-        case (Some(y), f) => f * y
-        case  (None, f) => DenseVector.zeros[Double](f.size)
+        case (Some(y), (t, Some(f))) => Some(f * y)
+        case _ => None
       }.
+      flatten.
       reduce(_ + _)
   }
 
@@ -227,6 +228,13 @@ object FactorSv {
     }
   }
 
+  def sumFactors(
+    factors: Vector[(Double, Option[DenseVector[Double]])]): DenseMatrix[Double] = {
+    factors.
+      map { case (t, fo) => fo.map(fi => fi * fi.t) }.
+      flatten.reduce(_ + _)
+  }
+
   /**
     * The rows, i = 1,...,p of a k-factor model of Beta can be updated with Gibbs step
     * The prior specification is b_ij ~ N(0, C0) i > j, b_ii = 1, b_ij = 0 for j > i
@@ -240,7 +248,7 @@ object FactorSv {
     */
   def sampleBetaRow(
     prior:        Gaussian,
-    factors:      Vector[DenseVector[Double]],
+    factors:      Vector[(Double, Option[DenseVector[Double]])],
     observations: Vector[Data],
     sigma:        Double,
     i:            Int,
@@ -248,15 +256,15 @@ object FactorSv {
 
     if (i < k) {
       // take factors up to f value i - 1
-      val fsi = factors.map(x => x(0 until i))
+      val fsi = factors.map { case (t, xo) => (t, xo.map(x => x(0 until i))) }
 
       // take the ith time series observation
       val obs: Vector[Option[Double]] = getithObs(observations, i)
 
       val id = DenseMatrix.eye[Double](i)
-      val sumFactors = fsi.map(fi => fi * fi.t).reduce(_ + _)
+      val sf = sumFactors(fsi)
 
-      val prec = (1.0 / sigma) * sumFactors + id * prior.variance
+      val prec = (1.0 / sigma) * sf + id * prior.variance
       val mean = (1.0 / sigma) * sumFactorsObservations(fsi, obs)
 
       rnorm(prec \ mean, prec).draw
@@ -265,9 +273,9 @@ object FactorSv {
       val obs = getithObs(observations, i)
 
       val id = DenseMatrix.eye[Double](k)
-      val sumFactors = factors.map(fi => fi * fi.t).reduce(_ + _)
+      val sf = sumFactors(factors)
 
-      val prec = (1.0 / sigma) * sumFactors + id * prior.variance
+      val prec = (1.0 / sigma) * sf + id * prior.variance
       val mean = (1.0 / sigma) * sumFactorsObservations(factors, obs)
 
       rnorm(prec \ mean, prec).draw
@@ -291,10 +299,6 @@ object FactorSv {
     }
   }
 
-  def flattenFactors(fs: Vector[(Double, Option[DenseVector[Double]])]) = {
-    fs.map { case (t, fs) => fs.map((t, _)) }.flatten
-  }
-
   /**
     * Sample a value of beta using the function sampleBetaRow
     * @param prior the prior distribution to be used for each element of beta
@@ -312,14 +316,13 @@ object FactorSv {
     v:     DenseMatrix[Double]): DenseMatrix[Double] = {
 
     val newbeta = makeBeta(p, k)
-    val fls = flattenFactors(fs.sortBy(_._1)).map(_._2)
 
     // mutate the beta matrix
     (1 until p).foreach { i =>
       if (i < k) {
-        newbeta(i, 0 until i).t := sampleBetaRow(prior, fls, ys, v(i, i), i, k)
+        newbeta(i, 0 until i).t := sampleBetaRow(prior, fs, ys, v(i, i), i, k)
       } else {
-        newbeta(i, ::).t := sampleBetaRow(prior, fls, ys, v(i, i), i, k)
+        newbeta(i, ::).t := sampleBetaRow(prior, fs, ys, v(i, i), i, k)
       }}
 
     newbeta
@@ -349,7 +352,7 @@ object FactorSv {
           at1 = DenseVector(x.map(_.at1).toArray),
           rt1 = diag(DenseVector(x.map(_.rt1).toArray)))
       }
-  
+
   /**
     * Extract the ith factor from a multivariate vector of factors
     */
@@ -484,22 +487,6 @@ object FactorSv {
   }
 
   /**
-    * Replace rows from the factor loading matrix with zeros, beta,
-    * corresponding to 
-    * partially missing observations
-    */
-  def missingBeta(
-    y: DenseVector[Option[Double]],
-    beta: DenseMatrix[Double]): DenseMatrix[Double] = {
-
-    val nonMissing = KalmanFilter.indexNonMissing(y)
-    nonMissing.toVector foreach (i =>
-      beta(i, ::).t := DenseVector.zeros[Double](beta.cols))
-
-    beta
-  }
-
-  /**
     * Update the value of the variance in the
     * observation model, a diagonal matrix filled with identical
     * values
@@ -512,71 +499,27 @@ object FactorSv {
     prior:  InverseGamma,
     ys:     Vector[Data],
     params: FsvParameters,
-    fs:     Vector[(Double, Option[DenseVector[Double]])]): Rand[Double] = {
-
-    val n = ys.size
-    val shape = prior.shape + n * 0.5
-
-    val fls = flattenFactors(fs).sortBy(_._1)
-    val ssy = (ys zip fls).
-      map {
-        case (d, (timef, f)) =>
-          val betam = missingBeta(d.observation, params.beta)
-          val ym = KalmanFilter.flattenObs(d.observation)
-          val centered = (ym - betam * f)
-          centered.t * centered
-        case _ => 0.0
-      }.
-      reduce(_ + _)
-
-    val scale = prior.scale + 0.5 * ssy
-
-    InverseGamma(shape, scale)
-  }
-
-  /**
-    * Update the value of the variance in the
-    * observation model, a diagonal matrix filled with identical
-    * values
-    * @param prior an inverse gamma
-    * @param ys the observations
-    * @param s the current state of the MCMC
-    * @return the sampled value of sigma
-    */
-  def sampleSigma(
-    prior:  InverseGamma,
-    ys:     Vector[Data],
-    params: FsvParameters,
     fs:     Vector[(Double, Option[DenseVector[Double]])]): Rand[DenseMatrix[Double]] = {
 
-    val ns: Vector[Int] = for {
-      i <- Vector.range(0, ys.head.observation.size)
-      n = ys.map(_.observation(i)).flatten.size
-    } yield n
+    val obs = encodePartiallyMissing(ys)
+    val n = obs.map(_._2).flatten.size
+    val p = ys.head.observation.size
+    val shape = prior.shape + n * 0.5
 
-    val fls = flattenFactors(fs).sortBy(_._1)
-    val ssy: DenseVector[Double] = (ys zip fls).
+    val ssy = (obs zip fs).
       map {
-        case (d, (timef, f)) =>
-          val betam = missingBeta(d.observation, params.beta)
-          val fi = betam * f
-          val res = d.observation.data.zipWithIndex.map {
-            case (Some(y), i) =>
-              val centered = y - fi(i)
-              centered * centered
-            case _ => 0.0
-          }
-          DenseVector(res)
+        case ((t, Some(y)), (timef, Some(f))) =>
+          val centered = (y - params.beta * f)
+          Some(centered.t * centered)
+        case _ => None
       }.
+      flatten.
       reduce(_ + _)
 
-    val res: Vector[Rand[Double]] = for {
-      (ss, n) <- ssy.data.toVector zip ns
-      shape = prior.shape + n * 0.5
-      scale = prior.scale + 0.5 * ss
-    } yield InverseGamma(shape, scale)
+    val scale = prior.scale + 0.5 * ssy / p
 
-    res.sequence.map(vs => diag(DenseVector(vs.toArray)))
+    val d = InverseGamma(shape, scale).draw
+    Rand.always(DenseMatrix.eye[Double](p) * d)
   }
 
   /**
@@ -595,8 +538,8 @@ object FactorSv {
     for {
       svp <- sampleVolatilityParamsAr(priorPhi, priorMu, priorSigmaEta, p)(s)
       fs <- sampleFactors(observations, svp.params, svp.volatility)
-      sigma <- sampleSigma(priorSigma, observations, svp.params, fs)
-      newBeta = sampleBeta(priorBeta, observations, p, k, fs, svp.params.v)
+      sigma <- sampleSigmaUni(priorSigma, observations, svp.params, fs)
+      newBeta = sampleBeta(priorBeta, observations, p, k, fs, sigma)
     } yield State(svp.params.copy(v = sigma, beta = newBeta),
                   fs, svp.volatility)
   }
@@ -713,7 +656,7 @@ object FactorSv {
     for {
       svp <- sampleVolatilityParamsOu(priorMu, priorSigmaEta, priorPhi, p)(s)
       fs <- sampleFactors(observations, svp.params, svp.volatility)
-      sigma <- sampleSigma(priorSigma, observations, svp.params, fs)
+      sigma <- sampleSigmaUni(priorSigma, observations, svp.params, fs)
       beta = sampleBeta(priorBeta, observations, p, k, fs, sigma)
     } yield svp.copy(params = svp.params.copy(beta = beta, v = sigma), factors = fs)
   }

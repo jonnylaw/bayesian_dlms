@@ -7,6 +7,10 @@ import java.nio.file.Paths
 import cats.implicits._
 import kantan.csv._
 import kantan.csv.ops._
+import akka.actor.ActorSystem
+import akka.stream._
+import scaladsl._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 trait PoissonDglm {
   val mod = Dglm.poisson(Dlm.polynomial(1))
@@ -29,13 +33,13 @@ object SimulateState extends App with PoissonDglm {
   val init = MultivariateGaussian(params.m0, params.c0).draw
   val sims = MarkovChain((0.0, init)){ case (t, x) =>
     for {
-      x1 <- Dlm.stepState(Dlm.polynomial(1), params, x, 1.0)
+      x1 <- Dglm.stepState(mod, params)(x, 1.0)
     } yield (t + 1.0, x1) }.
     steps.
-    take(1000)
+    take(500)
 
   val out = new java.io.File("examples/data/latent_state.csv")
-  val header = rfc.withHeader("time", "observation", "state")
+  val header = rfc.withHeader("time", "state")
   val writer = out.asCsvWriter[List[Double]](header)
 
   def formatData(d: (Double, DenseVector[Double])) = d match {
@@ -123,8 +127,13 @@ object SimulateNegativeBinomial extends App {
 
 object FilterPoisson extends App with PoissonDglm with PoissonData {
   val advState = (s: PfState, dt: Double) => s
-  val filtered = ParticleFilter(500, ParticleFilter.metropolisResampling(10)).
+  val n = 500
+
+  data.foreach(println)
+
+  val filtered = ParticleFilter(n, n, ParticleFilter.metropolisResampling(10)).
     filter(mod, data, params)
+
 
   val out = new java.io.File("examples/data/poisson_filtered_metropolis.csv")
   val header = rfc.withHeader("time", "state_mean", "state_var")
@@ -137,39 +146,35 @@ object FilterPoisson extends App with PoissonDglm with PoissonData {
   out.writeCsv(filtered.map(formatData), header)
 }
 
-// object PoissonParameters extends App
-//     with PoissonDglm with PoissonData {
+object PoissonDglmGibbs extends App with PoissonDglm with PoissonData {
+  implicit val system = ActorSystem("temperature_dlm")
+  implicit val materializer = ActorMaterializer()
 
+  val n = 1000
+  val model = Dlm(mod.f, mod.g)
+  val priorW = InverseGamma(11.0, 1.0)
 
-// }
+  def mcmcStep(s: Vector[(Double, DenseVector[Double])], p: DlmParameters) =
+    for {
+      newW <- GibbsSampling.sampleSystemMatrix(priorW, s.sortBy(_._1), model.g)
+      (ll, state) <- ParticleGibbs.sample(n, model, data, p.copy(w = newW))
+    } yield (state, p.copy(w = newW))
 
-// object PoissonDglmGibbs extends App with PoissonDglm with PoissonData {
-//   val n = 200
-//   val model = Dlm(mod.f, mod.g)
-//   val priorW = InverseGamma(11.0, 1.0)
+  // initialise the state
+  val initState = ParticleGibbs.sample(n, model, data.take(500), params).draw._2
 
-//   val mcmcStep = (s: List[SamplingState], p: DlmParameters) =>
-//     for {
-//       w <- GibbsSampling.sampleSystemMatrix(priorW, s.toVector, model.g)
-//       (ll, state) <- ParticleGibbs.sample(n, params, model, data.toList)
-//     } yield (state, DlmParameters(p.v, w, p.m0, p.c0))
+  val iters = MarkovChain((initState, params)) { case (x, p) => mcmcStep(x, p) }
 
-//   val initState = ParticleGibbs.sample(n, params, model, data.toList).draw._2
-//   val iters = MarkovChain((initState, params)) { case (x, p) => mcmcStep(x, p) }.steps
-//     .map(_._2)
-//     .take(10000)
+  iters.steps.take(10).map(_._2).foreach(println)
 
-//   val out = new java.io.File("examples/data/poisson_dglm_gibbs.csv")
-//   val writer = out.asCsvWriter[Double](rfc.withHeader("W"))
+  def formatParameters(s: (Vector[(Double, DenseVector[Double])], DlmParameters)) =
+    List(s._2.w(0,0))
 
-//   def formatParameters(p: DlmParameters) = {
-//     (p.w.data(0))
-//   }
-
-//   // write iters to file
-//   while (iters.hasNext) {
-//     writer.write(formatParameters(iters.next))
-//   }
-
-//   writer.close()
-// }
+  Streaming.writeParallelChain(
+    iters, 2, 10000, "examples/data/poisson_dglm_gibbs", formatParameters).
+    runWith(Sink.head).
+    onComplete { s =>
+      println(s)
+      system.terminate()
+    }
+}
