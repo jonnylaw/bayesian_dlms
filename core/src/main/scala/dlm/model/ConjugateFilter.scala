@@ -75,7 +75,7 @@ case class ConjugateFilter(
     val y = KalmanFilter.flattenObs(d.observation)
     val e = y - ft
 
-    // calculate the kalman gain 
+    // calculate the kalman gain
     val k = (qt.t \ (f.t * st.kfState.rt.t)).t
     val mt1 = st.kfState.at + k * e
     val n = mt1.size
@@ -83,7 +83,7 @@ case class ConjugateFilter(
     val vs = updateStats(s.variance, qt, e, v)
     // compute joseph form update to covariance
     val i = DenseMatrix.eye[Double](n)
-    val covariance = (i - k * f.t) * st.kfState.rt * (i - k * f.t).t + k * meanVariance(vs) * k.t
+    val covariance = (i - k * f.t) * st.kfState.rt * (i - k * f.t).t + k * v * k.t
 
     // update the marginal likelihood
     val newll = s.kfState.ll + KalmanFilter.conditionalLikelihood(ft, qt, y)

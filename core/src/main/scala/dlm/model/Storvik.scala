@@ -106,7 +106,6 @@ object StorvikFilter {
 
   def step(mod: Dglm, n0: Int)(s: StorvikState, d: Data): StorvikState = {
 
-    println(s"Iteration ${d.time}")
     val y = KalmanFilter.flattenObs(d.observation)
     val dt = d.time - s.time
 
@@ -131,8 +130,6 @@ object StorvikFilter {
 
     // resample if the effective sample size is less than n0
     if (ess < n0) {
-      println("Resampling")
-
       val indices = ParticleFilter.multinomialResample(expWeight.indices.toVector, expWeight)
       val resampledState = indices map (x1(_))
       val resampledParams = indices map (params(_))

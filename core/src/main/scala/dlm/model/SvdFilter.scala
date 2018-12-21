@@ -93,7 +93,7 @@ case class SvdFilter(advState: (SvdState, Double) => SvdState)
     p:   DlmParameters,
     ys:  T[Data]) = {
 
-    val root = svd(p.c0)
+    val root = svd(p.c0) // this is diagonal
     val t0 = ys.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
     val dc0 = root.singularValues.map(math.sqrt)
     val uc0 = root.rightVectors.t

@@ -14,6 +14,7 @@ import kantan.csv.java8._
 import akka.actor.ActorSystem
 import akka.stream._
 import scaladsl._
+import scala.concurrent.Future
 
 trait ReadTrafficData {
   val format = DateTimeFormatter.ISO_DATE_TIME
@@ -159,24 +160,30 @@ object OneStepForecastTraffic extends App with ReadTrafficData {
         c0 = DenseMatrix.eye[Double](9) * 100.0)
     ).
     via(Streaming.meanParameters(1, 9)).
-    map { p =>
+    mapAsync(1) { p =>
 
       val out = new java.io.File("examples/data/forecast_traffic_negbin.csv")
       val headers = rfc.withHeader("time", "median", "lower", "upper")
 
       val n = 1000
-      val pf = ParticleFilter(n, math.floor(n/5).toInt,
-                              ParticleFilter.multinomialResample)
+      val pf = ParticleFilter(n, n, ParticleFilter.multinomialResample)
       val initState = pf.initialiseState(model, p, data)
       val lastState = data.foldLeft(initState)(pf.step(model, p)).state
-      val fcst = Dglm.forecastParticles(model, lastState, p, test).
-        map { case (t, x, f) => (hoursToDatetime(t), Dglm.medianAndIntervals(0.75)(f)) }.
+
+      // println(s"Data has ${data.size} observations")
+      // println(s"Test has ${test.size} observations")
+      // lastState.take(10).foreach(println)
+
+      val fcst = Dglm.forecastParticles(model, lastState, p, test.take(200)).
+        map { case (t, x, f) => (hoursToDatetime(t),
+                                 Dglm.medianAndIntervals(0.75)(f)) }.
         map { case (t, (f, l, u)) => (t, f(0), l(0), u(0)) }
 
-      out.writeCsv(fcst, headers)
+      Future.successful(out.writeCsv(fcst, headers))
     }.
     runWith(Sink.onComplete{ s =>
       println(s)
       system.terminate()
     })
 }
+

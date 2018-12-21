@@ -154,6 +154,37 @@ object StudentT {
   }
 
   /**
+    * Sample the latent state for the student's t model
+    */
+  def interpolateStep(
+    data:    Vector[Data],
+    mod:     Dglm,
+    p:       DlmParameters) = { s: State =>
+
+    val dlm = Dlm(mod.f, mod.g)
+
+    for {
+      theta <- sampleState(s.variances, dlm, data, p)
+      vs = sampleVariances(data, mod.f, s.nu, theta, p)
+    } yield State(s.p, vs, s.nu, theta, s.accepted)
+  }
+
+  def interpolate(
+    data:    Vector[Data],
+    mod:     Dglm,
+    nu:      Int,
+    p:       DlmParameters) = {
+
+    val dlm = Dlm(mod.f, mod.g)
+    val initVariances = Vector.fill(data.size)(1.0)
+    val initState = sampleState(initVariances, dlm, data, p)
+    val init = State(p, initVariances, nu, initState.draw, 0)
+
+    MarkovChain(init)(interpolateStep(data, mod, p))
+  }
+
+
+  /**
     * A single step of the Student t-distribution Gibbs Sampler
     */
   def step(

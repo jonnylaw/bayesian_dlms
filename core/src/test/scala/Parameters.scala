@@ -1,3 +1,13 @@
+import cats._
+import cats.implicits._
+import cats.laws.discipline._
+import cats.kernel.laws._
+import cats.kernel.instances.all._
+import cats.kernel.laws.discipline._
+
+import org.typelevel.discipline.Laws
+import org.typelevel.discipline.scalatest.Discipline
+
 import dlm.core.model._
 import org.scalatest._
 import cats.implicits._
@@ -5,6 +15,8 @@ import breeze.linalg.diag
 import prop._
 import org.scalactic.Equality
 import org.scalacheck.Gen
+import org.scalacheck._
+import Arbitrary.arbitrary
 
 class ReadingParameters
     extends PropSpec
@@ -77,4 +89,39 @@ class ReadingParameters
       assert(DlmFsvParameters.fromList(2, 2, 2, 2)(ps.toList) === ps)
     }
   }
+}
+
+class ParameterLaws
+    extends FunSuite
+    with Matchers
+    with BreezeGenerators
+    with Discipline {
+
+  def svParameters = for {
+    phi <- smallDouble
+    mu <- smallDouble
+    sigma <- smallDouble
+  } yield SvParameters(phi, mu, sigma)
+
+  def factorParameters = for {
+    v <- smallDouble
+    p <- arbitrary[Int]
+    k <- arbitrary[Int]
+    beta <- denseMatrix(p, k)
+    fsv <- Gen.listOfN(k, svParameters)
+  } yield FsvParameters(v, beta, fsv.toVector)
+
+  implicit def genFsvArb: Arbitrary[FsvParameters] =
+    Arbitrary(factorParameters)
+
+  implicit def eqFsv = new Eq[FsvParameters] {
+    def eqv(x: FsvParameters, y: FsvParameters) = {
+      x.v === y.v && x.beta === y.beta &&
+        x.factorParams.zip(y.factorParams).
+          forall { case (xi, yi) => xi === yi }
+    }
+  }
+
+  checkAll("Additive Fsv Parameter Semigroup",
+           SemigroupTests[FsvParameters].semigroup)
 }

@@ -16,6 +16,7 @@ import akka.actor.ActorSystem
 import akka.stream._
 import scaladsl._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 trait TemperatureModel {
   val format = DateTimeFormatter.ISO_DATE_TIME
@@ -248,7 +249,6 @@ object ForecastStudentTemperature extends App with RoundedUoData {
         ).
         runWith(Sink.seq).
         map(_.toVector.sortBy(_.time))
-        _ = println(s"Training data has ${train.size} observations")
         test <- encodedData.
         filter(_.datetime.compareTo(
                  LocalDateTime.of(2018, Month.AUGUST, 1, 0, 0)) > 0).
@@ -261,7 +261,6 @@ object ForecastStudentTemperature extends App with RoundedUoData {
         ).
         runWith(Sink.seq).
         map(_.toVector.sortBy(_.time))
-        _ = println(s"Testing data has ${test.size} observations")
         p = params.copy(
           m0 = DenseVector.zeros[Double](7),
           c0 = DenseMatrix.eye[Double](7) * 100.0)
@@ -269,12 +268,83 @@ object ForecastStudentTemperature extends App with RoundedUoData {
         pf = ParticleFilter(n, n, ParticleFilter.multinomialResample)
         initState = pf.initialiseState(model, p, train)
         lastState = train.foldLeft(initState)(pf.step(model, p)).state
-        forecast = Dglm.forecastParticles(model, lastState, p, test)
-        _ = forecast.foreach(println)
-        fcst = forecast.
+        forecast = Dglm.forecastParticles(model, lastState, p, test).
           map { case (t, x, f) => (t, Dglm.meanAndIntervals(0.75)(f)) }.
           map { case (t, (f, l, u)) => (t, f(0), l(0), u(0)) }
-        io = out.writeCsv(fcst, headers)
+        _ = forecast foreach println
+        io <- Future.successful(out.writeCsv(forecast, headers))
+      } yield io
+    }.
+    runWith(Sink.onComplete{ s =>
+              println(s)
+              system.terminate()
+            })
+}
+
+object InterpolateTemperature extends App with RoundedUoData {
+  implicit val system = ActorSystem("forecast-temp-student")
+  implicit val materializer = ActorMaterializer()
+
+  val seasonalDlm = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
+  val model = Dglm.studentT(20, seasonalDlm)
+
+  Streaming.
+    readCsv("examples/data/temperature_student_dlm_0.csv").
+    drop(1000).
+    map(_.map(_.toDouble).toList).
+    map(l => l.tail).
+    map(DlmParameters.fromList(1, 7)).
+    via(Streaming.meanParameters(1, 7)).
+    mapAsync(1) { params =>
+
+      val out = new java.io.File("examples/data/interpolate_temp_student.csv")
+      val headers = rfc.withHeader("time", "mean", "lower", "upper")
+
+      println(params.toList)
+
+      for {
+        train <- encodedData.
+          filter(_.datetime.compareTo(
+                 LocalDateTime.of(2018, Month.AUGUST, 1, 0, 0)) < 0).
+          filter(_.sensorId == "new_new_emote_2603").
+          map(d =>
+            Data(d.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
+               DenseVector(d.temperature))
+          ).
+          runWith(Sink.seq).
+          map(_.toVector.sortBy(_.time))
+        test <- encodedData.
+          filter(_.datetime.compareTo(
+                 LocalDateTime.of(2018, Month.AUGUST, 1, 0, 0)) > 0).
+          filter(_.datetime.compareTo(
+                 LocalDateTime.of(2018, Month.SEPTEMBER, 1, 0, 0)) < 0).
+          filter(_.sensorId == "new_new_emote_2603").
+          map(d =>
+            Data(d.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
+               DenseVector(d.temperature))
+          ).
+          runWith(Sink.seq).
+          map(_.toVector.sortBy(_.time))
+
+        // approximately determine the final state
+        p = params.copy(
+          m0 = DenseVector.zeros[Double](7),
+          c0 = DenseMatrix.eye[Double](7) * 100.0)
+        n = 1000
+        pf = ParticleFilter(n, n, ParticleFilter.multinomialResample)
+        initState = pf.initialiseState(model, p, train)
+        lastState = train.foldLeft(initState)(pf.step(model, p)).state
+        ls = Dglm.meanCovSamples(lastState)
+
+        // sample the state
+        state = StudentT.interpolate(test, model, 20,
+                                     p.copy(m0 = ls._1, c0 = ls._2)).
+          steps.take(1000)
+
+        // calculate observations for each state sample
+        observation = state.map(_.state).map(s => s.map(x =>                                               Dglm.observation(model, p, x.sample, x.time).draw))
+
+        io <- Future.successful(out.writeCsv(observation.map(_.map(x => x(0))), headers))
       } yield io
     }.
     runWith(Sink.onComplete{ s =>

@@ -17,7 +17,7 @@ class ParticleGibbsTest extends FunSuite with Matchers with BreezeGenerators {
   val data = Dglm.simulateRegular(mod, params, 1.0).
     steps.take(10).toVector.map(_._1)
   val n = 200
-  val pf = ParticleGibbs(n, Dglm.stepState(mod, params))
+  val pf = ParticleGibbs(n)
 
   test("Initial Conditioned State matches times") {
     val filtered = pf.initialiseState(mod, params, data)

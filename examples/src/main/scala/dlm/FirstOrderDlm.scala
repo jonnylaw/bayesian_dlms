@@ -175,7 +175,7 @@ object Storvik extends App with FirstOrderDlm with SimulatedData {
   val priorV = InverseGamma(3.0, 4.0)
   val priorW = InverseGamma(3.0, 10.0)
 
-  val filtered = StorvikFilter.filterTs(mod, data, p, priorV, priorW, n, n0)
+  val filtered = StorvikFilter.filterTs(mod, data, p, priorV, priorW, n, n)
 
   val out = new java.io.File("examples/data/fo_storvik_filtered.csv")
 

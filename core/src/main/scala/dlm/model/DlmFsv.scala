@@ -1,6 +1,6 @@
 package dlm.core.model
 
-import breeze.linalg.{DenseVector, DenseMatrix}
+import breeze.linalg.{DenseVector, DenseMatrix, diag}
 import breeze.stats.distributions._
 import breeze.stats.mean
 import breeze.numerics.exp
@@ -197,7 +197,7 @@ object DlmFsv {
   /**
     * Transform the state of this sampler into the state for the DLM
     */
-  def buildDlmState(s: State): GibbsSampling.State = 
+  def buildDlmState(s: State): GibbsSampling.State =
     GibbsSampling.State(s.p.dlm, s.theta)
 
   /**
@@ -459,5 +459,50 @@ object DlmFsv {
     }
 
     MarkovChain(init)(step)
+  }
+
+  /**
+    * Perform a one-step forecast
+    */
+  def forecast(
+    dlm: Dlm,
+    p:   DlmFsvParameters,
+    ys:  Vector[Data]) = {
+
+    val fps = p.fsv.factorParams
+
+    // initialise the log-volatility at the stationary solution
+    val a0 = fps map { vp =>
+      val initVar = math.pow(vp.sigmaEta, 2) / (1 - math.pow(vp.phi, 2))
+      Gaussian(vp.mu, initVar).draw
+    }
+
+    val n = ys.size
+    val times = ys.map(_.time)
+
+    // advance volatility using the parameters
+    val as = Vector.iterate(a0, n)(a => (fps zip a).map {
+      case (vp, at) =>
+      StochasticVolatility.stepState(vp, at).draw
+    })
+
+    // add times to latent state
+    val alphas = (as, times).zipped.map { case (a, t) =>
+      SamplingState(t, DenseVector(a.toArray), DenseVector(a.toArray),
+        diag(DenseVector(a.toArray)), DenseVector(a.toArray),
+        diag(DenseVector(a.toArray))) }
+
+    // calculate the time dependent observation variance matrix
+    val vs = DlmFsvSystem.calculateVariance(alphas, p.fsv.beta, p.dlm.v)
+
+    val kf = KalmanFilter(KalmanFilter.advanceState(p.dlm.copy(v = vs.head), dlm.g))
+
+    val init: KfState = kf.initialiseState(dlm, p.dlm, ys)
+
+    // advance the state of the DLM using the time dependent system matrix
+    (vs, ys).zipped.scanLeft(init){ case (st, (vi, y)) =>
+      val dlmP = p.dlm.copy(v = vi)
+      KalmanFilter(KalmanFilter.advanceState(dlmP, dlm.g)).step(dlm, dlmP)(st, y)
+    }
   }
 }

@@ -5,6 +5,7 @@ import breeze.stats.distributions._
 import breeze.numerics.exp
 import breeze.linalg.{DenseVector, DenseMatrix, diag, svd}
 import breeze.linalg.svd._
+import cats.Semigroup
 import cats.implicits._
 
 /**
@@ -56,6 +57,11 @@ object FsvParameters {
         map(SvParameters.fromList).
         toVector
     )
+
+  implicit def fsvSemigroup = new Semigroup[FsvParameters] {
+    def combine(x: FsvParameters, y: FsvParameters) =
+      x add y
+  }
 }
 
 /**
@@ -65,7 +71,8 @@ object FactorSv {
   /**
     * The state of the Gibbs Sampler
     * @param p the current sample of the fsv parameters
-    * @param factors the current sample of the time series of factors, k x n dimensional
+    * @param factors the current sample of the time series of factors
+    * k x n dimensional
     * @param volatility the current sample of the time series of variances, k x n dimensional
     */
   case class State(
@@ -100,11 +107,11 @@ object FactorSv {
 
   /**
     * A single step for simulating a factor stochastic volatility model
-    * @param dt the time increment between successive realisations 
+    * @param dt the time increment between successive realisations
     * @param t the current time of the realisation
     * @param params the parameters of the stochastic volatility model
     * @param a the current log volatilities of the factors
-    * @return 
+    * @return
     */
   def simStep(
     t:      Double,

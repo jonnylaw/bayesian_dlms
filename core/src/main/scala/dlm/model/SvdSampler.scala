@@ -19,8 +19,8 @@ object SvdSampler {
 
     val dt = ss.time - st.time
     val dcInv = st.dc.map(1.0 / _)
-    val root = svd(
-      DenseMatrix.vertcat(sqrtW * mod.g(dt) * st.uc, diag(dcInv)))
+    val root = svd(DenseMatrix.vertcat(sqrtW * mod.g(dt) * st.uc, diag(dcInv)))
+
     val uh = st.uc * root.rightVectors.t
     val dh = root.singularValues.map(1.0 / _)
 
@@ -51,10 +51,10 @@ object SvdSampler {
   def sample(
     mod: Dlm,
     st:  Vector[SvdState],
-    w:   DenseMatrix[Double]): Vector[SamplingState] = {
+    sqrtW:   DenseMatrix[Double]): Vector[SamplingState] = {
 
     val init = initialise(st.toArray)
-    st.init.scanRight(init)(step(mod, w))
+    st.init.scanRight(init)(step(mod, sqrtW))
   }
 
   /**

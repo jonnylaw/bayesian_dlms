@@ -46,7 +46,7 @@ trait FilterTs[S, P, M] {
 
   /**
     * Perform the Filter using a cfor loop to be used in the Gibbs Sampler
-    * @param 
+    * @param
     */
   def filterArray(
     model:    M,

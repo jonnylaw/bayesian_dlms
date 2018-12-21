@@ -315,6 +315,7 @@ object Dglm {
       Vector.fill(xt.size)(DenseVector.zeros[Double](ys.head.observation.size)))
 
     ys.scanLeft(init) { case ((t0, x, _), y) =>
+      val ys = y.observation.data.flatten
       val dt = y.time - t0
       val x1 = if (dt == 0) {
         x
@@ -323,13 +324,18 @@ object Dglm {
       }
       val eta = x1 map (x => mod.f(y.time).t * x)
       val meanForecast = eta.map(e => mod.observation(e, p.v).draw)
-      val w = ParticleFilter.calcWeights(mod, y.time, x1, y.observation, p)
-      val max = w.max
-      val w1 = w map (a => exp(a - max))
 
-      val resampled = ParticleFilter.multinomialResample(x1, w1)
+      if (ys.isEmpty) {
+        (y.time, x1, meanForecast)
+      } else {
+        val w = ParticleFilter.calcWeights(mod, y.time, x1, y.observation, p)
+        val max = w.max
+        val w1 = w map (a => exp(a - max))
 
-      (y.time, resampled, meanForecast)
+        val resampled = ParticleFilter.multinomialResample(x1, w1)
+
+        (y.time, resampled, meanForecast)
+      }
     }
   }
 }

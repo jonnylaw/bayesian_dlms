@@ -121,6 +121,12 @@ object Streaming {
          }.
     map(_._1)
 
+  def meanFsvParameters(p: Int, k: Int) = Flow[FsvParameters].
+    fold((FsvParameters.empty(p, k), 1.0)){(acc, b) =>
+      val (avg: FsvParameters, n: Double) = acc
+      (avg.map(_ * n).add(b).map(_  / (n + 1)), n + 1)
+    }.
+    map(_._1)
 
   /**
     * Create an Akka stream from a Markov Chain
