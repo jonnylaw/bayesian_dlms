@@ -10,6 +10,7 @@ library(coda)
 library(latex2exp)
 knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
 theme_set(theme_minimal())
+source("mcmc_summarise.R")
 ```
 
 Stochastic volatility models are a class of models for non-stationary time series data. The log of the variance of the series is assumed to evolve according to a latent Gaussian process. The equation below shows a univariate stochastic volatility model with an AR(1) latent state:
@@ -21,10 +22,18 @@ Y_t &= \varepsilon_t\exp(\alpha_t/2), &\varepsilon_t &\sim \mathcal{N}(0, 1), \\
 
 $Y_t$, $t = 1,\dots,T$ are discrete observations of a time series process. The latent state represents the log-volatility and $\alpha_t$ follows an AR(1) process with mean $\mu$.
 
-Figure~\ref{fig:sv-simulation} shows a simulation from this model with fixed
+The figure below shows a simulation from this model with fixed
 values of the parameters, $\phi = 0.8, \mu = 1, \sigma_\eta = 0.1$, the initial
 state of the log-volatility is the stationary solution of the AR(1) process:
 $\alpha_0 \sim \mathcal{N}\left(\mu, \frac{\sigma_\eta^2}{1 - \phi^2}\right)$.
+
+To define this model in Scala and simulate observations, first import the required libraries and use the method simulate which initialises a Breeze `MarkovChain` object with the initial state equivalent to the stationary solution of the AR(1) process. 
+ 
+```tut
+import dlm.core.model._
+val p = SvParameters(phi = 0.8, mu = 2.0, sigmaEta = 0.3)
+val sims = StochasticVolatility.simulate(p).steps.take(1000).toVector.tail
+```
 
 ```{r}
 sims = read_csv("~/git/bayesian_dlms/examples/data/sv_sims.csv")
@@ -41,3 +50,38 @@ sims %>%
 
 ## Parameter Inference
 
+To determine the posterior distribution of the parameters specify the prior distributions of the parameters:
+
+```tut
+val priorPhi = Gaussian(0.8, 0.1)
+val priorMu = Gaussian(2.0, 1.0)
+val priorSigma = InverseGamma(2.0, 2.0)
+```
+
+There are two inference algorithms defined for the stochastic volatility model, either one can be used and should produce identical inferences:
+
+1. Likelihood Analysis of Non-Gaussian Measurement Time Series: http://www.jstor.org/stable/2337586
+2. Stochastic volatility: likelihood inference and comparison with ARCH models: https://faculty.mccombs.utexas.edu/carlos.carvalho/teaching/KSB98-SV.pdf
+
+```tut
+val iters1 = StochasticVolatilityKnots.sampleParametersAr(priorPhi,
+                                                           priorMu,
+                                                           priorSigma,
+                                                           sims)
+val iters2 = StochasticVolatility.sampleUni(priorPhi, priorMu, priorSigma, sims)
+```
+
+The figure below shows the diagnostic plots for the posterior distribution of the parameters of the univariate stochastic volatility model.
+
+```{r stochastic-volatility-parameters}
+actual_values = tibble(
+  Parameter = c("phi", "mu", "sigma"),
+  actual_value = c(0.8, 2.0, 0.3)
+)
+
+files = c("../examples/data/sv_params_0.csv", 
+          "../examples/data/sv_params_1.csv")
+chains = read_chains(files, param_names = actual_values$Parameter, nth = 20, drop = 1e4)
+
+plot_diagnostics_sim(chains, actual_values)
+```

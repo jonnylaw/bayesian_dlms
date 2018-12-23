@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+
+
+
+<title>Autoregressive Model</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+  height: auto;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 51px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h2 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h3 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h4 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h5 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h6 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+<div class="container-fluid main-container">
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Bayesian Inference for DLMs</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Model Building
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li class="dropdown-header">DLMs and DGLMs</li>
+    <li>
+      <a href="model_building_simulation.html"></a>
+    </li>
+    <li class="dropdown-header">Stochastic Volatility</li>
+    <li>
+      <a href="stochastic_volatility.html"></a>
+    </li>
+  </ul>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Filtering
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="kalman_filter.html">Kalman Filter</a>
+    </li>
+    <li>
+      <a href="particle_filter.html">Bootstrap Particle Filter</a>
+    </li>
+  </ul>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Parameter Inference
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="gibbs_sampling.html">Gibbs Sampling</a>
+    </li>
+    <li>
+      <a href="pmmh.html">PMMH</a>
+    </li>
+    <li>
+      <a href="online_filtering.html">Online Parameter Inference</a>
+    </li>
+  </ul>
+</li>
+<li>
+  <a href="forecasting.html">Forecasting</a>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Examples
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="FirstOrderDlm.html">First Order DLM</a>
+    </li>
+    <li>
+      <a href="second_order_dlm.html">Linear Growth DLM</a>
+    </li>
+    <li>
+      <a href="seasonal_dlm.html">Seasonal Composed DLM</a>
+    </li>
+    <li>
+      <a href="CorrelatedModel.html">Multivariate DLM</a>
+    </li>
+    <li>
+      <a href="student_t_filtering.html">Student's t-distributed DLM</a>
+    </li>
+    <li>
+      <a href="ar1.html">Autoregressive Model</a>
+    </li>
+    <li>
+      <a href="spain_investment_data.html">Spain Investment Data</a>
+    </li>
+  </ul>
+</li>
+<li>
+  <a href="https://git.io/dlm">Github</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">Autoregressive Model</h1>
+
+</div>
+
+
+<div id="simulation" class="section level1">
+<h1>Simulation</h1>
+<p><span class="math display">\[\begin{align}
+Y_t &amp;= x_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
+\alpha_t &amp;= \phi (\alpha_{t-1}-\mu) + eta_t, \quad w_t \sim \mathcal{N}(0, \sigma_\eta), \\
+\alpha_0 &amp;\sim \mathcal{N}(m_0, C_0).
+\end{align}\]</span></p>
+<p>The code required to simulate from this model is given below:</p>
+<pre class="tut:silent"><code>import core.dlm.model._
+import breeze.linalg.{DenseMatrix, DenseVector, diag}
+
+val mod = Dlm.autoregressive(phi = 0.9)
+val p = Dlm.Parameters(
+  DenseMatrix(4.0), 
+  DenseMatrix(2.0), 
+  DenseVector(0.0), 
+  DenseMatrix(1.0))
+
+val data = Dlm.simulateRegular(0, mod, p, 1.0).
+  steps.
+  take(1000).
+  toVector</code></pre>
+<p>The figure below shows a plot of 100 simulations:</p>
+<p><img src="ar1_files/figure-html/ar1-simulated-1.png" width="672" /></p>
+</div>
+<div id="filtering" class="section level1">
+<h1>Filtering</h1>
+<p>To perform Kalman Filtering on a <code>Vector</code> of <code>Data</code>, we simply discard the state from the simulated data and pass it into the <code>KalmanFilter.filter</code> function:</p>
+<pre class="tut:silent"><code>val filtered = KalmanFilter.filter(mod, data.map(_._1), p)</code></pre>
+<p><img src="ar1_files/figure-html/ar1-filtered-1.png" width="672" /></p>
+</div>
+<div id="parameter-inference" class="section level1">
+<h1>Parameter Inference</h1>
+<p>The figure below shows the prior distributions for the parameters and the diagnostics from 100,000 iterations of the MCMC algorithm. A Beta prior and proposal is used in a Metropolis-Hastings step to learn the autoregressive parameter <span class="math inline">\(\phi\)</span>.</p>
+<pre class="tut:silent"><code>import breeze.stats.distributions._
+
+val priorV = InverseGamma(5.0, 20.0)
+val priorW = InverseGamma(6.0, 10.0)
+val priorPhi = new Beta(20, 2)</code></pre>
+<p>First we define the prior distributions for the parameters, the prior for V and W are plotted in the Figure below</p>
+<p><img src="ar1_files/figure-html/prior-distributions-1.png" width="672" /></p>
+<p>Next we can use the prior distribution to construct at <code>Dlm.Parameters</code> object which can be drawn from to initialise the Markov chain.</p>
+<pre class="tut:silent"><code>val prior = for {
+  v &lt;- priorV
+  w &lt;- priorW
+} yield Dlm.Parameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)</code></pre>
+<p>Next we create a single step of the Markov Chain which samples the value of <span class="math inline">\(\phi\)</span> using a Metropolis Hastings step. The function <code>updateModel</code> is used to change the value of the system evolution matrix <span class="math inline">\(G\)</span> to include the new value of the autoregressive parameter <span class="math inline">\(\phi\)</span>.</p>
+<pre class="tut:silent"><code>val step = (s: (Double, GibbsSampling.State)) =&gt; for {
+  newS &lt;- GibbsSampling.dinvGammaStep(GibbsSampling.updateModel(mod, s._1),
+    priorV, priorW, data.map(_._1))(s._2)
+  phi &lt;- GibbsSampling.samplePhi(priorPhi, 1000, 0.5, newS)(s._1)
+} yield (phi, newS)</code></pre>
+<p>Next the inital parameter distribution can be defined as:</p>
+<pre class="tut:silent"><code>val init = for {
+  p &lt;- prior
+  phi &lt;- priorPhi
+  state &lt;- Smoothing.ffbs(mod, data.map(_._1), p)
+} yield (phi, GibbsSampling.State(p, state))</code></pre>
+<p>This allows us to intialise the MCMC with a draw from the prior distribution. Finally we can construct the Markov Chain:</p>
+<pre class="tut:silent"><code>val iters = MarkovChain(init.draw)(step).steps.take(100000)</code></pre>
+<p>The figure below shows the posterior distributions of the static parameters in the autoregressive DLM. 10,000 iterations are discarded as burnin and 100,000 samples are taken from the Markov Chain.</p>
+<p><img src="ar1_files/figure-html/ar1-parameter-diagnostics-1.png" width="672" /></p>
+<div id="continuous-time-autoregressive-process" class="section level2">
+<h2>Continuous Time Autoregressive Process</h2>
+<p>The Ornstein-Uhlenbeck process is a continuous time autoregressive process. Define a partially observed Markov process with an OU latent-state as:</p>
+<span class="math display">\[\begin{align*}
+Y_t &amp;= x_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
+\textrm{d}\alpha_t &amp;= \phi(\alpha_t - \mu)\textrm{d}t + \sigma  \textrm{d}W_t. 
+\end{align*}\]</span>
+<p>The Figure below shows a simulation from the OU process DLM with observation variance <span class="math inline">\(V = 0.5\)</span>, <span class="math inline">\(\phi = 0.2\)</span>, <span class="math inline">\(\mu = 1.0\)</span> and <span class="math inline">\(\sigma = 0.3\)</span>. To simulate the OU process DLM, define parameters of the OU process and use the transition kernel defined in the <code>StochasticVolatility</code> class. The observation distribution is Gaussian with variance <span class="math inline">\(V = 0.5\)</span>. Since this process can be simulated at arbitrary time points, a vector of random times is simulated by defining the difference between the observations to be <code>deltas</code>. Then the state, <span class="math inline">\(\alpha_0\)</span> is initialised at the stationary solution of the OU process and a scan is used to simulate the data.</p>
+<pre class="tut"><code>import dlm.core.model._
+
+val p = SvParameters(0.2, 1.0, 0.3)
+def stepDlm(t: Double, dt: Double, x: Double) =
+  for {
+    x1 &lt;- StochasticVolatility.stepOu(p, x, dt)
+    y &lt;- Gaussian(x1, math.sqrt(0.5))
+  } yield (t + dt, y, x1)
+val deltas = Vector.fill(5000)(scala.util.Random.nextDouble())
+
+val init = Gaussian(p.mu, math.sqrt(p.sigmaEta * p.sigmaEta / 2 * p.phi))
+val sims = deltas.scanLeft((0.0, 0.0, init.draw)) {
+  case ((t, y, xt), dt) =&gt;
+    stepDlm(t + dt, dt, xt).draw
+}
+</code></pre>
+<p><img src="ar1_files/figure-html/ou-sums-1.png" width="672" /></p>
+<p>The figure below shows a Kalman Filter for the OU process, since the transition kernel of the OU process is known and given by a Gaussian distribution the Kalman Filter can be performed:</p>
+<pre class="tut"><code>val filtered = FilterOu.filterUnivariate(ys, Vector.fill(ys.size)(0.5), p)</code></pre>
+<p><img src="ar1_files/figure-html/filtering-ou-process-1.png" width="672" /></p>
+<p>Parameter inference is performed using the Kalman filter to calculate the marginal likelihood of the OU process which is then used in a Metropolis-Hastings algorithm to determine the static parameters of the latent state, <span class="math inline">\(\phi, \mu\)</span> and <span class="math inline">\(\sigma\)</span>. The value of the observation variance, <span class="math inline">\(V\)</span>, is determined using a Gibbs step:</p>
+<pre class="tut"><code>val p = SvParameters(0.2, 1.0, 0.3)
+val priorPhi = new Beta(2.0, 5.0)
+val priorMu = Gaussian(1.0, 1.0)
+val priorSigma = InverseGamma(5.0, 1.0)
+val priorV = InverseGamma(2.0, 2.0)
+val f = (dt: Double) =&gt; DenseMatrix(1.0)
+
+val step = (s: (StochasticVolatilityKnots.OuSvState, DenseMatrix[Double])) =&gt;
+  for {
+    theta &lt;- FilterOu.ffbs(s._1.params, ys, Vector.fill(ys.size)(s._2(0, 0)))
+    st = theta.map(x =&gt; (x.time, x.sample))
+    (phi, acceptedPhi) &lt;- samplePhiOu(priorPhi, s._1.params, st, 0.05, 0.25)(
+      s._1.params.phi)
+    (mu, acceptedMu) &lt;- sampleMuOu(priorMu, 0.2, s._1.params, st)(
+      s._1.params.mu)
+    (sigma, acceptedSigma) &lt;- sampleSigmaMetropOu(priorSigma,
+                                                  0.1,
+                                                  s._1.params,
+                                                  st)(s._1.params.sigmaEta)
+    v &lt;- GibbsSampling.sampleObservationMatrix(
+      priorV,
+      f,
+      ys.map(x =&gt; DenseVector(x._2)),
+      st.map { case (t, x) =&gt; (t, DenseVector(x)) })
+    accepted = DenseVector(Array(acceptedPhi, acceptedMu, acceptedSigma))
+  } yield
+    (StochasticVolatilityKnots.OuSvState(SvParameters(phi, mu, sigma),
+                                         theta,
+                                         s._1.accepted + accepted),
+     v)
+val initState = FilterOu.ffbs(p, ys, Vector.fill(ys.size)(priorV.draw))
+val init = (StochasticVolatilityKnots.OuSvState(p,
+                                                initState.draw,
+                                                DenseVector.zeros[Int](3)),
+            DenseMatrix(priorV.draw))
+
+val iters = MarkovChain(init)(step)
+</code></pre>
+<p><img src="ar1_files/figure-html/parameter-inference-ou-1.png" width="672" /></p>
+</div>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

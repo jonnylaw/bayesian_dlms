@@ -134,7 +134,6 @@ object SimulateNegativeBinomial extends App {
 }
 
 object FilterPoisson extends App with PoissonDglm with PoissonData {
-  val advState = (s: PfState, dt: Double) => s
   val n = 500
 
   data.foreach(println)

@@ -96,7 +96,7 @@ object ParticleFilter {
                                    model: Dglm,
                                    p: DlmParameters) = {
 
-    state traverse (x => Dglm.stepState(model, p)(x, dt))
+    Rand.always(state map (x => Dglm.stepState(model, p)(x, dt).draw))
   }
 
   def calcWeight(mod: Dglm,

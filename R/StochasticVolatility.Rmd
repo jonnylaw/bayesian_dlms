@@ -78,30 +78,6 @@ p3 = ggs_density(params) + facet_wrap(~Parameter, ncol = 3, scales = "free")
 p1 / p2 / p3
 ```
 
-```{r stochastic-volatility-parameters-svd, eval=FALSE}
-chain1 = read_csv("../examples/data/sv_params_svd_0.csv", col_names = c("phi", "mu", "sigmaEta"))
-chain2 = read_csv("../examples/data/sv_params_svd_1.csv", col_names = c("phi", "mu", "sigmaEta"))
-
-indices = seq(from = 1, to = nrow(chain1), by = 10)
-params = ggs(mcmc.list(mcmc(chain1[indices,]), mcmc(chain2[indices,])))
-
-p1 = params %>%
-    ggplot(aes(x = Iteration, y = value, colour = as.factor(Chain))) +
-    geom_line(alpha = 0.6) +
-    facet_wrap(~Parameter, scales = "free_y") +
-    theme(legend.position = "none")
-
-p2 = params %>% 
-  filter(Chain == 1) %>%
-  ggs_autocorrelation() +
-  theme(legend.position = "none") +
-  facet_wrap(~Parameter, ncol = 3)
-
-p3 = ggs_density(params) + facet_wrap(~Parameter, ncol = 3, scales = "free")
-
-p1 / p2 / p3
-```
-
 ## Heteroskedastic First Order DLM 
 
 A stochastic volatility model can be used to model the variance of a dynamic linear model, allowing for heteroskedasticity.
@@ -145,69 +121,6 @@ p2 = params %>%
 p3 = ggs_density(params) + facet_wrap(~Parameter, ncol = 3, scales = "free")
 
 p1 / p2 / p3
-```
-
-## Factor Stochastic Volatility Model
-
-A factor structure can be used in order to model a full time varying covariance matrix. This reduces the amount of parameters to learn; if the covariance matrix is $p \times p$ and the number of factors used $k$, then the number of parameters to learn in a model with an AR(1) latent-state is $p \times k - \frac{k}{2}(k + 1) + 3k$. If $k << p$ then this results in a much lower dimensional parameter space.
-
-The factor stochastic volatility (FSV) model is written as:
-
-$$\begin{align}
-	Y_t &= \beta^Tf_t + v_t, &v_t &\sim \mathcal{N}(0, V), \\
-	f_t &= \sigma_t\exp\left\{ \frac{\alpha_t}{2} \right\}, & \sigma_t &\sim \mathcal{N}(0, 1), \\
-	\alpha_t &= \mu + \phi (\alpha_{t-1} - \mu) + \eta_t, & \eta_t &\sim \mathcal{N}(0, \sigma_\eta), \\
-	\alpha_0 &\sim \mathcal{N}(0, \sigma^2/(1-\phi^2)).
-\end{align}$$
-
-Where $V$ is a diagonal $p \times p$ matrix. Then the variance of the observations is:
-
-$$\begin{align}
-\operatorname{Var}(Y_t) &= \operatorname{Var}(\beta^Tf_t + v_t) \\
-&= \beta^T\operatorname{Var}(f_t)\beta + \operatorname{Var}(v_t) + 2\beta^T\operatorname{Cov}(f_t, v_t)\beta \\
-&= \beta^T\exp\left\{\alpha_t\right\}\beta + V ???
-\end{align}$$
-
-```{r fsv-sims}
-sims = read_csv("../examples/data/fsv_sims.csv")
-
-sims %>%
-    gather(key, value, -time) %>%
-    ggplot(aes(x = time, y = value)) +
-    geom_line() +
-    facet_wrap(~key, scales = "free_y")
-```
-
-```{r read-fsv-chains}
-beta = matrix(c(1, 0, 0.3, 1.0, 0.07, 0.25, 0.23, 0.23, 0.4, 0.25, 0.2, 0.23), ncol = 2, byrow = T)
-actual_values = tibble(
-  Parameter = c("v", paste0(c("phi", "mu", "sigma_eta"), rep(1:2, each = 3)), paste0("beta", 1:12)),
-  actual_value = c(0.1, rep(x = c(0.8, 2.0, 0.2), times = 2), beta)
-)
-chain1 = read_csv("../examples/data/factor_sv_gibbs_0.csv", col_names = actual_values$Parameter)
-chain2 = read_csv("../examples/data/factor_sv_gibbs_1.csv", col_names = actual_values$Parameter)
-chains = ggs(mcmc.list(mcmc(chain1[seq(1, nrow(chain1), by = 10),]), mcmc(chain2[seq(1, nrow(chain2), by = 10),])))
-```
-
-```{r fsv-diagnostics-latent-state}
-p1 = chains %>%
-  inner_join(actual_values) %>%
-  filter(grepl(Parameter, pattern = "phi|sigma_eta|mu")) %>%
-  ggplot(aes(x = Iteration, y = value)) +
-  geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000", linetype = "dashed") +
-  facet_wrap(~Parameter, scales = "free_y", ncol = 2, strip.position = "right")
-
-p3 = chains %>%
-  inner_join(actual_values) %>%
-  filter(grepl(Parameter, pattern = "phi|sigma_eta|mu")) %>%
-  ggplot(aes(x = value, fill = as.factor(Chain))) +
-  geom_density(alpha = 0.5) +
-  geom_vline(aes(xintercept = actual_value), colour = "#ff0000", linetype = "dashed") +
-  facet_wrap(~Parameter, scales = "free", ncol = 2, strip.position = "right") +
-  theme(legend.position = "none")
-
-p1 / p3
 ```
 
 ## Factor Stochastic Volatility with Dynamic Mean

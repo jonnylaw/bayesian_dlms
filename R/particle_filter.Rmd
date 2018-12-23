@@ -3,7 +3,13 @@ title: "Particle Filter"
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(patchwork)
+library(ggmcmc)
+library(coda)
+library(latex2exp)
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
+theme_set(theme_minimal())
 ```
 
 ## Particle Filter
@@ -11,12 +17,12 @@ knitr::opts_chunk$set(echo = TRUE)
 The particle filter can be used for non-linear and non-Gaussian state space models, such as DGLMs. A general DGLM is given by:
 
 $$\begin{align*}
-Y_t &\sim p(y_t | g(F_tx_t), \theta) \\
+Y_t &\sim p(y_t | g(F_t^Tx_t), \theta) \\
 X_t &= G_tX_{t-1} + w_t, \qquad w_t \sim \mathcal{N}(0, W), \\
 X_0 &\sim \mathcal{N}(m_0, C_0).
 \end{align*}$$
 
-Where $p(y_t | F_tx_t, \theta)$ is an Exponential Family distribution, with optional static parameter $\theta$.
+Where $p(y_t | F_t^Tx_t, \theta)$ is an Exponential Family distribution, with optional static parameter $\theta$.
 
 The particle filter can be used to find the filtering state $p(x_{0:t}|y_{1:T}, \psi)$, where $\psi$ represents the static parameters in the model. The particle filter algorithm proceeds as follows:
 
@@ -33,3 +39,52 @@ The particle filter can be used to find the filtering state $p(x_{0:t}|y_{1:T}, 
 6. Resample the particles by sampling $u_j \sim p(\pmb\pi_{t+1})$ then select $x^{(u_j)}_{t+1}$ $j = 1,\dots,k$
 
 Repeat the mean loop until $t = T$.
+
+To apply the particle filter to a model using this library, specify either a DGLM or a DLM model. Consider a poisson model
+
+```tut
+val mod = Dglm.poisson(Dlm.polynomial(1))
+val params = DlmParameters(DenseMatrix(2.0),
+                           DenseMatrix(0.05),
+                           DenseVector(0.0),
+                           DenseMatrix(1.0))
+```
+
+A simulation from the Poisson model is presented in the figure below:
+
+```{r}
+sims = read_csv("../examples/data/poisson_dglm.csv")
+
+sims %>%
+  gather(key, value, -time)
+  ggplot(aes(x = time, y = value)) +
+    geom_line() +
+    facet_wrap(~key)
+```
+
+Then the bootstrap particle filter can be user to determine the latent-state of the partially observed inhomogeneous Poisson process:
+
+```tut
+val filtered = ParticleFilter(n, n, ParticleFilter.metropolisResampling(10))
+  .filter(mod, data, params)
+```
+
+```{r}
+filtered = read_csv("../examples/data/poisson_filtered_metropolis.csv")
+
+p1 = poisson_sims %>%
+    ggplot(aes(x = time, y = observation)) +
+    geom_step()
+
+p2 = poisson_sims %>%
+    inner_join(filtered) %>%
+    mutate(upper = state_mean + 2 * sqrt(state_var),
+           lower = state_mean - 2 * sqrt(state_var)) %>%
+    gather(key, value, state, state_mean) %>%
+    ggplot(aes(time, value, colour = key)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.5, colour = NA)
+
+p1 / p2
+```
+

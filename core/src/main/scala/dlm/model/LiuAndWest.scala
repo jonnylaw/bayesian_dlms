@@ -6,10 +6,10 @@ import breeze.stats.distributions._
 import cats.Traverse
 import cats.implicits._
 import math.{exp, sqrt, log}
+import spire.implicits._
 
 /**
   * State for the particle filter with parameters
-  * TODO: Gamma mixture distribution
   * @param time the time of the observation
   * @param state a particle cloud representing the latent-state
   * @param weights the conditional log-likelihood of the latent-state
@@ -39,7 +39,7 @@ case class LiuAndWestFilter(n: Int,
     val t0 = ys.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
     val x0 = MultivariateGaussian(p.m0, p.c0).sample(n)
     val p0 = prior.sample(n).map(_.map(log))
-    val w0 = Vector.fill(n)(1.0 / n).map(math.log)
+    val w0 = Vector.fill(n)(1.0)
 
     PfStateParams(t0.get - 1.0, x0.toVector, w0, p0.toVector)
   }
@@ -47,23 +47,22 @@ case class LiuAndWestFilter(n: Int,
   def step(mod: Dglm, p: DlmParameters)(x: PfStateParams,
                                         d: Data): PfStateParams = {
 
+    val meanParams = weightedMeanParams(x.params, x.weights)
     val varParams = varParameters(x.params)
-    val mi = scaleParameters(x.params, a)
+    val mi = scaleParameters(x.params, meanParams, a)
+    val dt = d.time - x.time
 
     val y = KalmanFilter.flattenObs(d.observation)
-    val auxVars = auxiliaryVariables(x.weights, x.state, mod, y, mi)
-
-    val dt = d.time - x.time
+    val thetaHat = (mi zip x.state).map { case (m, t) =>
+      Dglm.stepState(mod, m map exp)(t, dt).mean }
+    val auxVars = auxiliaryVariables(x.weights, thetaHat, mod, y, mi)
 
     val (newParams, newState, logw) = (for {
       i <- auxVars
-      p = mi(i)
-      param = proposal(p, diag(varParams * (1 - a * a)))
-      state = x.state(i)
-      newState = Dglm.stepState(mod, param map exp)(state, dt).draw
+      param = proposal(mi(i), diag(varParams * (1 - a * a)))
+      newState = Dglm.stepState(mod, param map exp)(x.state(i), dt).draw
       topw = mod.conditionalLikelihood(param.v map exp)(newState, y)
-      meanP = mi(i)
-      bottomw = mod.conditionalLikelihood(meanP.v map exp)(state, y)
+      bottomw = mod.conditionalLikelihood(mi(i).v map exp)(thetaHat(i), y)
     } yield (param, newState, topw - bottomw)).unzip3
 
     val maxWeight = logw.max
@@ -71,10 +70,11 @@ case class LiuAndWestFilter(n: Int,
     val ess =
       ParticleFilter.effectiveSampleSize(ParticleFilter.normaliseWeights(ws))
 
+    // if the effective sample size is less than a n0, then resample
     if (ess < n0) {
       val (np, ns) =
         ParticleFilter.multinomialResample(newParams zip newState, ws).unzip
-      PfStateParams(d.time, ns, Vector.fill(n)(1.0 / n).map(log), np)
+      PfStateParams(d.time, ns, Vector.fill(n)(1.0), np)
     } else {
       PfStateParams(d.time, newState, logw, newParams)
     }
@@ -105,9 +105,8 @@ object LiuAndWestFilter {
   }
 
   def scaleParameters(params: Vector[DlmParameters],
+                      meanParams: DlmParameters,
                       a: Double): Vector[DlmParameters] = {
-
-    val meanParams: DlmParameters = meanParameters(params)
 
     for {
       param <- params
@@ -126,8 +125,8 @@ object LiuAndWestFilter {
   def advanceState(p: DlmParameters, model: Dglm)(s: PfStateParams,
                                                   dt: Double) = {
 
-    val adv = s.state traverse (x => Dglm.stepState(model, p)(x, dt))
-    s.copy(state = adv.draw)
+    val adv = s.state map (x => Dglm.stepState(model, p)(x, dt).draw)
+    s.copy(state = adv)
   }
 
   /**
@@ -172,11 +171,62 @@ object LiuAndWestFilter {
   }
 
   /**
+    * Calculate the weighted mean of v and w parameter particles
+    */
+  def weightedMeanParams(
+    ps: Vector[DlmParameters],
+    logws: Vector[Double]): DlmParameters = {
+
+    val ws = normalise(logws)
+
+    ps.zip(ws).
+      map { case (p, w) => p.map(_ * w) }.
+      reduce(_ add _)
+  }
+
+  def normalise(logws: Vector[Double]): Vector[Double] = {
+    val maximum = logws.max
+    val ws = logws map (w => exp(w - maximum))
+    ParticleFilter.normaliseWeights(ws)
+  }
+
+  /**
+    * Calculate the weighted variance
+    */
+  def weightedMeanVarianceParams(
+    ps: Vector[DlmParameters],
+    logws: Vector[Double]): (DlmParameters, DlmParameters) = {
+    val wm = weightedMeanParams(ps, logws)
+    val diff = ps.map { p =>
+      val c = p minus wm
+      c times c
+    }
+    (wm, weightedMeanParams(diff, logws))
+  }
+
+  /**
     * Calculate the variance of the parameter particles
     */
   def varParameters(p: Vector[DlmParameters]): DenseVector[Double] = {
     val m = seqToMatrix(p map (x => DenseVector(x.toList.toArray)))
     breeze.stats.variance(m(::, *)).t
+  }
+
+  def weightedVarParameters(
+    ps: Vector[DlmParameters],
+    ws: Vector[Double]): DenseVector[Double] = {
+    val m = seqToMatrix((ps zip ws).map { case (p, w) =>
+                          val wp = p.map(_ * w)
+                          DenseVector(wp.toList.toArray)
+                        })
+    breeze.stats.variance(m(::, *)).t
+  }
+
+  /**
+    * Create a matrix from v and w
+    */
+  def paramsToMatrix(p: DlmParameters): DenseMatrix[Double] = {
+    Dlm.blockDiagonal(p.v, p.w)
   }
 
   /**
