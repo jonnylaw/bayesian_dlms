@@ -4,10 +4,10 @@ import breeze.stats.distributions._
 import breeze.linalg._
 import breeze.numerics._
 
-case class MultivariateStudentsT(dof: Double,
-  location: DenseVector[Double],
-  shape: DenseMatrix[Double])(
-    implicit rand: RandBasis = Rand)
+case class MultivariateStudentsT(
+    dof: Double,
+    location: DenseVector[Double],
+    shape: DenseMatrix[Double])(implicit rand: RandBasis = Rand)
     extends ContinuousDistr[DenseVector[Double]]
     with Moments[DenseVector[Double], DenseMatrix[Double]] {
 
@@ -17,9 +17,8 @@ case class MultivariateStudentsT(dof: Double,
 
   def draw(): DenseVector[Double] = {
     val out = for {
-      z <- MultivariateGaussianSvd(
-        DenseVector.zeros[Double](location.size),
-        shape)
+      z <- MultivariateGaussianSvd(DenseVector.zeros[Double](location.size),
+                                   shape)
       u <- Gamma(dof * 0.5, 2)
       x = z /:/ sqrt(u / dof) + location
     } yield x

@@ -7,10 +7,11 @@ import breeze.numerics.exp
 
 /**
   * Fit a DLM with the system variance modelled using an FSV model
-  * and latent log volatility modelled using continuous time 
+  * and latent log volatility modelled using continuous time
   * Ornstein-Uhlenbeck process
   */
 object DlmFsvSystem {
+
   /**
     * The state of the Gibbs Sampler
     * @param p the current parameters of the MCMC
@@ -20,10 +21,10 @@ object DlmFsvSystem {
     * @param volatility the log-volatility of the system variance
     */
   case class State(
-    p:          DlmFsvParameters,
-    theta:      Vector[SamplingState],
-    factors:    Vector[(Double, Option[DenseVector[Double]])],
-    volatility: Vector[SamplingState]
+      p: DlmFsvParameters,
+      theta: Vector[SamplingState],
+      factors: Vector[(Double, Option[DenseVector[Double]])],
+      volatility: Vector[SamplingState]
   )
 
   /**
@@ -34,23 +35,18 @@ object DlmFsvSystem {
     * @param k the number of factors
     * @param l a list of doubles representing parameter from a DLM FSV system model
     */
-  def paramsFromList(
-    vDim: Int,
-    wDim: Int,
-    k: Int)(l: List[Double]): DlmFsvParameters =
+  def paramsFromList(vDim: Int, wDim: Int, k: Int)(
+      l: List[Double]): DlmFsvParameters =
     DlmFsvParameters(
       DlmParameters.fromList(vDim, wDim)(l.take(vDim + wDim * 3)),
       FsvParameters.fromList(wDim, k)(l.drop(vDim + wDim * 3))
     )
 
-  def emptyParams(
-    vDim: Int,
-    wDim: Int,
-    k: Int): DlmFsvParameters =
-      DlmFsvParameters(
-        DlmParameters.empty(vDim, wDim),
-        FsvParameters.empty(wDim, k)
-      )
+  def emptyParams(vDim: Int, wDim: Int, k: Int): DlmFsvParameters =
+    DlmFsvParameters(
+      DlmParameters.empty(vDim, wDim),
+      FsvParameters.empty(wDim, k)
+    )
 
   /**
     * Simulate a single step in the DLM FSV model
@@ -62,23 +58,20 @@ object DlmFsvSystem {
     * @param mod the stochastic volatility model
     * @param p the parameters of the DLM and FSV Model
     * @param dt the time difference between successive observations
-    * @return the next simulated value 
+    * @return the next simulated value
     */
-  def simStep(
-    time:   Double,
-    x:      DenseVector[Double], 
-    a0w:    Vector[Double], 
-    dlm:    Dlm,
-    p:      DlmFsvParameters,
-    dt:     Double,
-    dimObs: Int) = {
+  def simStep(time: Double,
+              x: DenseVector[Double],
+              a0w: Vector[Double],
+              dlm: Dlm,
+              p: DlmFsvParameters,
+              dt: Double,
+              dimObs: Int) = {
 
     for {
       (w, f1w, a1w) <- FactorSv.simStep(time, p.fsv)(a0w)
       wt = KalmanFilter.flattenObs(w.observation)
-      vt <- MultivariateGaussian(
-        DenseVector.zeros[Double](dimObs),
-        p.dlm.v)
+      vt <- MultivariateGaussian(DenseVector.zeros[Double](dimObs), p.dlm.v)
       x1 = dlm.g(dt) * x + wt
       y = dlm.f(time).t * x1 + vt
     } yield (Data(time, y.map(_.some)), x1, a1w)
@@ -92,21 +85,19 @@ object DlmFsvSystem {
     * @param dt the time increment between observations
     * @return a vector of observations
     */
-  def simulateRegular(
-    dlm:    Dlm,
-    p:      DlmFsvParameters,
-    dimObs: Int) = {
+  def simulateRegular(dlm: Dlm, p: DlmFsvParameters, dimObs: Int) = {
 
     val k = p.fsv.beta.cols
 
     val init = for {
       initState <- MultivariateGaussian(p.dlm.m0, p.dlm.c0)
       initFw = Vector.fill(k)(Gaussian(0.0, 1.0).draw)
-    } yield (Data(0.0, DenseVector[Option[Double]](None)),
-       initState, initFw)
+    } yield (Data(0.0, DenseVector[Option[Double]](None)), initState, initFw)
 
-    MarkovChain(init.draw) { case (d, x, aw) =>
-      simStep(d.time + 1.0, x, aw, dlm, p, 1.0, dimObs) }
+    MarkovChain(init.draw) {
+      case (d, x, aw) =>
+        simStep(d.time + 1.0, x, aw, dlm, p, 1.0, dimObs)
+    }
   }
 
   /**
@@ -115,9 +106,8 @@ object DlmFsvSystem {
     * @param g the system matrix: a function from time to a dense matrix
     * @return a vector containing the x(t_i) - g(dt_i)x(t_{i-1})
     */
-  def factorState(
-    theta: Vector[SamplingState],
-    g:     Double => DenseMatrix[Double]) = {
+  def factorState(theta: Vector[SamplingState],
+                  g: Double => DenseMatrix[Double]) = {
 
     for {
       (x0, x1) <- theta.init zip theta.tail
@@ -133,10 +123,9 @@ object DlmFsvSystem {
     * @param beta the factor loading matrix
     * @param v the diagonal observation covariance
     */
-  def calculateVariance(
-    alphas: Vector[SamplingState],
-    beta:   DenseMatrix[Double],
-    v:      DenseMatrix[Double]): Vector[DenseMatrix[Double]] = {
+  def calculateVariance(alphas: Vector[SamplingState],
+                        beta: DenseMatrix[Double],
+                        v: DenseMatrix[Double]): Vector[DenseMatrix[Double]] = {
 
     alphas map (a => ((beta * diag(exp(a.sample))) * beta.t) + v)
   }
@@ -145,11 +134,10 @@ object DlmFsvSystem {
     * Perform forward filtering backward sampling using a
     * time dependent state covariance matrix
     */
-  def ffbs(
-    model: Dlm,
-    ys:    Vector[Data],
-    p:     DlmParameters,
-    ws:    Vector[DenseMatrix[Double]]) = {
+  def ffbs(model: Dlm,
+           ys: Vector[Data],
+           p: DlmParameters,
+           ws: Vector[DenseMatrix[Double]]) = {
 
     val ps = ws.map(wi => p.copy(w = wi))
 
@@ -157,22 +145,25 @@ object DlmFsvSystem {
       val advState = KalmanFilter.advanceState(params, model.g) _
       KalmanFilter(advState).step(model, params) _
     }
-    val initFilter = KalmanFilter(KalmanFilter.advanceState(p, model.g)).
-      initialiseState(model, p, ys)
-    val filtered = (ps, ys).
-      zipped.
-      scanLeft(initFilter){ case (s, (params, y)) =>
-        filterStep(params)(s, y) }.
-      toVector
+    val initFilter = KalmanFilter(KalmanFilter.advanceState(p, model.g))
+      .initialiseState(model, p, ys)
+    val filtered = (ps, ys).zipped
+      .scanLeft(initFilter) {
+        case (s, (params, y)) =>
+          filterStep(params)(s, y)
+      }
+      .toVector
 
     val init = Smoothing.initialise(filtered)
     val sampleStep = (params: DlmParameters) => {
       Smoothing.step(model, params.w) _
     }
-    val res = (ps, filtered.init).zipped.
-      scanRight(init){ case ((params, fs), s) =>
-        sampleStep(params)(fs, s) }.
-      toVector
+    val res = (ps, filtered.init).zipped
+      .scanRight(init) {
+        case ((params, fs), s) =>
+          sampleStep(params)(fs, s)
+      }
+      .toVector
 
     Rand.always(res)
   }
@@ -182,11 +173,10 @@ object DlmFsvSystem {
     * time dependent state covariance matrix updating the SVD
     * of the parameters
     */
-  def ffbsSvd(
-    model: Dlm,
-    ys:    Vector[Data],
-    p:     DlmParameters,
-    ws:    Vector[DenseMatrix[Double]]) = {
+  def ffbsSvd(model: Dlm,
+              ys: Vector[Data],
+              p: DlmParameters,
+              ws: Vector[DenseMatrix[Double]]) = {
 
     val ps = ws.map(wi => SvdFilter.transformParams(p.copy(w = wi)))
 
@@ -194,22 +184,25 @@ object DlmFsvSystem {
       val advState = SvdFilter.advanceState(params, model.g) _
       SvdFilter(advState).step(model, params) _
     }
-    val initFilter = SvdFilter(SvdFilter.advanceState(p, model.g)).
-      initialiseState(model, p, ys)
-    val filtered = (ps, ys).
-      zipped.
-      scanLeft(initFilter){ case (s, (params, y)) =>
-        filterStep(params)(s, y) }.
-      toVector
+    val initFilter = SvdFilter(SvdFilter.advanceState(p, model.g))
+      .initialiseState(model, p, ys)
+    val filtered = (ps, ys).zipped
+      .scanLeft(initFilter) {
+        case (s, (params, y)) =>
+          filterStep(params)(s, y)
+      }
+      .toVector
 
     val init = SvdSampler.initialise(filtered.toArray)
     val sampleStep = (params: DlmParameters) => {
       SvdSampler.step(model, params.w) _
     }
-    val res = (ps, filtered.init).zipped.
-      scanRight(init){ case ((params, fs), s) =>
-        sampleStep(params)(fs, s) }.
-      toVector
+    val res = (ps, filtered.init).zipped
+      .scanRight(init) {
+        case ((params, fs), s) =>
+          sampleStep(params)(fs, s)
+      }
+      .toVector
 
     Rand.always(res)
   }
@@ -219,15 +212,14 @@ object DlmFsvSystem {
     * for the DLM FSV where the system variance is modelled
     * using FSV model
     */
-  def sampleStep(
-    priorBeta:     Gaussian,
-    priorSigmaEta: InverseGamma,
-    priorPhi:      Gaussian,
-    priorMu:       Gaussian,
-    priorSigma:    InverseGamma,
-    priorV:        InverseGamma,
-    ys:            Vector[Data],
-    dlm:           Dlm)(s: State): Rand[State] = {
+  def sampleStep(priorBeta: Gaussian,
+                 priorSigmaEta: InverseGamma,
+                 priorPhi: Gaussian,
+                 priorMu: Gaussian,
+                 priorSigma: InverseGamma,
+                 priorV: InverseGamma,
+                 ys: Vector[Data],
+                 dlm: Dlm)(s: State): Rand[State] = {
 
     // extract the system factors
     val beta = s.p.fsv.beta
@@ -238,35 +230,40 @@ object DlmFsvSystem {
     val d = beta.rows
 
     for {
-      fs1 <- FactorSv.sampleStep(priorBeta, priorSigmaEta, priorMu,
-                                 priorPhi, priorSigma, factorState(s.theta, dlm.g), d, k)(fs)
+      fs1 <- FactorSv.sampleStep(priorBeta,
+                                 priorSigmaEta,
+                                 priorMu,
+                                 priorPhi,
+                                 priorSigma,
+                                 factorState(s.theta, dlm.g),
+                                 d,
+                                 k)(fs)
 
       // perform FFBS using time dependent system noise covariance
-      ws = calculateVariance(fs1.volatility.tail, fs1.params.beta,
-                             fs1.params.v)
+      ws = calculateVariance(fs1.volatility.tail, fs1.params.beta, fs1.params.v)
       theta <- ffbs(dlm, ys, s.p.dlm, ws)
       state = theta.map(x => (x.time, x.sample))
-      newV <- GibbsSampling.sampleObservationMatrix(priorV, dlm.f,
-          ys.map(_.observation), state)
+      newV <- GibbsSampling.sampleObservationMatrix(priorV,
+                                                    dlm.f,
+                                                    ys.map(_.observation),
+                                                    state)
       newP = s.p.copy(fsv = fs1.params, dlm = s.p.dlm.copy(v = newV))
     } yield State(newP, theta, fs1.factors, fs1.volatility)
   }
-
 
   /**
     * Perform a single step of the Gibbs Sampling algorithm
     * for the DLM FSV where the system variance is modelled
     * using FSV model
     */
-  def sampleStepOu(
-    priorBeta:     Gaussian,
-    priorSigmaEta: InverseGamma,
-    priorPhi:      Beta,
-    priorMu:       Gaussian,
-    priorSigma:    InverseGamma,
-    priorV:        InverseGamma,
-    ys:            Vector[Data],
-    dlm:           Dlm)(s: State): Rand[State] = {
+  def sampleStepOu(priorBeta: Gaussian,
+                   priorSigmaEta: InverseGamma,
+                   priorPhi: Beta,
+                   priorMu: Gaussian,
+                   priorSigma: InverseGamma,
+                   priorV: InverseGamma,
+                   ys: Vector[Data],
+                   dlm: Dlm)(s: State): Rand[State] = {
 
     // extract the system factors
     val beta = s.p.fsv.beta
@@ -277,16 +274,23 @@ object DlmFsvSystem {
     val d = beta.rows
 
     for {
-      fs1 <- FactorSv.stepOu(priorBeta, priorSigmaEta, priorMu,
-        priorPhi, priorSigma, factorState(s.theta, dlm.g), d, k)(fs)
+      fs1 <- FactorSv.stepOu(priorBeta,
+                             priorSigmaEta,
+                             priorMu,
+                             priorPhi,
+                             priorSigma,
+                             factorState(s.theta, dlm.g),
+                             d,
+                             k)(fs)
 
       // perform FFBS using time dependent system noise covariance
-      ws = calculateVariance(fs1.volatility.tail, fs1.params.beta,
-        fs1.params.v)
+      ws = calculateVariance(fs1.volatility.tail, fs1.params.beta, fs1.params.v)
       theta <- ffbs(dlm, ys, s.p.dlm, ws)
       state = theta.map(x => (x.time, x.sample))
-      newV <- GibbsSampling.sampleObservationMatrix(priorV, dlm.f,
-          ys.map(_.observation), state)
+      newV <- GibbsSampling.sampleObservationMatrix(priorV,
+                                                    dlm.f,
+                                                    ys.map(_.observation),
+                                                    state)
       newP = s.p.copy(fsv = fs1.params, dlm = s.p.dlm.copy(v = newV))
     } yield State(newP, theta, fs1.factors, fs1.volatility)
   }
@@ -299,16 +303,14 @@ object DlmFsvSystem {
     * @param ys time series of observations
     * @param dlm the description of the
     */
-  def initialise(
-    params: DlmFsvParameters,
-    ys:     Vector[Data],
-    dlm:    Dlm) = {
+  def initialise(params: DlmFsvParameters, ys: Vector[Data], dlm: Dlm) = {
 
     val k = params.fsv.beta.cols
     val parameters = params.dlm
 
     // initialise the variances of the system
-    val ws = Vector.fill(ys.size)(DenseMatrix.eye[Double](dlm.f(1.0).rows) * 0.1)
+    val ws =
+      Vector.fill(ys.size)(DenseMatrix.eye[Double](dlm.f(1.0).rows) * 0.1)
 
     val theta = ffbs(dlm, ys, parameters, ws).draw
     val thetaObs = factorState(theta, dlm.g)
@@ -317,22 +319,28 @@ object DlmFsvSystem {
     State(params, theta.toVector, fs.factors, fs.volatility)
   }
 
-  def sample(
-    priorBeta:     Gaussian,
-    priorSigmaEta: InverseGamma,
-    priorPhi:      Gaussian,
-    priorMu:       Gaussian,
-    priorSigma:    InverseGamma,
-    priorV:        InverseGamma,
-    ys:            Vector[Data],
-    dlm:           Dlm,
-    initP:         DlmFsvParameters): Process[State] = {
+  def sample(priorBeta: Gaussian,
+             priorSigmaEta: InverseGamma,
+             priorPhi: Gaussian,
+             priorMu: Gaussian,
+             priorSigma: InverseGamma,
+             priorV: InverseGamma,
+             ys: Vector[Data],
+             dlm: Dlm,
+             initP: DlmFsvParameters): Process[State] = {
 
     // initialise the latent state
     val init = initialise(initP, ys, dlm)
 
-    MarkovChain(init)(sampleStep(priorBeta, priorSigmaEta, priorPhi, priorMu,
-      priorSigma, priorV, ys, dlm))
+    MarkovChain(init)(
+      sampleStep(priorBeta,
+                 priorSigmaEta,
+                 priorPhi,
+                 priorMu,
+                 priorSigma,
+                 priorV,
+                 ys,
+                 dlm))
   }
 
   /**
@@ -341,12 +349,9 @@ object DlmFsvSystem {
     * the mean state
     * @param params parameters of the DLM FSV system model
     * @param ys time series of observations
-    * @param dlm the description of the 
+    * @param dlm the description of the
     */
-  def initialiseOu(
-    params: DlmFsvParameters,
-    ys:     Vector[Data],
-    dlm:    Dlm) = {
+  def initialiseOu(params: DlmFsvParameters, ys: Vector[Data], dlm: Dlm) = {
 
     val k = params.fsv.beta.cols
     val parameters = params.dlm
@@ -355,37 +360,42 @@ object DlmFsvSystem {
     val ws = Vector.fill(ys.size)(DenseMatrix.eye[Double](dlm.f(1.0).rows))
 
     val theta = ffbs(dlm, ys, parameters, ws).draw
-    val thetaObs = theta.map { ss => Data(ss.time, ss.sample.map(_.some)) }
+    val thetaObs = theta.map { ss =>
+      Data(ss.time, ss.sample.map(_.some))
+    }
     val fs = FactorSv.initialiseStateOu(params.fsv, thetaObs, k)
 
     State(params, theta.toVector, fs.factors, fs.volatility)
   }
 
-  def sampleOu(
-    priorBeta:     Gaussian,
-    priorSigmaEta: InverseGamma,
-    priorPhi:      Beta,
-    priorMu:       Gaussian,
-    priorSigma:    InverseGamma,
-    priorV:        InverseGamma,
-    ys:            Vector[Data],
-    dlm:           Dlm,
-    initP:         DlmFsvParameters): Process[State] = {
+  def sampleOu(priorBeta: Gaussian,
+               priorSigmaEta: InverseGamma,
+               priorPhi: Beta,
+               priorMu: Gaussian,
+               priorSigma: InverseGamma,
+               priorV: InverseGamma,
+               ys: Vector[Data],
+               dlm: Dlm,
+               initP: DlmFsvParameters): Process[State] = {
 
     // initialise the latent state
     val init = initialiseOu(initP, ys, dlm)
 
-    MarkovChain(init)(sampleStepOu(priorBeta, priorSigmaEta, priorPhi, priorMu,
-      priorSigma, priorV, ys, dlm))
+    MarkovChain(init)(
+      sampleStepOu(priorBeta,
+                   priorSigmaEta,
+                   priorPhi,
+                   priorMu,
+                   priorSigma,
+                   priorV,
+                   ys,
+                   dlm))
   }
 
   /**
     * Sample the factors, mean state and volatility while keeping the parameters constant
     */
-  def sampleStateAr(
-    ys:     Vector[Data],
-    dlm:    Dlm,
-    params: DlmFsvParameters) = {
+  def sampleStateAr(ys: Vector[Data], dlm: Dlm, params: DlmFsvParameters) = {
 
     // specify number of factors and dimension of the observation
     val beta = params.fsv.beta
@@ -393,25 +403,23 @@ object DlmFsvSystem {
     val p = beta.rows
 
     // initialise the latent state
-    val initFactorState = FactorSv.
-      initialiseStateAr(params.fsv, ys, k)
+    val initFactorState = FactorSv.initialiseStateAr(params.fsv, ys, k)
     val factors = initFactorState.factors
     val vol = initFactorState.volatility
-    val vs = DlmFsvSystem.calculateVariance(vol.tail,
-      params.fsv.beta, params.fsv.v)
+    val vs =
+      DlmFsvSystem.calculateVariance(vol.tail, params.fsv.beta, params.fsv.v)
     val initDlmState = ffbsSvd(dlm, ys, params.dlm, vs).draw
     val init = State(params, initDlmState.toVector, factors, vol)
 
     def step(s: State) = {
       val ws = DlmFsvSystem.calculateVariance(s.volatility.tail,
-        params.fsv.beta, params.fsv.v)
+                                              params.fsv.beta,
+                                              params.fsv.v)
       for {
         theta <- ffbsSvd(dlm, ys, params.dlm, ws)
         fObs = factorState(s.theta, dlm.g)
-        factors <- FactorSv.sampleFactors(fObs,
-          params.fsv, s.volatility)
-        vol <- FactorSv.sampleVolatilityAr(p, params.fsv,
-          factors, s.volatility)
+        factors <- FactorSv.sampleFactors(fObs, params.fsv, s.volatility)
+        vol <- FactorSv.sampleVolatilityAr(p, params.fsv, factors, s.volatility)
       } yield State(s.p, theta.toVector, factors, vol)
     }
 
@@ -425,10 +433,7 @@ object DlmFsvSystem {
     * @param dlm a dlm model
     * @param p DLM FSV Parameters
     */
-  def forecast(
-    dlm: Dlm,
-    p:  DlmFsvParameters,
-    ys:  Vector[Data]) = {
+  def forecast(dlm: Dlm, p: DlmFsvParameters, ys: Vector[Data]) = {
 
     val fps = p.fsv.factorParams
 
@@ -442,28 +447,36 @@ object DlmFsvSystem {
     val times = ys.map(_.time)
 
     // advance volatility using the parameters
-    val as = Vector.iterate(a0, n)(a => (fps zip a).map {
-      case (vp, at) =>
-      StochasticVolatility.stepState(vp, at).draw
+    val as = Vector.iterate(a0, n)(a =>
+      (fps zip a).map {
+        case (vp, at) =>
+          StochasticVolatility.stepState(vp, at).draw
     })
 
     // add times to latent state
-    val alphas = (as, times).zipped.map { case (a, t) =>
-      SamplingState(t, DenseVector(a.toArray), DenseVector(a.toArray),
-        diag(DenseVector(a.toArray)), DenseVector(a.toArray),
-        diag(DenseVector(a.toArray))) }
+    val alphas = (as, times).zipped.map {
+      case (a, t) =>
+        SamplingState(t,
+                      DenseVector(a.toArray),
+                      DenseVector(a.toArray),
+                      diag(DenseVector(a.toArray)),
+                      DenseVector(a.toArray),
+                      diag(DenseVector(a.toArray)))
+    }
 
     // calculate the time dependent system variance matrix
     val ws = calculateVariance(alphas, p.fsv.beta, p.dlm.v)
 
-    val kf = KalmanFilter(KalmanFilter.
-                            advanceState(p.dlm.copy(w = ws.head), dlm.g))
+    val kf = KalmanFilter(
+      KalmanFilter.advanceState(p.dlm.copy(w = ws.head), dlm.g))
     val init: KfState = kf.initialiseState(dlm, p.dlm, ys)
 
     // advance the state of the DLM using the time dependent system matrix
-    (ws, ys).zipped.scanLeft(init){ case (st, (wi, y)) =>
-      val dlmP = p.dlm.copy(w = wi)
-      KalmanFilter(KalmanFilter.advanceState(dlmP, dlm.g)).step(dlm, dlmP)(st, y)
+    (ws, ys).zipped.scanLeft(init) {
+      case (st, (wi, y)) =>
+        val dlmP = p.dlm.copy(w = wi)
+        KalmanFilter(KalmanFilter.advanceState(dlmP, dlm.g))
+          .step(dlm, dlmP)(st, y)
     }
   }
 }

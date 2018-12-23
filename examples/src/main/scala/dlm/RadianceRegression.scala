@@ -24,8 +24,7 @@ object RadianceRegression extends App with ReadRadianceData {
 
   // Build a multivariate regression DLM
   def model(x: Vector[Array[DenseVector[Double]]]) =
-    x.map(xi => Dlm.regression(xi)).
-      reduce(_ |*| _)
+    x.map(xi => Dlm.regression(xi)).reduce(_ |*| _)
 
   val dlmP = DlmParameters(
     v = diag(DenseVector.fill(6)(1.0)),
@@ -40,20 +39,26 @@ object RadianceRegression extends App with ReadRadianceData {
   val priorW = InverseGamma(10.0, 1.0)
   val priorV = InverseGamma(10.0, 1.0)
 
-  val iters = GibbsSampling.sampleSvd(model(forecast.toVector), priorV,
-    priorW, dlmP, actual.toVector)
+  val iters = GibbsSampling.sampleSvd(model(forecast.toVector),
+                                      priorV,
+                                      priorW,
+                                      dlmP,
+                                      actual.toVector)
 
   // write iters to file
-  Streaming.writeParallelChain(
-    iters, 2, 100000, "examples/data/radiance_regression_params", format).
-    runWith(Sink.onComplete(_ => system.terminate()))
+  Streaming
+    .writeParallelChain(iters,
+                        2,
+                        100000,
+                        "examples/data/radiance_regression_params",
+                        format)
+    .runWith(Sink.onComplete(_ => system.terminate()))
 }
 
 object ForecastRadiance extends App with ReadRadianceData {
   // Build a multivariate regression DLM
   def model(x: Vector[Array[DenseVector[Double]]]) =
-    x.map(xi => Dlm.regression(xi)).
-      reduce(_ |*| _)
+    x.map(xi => Dlm.regression(xi)).reduce(_ |*| _)
 
   // read in the parameters from the MCMC chain and caculate the mean
   val mcmcChain = Paths.get("examples/data/radiance_regression_params_0.csv")
@@ -66,28 +71,35 @@ object ForecastRadiance extends App with ReadRadianceData {
     diag(DenseVector(params.take(6).toArray)),
     diag(DenseVector(params.drop(6).take(12).toArray)),
     DenseVector.fill(12)(0.0),
-    diag(DenseVector.fill(12)(10.0)))
+    diag(DenseVector.fill(12)(10.0))
+  )
 
   // get the posterior distribution of the final state
-  val filtered = SvdFilter(SvdFilter.advanceState(meanParameters, model(forecast).g)).
-    filter(model(forecast), actual, meanParameters)
+  val filtered =
+    SvdFilter(SvdFilter.advanceState(meanParameters, model(forecast).g))
+      .filter(model(forecast), actual, meanParameters)
   val (mt, ct, initTime) = filtered.map { a =>
     val ct = a.uc * diag(a.dc) * a.uc.t
     (a.mt, ct, a.time)
   }.last
 
-  val forecasted: List[List[Double]] = Dlm.forecast(model(forecastTest),
-    mt, ct, 1.0, meanParameters).
-    map { case (t, ft, qt) =>
-      t :: Dlm.summariseForecast(0.75)(ft, qt).toList.flatten }.
-    take(12).
-    toList
+  val forecasted: List[List[Double]] = Dlm
+    .forecast(model(forecastTest), mt, ct, 1.0, meanParameters)
+    .map {
+      case (t, ft, qt) =>
+        t :: Dlm.summariseForecast(0.75)(ft, qt).toList.flatten
+    }
+    .take(12)
+    .toList
 
   val out = new java.io.File("examples/data/radiance_regression_forecast.csv")
-  val headers = rfc.withHeader("time" :: (1 to 6).
-    flatMap(i => List(s"forecast_mean_$i", s"lower_$i", s"upper_$i")).toList: _*)
+  val headers = rfc.withHeader(
+    "time" :: (1 to 6)
+      .flatMap(i => List(s"forecast_mean_$i", s"lower_$i", s"upper_$i"))
+      .toList: _*)
   val writer = out.writeCsv(forecasted, headers)
 }
+
 /**
   * Parameter inference in parallel
   */
@@ -95,8 +107,7 @@ object RadianceRegressionDlm extends App with ReadRadianceData {
   implicit val system = ActorSystem("NationalGridRegression")
   implicit val materializer = ActorMaterializer()
 
-  val model = (x: Array[DenseVector[Double]]) =>
-    Dlm.regression(x)
+  val model = (x: Array[DenseVector[Double]]) => Dlm.regression(x)
 
   val initP = DlmParameters(
     v = diag(DenseVector.fill(1)(1.0)),
@@ -108,42 +119,58 @@ object RadianceRegressionDlm extends App with ReadRadianceData {
   val priorV = InverseGamma(3.0, 5.0)
   val priorW = InverseGamma(3.0, 5.0)
 
-  def mcmc(
-    actualRadiance: Vector[Data],
-    forecastRadiance: Array[DenseVector[Double]]) =
+  def mcmc(actualRadiance: Vector[Data],
+           forecastRadiance: Array[DenseVector[Double]]) =
     GibbsSampling.sample(model(forecastRadiance),
-      priorV, priorW, initP, actualRadiance)
+                         priorV,
+                         priorW,
+                         initP,
+                         actualRadiance)
 
-  def format(s: GibbsSampling.State): List[Double] = 
-    DenseVector.vertcat(diag(s.p.v), diag(s.p.w),
-      s.state.last.mean, diag(s.state.last.cov)).data.toList
+  def format(s: GibbsSampling.State): List[Double] =
+    DenseVector
+      .vertcat(diag(s.p.v),
+               diag(s.p.w),
+               s.state.last.mean,
+               diag(s.state.last.cov))
+      .data
+      .toList
 
-  Source(data).
-    filter(_.stationId == 25).
-    groupBy(1000, a => (a.stationId, a.forecastHour)).
-    fold((0, 0, Vector.empty[(LocalDateTime, Double, Double)])){(l, r) =>
-      (r.stationId, r.forecastHour, l._3 ++ Vector((r.datetime, r.radiance, r.forecast)))
-    }.
-    mapAsyncUnordered(2){ case (sid, hour, d) => 
+  Source(data)
+    .filter(_.stationId == 25)
+    .groupBy(1000, a => (a.stationId, a.forecastHour))
+    .fold((0, 0, Vector.empty[(LocalDateTime, Double, Double)])) { (l, r) =>
+      (r.stationId,
+       r.forecastHour,
+       l._3 ++ Vector((r.datetime, r.radiance, r.forecast)))
+    }
+    .mapAsyncUnordered(2) {
+      case (sid, hour, d) =>
+        // extract forecast and actual radiance
+        val actual = d
+          .map {
+            case (date, r, _) =>
+              Data(date.toEpochSecond(ZoneOffset.UTC), DenseVector(Some(r)))
+          }
+          .sortBy(_.time)
+          .zipWithIndex
+          .map { case (d, i) => Data(i + 1, d.observation) }
 
-      // extract forecast and actual radiance
-      val actual = d.map { case (date, r, _) =>
-        Data(date.toEpochSecond(ZoneOffset.UTC), DenseVector(Some(r))) }.
-        sortBy(_.time).
-        zipWithIndex.
-        map { case (d, i) => Data(i + 1, d.observation) }
+        val forecast = d.map { case (date, _, f) => DenseVector(f) }.toArray
 
-      val forecast = d.map { case (date, _, f) => DenseVector(f) }.toArray
-
-      // run two parallel chains
-      Streaming.writeParallelChain(
-        mcmc(actual, forecast), 2, 100000,
-        s"examples/data/station_${sid}_${hour}_regression", format).
-        toMat(Sink.ignore)(Keep.right).
-        run()
-    }.
-    mergeSubstreams.
-    runWith(Sink.onComplete { s =>
+        // run two parallel chains
+        Streaming
+          .writeParallelChain(
+            mcmc(actual, forecast),
+            2,
+            100000,
+            s"examples/data/station_${sid}_${hour}_regression",
+            format)
+          .toMat(Sink.ignore)(Keep.right)
+          .run()
+    }
+    .mergeSubstreams
+    .runWith(Sink.onComplete { s =>
       println(s)
       system.terminate()
     })
@@ -221,7 +248,7 @@ object RadianceRegressionDlm extends App with ReadRadianceData {
 //   val priorV = InverseGamma(3.0, 5.0)
 //   val priorW = InverseGamma(3.0, 5.0)
 
-//   def mcmc(actualRadiance: Vector[Dlm.Data], forecastRadiance: Array[DenseVector[Double]]) = 
+//   def mcmc(actualRadiance: Vector[Dlm.Data], forecastRadiance: Array[DenseVector[Double]]) =
 //     GibbsSampling.sample(model(forecastRadiance), priorV, priorW, initP, actualRadiance).
 //       steps.
 //       take(10000)
@@ -240,7 +267,7 @@ object RadianceRegressionDlm extends App with ReadRadianceData {
 //     fold((0, 0, Vector.empty[(LocalDateTime, Double, Double)])){(l, r) =>
 //       (r.stationId, r.forecastHour, l._3 :+ (r.datetime, r.radiance, r.forecastRadiance))
 //     }.
-//     mapAsyncUnordered(2){ case (sid, hour, d) => 
+//     mapAsyncUnordered(2){ case (sid, hour, d) =>
 //       val actual = d.map { case (date, r, _) =>
 //         Dlm.Data(datetimeToSeconds(date), DenseVector(Some(r))) }.
 //         sortBy(_.time).

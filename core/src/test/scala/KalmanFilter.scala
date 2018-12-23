@@ -1,5 +1,5 @@
 import dlm.core.model._
-import breeze.linalg.{DenseMatrix, DenseVector, diag, inv}
+import breeze.linalg.{DenseMatrix, DenseVector, diag, inv, cholesky}
 import org.scalatest._
 import prop._
 import org.scalactic.Equality
@@ -62,6 +62,17 @@ class KfSpec
       assert(sampled.map(_.time) === filtered.map(_.time))
     }
   }
+
+  ignore("Log-likelihood calculation is correct") {
+    forAll(params) { p =>
+      val data = observations(p)
+      val filtered = KalmanFilter.filterDlm(mod, data, p)
+      val state = filtered.map(x => (x.time, x.mt))
+      val llc = KalmanFilter.logLikelihoodCholesky(mod, state, p.w)
+      val ll = KalmanFilter.logLikelihood(mod, state, p.w)
+      assert(ll === llc)
+    }
+  }
 }
 
 class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
@@ -85,8 +96,8 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
   val y1 = data.head
   val kf = KalmanFilter(KalmanFilter.advanceState(p, model.g))
   val (a1, r1) = KalmanFilter.advState(model.g, p.m0, p.c0, 1, p.w)
-  val (f1, q1, m1, c1, _) =
-    kf.updateState(model.f, a1, r1, y1, p.v, 0.0)
+  val (f1, q1, m1, c1) =
+    kf.updateState(model.f, a1, r1, y1, p.v)
   val e1 = KalmanFilter.flattenObs(y1.observation) - f1
   val k1 = r1 * inv(q1)
 
@@ -110,7 +121,7 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
     assert(c1 === r1 - k1 * r1)
   }
 
-  val state1 = KfState(1, m1, c1, a1, r1, Some(f1), Some(q1), 0.0)
+  val state1 = KfState(1, m1, c1, a1, r1, Some(f1), Some(q1))
   val filterOne = kf.step(model, p)(state1, data(1))
 
   test("time step 2") {
@@ -188,11 +199,11 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
   }
 
   // val model = Dlm.polynomial(1)
-  // val params = 
+  // val params =
   // val ys = Dlm.simulateRegular(model, params, 1.0).
   //   steps.take(100).map(_._1).toVector
 
   // test("Univariate Kalman Filter should be equivalent to multivariate Kalman Filter") {
-  //   val uniFiltered = KalmanFilter.univariateKf(ys.map(d => (d.time, 
+  //   val uniFiltered = KalmanFilter.univariateKf(ys.map(d => (d.time,
   // }
 }

@@ -16,11 +16,10 @@ trait Simulate[M, P, S] {
 
   def stepState(model: M, params: P, state: S, dt: Double): Rand[S]
 
-  def observation(
-    model: M,
-    params: P,
-    state: S,
-    time: Double): Rand[DenseVector[Double]]
+  def observation(model: M,
+                  params: P,
+                  state: S,
+                  time: Double): Rand[DenseVector[Double]]
 
   def simStep(model: M,
               params: P)(state: S, time: Double, dt: Double): Rand[(Data, S)] =

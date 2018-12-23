@@ -158,17 +158,3 @@ class MvnDistribution
     }
   }
 }
-
-// class NegativeBinomial extends PropSpec with GeneratorDrivenPropertyChecks with Matchers with BreezeGenerators {
-//   property("Negative Binomial Distribution") {
-//     forAll { (alpha: Double, beta: Double) =>
-//       val mean =
-//         val variance =
-//       val n = 10000
-//       val dist = dlm.core.model.NegativeBinomial(nb.mean, nb.variance)
-//       val samples = dist.sample(n)
-
-//       assert(nb.mean === mean(samples))
-//     }
-//   }
-// }

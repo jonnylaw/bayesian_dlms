@@ -12,6 +12,7 @@ import akka.util.ByteString
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 
 object Streaming {
+
   /**
     * Write a single chain
     * @param iters the iterations of the MCMC chain
@@ -41,22 +42,19 @@ object Streaming {
     * Parse parameters from a collection containing the diagonal
     * entries of the v, w matrices
     */
-  def parseDiagonalParameters(
-    vDim: Int, wDim: Int)(ps: Vector[Double]): DlmParameters = {
+  def parseDiagonalParameters(vDim: Int, wDim: Int)(
+      ps: Vector[Double]): DlmParameters = {
 
     val v = ps.take(vDim).map(_.toDouble).toArray
     val w = ps.drop(vDim).take(wDim).map(_.toDouble).toArray
     val m0 = ps.drop(vDim + wDim).take(wDim).map(_.toDouble).toArray
-    val c0 = ps.drop(vDim + 2 * wDim).take(wDim * wDim).
-      map(_.toDouble).toArray
+    val c0 = ps.drop(vDim + 2 * wDim).take(wDim * wDim).map(_.toDouble).toArray
 
-    DlmParameters(
-      diag(DenseVector(v)),
-      diag(DenseVector(w)),
-      DenseVector(m0),
-      new DenseMatrix(wDim, wDim, c0))
+    DlmParameters(diag(DenseVector(v)),
+                  diag(DenseVector(w)),
+                  DenseVector(m0),
+                  new DenseMatrix(wDim, wDim, c0))
   }
-
 
   /**
     * Read an MCMC Chain into a list of doubles
@@ -82,51 +80,57 @@ object Streaming {
   /**
     * Streaming mean
     */
-  def mean = Flow[Double].
-    fold((0.0, 1.0)){ case ((avg, n), b) =>
-      ((avg * n + b) / (n + 1), n + 1)
-    }.
-    map(_._1)
+  def mean =
+    Flow[Double]
+      .fold((0.0, 1.0)) {
+        case ((avg, n), b) =>
+          ((avg * n + b) / (n + 1), n + 1)
+      }
+      .map(_._1)
 
   def meanDlmFsvParameters(vDim: Int, wDim: Int, p: Int, k: Int) =
-    Flow[DlmFsvParameters].
-      fold((DlmFsvParameters.empty(vDim, wDim, p, k), 1.0)){ case ((avg, n), b) => 
-        (avg.map(_ * n).add(b).map(_  / (n + 1)), n + 1)
-      }.
-      map(_._1)
+    Flow[DlmFsvParameters]
+      .fold((DlmFsvParameters.empty(vDim, wDim, p, k), 1.0)) {
+        case ((avg, n), b) =>
+          (avg.map(_ * n).add(b).map(_ / (n + 1)), n + 1)
+      }
+      .map(_._1)
 
   def meanDlmFsvSystemParameters(vDim: Int, wDim: Int, k: Int) =
-    Flow[DlmFsvParameters].
-      fold((DlmFsvSystem.emptyParams(vDim, wDim, k), 1.0)){ case ((avg, n), b) => 
-        (avg.map(_ * n).add(b).map(_  / (n + 1)), n + 1)
-      }.
-      map(_._1)
+    Flow[DlmFsvParameters]
+      .fold((DlmFsvSystem.emptyParams(vDim, wDim, k), 1.0)) {
+        case ((avg, n), b) =>
+          (avg.map(_ * n).add(b).map(_ / (n + 1)), n + 1)
+      }
+      .map(_._1)
 
   /**
     * Calculate the streaming mean of DLM parameters
     */
   def meanParameters(vDim: Int, wDim: Int) = {
-    Flow[DlmParameters].
-      fold((DlmParameters.empty(vDim, wDim), 1.0))((acc, b) => {
+    Flow[DlmParameters]
+      .fold((DlmParameters.empty(vDim, wDim), 1.0))((acc, b) => {
         val (avg: DlmParameters, n: Double) = acc
-        (avg.map(_ * n).add(b).map(_  / (n + 1)), n + 1)
-      }).
-      map(_._1)
+        (avg.map(_ * n).add(b).map(_ / (n + 1)), n + 1)
+      })
+      .map(_._1)
   }
 
-  def meanSvParameters = Flow[SvParameters].
-    fold((SvParameters.empty, 1.0)){(acc, b) =>
-           val (avg: SvParameters, n: Double) = acc
-           (avg.map(_ * n).add(b).map(_  / (n + 1)), n + 1)
-         }.
-    map(_._1)
+  def meanSvParameters =
+    Flow[SvParameters]
+      .fold((SvParameters.empty, 1.0)) { (acc, b) =>
+        val (avg: SvParameters, n: Double) = acc
+        (avg.map(_ * n).add(b).map(_ / (n + 1)), n + 1)
+      }
+      .map(_._1)
 
-  def meanFsvParameters(p: Int, k: Int) = Flow[FsvParameters].
-    fold((FsvParameters.empty(p, k), 1.0)){(acc, b) =>
-      val (avg: FsvParameters, n: Double) = acc
-      (avg.map(_ * n).add(b).map(_  / (n + 1)), n + 1)
-    }.
-    map(_._1)
+  def meanFsvParameters(p: Int, k: Int) =
+    Flow[FsvParameters]
+      .fold((FsvParameters.empty(p, k), 1.0)) { (acc, b) =>
+        val (avg: FsvParameters, n: Double) = acc
+        (avg.map(_ * n).add(b).map(_ / (n + 1)), n + 1)
+      }
+      .map(_._1)
 
   /**
     * Create an Akka stream from a Markov Chain
@@ -156,15 +160,15 @@ object Streaming {
     * @param format a function to format each row of the CSV output
     */
   def writeParallelChain[A](
-    chain: breeze.stats.distributions.Process[A],
-    nChains: Int,
-    nIters: Int,
-    filename: String,
-    format: A => List[Double])(implicit m: Materializer) = {
+      chain: breeze.stats.distributions.Process[A],
+      nChains: Int,
+      nIters: Int,
+      filename: String,
+      format: A => List[Double])(implicit m: Materializer) = {
 
     Source((0 until nChains)).mapAsync(nChains) { i =>
-      streamChain(chain, nIters).
-        runWith(writeChainSink(s"${filename}_$i.csv", format))
+      streamChain(chain, nIters).runWith(
+        writeChainSink(s"${filename}_$i.csv", format))
     }
   }
 
@@ -174,16 +178,17 @@ object Streaming {
     * @param n the index of the iterator to select
     */
   def thinChain[A](n: Int) = {
-    Flow[A].zipWithIndex.
-      filter { case (a, i) => i % n == 0 }.
-      map(_._1)
+    Flow[A].zipWithIndex.filter { case (a, i) => i % n == 0 }.map(_._1)
   }
 
   def readCsv[S](file: String) = {
-    FileIO.fromPath(Paths.get(file)).
-      via(Framing.delimiter(ByteString("\n"), 
-        maximumFrameLength = 8192, allowTruncation = true)).
-      map(_.utf8String).
-      map(a => a.split(",").toVector)
+    FileIO
+      .fromPath(Paths.get(file))
+      .via(
+        Framing.delimiter(ByteString("\n"),
+                          maximumFrameLength = 8192,
+                          allowTruncation = true))
+      .map(_.utf8String)
+      .map(a => a.split(",").toVector)
   }
 }

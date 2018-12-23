@@ -14,10 +14,9 @@ object GibbsWishart {
     * Inverse Wishart prior on the system covariance matrix
     * @param priorW the prior distribution of the System evolution noise matrix
     */
-  def sampleSystemMatrix(
-    priorW: InverseWishart,
-    g:      Double => DenseMatrix[Double],
-    theta:  Vector[SamplingState]) = {
+  def sampleSystemMatrix(priorW: InverseWishart,
+                         g: Double => DenseMatrix[Double],
+                         theta: Vector[SamplingState]) = {
 
     val n = theta.size - 1
 
@@ -39,18 +38,18 @@ object GibbsWishart {
   /**
     * A single step of the Gibbs Wishart algorithm
     */
-  def wishartStep(
-    mod: Dlm,
-    priorV: InverseGamma,
-    priorW: InverseWishart,
-    observations: Vector[Data]) = { s: GibbsSampling.State =>
-
+  def wishartStep(mod: Dlm,
+                  priorV: InverseGamma,
+                  priorW: InverseWishart,
+                  observations: Vector[Data]) = { s: GibbsSampling.State =>
     for {
       theta <- Smoothing.ffbsDlm(mod, observations, s.p)
       newW <- sampleSystemMatrix(priorW, mod.g, theta)
-      newV <- GibbsSampling.
-      sampleObservationMatrix(priorV, mod.f,
-        observations.map(_.observation), theta.map(s => (s.time, s.sample)))
+      newV <- GibbsSampling.sampleObservationMatrix(
+        priorV,
+        mod.f,
+        observations.map(_.observation),
+        theta.map(s => (s.time, s.sample)))
     } yield GibbsSampling.State(s.p.copy(v = newV, w = newW), theta)
   }
 
@@ -64,17 +63,18 @@ object GibbsWishart {
     * @param initParams the intial parameters of the Markov Chain
     * @param observations a vector of time series observations
     */
-  def sample(
-    mod: Dlm,
-    priorV: InverseGamma,
-    priorW: InverseWishart,
-    initParams: DlmParameters,
-    observations: Vector[Data]) = {
+  def sample(mod: Dlm,
+             priorV: InverseGamma,
+             priorW: InverseWishart,
+             initParams: DlmParameters,
+             observations: Vector[Data]) = {
 
     val init = for {
-      initState <- Smoothing.ffbs(mod, observations,
-      KalmanFilter.advanceState(initParams, mod.g),
-      Smoothing.step(mod, initParams.w), initParams)
+      initState <- Smoothing.ffbs(mod,
+                                  observations,
+                                  KalmanFilter.advanceState(initParams, mod.g),
+                                  Smoothing.step(mod, initParams.w),
+                                  initParams)
     } yield GibbsSampling.State(initParams, initState)
 
     MarkovChain(init.draw)(wishartStep(mod, priorV, priorW, observations))

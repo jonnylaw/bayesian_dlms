@@ -77,10 +77,9 @@ object Metropolis {
     * A Single Step without acceptance ratio
     * this requires re-evaluating the likelihood at each step
     */
-  def step[A](
-      proposal: A => Rand[A],
-      prior: A => Double,
-      likelihood: A => Double)(state: (A, Double)) = {
+  def step[A](proposal: A => Rand[A],
+              prior: A => Double,
+              likelihood: A => Double)(state: (A, Double)) = {
 
     MarkovChain.Kernels.metropolis(proposal)((a: A) => prior(a) + likelihood(a))
   }
@@ -89,10 +88,9 @@ object Metropolis {
     * Metropolis kernel without re-evaluating the likelihood
     * from the previous time step and keeping track of the acceptance ratio
     */
-  def mStep[A](
-    proposal: A => Rand[A],
-    prior: A => Double,
-    likelihood: A => Double)(state: State[A]) = {
+  def mStep[A](proposal: A => Rand[A],
+               prior: A => Double,
+               likelihood: A => Double)(state: State[A]) = {
 
     for {
       propP <- proposal(state.parameters)
@@ -107,9 +105,7 @@ object Metropolis {
     } yield next
   }
 
-  def mAccept[A](
-    proposal: A => Rand[A],
-    logMeasure: A => Double)(param: A) = {
+  def mAccept[A](proposal: A => Rand[A], logMeasure: A => Double)(param: A) = {
 
     for {
       propP <- proposal(param)
@@ -127,16 +123,15 @@ object Metropolis {
     * Run the metropolis algorithm for a DLM
     * using the kalman filter to calculate the likelihood
     */
-  def dlm[T[_]: Traverse](
+  def dlm(
       mod: Dlm,
-      observations: T[Data],
+      observations: Vector[Data],
       proposal: DlmParameters => Rand[DlmParameters],
       prior: DlmParameters => Double,
       initP: DlmParameters
   ) = {
     val initState = State[DlmParameters](initP, -1e99, 0)
-    val ll = (p: DlmParameters) =>
-      KalmanFilter.likelihood(mod, observations)(p)
+    val ll = (p: DlmParameters) => KalmanFilter.likelihood(mod, observations)(p)
 
     MarkovChain(initState)(mStep[DlmParameters](proposal, prior, ll))
   }
@@ -144,13 +139,12 @@ object Metropolis {
   /**
     * Use particle marginal metropolis algorithm for a DGLM model
     */
-  def dglm[T[_]: Traverse](
-    mod: Dglm,
-    observations: T[Data],
-    proposal: DlmParameters => Rand[DlmParameters],
-    prior: DlmParameters => Double,
-    initP: DlmParameters,
-    n: Int) = {
+  def dglm[T[_]: Traverse](mod: Dglm,
+                           observations: T[Data],
+                           proposal: DlmParameters => Rand[DlmParameters],
+                           prior: DlmParameters => Double,
+                           initP: DlmParameters,
+                           n: Int) = {
 
     val initState = State[DlmParameters](initP, -1e99, 0)
     val ll = (p: DlmParameters) =>
@@ -182,9 +176,8 @@ object MetropolisHastings {
     } yield next
   }
 
-  def mhAccept[A](
-    proposal: A => ContinuousDistr[A],
-    logMeasure: A => Double)(param: A) = {
+  def mhAccept[A](proposal: A => ContinuousDistr[A], logMeasure: A => Double)(
+      param: A) = {
 
     for {
       propP <- proposal(param)
@@ -209,8 +202,7 @@ object MetropolisHastings {
           prior: DlmParameters => Double,
           initP: DlmParameters) = {
 
-    val ll = (p: DlmParameters) =>
-      KalmanFilter.likelihood(mod, observations)(p)
+    val ll = (p: DlmParameters) => KalmanFilter.likelihood(mod, observations)(p)
 
     val initState = Metropolis.State[DlmParameters](initP, -1e99, 0)
     MarkovChain(initState)(mhStep[DlmParameters](proposal, prior, ll))

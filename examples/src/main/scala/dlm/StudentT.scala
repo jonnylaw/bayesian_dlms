@@ -29,9 +29,7 @@ trait StudenttData {
 }
 
 object SimulateStudentT extends App with StudenttDglm {
-  val sims = Dglm.simulateRegular(mod, params, 1.0).
-    steps.
-    take(1000)
+  val sims = Dglm.simulateRegular(mod, params, 1.0).steps.take(1000)
 
   val out = new java.io.File("examples/data/student_t_dglm.csv")
   val header = rfc.withHeader("time", "observation", "state")
@@ -62,26 +60,41 @@ object StudentTGibbs extends App with StudenttDglm with StudenttData {
 
   // nu is the mean of the negative binomial proposal (A Gamma mixture of Poissons)
   // should this be a sensored distribution?
-  val propNu = (size: Double) => (nu: Int) => {
-    val prob = nu / (size + nu)
+  val propNu = (size: Double) =>
+    (nu: Int) => {
+      val prob = nu / (size + nu)
 
-    NegativeBinomial(size, prob).map(_ + 1)
+      NegativeBinomial(size, prob).map(_ + 1)
   }
 
-  val propNuP = (size: Double) => (from: Int, to: Int) => {
-    val p = from / (size + from)
-    NegativeBinomial(size, p).logProbabilityOf(to)
+  val propNuP = (size: Double) =>
+    (from: Int, to: Int) => {
+      val p = from / (size + from)
+      NegativeBinomial(size, p).logProbabilityOf(to)
   }
 
-  val iters = StudentT.sample(data.toVector, priorW, priorNu, propNu(1.0), propNuP(1.0), mod, params)
+  val iters = StudentT.sample(data.toVector,
+                              priorW,
+                              priorNu,
+                              propNu(1.0),
+                              propNuP(1.0),
+                              mod,
+                              params)
 
   def format(s: StudentT.State): List[Double] = {
-    s.nu.toDouble :: DenseVector.vertcat(diag(s.p.v), diag(s.p.w)).data.toList :::
-    List(s.accepted.toDouble)
+    s.nu.toDouble :: DenseVector
+      .vertcat(diag(s.p.v), diag(s.p.w))
+      .data
+      .toList :::
+      List(s.accepted.toDouble)
   }
 
   Streaming
-    .writeParallelChain(iters, 2, 10000, "examples/data/student_t_dglm_gibbs", format)
+    .writeParallelChain(iters,
+                        2,
+                        10000,
+                        "examples/data/student_t_dglm_gibbs",
+                        format)
     .runWith(Sink.onComplete(_ => system.terminate()))
 }
 
@@ -94,25 +107,35 @@ object StudentTpmmh extends App with StudenttDglm with StudenttData {
   val priorNu = Poisson(3)
 
   // nu is the mean of the negative binomial proposal (A Gamma mixture of Poissons)
-  val propNu = (size: Double) => (nu: Int) => {
-    val prob = nu / (size + nu)
+  val propNu = (size: Double) =>
+    (nu: Int) => {
+      val prob = nu / (size + nu)
 
-    for {
-      lambda <- Gamma(size, prob / (1 - prob))
-      x <- Poisson(lambda)
-    } yield x + 1
+      for {
+        lambda <- Gamma(size, prob / (1 - prob))
+        x <- Poisson(lambda)
+      } yield x + 1
   }
 
-  val propNuP = (size: Double) => (from: Int, to: Int) => {
-    val r = size
-    val p = from / (r + from)
-    NegativeBinomial(p, r).logProbabilityOf(to)
+  val propNuP = (size: Double) =>
+    (from: Int, to: Int) => {
+      val r = size
+      val p = from / (r + from)
+      NegativeBinomial(p, r).logProbabilityOf(to)
   }
 
   val n = 200
   val iters = StudentT.samplePmmh(data,
-    priorW, priorV, priorNu, Metropolis.symmetricProposal(0.01),
-    propNu(1.0), propNuP(1.0), dlm, n, params, 3)
+                                  priorW,
+                                  priorV,
+                                  priorNu,
+                                  Metropolis.symmetricProposal(0.01),
+                                  propNu(1.0),
+                                  propNuP(1.0),
+                                  dlm,
+                                  n,
+                                  params,
+                                  3)
 
   def format(s: StudentT.PmmhState) = {
     DenseVector.vertcat(diag(s.p.v), diag(s.p.w)).data.toList ++
@@ -120,6 +143,10 @@ object StudentTpmmh extends App with StudenttDglm with StudenttData {
   }
 
   Streaming
-    .writeParallelChain(iters, 2, 10000, "examples/data/student_t_dglm_pmmh", format)
+    .writeParallelChain(iters,
+                        2,
+                        10000,
+                        "examples/data/student_t_dglm_pmmh",
+                        format)
     .runWith(Sink.onComplete(_ => system.terminate()))
 }

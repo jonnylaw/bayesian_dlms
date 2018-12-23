@@ -1,9 +1,10 @@
 package dlm.core.model
 
-import breeze.linalg.{DenseMatrix, DenseVector}
+import breeze.linalg.{DenseMatrix, DenseVector, cholesky, sum, diag}
 import breeze.stats.distributions._
 import cats.Traverse
 import cats.implicits._
+import breeze.numerics.log
 import math.exp
 
 /**
@@ -19,14 +20,13 @@ import math.exp
   * not present at the first timestep
   */
 case class KfState(
-  time: Double,
-  mt: DenseVector[Double],
-  ct: DenseMatrix[Double],
-  at: DenseVector[Double],
-  rt: DenseMatrix[Double],
-  ft: Option[DenseVector[Double]],
-  qt: Option[DenseMatrix[Double]],
-  ll: Double
+    time: Double,
+    mt: DenseVector[Double],
+    ct: DenseMatrix[Double],
+    at: DenseVector[Double],
+    rt: DenseMatrix[Double],
+    ft: Option[DenseVector[Double]],
+    qt: Option[DenseMatrix[Double]]
 )
 
 case class KalmanFilter(advState: (KfState, Double) => KfState)
@@ -41,11 +41,10 @@ case class KalmanFilter(advState: (KfState, Double) => KfState)
     * @param at the a-priori mean state at time t
     * @param rt the a-priori covariance of the state at time t
     */
-  def oneStepMissing(
-    fm: DenseMatrix[Double],
-    vm: DenseMatrix[Double],
-    at: DenseVector[Double],
-    rt: DenseMatrix[Double]) = {
+  def oneStepMissing(fm: DenseMatrix[Double],
+                     vm: DenseMatrix[Double],
+                     at: DenseVector[Double],
+                     rt: DenseMatrix[Double]) = {
 
     val ft = fm.t * at
     val qt = fm.t * rt * fm + vm
@@ -62,20 +61,18 @@ case class KalmanFilter(advState: (KfState, Double) => KfState)
     * @param v the variance of the measurement noise
     * @return the posterior mean and variance of the latent state at time t
     */
-  def updateState(
-    f: Double => DenseMatrix[Double],
-    at: DenseVector[Double],
-    rt: DenseMatrix[Double],
-    d: Data,
-    v: DenseMatrix[Double],
-    ll: Double) = {
+  def updateState(f: Double => DenseMatrix[Double],
+                  at: DenseVector[Double],
+                  rt: DenseMatrix[Double],
+                  d: Data,
+                  v: DenseMatrix[Double]) = {
 
     val y = flattenObs(d.observation)
     // perform one step prediction
     val (ft, qt) = oneStepPrediction(f, at, rt, d.time, v)
 
     if (y.data.isEmpty) {
-      (ft, qt, at, rt, ll)
+      (ft, qt, at, rt)
     } else {
       val vm = missingV(v, d.observation)
       val fm = missingF(f, d.time, d.observation)
@@ -91,45 +88,40 @@ case class KalmanFilter(advState: (KfState, Double) => KfState)
 
       val diff = (identity - kalmanGain * fm.t)
       val covariance = diff * rt * diff.t + kalmanGain * vm * kalmanGain.t
-      val newll = ll + conditionalLikelihood(predicted, predcov, y)
 
-      (ft, qt, mt1, covariance, newll)
+      (ft, qt, mt1, covariance)
     }
   }
 
   /**
     * Step the Kalman Filter a single Step
     */
-  def step(
-    mod:    Dlm,
-    p:      DlmParameters)
-    (state: KfState,
-     y:     Data): KfState = {
+  def step(mod: Dlm, p: DlmParameters)(state: KfState, y: Data): KfState = {
 
     val dt = y.time - state.time
     val st = advState(state, dt)
-    val (ft, qt, mt, ct, ll) =
-      updateState(mod.f, st.at, st.rt, y, p.v, state.ll)
+    val (ft, qt, mt, ct) =
+      updateState(mod.f, st.at, st.rt, y, p.v)
 
-    KfState(y.time, mt, ct, st.at, st.rt, Some(ft), Some(qt), ll)
+    KfState(y.time, mt, ct, st.at, st.rt, Some(ft), Some(qt))
   }
 
   /**
     * Initialise the state of the Kalman Filter
     */
-  def initialiseState[T[_]: Traverse](
-    mod: Dlm,
-    p: DlmParameters,
-    obs: T[Data]): KfState = {
+  def initialiseState[T[_]: Traverse](mod: Dlm,
+                                      p: DlmParameters,
+                                      obs: T[Data]): KfState = {
 
     val t0 = obs.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
-    KfState(t0.get - 1.0, p.m0, p.c0, p.m0, p.c0, None, None, 0.0)
+    KfState(t0.get - 1.0, p.m0, p.c0, p.m0, p.c0, None, None)
   }
 
   def transformParams(p: DlmParameters): DlmParameters = p
 }
 
 object KalmanFilter {
+
   /**
     * Remove optional data from an observation vector
     * @param y a vector containing optional observations
@@ -145,13 +137,49 @@ object KalmanFilter {
     */
   def conditionalLikelihood(ft: DenseVector[Double],
                             qt: DenseMatrix[Double],
-                            y: DenseVector[Double]) = {
+                            y: Data) = {
 
-    if (y.size == 1) {
-      Gaussian(ft(0), math.sqrt(qt(0, 0))).logPdf(y(0))
+    val missing = indexNonMissing(y.observation)
+    val ft1 = ft(missing.toVector).toDenseVector
+    val qt1 = qt(missing.toVector, missing.toVector).toDenseMatrix
+
+    val ys = KalmanFilter.flattenObs(y.observation)
+
+    if (ys.size == 1) {
+      Gaussian(ft1(0), math.sqrt(qt1(0, 0))).logPdf(ys(0))
     } else {
-      MultivariateGaussian(ft, qt).logPdf(y)
+      MultivariateGaussian(ft1, qt1).logPdf(ys)
     }
+  }
+
+  /**
+    * Calculate the log-likelihood of the filtered state
+    * using the cholesky decomposition
+    */
+  def logLikelihoodCholesky(mod: Dlm,
+                            theta: Vector[(Double, DenseVector[Double])],
+                            w: DenseMatrix[Double]): Double = {
+    val rootW: DenseMatrix[Double] = cholesky(w)
+    val n = theta.head._2.size
+    val normaliser: Double = -sum(log(diag(rootW))) - 0.5 * n * log(2 * math.Pi)
+
+    (theta.init zip theta.tail).map {
+      case ((t0, x0), (t, x1)) =>
+        val dt = t - t0
+        val c = x1 - mod.g(dt) * x0
+        val u = w \ c
+        -0.5 * u dot c + normaliser
+    }.sum
+  }
+
+  def logLikelihood(mod: Dlm,
+                    theta: Vector[(Double, DenseVector[Double])],
+                    w: DenseMatrix[Double]): Double = {
+    (theta.init zip theta.tail).map {
+      case ((t0, x0), (t, x1)) =>
+        val dt = t - t0
+        MultivariateGaussian(mod.g(dt) * x0, w * dt).logPdf(x1)
+    }.sum
   }
 
   /**
@@ -195,17 +223,13 @@ object KalmanFilter {
     * a_t = mu + phi * (a_t - mu) + eta_t, eta_t ~ N(0, sigmaEta^2)
     * @param ys
     */
-  def filterAr[T[_]: Traverse](
-    ys: T[Data],
-    p:  SvParameters,
-    v:  Double) = {
+  def filterAr[T[_]: Traverse](ys: T[Data], p: SvParameters, v: Double) = {
 
     val mod = Dlm.polynomial(1)
-    val dlmP = DlmParameters(
-      DenseMatrix(v),
-      DenseMatrix.eye[Double](1),
-      DenseVector.zeros[Double](1),
-      DenseMatrix.eye[Double](1))
+    val dlmP = DlmParameters(DenseMatrix(v),
+                             DenseMatrix.eye[Double](1),
+                             DenseVector.zeros[Double](1),
+                             DenseMatrix.eye[Double](1))
 
     KalmanFilter(advanceStateAr(p)).filterTraverse(mod, ys, dlmP)
   }
@@ -216,17 +240,13 @@ object KalmanFilter {
     * da_t = phi * (a_t - mu) dt + sigma_eta dW_t
     * @param ys
     */
-  def filterOu[T[_]: Traverse](
-    ys: T[Data],
-    p:  SvParameters,
-    v:  Double) = {
+  def filterOu[T[_]: Traverse](ys: T[Data], p: SvParameters, v: Double) = {
 
     val mod = Dlm.polynomial(1)
-    val dlmP = DlmParameters(
-      DenseMatrix(v),
-      DenseMatrix.eye[Double](1),
-      DenseVector.zeros[Double](1),
-      DenseMatrix.eye[Double](1))
+    val dlmP = DlmParameters(DenseMatrix(v),
+                             DenseMatrix.eye[Double](1),
+                             DenseVector.zeros[Double](1),
+                             DenseMatrix.eye[Double](1))
 
     KalmanFilter(advanceStateOu(p)).filterTraverse(mod, ys, dlmP)
   }
@@ -239,25 +259,22 @@ object KalmanFilter {
     * @param dt the time increment
     * @return the a-priori mean and covariance of the state at time t
     */
-  def advanceState(
-    p: DlmParameters,
-    g: Double => DenseMatrix[Double])
-    (s: KfState,
-     dt: Double): KfState = {
+  def advanceState(p: DlmParameters, g: Double => DenseMatrix[Double])(
+      s: KfState,
+      dt: Double): KfState = {
 
     val (at, rt) = advState(g, s.mt, s.ct, dt, p.w)
     s.copy(at = at, rt = rt)
   }
 
   /**
-    * Advance the state 
+    * Advance the state
     */
-  def advState(
-    g: Double => DenseMatrix[Double],
-    mt: DenseVector[Double],
-    ct: DenseMatrix[Double],
-    dt: Double,
-    w:  DenseMatrix[Double]) = {
+  def advState(g: Double => DenseMatrix[Double],
+               mt: DenseVector[Double],
+               ct: DenseMatrix[Double],
+               dt: Double,
+               w: DenseMatrix[Double]) = {
 
     if (dt == 0) {
       (mt, ct)
@@ -271,10 +288,7 @@ object KalmanFilter {
   /**
     * Filter a DLM with a random walk latent-state
     */
-  def filterDlm[T[_]: Traverse](
-    mod: Dlm,
-    ys:  T[Data],
-    p:   DlmParameters) = {
+  def filterDlm[T[_]: Traverse](mod: Dlm, ys: T[Data], p: DlmParameters) = {
 
     KalmanFilter(advanceState(p, mod.g)).filterTraverse(mod, ys, p)
   }
@@ -282,26 +296,23 @@ object KalmanFilter {
   /**
     * Calculate the marginal likelihood of a DLM using a kalman filter
     */
-  def likelihood[T[_]: Traverse](
-    mod:      Dlm,
-    ys:       T[Data])(
-    p:        DlmParameters): Double = {
+  def likelihood(mod: Dlm, ys: Vector[Data])(p: DlmParameters): Double = {
 
     val kf = KalmanFilter(advanceState(p, mod.g))
     val init = kf.initialiseState(mod, p, ys)
 
-    ys.foldLeft(init)(kf.step(mod, p)).ll
+    val filtered = ys.scanLeft(init)(kf.step(mod, p))
+    logLikelihood(mod, filtered.map(x => (x.time, x.mt)), p.w)
   }
 
   /**
     * Perform a one-step prediction
     */
-  def oneStepPrediction(
-    f: Double => DenseMatrix[Double],
-    at: DenseVector[Double],
-    rt: DenseMatrix[Double],
-    time: Double,
-    v: DenseMatrix[Double]) = {
+  def oneStepPrediction(f: Double => DenseMatrix[Double],
+                        at: DenseVector[Double],
+                        rt: DenseMatrix[Double],
+                        time: Double,
+                        v: DenseMatrix[Double]) = {
 
     val ft = f(time).t * at
     val qt = f(time).t * rt * f(time) + v
@@ -309,48 +320,48 @@ object KalmanFilter {
     (ft, qt)
   }
 
-/**
-  * Single step of a univariate kalman filter
-  */
-  def stepUni(
-    d:   (Double, Option[Double]),
-    t0:  Double,
-    mt:  Double,
-    ct:  Double,
-    p:   DlmParameters,
-    mod: Dlm) = {
+  /**
+    * Single step of a univariate kalman filter
+    */
+  def stepUni(d: (Double, Option[Double]),
+              t0: Double,
+              mt: Double,
+              ct: Double,
+              p: DlmParameters,
+              mod: Dlm) = {
 
-  val t = d._1
-  // extract model "matrices"
-  val dt = t - t0
-  val g = mod.g(dt)(0,0)
-  val f = mod.f(t)(0,0)
+    val t = d._1
+    // extract model "matrices"
+    val dt = t - t0
+    val g = mod.g(dt)(0, 0)
+    val f = mod.f(t)(0, 0)
 
-  val at = g * mt
-  val rt = g * g * ct + p.w(0,0) * dt
-  val ft = f * at
-  val qt = f * f * rt + p.v(0,0)
+    val at = g * mt
+    val rt = g * g * ct + p.w(0, 0) * dt
+    val ft = f * at
+    val qt = f * f * rt + p.v(0, 0)
 
-  d._2 match {
-    case Some(y) =>
-      val kt = f * rt / qt
-      val et = y - ft
+    d._2 match {
+      case Some(y) =>
+        val kt = f * rt / qt
+        val et = y - ft
 
-      (t, at + kt * et, kt * p.v(0,0))
-    case None => (t, at, rt)
+        (t, at + kt * et, kt * p.v(0, 0))
+      case None => (t, at, rt)
+    }
   }
-}
 
   /**
     * Univariate Kalman Filter for the first-order polynomial model
     */
-  def univariateKf(
-    ys: Vector[(Double, Option[Double])],
-    p:  DlmParameters,
-    mod: Dlm) = {
+  def univariateKf(ys: Vector[(Double, Option[Double])],
+                   p: DlmParameters,
+                   mod: Dlm) = {
 
-    ys.scanLeft((ys.head._1, p.m0(0), p.c0(0,0))){ case ((t, mt, ct), y) =>
-      stepUni(y, t, mt, ct, p, mod) }
+    ys.scanLeft((ys.head._1, p.m0(0), p.c0(0, 0))) {
+      case ((t, mt, ct), y) =>
+        stepUni(y, t, mt, ct, p, mod)
+    }
   }
 
   /**
@@ -361,13 +372,10 @@ object KalmanFilter {
     * @param p the parameters of the SV Model
     * @return the a-priori mean and covariance of the state at time t
     */
-  def advanceStateAr(
-    p:  SvParameters)(
-    st: KfState,
-    dt: Double) = st.copy(
-      time = st.time + dt,
-      at = st.mt map (m => p.mu + p.phi * (m - p.mu)),
-      rt = st.ct map (c => p.phi * p.phi * c + p.sigmaEta * p.sigmaEta))
+  def advanceStateAr(p: SvParameters)(st: KfState, dt: Double) =
+    st.copy(time = st.time + dt,
+            at = st.mt map (m => p.mu + p.phi * (m - p.mu)),
+            rt = st.ct map (c => p.phi * p.phi * c + p.sigmaEta * p.sigmaEta))
 
   /**
     * Advance the distribution of the state using the OU process
@@ -375,18 +383,15 @@ object KalmanFilter {
     * @param st the state at time t
     * @param dt the time difference to the next observation or point of interest
     * @param p the parameters of the DlM
-    * @return the a-priori distribution of the latent state at time t + dt 
+    * @return the a-priori distribution of the latent state at time t + dt
     */
-  def advanceStateOu(
-    p: SvParameters)(
-    st: KfState,
-    dt: Double): KfState = {
+  def advanceStateOu(p: SvParameters)(st: KfState, dt: Double): KfState = {
 
     val variance = (p.sigmaEta / (2 * p.phi)) * (1 - exp(-2 * p.phi * dt))
     val identity = DenseMatrix.eye[Double](st.mt.size)
 
     st.copy(time = st.time + dt,
-      at = st.mt map (m => p.mu + exp(p.phi * dt) * (m - p.mu)),
-      rt = (identity * exp(-p.phi * dt)) * st.ct + (identity * variance))
+            at = st.mt map (m => p.mu + exp(p.phi * dt) * (m - p.mu)),
+            rt = (identity * exp(-p.phi * dt)) * st.ct + (identity * variance))
   }
 }

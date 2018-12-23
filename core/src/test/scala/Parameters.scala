@@ -1,11 +1,9 @@
 import cats._
 import cats.implicits._
 import cats.laws.discipline._
-import cats.kernel.laws._
 import cats.kernel.instances.all._
 import cats.kernel.laws.discipline._
 
-import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.Discipline
 
 import dlm.core.model._
@@ -13,7 +11,6 @@ import org.scalatest._
 import cats.implicits._
 import breeze.linalg.diag
 import prop._
-import org.scalactic.Equality
 import org.scalacheck.Gen
 import org.scalacheck._
 import Arbitrary.arbitrary
@@ -24,12 +21,13 @@ class ReadingParameters
     with Matchers
     with BreezeGenerators {
 
-  def dlmParameters(vDim: Int, wDim: Int) = for {
-    v <- denseVector(vDim)
-    w <- denseVector(wDim)
-    m0 <- denseVector(wDim)
-    c0 <- denseVector(wDim)
-  } yield DlmParameters(diag(v), diag(w), m0, diag(c0))
+  def dlmParameters(vDim: Int, wDim: Int) =
+    for {
+      v <- denseVector(vDim)
+      w <- denseVector(wDim)
+      m0 <- denseVector(wDim)
+      c0 <- denseVector(wDim)
+    } yield DlmParameters(diag(v), diag(w), m0, diag(c0))
 
   property("Observation: toList for DLM parameters is inverse of fromList") {
     forAll(dlmParameters(2, 2)) { ps =>
@@ -55,11 +53,12 @@ class ReadingParameters
     }
   }
 
-  def svParameters = for {
-    phi <- smallDouble
-    mu <- smallDouble
-    sigma <- smallDouble
-  } yield SvParameters(phi, mu, sigma)
+  def svParameters =
+    for {
+      phi <- smallDouble
+      mu <- smallDouble
+      sigma <- smallDouble
+    } yield SvParameters(phi, mu, sigma)
 
   property("Stochastic Volatility Parameters: toList is inverse of fromList") {
     forAll(svParameters) { ps =>
@@ -67,22 +66,25 @@ class ReadingParameters
     }
   }
 
-  def factorParameters(p: Int, k: Int) = for {
-    v <- smallDouble
-    beta <- denseMatrix(p, k)
-    fsv <- Gen.listOfN(k, svParameters)
-  } yield FsvParameters(v, beta, fsv.toVector)
+  def factorParameters(p: Int, k: Int) =
+    for {
+      v <- smallDouble
+      beta <- denseMatrix(p, k)
+      fsv <- Gen.listOfN(k, svParameters)
+    } yield FsvParameters(v, beta, fsv.toVector)
 
-  property("Factor Stochastic Volatility Parameters: toList is inverse of fromList") {
+  property(
+    "Factor Stochastic Volatility Parameters: toList is inverse of fromList") {
     forAll(factorParameters(2, 2)) { ps =>
       assert(FsvParameters.fromList(2, 2)(ps.toList) === ps)
     }
   }
 
-  def dlmFsvParameters(vDim: Int, wDim: Int, p: Int, k: Int) = for {
-    dlm <- dlmParameters(vDim, wDim)
-    fsv <- factorParameters(p, k)
-  } yield DlmFsvParameters(dlm, fsv)
+  def dlmFsvParameters(vDim: Int, wDim: Int, p: Int, k: Int) =
+    for {
+      dlm <- dlmParameters(vDim, wDim)
+      fsv <- factorParameters(p, k)
+    } yield DlmFsvParameters(dlm, fsv)
 
   property("DLM FSV Parameters: toList is inverse of fromList") {
     forAll(dlmFsvParameters(2, 2, 2, 2)) { ps =>
@@ -97,31 +99,53 @@ class ParameterLaws
     with BreezeGenerators
     with Discipline {
 
-  def svParameters = for {
-    phi <- smallDouble
-    mu <- smallDouble
-    sigma <- smallDouble
-  } yield SvParameters(phi, mu, sigma)
+  def svParameters: Gen[SvParameters] =
+    for {
+      phi <- smallDouble
+      mu <- smallDouble
+      sigma <- smallDouble
+    } yield SvParameters(phi, mu, sigma)
 
-  def factorParameters = for {
-    v <- smallDouble
-    p <- arbitrary[Int]
-    k <- arbitrary[Int]
-    beta <- denseMatrix(p, k)
-    fsv <- Gen.listOfN(k, svParameters)
-  } yield FsvParameters(v, beta, fsv.toVector)
+  implicit val svArb = Arbitrary(svParameters)
+
+  implicit def eqDouble(implicit tol: Int) = new Eq[Double] {
+    def eqv(x: Double, y: Double): Boolean =
+      math.abs(x - y) < math.pow(1, -tol)
+  }
+
+  implicit def eqSv(implicit eqd: Eq[Double]): Eq[SvParameters] = new Eq[SvParameters] {
+    def eqv(x: SvParameters, y: SvParameters): Boolean = {
+      eqd.eqv(x.phi, y.phi) & eqd.eqv(x.mu, y.mu) & eqd.eqv(x.sigmaEta, y.sigmaEta)
+    }
+  }
+
+  implicit val tol = 2
+
+  checkAll("Additive SV Parameter Semigroup",
+           SemigroupTests[SvParameters].semigroup)
+
+  def smallInt(n: Int) = arbitrary[Int].suchThat(x => x > 0 & x < n)
+
+  def factorParameters =
+    for {
+      v <- smallDouble
+      p <- smallInt(10)
+      k <- smallInt(p)
+      beta <- denseMatrix(p, k)
+      fsv <- Gen.listOfN(k, svParameters)
+    } yield FsvParameters(v, beta, fsv.toVector)
 
   implicit def genFsvArb: Arbitrary[FsvParameters] =
     Arbitrary(factorParameters)
 
-  implicit def eqFsv = new Eq[FsvParameters] {
+  implicit def eqFsv(implicit eqsv: Eq[SvParameters]) = new Eq[FsvParameters] {
     def eqv(x: FsvParameters, y: FsvParameters) = {
       x.v === y.v && x.beta === y.beta &&
-        x.factorParams.zip(y.factorParams).
-          forall { case (xi, yi) => xi === yi }
+        x.factorParams.zip(y.factorParams).forall { case (xi, yi) =>
+          eqsv.eqv(xi, yi) }
     }
   }
 
-  checkAll("Additive Fsv Parameter Semigroup",
-           SemigroupTests[FsvParameters].semigroup)
+  // checkAll("Additive Fsv Parameter Semigroup",
+  //          SemigroupTests[FsvParameters].semigroup)
 }

@@ -14,11 +14,10 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 trait PoissonDglm {
   val mod = Dglm.poisson(Dlm.polynomial(1))
-  val params = DlmParameters(
-    DenseMatrix(2.0),
-    DenseMatrix(0.05),
-    DenseVector(0.0),
-    DenseMatrix(1.0))
+  val params = DlmParameters(DenseMatrix(2.0),
+                             DenseMatrix(0.05),
+                             DenseVector(0.0),
+                             DenseMatrix(1.0))
 }
 
 trait PoissonData {
@@ -31,12 +30,12 @@ trait PoissonData {
 
 object SimulateState extends App with PoissonDglm {
   val init = MultivariateGaussian(params.m0, params.c0).draw
-  val sims = MarkovChain((0.0, init)){ case (t, x) =>
-    for {
-      x1 <- Dglm.stepState(mod, params)(x, 1.0)
-    } yield (t + 1.0, x1) }.
-    steps.
-    take(500)
+  val sims = MarkovChain((0.0, init)) {
+    case (t, x) =>
+      for {
+        x1 <- Dglm.stepState(mod, params)(x, 1.0)
+      } yield (t + 1.0, x1)
+  }.steps.take(500)
 
   val out = new java.io.File("examples/data/latent_state.csv")
   val header = rfc.withHeader("time", "state")
@@ -60,15 +59,18 @@ object SimulatePoissonDglm extends App with PoissonDglm {
     case Right(a) => (a.head, DenseVector(a(1)))
   }.toVector
 
-  val sims = state.map { case (t, x) => (t, mod.observation(x, params.v).draw, x) }
+  val sims = state.map {
+    case (t, x) => (t, mod.observation(x, params.v).draw, x)
+  }
 
   val out = new java.io.File("examples/data/poisson_dglm.csv")
   val header = rfc.withHeader("time", "observation", "state")
 
-  def formatData(d: (Double, DenseVector[Double], DenseVector[Double])) = d match {
-    case (t, y, x) =>
-      t :: y.data.toList ::: x.data.toList
-  }
+  def formatData(d: (Double, DenseVector[Double], DenseVector[Double])) =
+    d match {
+      case (t, y, x) =>
+        t :: y.data.toList ::: x.data.toList
+    }
 
   out.writeCsv(sims.map(formatData), header)
 }
@@ -86,15 +88,18 @@ object SimulateZeroInflated extends App {
     case Right(a) => (a.head, DenseVector(a(1)))
   }.toVector
 
-  val sims = state.map { case (t, x) => (t, mod.observation(x, params.v).draw, x) }
+  val sims = state.map {
+    case (t, x) => (t, mod.observation(x, params.v).draw, x)
+  }
 
   val out = new java.io.File("examples/data/zip_dglm.csv")
   val header = rfc.withHeader("time", "observation", "state")
 
-  def formatData(d: (Double, DenseVector[Double], DenseVector[Double])) = d match {
-    case (t, y, x) =>
-      t :: y.data.toList ::: x.data.toList
-  }
+  def formatData(d: (Double, DenseVector[Double], DenseVector[Double])) =
+    d match {
+      case (t, y, x) =>
+        t :: y.data.toList ::: x.data.toList
+    }
 
   out.writeCsv(sims.map(formatData), header)
 }
@@ -112,15 +117,18 @@ object SimulateNegativeBinomial extends App {
     case Right(a) => (a.head, DenseVector(a(1)))
   }.toVector
 
-  val sims = state.map { case (t, x) => (t, mod.observation(x, params.v).draw, x) }
+  val sims = state.map {
+    case (t, x) => (t, mod.observation(x, params.v).draw, x)
+  }
 
   val out = new java.io.File("examples/data/negative_binomial_dglm.csv")
   val header = rfc.withHeader("time", "observation", "state")
 
-  def formatData(d: (Double, DenseVector[Double], DenseVector[Double])) = d match {
-    case (t, y, x) =>
-      t :: y.data.toList ::: x.data.toList
-  }
+  def formatData(d: (Double, DenseVector[Double], DenseVector[Double])) =
+    d match {
+      case (t, y, x) =>
+        t :: y.data.toList ::: x.data.toList
+    }
 
   out.writeCsv(sims.map(formatData), header)
 }
@@ -131,16 +139,15 @@ object FilterPoisson extends App with PoissonDglm with PoissonData {
 
   data.foreach(println)
 
-  val filtered = ParticleFilter(n, n, ParticleFilter.metropolisResampling(10)).
-    filter(mod, data, params)
-
+  val filtered = ParticleFilter(n, n, ParticleFilter.metropolisResampling(10))
+    .filter(mod, data, params)
 
   val out = new java.io.File("examples/data/poisson_filtered_metropolis.csv")
   val header = rfc.withHeader("time", "state_mean", "state_var")
 
   def formatData(s: PfState) = {
     List(s.time) ++ LiuAndWestFilter.meanState(s.state).data.toList ++
-    LiuAndWestFilter.varState(s.state).data.toList
+      LiuAndWestFilter.varState(s.state).data.toList
   }
 
   out.writeCsv(filtered.map(formatData), header)
@@ -167,13 +174,18 @@ object PoissonDglmGibbs extends App with PoissonDglm with PoissonData {
 
   iters.steps.take(10).map(_._2).foreach(println)
 
-  def formatParameters(s: (Vector[(Double, DenseVector[Double])], DlmParameters)) =
-    List(s._2.w(0,0))
+  def formatParameters(
+      s: (Vector[(Double, DenseVector[Double])], DlmParameters)) =
+    List(s._2.w(0, 0))
 
-  Streaming.writeParallelChain(
-    iters, 2, 10000, "examples/data/poisson_dglm_gibbs", formatParameters).
-    runWith(Sink.head).
-    onComplete { s =>
+  Streaming
+    .writeParallelChain(iters,
+                        2,
+                        10000,
+                        "examples/data/poisson_dglm_gibbs",
+                        formatParameters)
+    .runWith(Sink.head)
+    .onComplete { s =>
       println(s)
       system.terminate()
     }

@@ -14,23 +14,21 @@ import spire.syntax.cfor._
   * @param state the particle cloud representing the posterior state
   * @param params
   */
-case class StorvikState(
-  time:   Double,
-  state:  Vector[DenseVector[Double]],
-  params: Vector[DlmParameters],
-  statsV: Vector[Vector[InverseGamma]],
-  statsW: Vector[Vector[InverseGamma]],
-  ess:    Int)
+case class StorvikState(time: Double,
+                        state: Vector[DenseVector[Double]],
+                        params: Vector[DlmParameters],
+                        statsV: Vector[Vector[InverseGamma]],
+                        statsW: Vector[Vector[InverseGamma]],
+                        ess: Int)
 
 object StorvikFilter {
 
-  def initialiseState[T[_]: Traverse](
-    model: Dglm,
-    p: DlmParameters,
-    ys: T[Data],
-    n: Int,
-    priorV: InverseGamma,
-    priorW: InverseGamma): StorvikState = {
+  def initialiseState[T[_]: Traverse](model: Dglm,
+                                      p: DlmParameters,
+                                      ys: T[Data],
+                                      n: Int,
+                                      priorV: InverseGamma,
+                                      priorW: InverseGamma): StorvikState = {
 
     val x0 = MultivariateGaussian(p.m0, p.c0).sample(n).toVector
     val vStats = Vector.fill(n)(Vector.fill(p.w.cols)(priorV))
@@ -48,60 +46,60 @@ object StorvikFilter {
     * @param x1 the current value of the state particles
     * @return a vector representing the diagonal entries of the system covariance matrix
     */
-  def updateStatsW(
-    dt:    Double,
-    mod:   Dglm,
-    stats: Vector[InverseGamma],
-    x0:    DenseVector[Double],
-    x1:    DenseVector[Double]): Vector[InverseGamma] = {
+  def updateStatsW(dt: Double,
+                   mod: Dglm,
+                   stats: Vector[InverseGamma],
+                   x0: DenseVector[Double],
+                   x1: DenseVector[Double]): Vector[InverseGamma] = {
 
     val diff = (x1 - mod.g(dt) * x0)
     val ss = (diff *:* diff) / dt
     val shapes = stats.map(_.shape + 0.5)
     val scales = (stats zip ss.data) map { case (s, si) => s.scale + 0.5 * si }
 
-    (shapes zip scales) map { case (shape, scale) => InverseGamma(shape, scale) }
+    (shapes zip scales) map {
+      case (shape, scale) => InverseGamma(shape, scale)
+    }
   }
 
-  def drawParams(
-    statsV: Vector[Vector[InverseGamma]],
-    statsW: Vector[Vector[InverseGamma]],
-    p: DlmParameters) = {
+  def drawParams(statsV: Vector[Vector[InverseGamma]],
+                 statsW: Vector[Vector[InverseGamma]],
+                 p: DlmParameters) = {
 
-    (statsV, statsW).
-      zipped.
-      map { case (vs, ws) => p.copy(
-             v = diag(DenseVector(vs.map(g => g.draw).toArray)),
-             w = diag(DenseVector(ws.map(g => g.draw).toArray))
-           )}
+    (statsV, statsW).zipped.map {
+      case (vs, ws) =>
+        p.copy(
+          v = diag(DenseVector(vs.map(g => g.draw).toArray)),
+          w = diag(DenseVector(ws.map(g => g.draw).toArray))
+        )
+    }
   }
 
   /**
     * Update the value of the sufficient statistics for the observation covariance matrix
     */
-  def updateStatsV(
-    time:  Double,
-    mod:   Dglm,
-    stats: Vector[InverseGamma],
-    x: DenseVector[Double],
-    y:   DenseVector[Double]): Vector[InverseGamma] = {
+  def updateStatsV(time: Double,
+                   mod: Dglm,
+                   stats: Vector[InverseGamma],
+                   x: DenseVector[Double],
+                   y: DenseVector[Double]): Vector[InverseGamma] = {
 
     val diff = (y - mod.f(time).t * x)
     val ss = (diff *:* diff)
     val shapes = stats.map(_.shape + 0.5)
     val scales = (stats zip ss.data) map { case (s, si) => s.scale + 0.5 * si }
 
-    (shapes zip scales) map { case (shape, scale) => InverseGamma(shape, scale) }
+    (shapes zip scales) map {
+      case (shape, scale) => InverseGamma(shape, scale)
+    }
   }
 
-  def advanceState(
-    mod: Dglm,
-    dt: Double,
-    ps: Vector[DlmParameters],
-    xs: Vector[DenseVector[Double]]) = {
+  def advanceState(mod: Dglm,
+                   dt: Double,
+                   ps: Vector[DlmParameters],
+                   xs: Vector[DenseVector[Double]]) = {
 
-    (xs zip ps).
-      map { case (x, p) => Dglm.stepState(mod, p)(x, dt).draw }
+    (xs zip ps).map { case (x, p) => Dglm.stepState(mod, p)(x, dt).draw }
   }
 
   def step(mod: Dglm, n0: Int)(s: StorvikState, d: Data): StorvikState = {
@@ -130,42 +128,43 @@ object StorvikFilter {
 
     // resample if the effective sample size is less than n0
     if (ess < n0) {
-      val indices = ParticleFilter.multinomialResample(expWeight.indices.toVector, expWeight)
+      val indices = ParticleFilter.multinomialResample(
+        expWeight.indices.toVector,
+        expWeight)
       val resampledState = indices map (x1(_))
       val resampledParams = indices map (params(_))
       val resampledStatsW = indices map (s.statsW(_))
       val resampledStatsV = indices map (s.statsV(_))
 
-      val statsW = (s.state, resampledState, resampledStatsW).
-        zipped.
-        map { case (x0, x, stats) => updateStatsW(dt, mod, stats, x0, x) }
+      val statsW = (s.state, resampledState, resampledStatsW).zipped.map {
+        case (x0, x, stats) => updateStatsW(dt, mod, stats, x0, x)
+      }
 
-      val statsV = (resampledState, resampledStatsV).
-        zipped.
-        map { case (x, stats) => updateStatsV(d.time, mod, stats, x, y) }
+      val statsV = (resampledState, resampledStatsV).zipped.map {
+        case (x, stats) => updateStatsV(d.time, mod, stats, x, y)
+      }
 
       StorvikState(d.time, resampledState, resampledParams, statsV, statsW, ess)
     } else {
-      val statsW = (s.state, x1, s.statsW).
-        zipped.
-        map { case (x0, x, stats) => updateStatsW(dt, mod, stats, x0, x) }
+      val statsW = (s.state, x1, s.statsW).zipped.map {
+        case (x0, x, stats) => updateStatsW(dt, mod, stats, x0, x)
+      }
 
-      val statsV = (x1, s.statsV).
-        zipped.
-        map { case (x, stats) => updateStatsV(d.time, mod, stats, x, y) }
+      val statsV = (x1, s.statsV).zipped.map {
+        case (x, stats) => updateStatsV(d.time, mod, stats, x, y)
+      }
 
       StorvikState(d.time, x1, params, statsV, statsW, ess)
     }
   }
 
-  def filterArrayTs(
-    model: Dglm,
-    ys: Vector[Data],
-    p: DlmParameters,
-    priorV: InverseGamma,
-    priorW: InverseGamma,
-    n: Int,
-    n0: Int) = {
+  def filterArrayTs(model: Dglm,
+                    ys: Vector[Data],
+                    p: DlmParameters,
+                    priorV: InverseGamma,
+                    priorW: InverseGamma,
+                    n: Int,
+                    n0: Int) = {
 
     val st = Array.ofDim[StorvikState](ys.length + 1)
     st(0) = initialiseState(model, p, ys, n, priorV, priorW)
@@ -177,31 +176,30 @@ object StorvikFilter {
     st
   }
 
-  def filterTs(
-    model: Dglm,
-    ys: Vector[Data],
-    p: DlmParameters,
-    priorV: InverseGamma,
-    priorW: InverseGamma,
-    n: Int,
-    n0: Int): Vector[StorvikState] = {
+  def filterTs(model: Dglm,
+               ys: Vector[Data],
+               p: DlmParameters,
+               priorV: InverseGamma,
+               priorW: InverseGamma,
+               n: Int,
+               n0: Int): Vector[StorvikState] = {
 
     val init = initialiseState(model, p, ys, n, priorV, priorW)
     ys.scanLeft(init)(step(model, n0))
   }
 
-  def calcWeights(
-    mod: Dglm,
-    time: Double,
-    state: Vector[DenseVector[Double]],
-    y: DenseVector[Option[Double]],
-    ps: Vector[DlmParameters]) = {
+  def calcWeights(mod: Dglm,
+                  time: Double,
+                  state: Vector[DenseVector[Double]],
+                  y: DenseVector[Option[Double]],
+                  ps: Vector[DlmParameters]) = {
 
     val fm = KalmanFilter.missingF(mod.f, time, y)
 
-    (state zip ps).map { case (x, p) =>
-      val vm = KalmanFilter.missingV(p.v, y)
-      mod.conditionalLikelihood(vm)(fm.t * x, KalmanFilter.flattenObs(y))
+    (state zip ps).map {
+      case (x, p) =>
+        val vm = KalmanFilter.missingV(p.v, y)
+        mod.conditionalLikelihood(vm)(fm.t * x, KalmanFilter.flattenObs(y))
     }
   }
 }

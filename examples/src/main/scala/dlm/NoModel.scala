@@ -29,7 +29,7 @@ trait NoData {
     .collect {
       case Right(a) =>
         Data(secondsToHours(a._1.toEpochSecond(ZoneOffset.UTC)),
-          DenseVector(Some(a._2)))
+             DenseVector(Some(a._2)))
     }
     .toStream
     .zipWithIndex
@@ -40,12 +40,11 @@ trait NoData {
 
   val testData = Paths.get("examples/data/test_no.csv")
   val testReader = testData.asCsvReader[(LocalDateTime, Double)](rfc.withHeader)
-  val test = testReader
-    .collect {
-      case Right(a) =>
-        Data(secondsToHours(a._1.toEpochSecond(ZoneOffset.UTC)),
-          DenseVector(Some(a._2)))
-    }.toVector
+  val test = testReader.collect {
+    case Right(a) =>
+      Data(secondsToHours(a._1.toEpochSecond(ZoneOffset.UTC)),
+           DenseVector(Some(a._2)))
+  }.toVector
 }
 
 object NoStudentTModel extends App with NoData {
@@ -55,40 +54,50 @@ object NoStudentTModel extends App with NoData {
   val dlm = Dlm.polynomial(1) |+|
     Dlm.seasonal(24, 3) |+| Dlm.seasonal(24 * 7, 3)
   val mod = Dglm.studentT(3, dlm)
-  val params = DlmParameters(
-    DenseMatrix(3.0),
-    diag(DenseVector.fill(13)(0.1)),
-    DenseVector.fill(13)(0.0),
-    diag(DenseVector.fill(13)(100.0)))
+  val params = DlmParameters(DenseMatrix(3.0),
+                             diag(DenseVector.fill(13)(0.1)),
+                             DenseVector.fill(13)(0.0),
+                             diag(DenseVector.fill(13)(100.0)))
 
   val priorW = InverseGamma(3.0, 3.0)
   val priorNu = Poisson(3)
 
   // nu is the mean of the negative binomial proposal (A Gamma mixture of Poissons)
-  val propNu = (size: Double) => (nu: Int) => {
-    val prob = nu / (size + nu)
+  val propNu = (size: Double) =>
+    (nu: Int) => {
+      val prob = nu / (size + nu)
 
-    for {
-      lambda <- Gamma(size, prob / (1 - prob))
-      x <- Poisson(lambda)
-    } yield x + 1
+      for {
+        lambda <- Gamma(size, prob / (1 - prob))
+        x <- Poisson(lambda)
+      } yield x + 1
   }
 
-  val propNuP = (size: Double) => (from: Int, to: Int) => {
-    val r = size
-    val p = from / (r + from)
-    NegativeBinomial(p, r).logProbabilityOf(to)
+  val propNuP = (size: Double) =>
+    (from: Int, to: Int) => {
+      val r = size
+      val p = from / (r + from)
+      NegativeBinomial(p, r).logProbabilityOf(to)
   }
 
   val iters = StudentT
-    .sample(data.toVector, priorW, priorNu, propNu(0.5), propNuP(0.5), mod, params)
+    .sample(data.toVector,
+            priorW,
+            priorNu,
+            propNu(0.5),
+            propNuP(0.5),
+            mod,
+            params)
 
   def formatParameters(s: StudentT.State) =
     s.nu.toDouble :: s.p.toList
 
   Streaming
-    .writeParallelChain(iters, 2, 10000,
-      "examples/data/no_dglm_seasonal_weekly_student_exact", formatParameters)
+    .writeParallelChain(iters,
+                        2,
+                        10000,
+                        "examples/data/no_dglm_seasonal_weekly_student_exact",
+                        formatParameters)
     .runWith(Sink.onComplete(_ => system.terminate()))
 }
 
@@ -96,24 +105,28 @@ object NoGaussianModel extends App with NoData {
   implicit val system = ActorSystem("no-gaussian-gibbs")
   implicit val materializer = ActorMaterializer()
 
-  val dlm = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3) |+| Dlm.seasonal(24 * 7, 3)
-  val params = DlmParameters(
-    DenseMatrix(3.0),
-    diag(DenseVector.fill(13)(0.1)),
-    DenseVector.fill(13)(0.0),
-    diag(DenseVector.fill(13)(100.0)))
+  val dlm = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3) |+| Dlm.seasonal(24 * 7,
+                                                                       3)
+  val params = DlmParameters(DenseMatrix(3.0),
+                             diag(DenseVector.fill(13)(0.1)),
+                             DenseVector.fill(13)(0.0),
+                             diag(DenseVector.fill(13)(100.0)))
 
   val priorW = InverseGamma(3.0, 3.0)
   val priorV = InverseGamma(3.0, 3.0)
 
-  val iters = GibbsSampling.sampleSvd(dlm, priorV, priorW, params, data.toVector)
+  val iters =
+    GibbsSampling.sampleSvd(dlm, priorV, priorW, params, data.toVector)
 
   def formatParameters(s: GibbsSampling.State) =
     s.p.toList
 
   Streaming
-    .writeParallelChain(iters, 2, 10000,
-      "examples/data/no_dlm_seasonal_weekly", formatParameters)
+    .writeParallelChain(iters,
+                        2,
+                        10000,
+                        "examples/data/no_dlm_seasonal_weekly",
+                        formatParameters)
     .runWith(Sink.onComplete(_ => system.terminate()))
 }
 
@@ -124,20 +137,18 @@ object ForecastNoGaussian extends App with NoData {
   val dlm = Dlm.polynomial(1) |+|
     Dlm.seasonal(24, 3) |+| Dlm.seasonal(24 * 7, 3)
 
-  Streaming.
-    readCsv("examples/data/no_dlm_seasonal_weekly_0.csv").
-    drop(1000).
-    map(_.map(_.toDouble).toList).
-    map(DlmParameters.fromList(1, 13)).
-    via(Streaming.meanParameters(1, 13)).
-    map { params =>
-
+  Streaming
+    .readCsv("examples/data/no_dlm_seasonal_weekly_0.csv")
+    .drop(1000)
+    .map(_.map(_.toDouble).toList)
+    .map(DlmParameters.fromList(1, 13))
+    .via(Streaming.meanParameters(1, 13))
+    .map { params =>
       val out = new java.io.File("examples/data/forecast_no_dlm.csv")
       val headers = rfc.withHeader("mean", "lower", "upper")
 
-      val p = params.copy(
-        m0 = DenseVector.zeros[Double](13),
-        c0 = DenseMatrix.eye[Double](13) * 100.0)
+      val p = params.copy(m0 = DenseVector.zeros[Double](13),
+                          c0 = DenseMatrix.eye[Double](13) * 100.0)
 
       val kf = KalmanFilter(KalmanFilter.advanceState(p, dlm.g))
       val initState = kf.initialiseState(dlm, p, data)
@@ -147,15 +158,15 @@ object ForecastNoGaussian extends App with NoData {
 
       val filtered = kf.filter(dlm, test, p)
 
-      val summary = filtered.flatMap(x => (for {
-        f <- x.ft
-        q <- x.qt
-      } yield Dlm.summariseForecast(0.75)(f, q)).
-        map(f => f.flatten.toList))
+      val summary = filtered.flatMap(x =>
+        (for {
+          f <- x.ft
+          q <- x.qt
+        } yield Dlm.summariseForecast(0.75)(f, q)).map(f => f.flatten.toList))
 
       out.writeCsv(summary, headers)
-    }.
-    runWith(Sink.onComplete{ s =>
+    }
+    .runWith(Sink.onComplete { s =>
       println(s)
       system.terminate()
     })
@@ -169,33 +180,33 @@ object ForecastNo extends App with NoData {
     Dlm.seasonal(24, 3) |+| Dlm.seasonal(24 * 7, 3)
   val mod = Dglm.studentT(5, dlm)
 
-  Streaming.
-    readCsv("examples/data/no_dglm_seasonal_weekly_student_exact_0.csv").
-    drop(1000).
-    map(_.map(_.toDouble).toList).
-    map(l => l.tail).
-    map(DlmParameters.fromList(1, 13)).
-    via(Streaming.meanParameters(1, 13)).
-    map { params =>
-
+  Streaming
+    .readCsv("examples/data/no_dglm_seasonal_weekly_student_exact_0.csv")
+    .drop(1000)
+    .map(_.map(_.toDouble).toList)
+    .map(l => l.tail)
+    .map(DlmParameters.fromList(1, 13))
+    .via(Streaming.meanParameters(1, 13))
+    .map { params =>
       val out = new java.io.File("examples/data/forecast_no.csv")
       val headers = rfc.withHeader("time", "mean", "lower", "upper")
 
-      val p = params.copy(
-        m0 = DenseVector.zeros[Double](13),
-        c0 = DenseMatrix.eye[Double](13) * 100.0)
+      val p = params.copy(m0 = DenseVector.zeros[Double](13),
+                          c0 = DenseMatrix.eye[Double](13) * 100.0)
       val n = 1000
-      val pf = ParticleFilter(n, math.floor(n/5).toInt,
+      val pf = ParticleFilter(n,
+                              math.floor(n / 5).toInt,
                               ParticleFilter.multinomialResample)
       val initState = pf.initialiseState(mod, p, data)
       val lastState = data.foldLeft(initState)(pf.step(mod, p)).state
-      val fcst = Dglm.forecastParticles(mod, lastState, p, test).
-        map { case (t, x, f) => (t, Dglm.meanAndIntervals(0.975)(f)) }.
-        map { case (t, (f, l, u)) => (t, f(0), l(0), u(0)) }
+      val fcst = Dglm
+        .forecastParticles(mod, lastState, p, test)
+        .map { case (t, x, f) => (t, Dglm.meanAndIntervals(0.975)(f)) }
+        .map { case (t, (f, l, u)) => (t, f(0), l(0), u(0)) }
 
       out.writeCsv(fcst, headers)
-    }.
-    runWith(Sink.onComplete{ s =>
+    }
+    .runWith(Sink.onComplete { s =>
       println(s)
       system.terminate()
     })

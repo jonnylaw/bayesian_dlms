@@ -10,25 +10,25 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
   // simulate data
   val p = SvParameters(0.8, 1.0, 0.2)
   val model = Dlm.autoregressive(p.phi)
-  val sims = StochasticVolatility.simulate(p).
-    steps.
-    take(1000).
-    toVector.
-    map { case (t, y, a) => Data(t, DenseVector(y)) }
+  val sims = StochasticVolatility.simulate(p).steps.take(1000).toVector.map {
+    case (t, y, a) => Data(t, DenseVector(y))
+  }
 
   val mod = Dlm.polynomial(2)
-  val firstOrderParams = DlmParameters(
-    DenseMatrix.eye[Double](1),
-    DenseMatrix.eye[Double](2) * 2.0,
-    DenseVector.zeros[Double](2),
-    DenseMatrix.eye[Double](2) * 10.0)
+  val firstOrderParams = DlmParameters(DenseMatrix.eye[Double](1),
+                                       DenseMatrix.eye[Double](2) * 2.0,
+                                       DenseVector.zeros[Double](2),
+                                       DenseMatrix.eye[Double](2) * 10.0)
 
-  val firstOrderSims = Dlm.simulateRegular(mod, firstOrderParams, 1.0).
-    steps.take(2).
-    toVector.
-    map(_._1)
+  val firstOrderSims = Dlm
+    .simulateRegular(mod, firstOrderParams, 1.0)
+    .steps
+    .take(2)
+    .toVector
+    .map(_._1)
 
-  val sampledState = Smoothing.ffbsDlm(mod, firstOrderSims, firstOrderParams).draw
+  val sampledState =
+    Smoothing.ffbsDlm(mod, firstOrderSims, firstOrderParams).draw
 
   test("extract state should be inverse to combine states") {
     val extracted = for {
@@ -40,8 +40,10 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
 
     assert(combined.map(_.sample) === sampledState.map(_.sample))
     assert(combined.map(_.time) === sampledState.map(_.time))
-    assert(combined.map(x => diag(x.cov)) === sampledState.map(x => diag(x.cov)))
-    assert(combined.map(x => diag(x.rt1)) === sampledState.map(x => diag(x.rt1)))
+    assert(
+      combined.map(x => diag(x.cov)) === sampledState.map(x => diag(x.cov)))
+    assert(
+      combined.map(x => diag(x.rt1)) === sampledState.map(x => diag(x.rt1)))
   }
 
   implicit def seqEq(implicit tol: Double) =
@@ -70,18 +72,22 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
   import StochasticVolatilityKnots._
 
   val params = DlmParameters(1.0, 0.8, 0.0, 1.0)
-  val arsims = Dlm.simulateRegular(model, params, 1.0).
-    steps.
-    take(1000).
-    map(_._1).
-    map(d => (d.time, d.observation(0))).
-    toVector
+  val arsims = Dlm
+    .simulateRegular(model, params, 1.0)
+    .steps
+    .take(1000)
+    .map(_._1)
+    .map(d => (d.time, d.observation(0)))
+    .toVector
   val alphas = FilterAr.ffbs(p, arsims, Vector.fill(arsims.size)(1.0)).draw
 
   val knots = sampleKnots(10, 100, arsims.size).draw
 
-  val sampledAr = sampleState(
-    ffbsAr, filterAr, sampleAr)(arsims, p, knots, alphas.toArray).toVector
+  val sampledAr = sampleState(ffbsAr, filterAr, sampleAr)(
+    arsims,
+    p,
+    knots,
+    alphas.toArray).toVector
 
   test("Knots should remain unchanged in a single sample") {
     // extract the knots
@@ -110,8 +116,11 @@ class StochVolTest extends FunSuite with Matchers with BreezeGenerators {
     assert(sampledAr.head !== alphas.head)
   }
 
-  val sampledArFold = sampleStateFold(
-    ffbsAr, filterAr, sampleAr)(arsims, p, knots, alphas.toArray).toVector
+  val sampledArFold = sampleStateFold(ffbsAr, filterAr, sampleAr)(
+    arsims,
+    p,
+    knots,
+    alphas.toArray).toVector
 
   // test("Folded state is the same length as initial state") {
   //   assert(sampledArFold.size === alphas.size)

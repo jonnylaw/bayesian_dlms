@@ -8,14 +8,13 @@ class ParticleGibbsTest extends FunSuite with Matchers with BreezeGenerators {
 
   // simulate data
   val mod = Dglm.poisson(Dlm.polynomial(1))
-  val params = DlmParameters(
-    DenseMatrix(2.0),
-    DenseMatrix(0.05),
-    DenseVector(0.0),
-    DenseMatrix(1.0))
+  val params = DlmParameters(DenseMatrix(2.0),
+                             DenseMatrix(0.05),
+                             DenseVector(0.0),
+                             DenseMatrix(1.0))
 
-  val data = Dglm.simulateRegular(mod, params, 1.0).
-    steps.take(10).toVector.map(_._1)
+  val data =
+    Dglm.simulateRegular(mod, params, 1.0).steps.take(10).toVector.map(_._1)
   val n = 200
   val pf = ParticleGibbs(n)
 

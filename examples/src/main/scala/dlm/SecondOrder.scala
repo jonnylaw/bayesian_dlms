@@ -46,10 +46,7 @@ object SimulateSecondOrderDlm extends App with Dlm {
   writer.close()
 }
 
-object FilterSecondOrderDlm
-    extends App
-    with Dlm
-    with SimulatedSecondOrderData {
+object FilterSecondOrderDlm extends App with Dlm with SimulatedSecondOrderData {
 
   val filtered = SvdFilter.filterDlm(mod, data, p)
 
@@ -69,10 +66,7 @@ object FilterSecondOrderDlm
   out.writeCsv(filtered.map(formatFiltered), headers)
 }
 
-object SmoothSecondOrderDlm
-    extends App
-    with Dlm
-    with SimulatedSecondOrderData {
+object SmoothSecondOrderDlm extends App with Dlm with SimulatedSecondOrderData {
 
   val filtered = KalmanFilter.filterDlm(mod, data, p)
   val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
@@ -86,10 +80,7 @@ object SmoothSecondOrderDlm
                rfc.withHeader("time", "smoothed_mean", "smoothed_variance"))
 }
 
-object GibbsSecondOrder
-    extends App
-    with Dlm
-    with SimulatedSecondOrderData {
+object GibbsSecondOrder extends App with Dlm with SimulatedSecondOrderData {
   val priorV = InverseGamma(4.0, 9.0)
   val priorW = InverseGamma(3.0, 8.0)
 

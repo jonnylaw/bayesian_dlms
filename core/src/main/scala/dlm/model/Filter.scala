@@ -48,10 +48,8 @@ trait FilterTs[S, P, M] {
     * Perform the Filter using a cfor loop to be used in the Gibbs Sampler
     * @param
     */
-  def filterArray(
-    model:    M,
-    ys:       Vector[Data],
-    p:        P)(implicit ct: ClassTag[S]): Array[S] = {
+  def filterArray(model: M, ys: Vector[Data], p: P)(
+      implicit ct: ClassTag[S]): Array[S] = {
 
     val st = Array.ofDim[S](ys.length + 1)
     st(0) = initialiseState(model, p, ys)
@@ -69,7 +67,9 @@ object FilterTs {
   /**
     * Traverse with state, like a scan left but for any traversable, does not include the initialial state
     */
-  def scanLeft[T[_]: Traverse, A, B](xs: T[A], zero: B, f: (B, A) => B): T[B] = {
+  def scanLeft[T[_]: Traverse, A, B](xs: T[A],
+                                     zero: B,
+                                     f: (B, A) => B): T[B] = {
     def run(a: A): cats.data.State[B, B] =
       for {
         prev <- cats.data.State.get[B]
@@ -83,5 +83,6 @@ object FilterTs {
   /**
     * https://tech-blog.capital-match.com/posts/5-the-reverse-state-monad.html
     */
-  def scanRight[T[_]: Traverse, A, B](xs: T[A], zero: B, f: (B, A) => B): T[B] = ???
+  def scanRight[T[_]: Traverse, A, B](xs: T[A], zero: B, f: (B, A) => B): T[B] =
+    ???
 }

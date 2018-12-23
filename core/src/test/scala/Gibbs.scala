@@ -7,7 +7,4 @@ class GibbsTest
     extends PropSpec
     with GeneratorDrivenPropertyChecks
     with Matchers
-    with BreezeGenerators {
-
-  
-}
+    with BreezeGenerators {}

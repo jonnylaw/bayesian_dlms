@@ -9,13 +9,13 @@ import cats.implicits._
   * TODO: Check this
   */
 object SvdSampler {
+
   /**
     * Perform a single step in the backward sampler using the SVD
     */
-  def step(
-    mod:   Dlm,
-    sqrtW: DenseMatrix[Double])
-    (st: SvdState, ss: SamplingState): SamplingState = {
+  def step(mod: Dlm, sqrtW: DenseMatrix[Double])(
+      st: SvdState,
+      ss: SamplingState): SamplingState = {
 
     val dt = ss.time - st.time
     val dcInv = st.dc.map(1.0 / _)
@@ -28,8 +28,12 @@ object SvdSampler {
     val du = diag(dh) * uh.t
     val h = st.mt + du.t * du * gWinv * (ss.sample - ss.at1)
 
-    SamplingState(st.time, rnorm(h, dh, uh).draw, h,
-      uh * du, st.at, st.ur * diag(st.dr) * st.ur.t)
+    SamplingState(st.time,
+                  rnorm(h, dh, uh).draw,
+                  h,
+                  uh * du,
+                  st.at,
+                  st.ur * diag(st.dr) * st.ur.t)
   }
 
   def initialise(filtered: Array[SvdState]) = {
@@ -48,10 +52,9 @@ object SvdSampler {
     * @param w the square root of the system error matrix
     * @return
     */
-  def sample(
-    mod: Dlm,
-    st:  Vector[SvdState],
-    sqrtW:   DenseMatrix[Double]): Vector[SamplingState] = {
+  def sample(mod: Dlm,
+             st: Vector[SvdState],
+             sqrtW: DenseMatrix[Double]): Vector[SamplingState] = {
 
     val init = initialise(st.toArray)
     st.init.scanRight(init)(step(mod, sqrtW))
@@ -61,11 +64,10 @@ object SvdSampler {
     * Perform forward filtering backward sampling using
     * the SVD of the covariance matrix
     */
-  def ffbs(
-    mod: Dlm,
-    ys:  Vector[Data],
-    p:   DlmParameters,
-    advState: (SvdState, Double) => SvdState) = {
+  def ffbs(mod: Dlm,
+           ys: Vector[Data],
+           p: DlmParameters,
+           advState: (SvdState, Double) => SvdState) = {
 
     val ps = SvdFilter.transformParams(p)
     val filtered = SvdFilter(advState).filterDecomp(mod, ys, ps)
@@ -75,10 +77,7 @@ object SvdSampler {
   /**
     * Perform FFBS for a DLM using the SVD
     */
-  def ffbsDlm(
-    mod: Dlm,
-    ys:  Vector[Data],
-    p:   DlmParameters) = {
+  def ffbsDlm(mod: Dlm, ys: Vector[Data], p: DlmParameters) = {
 
     ffbs(mod, ys, p, SvdFilter.advanceState(p, mod.g))
   }
@@ -90,13 +89,12 @@ object SvdSampler {
     * @param d the square root of the diagonal in the SVD of the
     * Error covariance matrix C_t
     * @param u the right vectors of the SVDfilter
-    * @return a DenseVector sampled from the Multivariate Normal 
+    * @return a DenseVector sampled from the Multivariate Normal
     * distribution with mean mu and covariance u d^2 u^T
     */
-  def rnorm(
-    mu: DenseVector[Double],
-    d: DenseVector[Double],
-    u: DenseMatrix[Double]) = new Rand[DenseVector[Double]] {
+  def rnorm(mu: DenseVector[Double],
+            d: DenseVector[Double],
+            u: DenseMatrix[Double]) = new Rand[DenseVector[Double]] {
 
     def draw = {
       val z = DenseVector.rand(mu.size, Gaussian(0, 1))

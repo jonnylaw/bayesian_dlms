@@ -11,11 +11,10 @@ import scala.language.higherKinds
 /**
   * State of the Bootstrap Particle Filter
   */
-case class PfState(
-  time:    Double,
-  state:   Vector[DenseVector[Double]],
-  weights: Vector[Double],
-  ll:      Double)
+case class PfState(time: Double,
+                   state: Vector[DenseVector[Double]],
+                   weights: Vector[Double],
+                   ll: Double)
 
 /**
   * A bootstrap particle filter which can be used for inference of
@@ -24,12 +23,11 @@ case class PfState(
   * @param n the number of particles used in the filter
   * @param n0 if ESS < n0 then resample
   */
-case class ParticleFilter(
-  n: Int,
-  n0: Int,
-  resample: (
-    Vector[DenseVector[Double]],
-    Vector[Double]) => Vector[DenseVector[Double]])
+case class ParticleFilter(n: Int,
+                          n0: Int,
+                          resample: (
+                              Vector[DenseVector[Double]],
+                              Vector[Double]) => Vector[DenseVector[Double]])
     extends FilterTs[PfState, DlmParameters, Dglm] {
 
   import ParticleFilter._
@@ -37,10 +35,7 @@ case class ParticleFilter(
   /**
     * A single step of the Bootstrap Particle Filter
     */
-  def step(
-    mod: Dglm,
-    p:   DlmParameters)
-    (s: PfState, d: Data): PfState = {
+  def step(mod: Dglm, p: DlmParameters)(s: PfState, d: Data): PfState = {
 
     val y = KalmanFilter.flattenObs(d.observation)
     val dt = d.time - s.time
@@ -65,28 +60,23 @@ case class ParticleFilter(
     }
   }
 
-  def initialiseState[T[_]: Traverse](
-    model: Dglm,
-    p: DlmParameters,
-    ys: T[Data]): PfState = {
+  def initialiseState[T[_]: Traverse](model: Dglm,
+                                      p: DlmParameters,
+                                      ys: T[Data]): PfState = {
 
-    val initState = MultivariateGaussian(p.m0, p.c0).
-      sample(n).toVector
-    val t0 = ys.map(_.time).
-      reduceLeftOption((t0, d) => math.min(t0, d))
+    val initState = MultivariateGaussian(p.m0, p.c0).sample(n).toVector
+    val t0 = ys.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
     PfState(t0.get, initState, Vector.fill(n)(1.0 / n), 0.0)
   }
 }
 
 object ParticleFilter {
+
   /**
     * Run a Bootstrap Particle Filter over a DGLM to calculate the log-likelihood
     */
-  def likelihood[T[_]: Traverse](
-    mod: Dglm,
-    ys: T[Data],
-    n: Int)
-    (p: DlmParameters): Double = {
+  def likelihood[T[_]: Traverse](mod: Dglm, ys: T[Data], n: Int)(
+      p: DlmParameters): Double = {
 
     val n0 = math.floor(n / 5).toInt
     val filter = ParticleFilter(n, n0, multinomialResample)
@@ -101,21 +91,19 @@ object ParticleFilter {
     * distribution of the state at time - 1
     * @return a distribution over a collection of particles at this time
     */
-  def advanceState[T[_]: Traverse](
-    dt:    Double,
-    state: T[DenseVector[Double]],
-    model: Dglm,
-    p:     DlmParameters) = {
+  def advanceState[T[_]: Traverse](dt: Double,
+                                   state: T[DenseVector[Double]],
+                                   model: Dglm,
+                                   p: DlmParameters) = {
 
     state traverse (x => Dglm.stepState(model, p)(x, dt))
   }
 
-  def calcWeight(
-    mod:  Dglm,
-    time: Double,
-    x:    DenseVector[Double],
-    y:    DenseVector[Option[Double]],
-    p:    DlmParameters) = {
+  def calcWeight(mod: Dglm,
+                 time: Double,
+                 x: DenseVector[Double],
+                 y: DenseVector[Option[Double]],
+                 p: DlmParameters) = {
 
     val fm = KalmanFilter.missingF(mod.f, time, y)
     val vm = KalmanFilter.missingV(p.v, y)
@@ -134,12 +122,11 @@ object ParticleFilter {
     * observation given a value of the state, p(y_t | F_t x_t)
     * @return a collection of weights corresponding to each particle
     */
-  def calcWeights[F[_]: Functor](
-    mod:   Dglm,
-    time:  Double,
-    state: F[DenseVector[Double]],
-    y:     DenseVector[Option[Double]],
-    p:     DlmParameters) = {
+  def calcWeights[F[_]: Functor](mod: Dglm,
+                                 time: Double,
+                                 state: F[DenseVector[Double]],
+                                 y: DenseVector[Option[Double]],
+                                 p: DlmParameters) = {
 
     state.map(x => calcWeight(mod, time, x, y, p))
   }
@@ -150,7 +137,8 @@ object ParticleFilter {
     * @param weights the conditional likelihood of each particle given the observation
     * @return a random sample from a Multinomial distribution with probabilities equal to the weights
     */
-  def multinomialResample[A](particles: Vector[A], weights: Vector[Double]): Vector[A] = {
+  def multinomialResample[A](particles: Vector[A],
+                             weights: Vector[Double]): Vector[A] = {
 
     val indices =
       Multinomial(DenseVector(weights.toArray)).sample(particles.size).toVector
@@ -168,7 +156,8 @@ object ParticleFilter {
     * @param b the number of iterations
     * @param w a vector of normalised weights
     */
-  def metropolisResampling[A](b: Int)(x: Vector[A], w: Vector[Double]): Vector[A] = {
+  def metropolisResampling[A](b: Int)(x: Vector[A],
+                                      w: Vector[Double]): Vector[A] = {
     val n = w.size
 
     def loop(b: Int, k: Int): Int = {
@@ -176,11 +165,11 @@ object ParticleFilter {
         k
       } else {
         val u = Uniform(0, 1).draw
-        val j = discreteUniform(0, n-1).draw
-        if (u <= w(j)/w(k)) {
-          loop(b-1, j)
+        val j = discreteUniform(0, n - 1).draw
+        if (u <= w(j) / w(k)) {
+          loop(b - 1, j)
         } else {
-          loop(b-1, k)
+          loop(b - 1, k)
         }
       }
     }
@@ -214,14 +203,15 @@ object ParticleFilter {
   def systematicResample(w: Seq[Double]) = {
     val cumSum = w.scanLeft(0.0)(_ + _)
 
-    val uk = w.zipWithIndex map { case (_, i) => scala.util.Random.nextDouble + i / w.size }
+    val uk = w.zipWithIndex map {
+      case (_, i) => scala.util.Random.nextDouble + i / w.size
+    }
 
     uk flatMap (u => {
-      cumSum.
-        zipWithIndex.
-        filter { case (wn, index) => wn < u }.
-        map { case (_, i) => i - 1}.
-        take(1)
+      cumSum.zipWithIndex
+        .filter { case (wn, index) => wn < u }
+        .map { case (_, i) => i - 1 }
+        .take(1)
     })
   }
 }

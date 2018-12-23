@@ -148,7 +148,8 @@ class SvdFilterTest extends FunSuite with Matchers with BreezeGenerators {
     } assert(filteredTest(i).mt === (filterSvdTest(i).mt))
   }
 
-  val covs = filterSvdTest.map(s => (diag(s.dc) * s.uc.t).t * (diag(s.dc) * s.uc.t))
+  val covs =
+    filterSvdTest.map(s => (diag(s.dc) * s.uc.t).t * (diag(s.dc) * s.uc.t))
   test("svd filter covariances should the same values as the Kalman Filter") {
     for {
       i <- 0 until data.size
@@ -173,8 +174,8 @@ class SvdSamplerTest extends FlatSpec with Matchers with BreezeGenerators {
 
   "Svd Sampler" should "produce the same size state as smoothing sampler" in {
     val sampled = Smoothing.ffbsDlm(model, data, p).draw
-    val svdSampled = SvdSampler.ffbs(model, data, p,
-      SvdFilter.advanceState(p, model.g)).draw
+    val svdSampled =
+      SvdSampler.ffbs(model, data, p, SvdFilter.advanceState(p, model.g)).draw
 
     assert(sampled.map(_.sample.size).sum === svdSampled.map(_.sample.size).sum)
     sampled.map(_.time) should contain allElementsOf svdSampled.map(_.time)

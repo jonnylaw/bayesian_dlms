@@ -9,26 +9,24 @@ import cats.implicits._
   * @param kfState the latent-state
   * @param variance the distribution of the observation precision
   */
-case class InverseGammaState(
-  kfState:   KfState,
-  variance:  Vector[InverseGamma])
+case class InverseGammaState(kfState: KfState, variance: Vector[InverseGamma])
 
 /**
   * Calculate an one-dimensional unknown observation variance
   */
 case class ConjugateFilter(
-  prior: InverseGamma,
-  advState: (InverseGammaState, Double) => InverseGammaState)
+    prior: InverseGamma,
+    advState: (InverseGammaState, Double) => InverseGammaState)
     extends FilterTs[InverseGammaState, DlmParameters, Dlm] {
 
-  def initialiseState[T[_]: Traverse](
-    model: Dlm,
-    p: DlmParameters,
-    ys: T[Data]): InverseGammaState = {
+  def initialiseState[T[_]: Traverse](model: Dlm,
+                                      p: DlmParameters,
+                                      ys: T[Data]): InverseGammaState = {
 
     val t0 = ys.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
     val p0 = Vector.fill(p.v.cols)(prior)
-    InverseGammaState(KfState(t0.get - 1.0, p.m0, p.c0, p.m0, p.c0, None, None, 0.0), p0)
+    InverseGammaState(KfState(t0.get - 1.0, p.m0, p.c0, p.m0, p.c0, None, None),
+                      p0)
   }
 
   def diagonal(m: DenseMatrix[Double]): Vector[Double] = {
@@ -37,11 +35,10 @@ case class ConjugateFilter(
     } yield m(i, i)
   }
 
-  def updateStats(
-    prior: Vector[InverseGamma],
-    qt:    DenseMatrix[Double],
-    e:     DenseVector[Double],
-    v:     DenseMatrix[Double]): Vector[InverseGamma] = {
+  def updateStats(prior: Vector[InverseGamma],
+                  qt: DenseMatrix[Double],
+                  e: DenseVector[Double],
+                  v: DenseMatrix[Double]): Vector[InverseGamma] = {
 
     val shapes = prior map (_.shape + 1)
     val scales = diag(DenseVector(prior.map(_.scale).toArray)) + qt.t \ (v * (e * e.t))
@@ -53,10 +50,8 @@ case class ConjugateFilter(
     diag(DenseVector(vs.map(_.mean).toArray))
   }
 
-  def step(
-    mod: Dlm,
-    p: DlmParameters)
-    (s: InverseGammaState, d: Data): InverseGammaState = {
+  def step(mod: Dlm, p: DlmParameters)(s: InverseGammaState,
+                                       d: Data): InverseGammaState = {
 
     // calculate the time difference
     val dt = d.time - s.kfState.time
@@ -86,14 +81,21 @@ case class ConjugateFilter(
     val covariance = (i - k * f.t) * st.kfState.rt * (i - k * f.t).t + k * v * k.t
 
     // update the marginal likelihood
-    val newll = s.kfState.ll + KalmanFilter.conditionalLikelihood(ft, qt, y)
     val m = st.kfState.mt + k * e
 
-    InverseGammaState(KfState(d.time, m, covariance, st.kfState.at, st.kfState.rt,  Some(ft), Some(qt), newll), vs)
+    InverseGammaState(KfState(d.time,
+                              m,
+                              covariance,
+                              st.kfState.at,
+                              st.kfState.rt,
+                              Some(ft),
+                              Some(qt)),
+                      vs)
   }
 }
 
 object ConjugateFilter {
+
   /**
     * Advance the state mean and variance to the a-priori
     * value of the state at time t
@@ -102,14 +104,10 @@ object ConjugateFilter {
     * @param dt the time increment
     * @return the a-priori mean and covariance of the state at time t
     */
-  def advanceState(
-    p: DlmParameters,
-    g: Double => DenseMatrix[Double])
-    (s:  InverseGammaState,
-     dt: Double) = {
+  def advanceState(p: DlmParameters, g: Double => DenseMatrix[Double])(
+      s: InverseGammaState,
+      dt: Double) = {
 
     s.copy(kfState = KalmanFilter.advanceState(p, g)(s.kfState, dt))
   }
 }
-
-
