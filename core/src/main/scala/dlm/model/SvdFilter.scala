@@ -1,90 +1,47 @@
-package core.dlm.model
+package dlm.core.model
 
 import breeze.linalg.{DenseVector, DenseMatrix, diag, svd}
+import cats.Traverse
+import cats.implicits._
+
+case class SvdState(time: Double,
+                    mt: DenseVector[Double],
+                    dc: DenseVector[Double],
+                    uc: DenseMatrix[Double],
+                    at: DenseVector[Double],
+                    dr: DenseVector[Double],
+                    ur: DenseMatrix[Double],
+                    ft: DenseVector[Double])
 
 /**
   * Perform the Kalman Filter by updating the value of the Singular Value Decomp.
   * of the state covariance matrix, C = UDU^T
+  *
   * https://arxiv.org/pdf/1611.03686.pdf
   */
-object SvdFilter {
-  case class State(
-    time: Double,
-    mt:   DenseVector[Double],
-    dc:   DenseVector[Double],
-    uc:   DenseMatrix[Double],
-    at:   DenseVector[Double],
-    dr:   DenseVector[Double],
-    ur:   DenseMatrix[Double],
-    ft:   DenseVector[Double]
-  )
+case class SvdFilter(advState: (SvdState, Double) => SvdState)
+    extends FilterTs[SvdState, DlmParameters, Dlm] {
+  import SvdFilter._
 
-  def makeDMatrix(
-    m: Int,
-    n: Int,
-    d: DenseVector[Double]) = {
-
-    DenseMatrix.tabulate(m, n){ case (i, j) =>
-      if (i == j) d(i) else 0.0 }
-  }
-
-  /**
-    * Perform the time update by advancing the mean and covariance to the time
-    * of the next observation
-    * @param g the system evolution matrix
-    * @param dt the time difference between observations
-    * @param mt the posterior mean at the previous time
-    * @param dc the diagonal matrix containing the singular values (eigen values)
-    * of the posterior covariance matrix at the previous time
-    * @param uc the unitary matrix containing the eigen vectors of the posterior
-    * covariance matrix at the previous time step
-    * @return
-    */
-  def advanceState(
-    g:     Double => DenseMatrix[Double],
-    dt:    Double,
-    mt:    DenseVector[Double],
-    dc:    DenseVector[Double],
-    uc:    DenseMatrix[Double],
-    p:     Dlm.Parameters
-  ) = {
-    
-    if (dt == 0) {
-      (mt, dc, uc)
-    } else {
-      val at = g(dt) * mt
-      val rt = DenseMatrix.vertcat(diag(dc) * uc.t * g(dt).t, p.w *:* math.sqrt(dt))
-      val root = svd(rt)
-      val ur = root.rightVectors.t
-      val dr = root.singularValues
-
-      (at, dr, ur)
-    }
-  }
-
-  def oneStepForecast(
-    f:    Double => DenseMatrix[Double],
-    at:   DenseVector[Double],
-    time: Double) = {
+  def oneStepForecast(f: Double => DenseMatrix[Double],
+                      at: DenseVector[Double],
+                      time: Double) = {
 
     f(time).t * at
   }
 
-  def oneStepMissing(
-    fm: DenseMatrix[Double],
-    at: DenseVector[Double]) = {
+  def oneStepMissing(fm: DenseMatrix[Double], at: DenseVector[Double]) = {
 
     fm.t * at
   }
 
-  def updateState(
-    at:       DenseVector[Double],
-    dr:       DenseVector[Double],
-    ur:       DenseMatrix[Double],
-    p:        Dlm.Parameters,
-    f:        Double => DenseMatrix[Double],
-    d:        Dlm.Data
-  ) = {
+  def updateState(at: DenseVector[Double],
+                  dr: DenseVector[Double],
+                  ur: DenseMatrix[Double],
+                  p: DlmParameters,
+                  f: Double => DenseMatrix[Double],
+                  d: Data) = {
+
     val yt = KalmanFilter.flattenObs(d.observation)
 
     if (yt.data.isEmpty) {
@@ -110,39 +67,142 @@ object SvdFilter {
     }
   }
 
-  def step(
-    mod:      Dlm.Model,
-    p:        Dlm.Parameters
-  )(s: State, y: Dlm.Data) = {
+  def step(mod: Dlm, p: DlmParameters)(s: SvdState, y: Data) = {
 
     val dt = y.time - s.time
-    val (at, dr, ur) = advanceState(mod.g, dt, s.mt, s.dc, s.uc, p)
-    val ft = oneStepForecast(mod.f, at, y.time) // could add Qt here
-    val (mt, dc, uc) = updateState(at, dr, ur, p, mod.f, y)
+    val st = advState(s, dt)
+    val ft = oneStepForecast(mod.f, st.at, y.time) // could add Qt here
+    val (mt, dc, uc) = updateState(st.at, st.dr, st.ur, p, mod.f, y)
 
-    State(y.time, mt, dc, uc, at, dr, ur, ft)
+    SvdState(y.time, mt, dc, uc, st.at, st.dr, st.ur, ft)
   }
 
   /**
     * Initialise the state of the SVD Filter
     */
-  def initialiseState(
-    mod: Dlm.Model,
-    p:   Dlm.Parameters,
-    ys:  Vector[Dlm.Data]) = {
+  def initialiseState[T[_]: Traverse](mod: Dlm,
+                                      p: DlmParameters,
+                                      ys: T[Data]) = {
 
-    val root = svd(p.c0)
-    val t0 = ys.head.time
+    val root = svd(p.c0) // this is diagonal
+    val t0 = ys.map(_.time).reduceLeftOption((t0, d) => math.min(t0, d))
     val dc0 = root.singularValues.map(math.sqrt)
     val uc0 = root.rightVectors.t
-    val (at, dr, ur) = advanceState(mod.g, 0.0, p.m0, dc0, uc0, p)
-    val ft = oneStepForecast(mod.f, at, t0)
 
-    State(t0 - 1, p.m0, dc0, uc0, at, dr, ur, ft)
+    val ft = oneStepForecast(mod.f, p.m0, t0.get)
+
+    SvdState(t0.get - 1, p.m0, dc0, uc0, p.m0, dc0, uc0, ft)
   }
 
   /**
-    * Calculate the square root inverse of a matrix using the Eigenvalue
+    * Perform the SVD Filter on a traversable collection
+    */
+  override def filterTraverse[T[_]: Traverse](model: Dlm,
+                                              ys: T[Data],
+                                              p: DlmParameters): T[SvdState] = {
+
+    val ps = transformParams(p)
+    val init = initialiseState(model, ps, ys)
+    FilterTs.scanLeft(ys, init, step(model, ps))
+  }
+
+  /**
+    * Perform the SVD Filter on a traversable collection
+    */
+  override def filter(model: Dlm,
+                      ys: Vector[Data],
+                      p: DlmParameters): Vector[SvdState] = {
+
+    val ps = transformParams(p)
+    val init = initialiseState(model, ps, ys)
+    ys.scanLeft(init)(step(model, ps))
+  }
+
+  /**
+    * Perform the Kalman filter using the decomposition of the DLM parameters
+    * using a general traversable collection
+    * @param model
+    */
+  def filterDecompT[T[_]: Traverse](model: Dlm,
+                                    ys: T[Data],
+                                    p: DlmParameters): T[SvdState] = {
+
+    val init = initialiseState(model, p, ys)
+    FilterTs.scanLeft(ys, init, step(model, p))
+  }
+
+  def filterDecomp(model: Dlm,
+                   ys: Vector[Data],
+                   p: DlmParameters): Vector[SvdState] = {
+
+    val init = initialiseState(model, p, ys)
+    ys.scanLeft(init)(step(model, p))
+  }
+}
+
+object SvdFilter {
+
+  /**
+    * Transform the svd matrix into the original matrix
+    */
+  def toMatrix(root: svd.SVD[DenseVector[Double], DenseMatrix[Double]]) = {
+    val u = root.rightVectors.t
+    val d = root.singularValues
+
+    u * diag(d) * u.t
+  }
+
+  /**
+    * Filter a DLM using the SVD Filter
+    */
+  def filterDlm[T[_]: Traverse](mod: Dlm, ys: T[Data], p: DlmParameters) = {
+
+    SvdFilter(advanceState(p, mod.g)).filterTraverse(mod, ys, p)
+  }
+
+  /**
+    * Perform the time update by advancing the mean and covariance to the time
+    * of the next observation
+    * @param g the system evolution matrix
+    * @param dt the time difference between observations
+    * @param mt the posterior mean at the previous time
+    * @param dc the diagonal matrix containing the singular values (eigen values)
+    * of the posterior covariance matrix at the previous time
+    * @param uc the unitary matrix containing the eigen vectors of the posterior
+    * covariance matrix at the previous time step
+    * @return
+    */
+  def advanceState(p: DlmParameters, g: Double => DenseMatrix[Double])(
+      s: SvdState,
+      dt: Double) = {
+
+    val (at, dr, ur) = SvdFilter.advState(g, dt, s.mt, s.dc, s.uc, p.w)
+    s.copy(at = at, dr = dr, ur = ur)
+  }
+
+  def advState(g: Double => DenseMatrix[Double],
+               dt: Double,
+               mt: DenseVector[Double],
+               dc: DenseVector[Double],
+               uc: DenseMatrix[Double],
+               w: DenseMatrix[Double]) = {
+
+    if (dt == 0) {
+      (mt, dc, uc)
+    } else {
+      val at = g(dt) * mt
+      val rt =
+        DenseMatrix.vertcat(diag(dc) * uc.t * g(dt).t, w *:* math.sqrt(dt))
+      val root = svd(rt)
+      val ur = root.rightVectors.t
+      val dr = root.singularValues
+
+      (at, dr, ur)
+    }
+  }
+
+  /**
+    * Calculate the square root inverse of a matrix using the Singular value
     * decomposition of a matrix
     * @param m a symmetric positive definite matrix
     * @return the square root inverse of the matrix
@@ -166,18 +226,46 @@ object SvdFilter {
     diag(root.singularValues.map(math.sqrt)) * root.rightVectors.t
   }
 
-  def filter(
-    mod: Dlm.Model,
-    ys:  Vector[Dlm.Data],
-    p:   Dlm.Parameters) = {
-
-    // calculate roots of covariance matrices and update the parameters
+  /**
+    * Calculate the roots of the observation and noise matrices
+    */
+  def transformParams(p: DlmParameters): DlmParameters = {
     val sqrtVinv = sqrtInvSvd(p.v)
     val sqrtW = sqrtSvd(p.w)
-    val params = p.copy(v = sqrtVinv, w = sqrtW)
-    val init = initialiseState(mod, params, ys)
+    p.copy(v = sqrtVinv, w = sqrtW)
+  }
 
-    ys.scanLeft(init)(step(mod, params))
+  def makeDMatrix(m: Int, n: Int, d: DenseVector[Double]) = {
+
+    DenseMatrix.tabulate(m, n) {
+      case (i, j) =>
+        if (i == j) d(i) else 0.0
+    }
+  }
+
+  /**
+    * Advance the state mean and variance to the a-priori
+    * value of the state at time t
+    * @param st the kalman filter state
+    * @param dt the time difference between observations (1.0)
+    * @param p the parameters of the SV Model
+    * @return the a-priori mean and covariance of the state at time t
+    */
+  def advanceStateArSvd(p: SvParameters)(st: SvdState, dt: Double): SvdState = {
+
+    if (dt == 0) {
+      st
+    } else {
+      val identity = DenseMatrix.eye[Double](st.mt.size)
+      val g = identity * p.phi
+      val sqrtW = identity * p.sigmaEta
+      val rt = DenseMatrix.vertcat(diag(st.dc) * st.uc.t * g.t,
+                                   sqrtW *:* math.sqrt(dt))
+      val root = svd(rt)
+
+      st.copy(at = st.mt map (m => p.mu + p.phi * (m - p.mu)),
+              dr = root.singularValues,
+              ur = root.rightVectors.t)
+    }
   }
 }
-

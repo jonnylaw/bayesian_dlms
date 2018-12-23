@@ -1,8 +1,8 @@
 lazy val commonSettings = Seq(
-  scalaVersion := "2.12.6",
+  scalaVersion := "2.12.7",
   name := "bayesian_dlms",
   organization := "com.github.jonnylaw",
-  version := "0.3.2",
+  version := "0.4.1",
   scalacOptions ++= Seq(
     "-encoding", "UTF-8",   // source files are in UTF-8
     "-deprecation",         // warn about use of deprecated APIs
@@ -37,6 +37,8 @@ lazy val commonSettings = Seq(
   }
 )
 
+// scalafmtOnCompile in ThisBuild := true
+
 lazy val core = (project in file("core"))
   .settings(
     commonSettings,
@@ -44,7 +46,11 @@ lazy val core = (project in file("core"))
       "org.scalanlp"        %% "breeze"             % "0.13.2",
       "org.scalanlp"        %% "breeze-natives"     % "0.13.2",
       "com.nrinaudo"        %% "kantan.csv-cats"    % "0.4.0",
-      "org.typelevel"       %% "cats-core"          % "1.0.1",
+      "com.nrinaudo"        %% "kantan.csv-java8"   % "0.4.0",
+      "com.nrinaudo"        %% "kantan.csv-generic" % "0.4.0",
+      "org.typelevel"       %% "cats-core"          % "1.5.0",
+      "org.typelevel"       %% "cats-testkit"       % "1.5.0",
+      "com.typesafe.akka"   %% "akka-stream"        % "2.5.9",
       "org.scalatest"       %% "scalatest"          % "3.0.5"  % "test",
       "org.scalacheck"      %% "scalacheck"         % "1.13.4" % "test"
     ),
@@ -57,4 +63,22 @@ lazy val core = (project in file("core"))
 lazy val benchmark = project
   .dependsOn(core)
   .enablePlugins(JmhPlugin)
+
+lazy val plot = project
+  .settings(
+    resolvers += Resolver.bintrayRepo("cibotech", "public"),
+    libraryDependencies ++= Seq(
+      "org.scalanlp" %% "breeze"   % "0.13.2",
+      "com.cibo"     %% "evilplot" % "0.3.2"
+    )
+  )
+
+lazy val examples = project.
+  settings(
+    libraryDependencies ++= Seq(
+      "com.stripe" %% "rainier-core" % "0.1.3",
+      "com.stripe" %% "rainier-cats" % "0.1.3"
+    )
+  )
+  .dependsOn(core, plot)
 

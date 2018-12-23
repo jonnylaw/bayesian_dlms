@@ -1,4 +1,4 @@
-package core.dlm.model
+package dlm.core.model
 
 import breeze.stats.distributions._
 import breeze.linalg._
@@ -10,16 +10,17 @@ import breeze.linalg._
   * @param v the variance of the columns
   */
 case class MatrixNormal(
-  mu: DenseMatrix[Double], 
-  u: DenseMatrix[Double],
-  v: DenseMatrix[Double]
-)(implicit rand: RandBasis = Rand) extends ContinuousDistr[DenseMatrix[Double]] {
+    mu: DenseMatrix[Double],
+    u: DenseMatrix[Double],
+    v: DenseMatrix[Double]
+)(implicit rand: RandBasis = Rand)
+    extends ContinuousDistr[DenseMatrix[Double]] {
 
   private val rootRow = cholesky(u)
   private val rootCol = cholesky(v)
 
   /**
-    * Draw from a matrix normal distribution using the cholesky decomposition 
+    * Draw from a matrix normal distribution using the cholesky decomposition
     * of the row and column covariance matrices
     */
   def draw = {

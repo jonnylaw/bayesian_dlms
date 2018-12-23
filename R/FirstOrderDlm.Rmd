@@ -219,3 +219,23 @@ p3 = ggs_density(chain) +
 
 p1 / p2 / p3
 ```
+
+```{r first-order-hmc}
+iters = read_csv("../examples/data/fodlm_hmc.csv")
+
+chain = mcmc(gibbs_iters[seq(1, nrow(gibbs_iters), by = 10),]) %>%
+  ggs()
+
+p1 = chain %>%
+  inner_join(actual_values) %>%
+  ggplot(aes(x = Iteration, y = value)) +
+  geom_line() +
+  geom_hline(aes(yintercept = actual_value), colour = "#ff0000", linetype = "dashed")
+
+p2 = ggs_autocorrelation(chain)
+
+p3 = ggs_density(chain) +
+  geom_vline(data = actual_values, aes(xintercept = actual_value), colour = "#ff0000")
+
+p1 / p2 / p3
+```

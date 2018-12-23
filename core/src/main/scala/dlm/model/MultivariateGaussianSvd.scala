@@ -1,4 +1,4 @@
-package core.dlm.model
+package dlm.core.model
 
 import breeze.stats.distributions._
 import math.{sqrt, Pi}
@@ -6,13 +6,14 @@ import breeze.numerics.log
 import breeze.linalg._
 
 case class MultivariateGaussianSvd(
-  mu:  DenseVector[Double], 
-  cov: DenseMatrix[Double])(implicit rand: RandBasis = Rand) extends ContinuousDistr[DenseVector[Double]] {
+    mu: DenseVector[Double],
+    cov: DenseMatrix[Double])(implicit rand: RandBasis = Rand)
+    extends ContinuousDistr[DenseVector[Double]] {
 
   private val root = eigSym(cov)
 
   /**
-    * Draw from a multivariate gaussian using eigen decomposition which 
+    * Draw from a multivariate gaussian using eigen decomposition which
     * is often more stable than using the cholesky decomposition
     */
   def draw = {

@@ -50,13 +50,14 @@ val data = Dlm.simulateRegular(0, mod, p, 1.0).
 The figure below shows simulated values from the Second Order DLM with parameters, $(V, W, \textbf{m}_0, C_0) = (3.0, \operatorname{diag}(2.0, 1.0), (0.0, 0.0), \operatorname{diag}(100.0, 100.0))$
 
 ```{r second-order-simulated, message=FALSE, echo=FALSE}
-data = read_csv("../core/data/second_order_dlm.csv")
+data = read_csv("../examples/data/second_order_dlm.csv")
 
 data %>%
-  filter(time < 10) %>%
+  filter(time < 100) %>%
   gather(key, value, -time) %>%
   ggplot(aes(x = time, y = value, colour = key)) +
   geom_line() +
+  facet_wrap(~key, scales = "free", ncol = 1, strip.position = "right") +
   theme(legend.position = "bottom")
 ```
 
@@ -69,7 +70,7 @@ val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
 ```
 
 ```{r filtering, message=FALSE, echo=FALSE, fig.cap="Filtered State of the second order model, with 90% probability intervals"}
-filtered = read_csv("../core/data/second_order_dlm_filtered.csv")
+filtered = read_csv("../examples/data/second_order_dlm_filtered.csv")
 
 filtered %>%
   inner_join(data, by = "time") %>%
@@ -99,7 +100,7 @@ val iters = GibbsSampling.sample(
 ```
 
 ```{r gibbs_sampling_second_order}
-gibbs_iters = read_csv("../core/data/second_order_dlm_gibbs.csv")
+gibbs_iters = read_csv("../examples/data/second_order_dlm_gibbs.csv")
 
 actual_values = tibble(
   Parameter = c("V", "W1", "W2"),

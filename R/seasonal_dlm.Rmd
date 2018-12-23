@@ -74,7 +74,7 @@ val sims = Dlm.simulateRegular(0, mod, p, 1.0).
 ```
 
 ```{r simulated-seasonal}
-sims = read_csv("../core/data/seasonal_dlm.csv")
+sims = read_csv("../examples/data/seasonal_dlm.csv")
 
 sims %>%
   ggplot(aes(x = time, y = observation)) +
@@ -106,7 +106,7 @@ val filtered = KalmanFilter.filter(mod, sims.map(_._1), p)
 ```
 
 ```{r filtered-seasonal}
-filtered = read_csv("../core/data/seasonal_filtered.csv")
+filtered = read_csv("../examples/data/seasonal_filtered.csv")
 
 filtered %>%
   inner_join(sims, by = "time") %>%
@@ -132,7 +132,7 @@ val smoothed = Smoothing.backwardsSmoother(mod)(filtered)
 ```
 
 ```{r smoothed-seasonal}
-smoothed = read_csv("../core/data/seasonal_smoothed.csv")
+smoothed = read_csv("../examples/data/seasonal_smoothed.csv")
 
 smoothed %>%
   filter(time < 500) %>%
@@ -172,7 +172,7 @@ val iters = GibbsSampling.sample(
 The diagnostic plots are below:
 
 ```{r seasonal-v-diagnostics}
-iters = read_csv("../core/data/seasonal_dlm_gibbs.csv")
+iters = read_csv("../examples/data/seasonal_dlm_gibbs.csv")
 
 params = ggs(mcmc(iters))
 
@@ -218,7 +218,7 @@ import kantan.csv._
 import kantan.csv.ops._
 import breeze.stats.mean
 
-val mcmcChain = Paths.get("core/data/seasonal_dlm_gibbs.csv")
+val mcmcChain = Paths.get("examples/data/seasonal_dlm_gibbs.csv")
 val read = mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
 
 val params: List[Double] = read.    
@@ -252,7 +252,7 @@ val forecast = Dlm.forecast(mod, mt, ct, initTime, meanParameters).
 The mean of the forecast and 99% prediction intervals are below:
 
 ```{r forecast_seasonal_dlm, echo=FALSE, message=FALSE, warning=FALSE}
-forecast = read_csv("../core/data/seasonal_model_forecast.csv")
+forecast = read_csv("../examples/data/seasonal_model_forecast.csv")
 
 forecast %>%
   mutate(upper = qnorm(p = 0.995, mean = forecast, sd = sqrt(variance)),

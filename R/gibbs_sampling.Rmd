@@ -22,7 +22,7 @@ First consider the observation variance matrix, this matrix is diagonal and henc
 
 $$p(V) = \textrm{InverseGamma}(\alpha, \beta)$$
 
-The likelihood of $y_t$ is Gaussian, with mean $F^T \textbf{x}_t$ and variance $V$. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. The posterior distribution of the observation variance is:
+The likelihood of $y_t$ is Gaussian, with mean $F^T \textbf{x}_t$ and variance $V$. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. The full conditional distribution of the observation variance is:
 
 $$\begin{align*}
 p(V | y_{1:T}, \textbf{x}_{0:T}) &\propto  p(x_0) p(V) \prod_{t=1}^Tp(y_t | V, x_t) p(x_t|x_{t-1}) \\
@@ -30,7 +30,7 @@ p(V | y_{1:T}, \textbf{x}_{0:T}) &\propto  p(x_0) p(V) \prod_{t=1}^Tp(y_t | V, x
 &= V^{-(\alpha + T/2) - 1} \exp \left\{ -\frac{1}{V}\left(\beta + \frac{1}{2}\sum_{t=1}^T(y_t - F_t \textbf{x}_t)^2\right) \right\}
 \end{align*}$$
 
-The the posterior distribution of the observation variance is the Inverse Gamma distribution:
+We recognise the full conditional distribution of the observation variance as the Inverse Gamma distribution:
 
 $$p(V | y_{1:T}, \textbf{x}_{1:T}) = \textrm{InverseGamma}\left(\alpha + \frac{T}{2}, \beta + \frac{1}{2}\sum_{i=1}^T(y_t - F_t\textbf{x}_t)^2\right).$$
 
