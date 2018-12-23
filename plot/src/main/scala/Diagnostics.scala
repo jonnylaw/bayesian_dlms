@@ -6,6 +6,7 @@ import com.cibo.evilplot.numeric.Point
 import breeze.stats.mean
 
 object Diagnostics {
+
   /**
     * Calculate the autocorrelation of a sequence of data for a given lag
     * @param xs a time series of Doubles
@@ -15,9 +16,9 @@ object Diagnostics {
   def acf(xs: Vector[Double], lag: Int): Double = {
     val average = mean(xs)
     val n = xs.size
-    val laggedSum = (xs.take(n-lag) zip xs.drop(lag)).
-      map { case (x, xl) => (x - average) * (xl - average) }.
-      sum
+    val laggedSum = (xs.take(n - lag) zip xs.drop(lag)).map {
+      case (x, xl) => (x - average) * (xl - average)
+    }.sum
     val centeredSum = xs.map(x => x - average).sum
 
     laggedSum / centeredSum
@@ -35,7 +36,7 @@ object Diagnostics {
   }
 
   /**
-    * 
+    *
     */
   def autocorrelations(xs: Vector[Vector[Double]]): Plot = {
     Facets(Vector(xs.transpose.map(autocorrelation)))

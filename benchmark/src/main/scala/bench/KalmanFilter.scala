@@ -17,11 +17,8 @@ object ArrayFilterBenchmark {
       c0 = diag(DenseVector(1.0))
     )
 
-    val data = Dlm.simulateRegular(model, p, 1.0).
-        steps.
-        take(10).
-        toVector.
-        map(_._1)
+    val data =
+      Dlm.simulateRegular(model, p, 1.0).steps.take(10).toVector.map(_._1)
 
     val ys = data.map(d => (d.time, d.observation(0)))
   }

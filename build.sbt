@@ -1,5 +1,5 @@
 lazy val commonSettings = Seq(
-  scalaVersion := "2.12.6",
+  scalaVersion := "2.12.7",
   name := "bayesian_dlms",
   organization := "com.github.jonnylaw",
   version := "0.4.1",
