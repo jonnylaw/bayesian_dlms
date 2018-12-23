@@ -55,7 +55,7 @@ Dlm.Model(
 The figure below shows a plot of 100 simulations 
 
 ```{r first-order-simulated}
-data = read_csv("../core/data/first_order_dlm.csv")
+data = read_csv("../examples/data/first_order_dlm.csv")
 
 data %>%
   gather(key, value, -time) %>%
@@ -83,7 +83,7 @@ val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
 ```
 
 ```{r first-order-filtered}
-filtered = read_csv("../core/data/first_order_dlm_filtered.csv")
+filtered = read_csv("../examples/data/first_order_dlm_filtered.csv")
 
 filtered %>%
   inner_join(data, by = "time") %>%
@@ -127,7 +127,7 @@ H_t &= C_t - C_t G^T_{t + 1} R_{t+1}^{-1} (R_{t+1} - S_{t+1})R_{t+1}^{-1} G_{t +
 $$
 
 ```{r first-order-smoothed}
-smoothed = read_csv("../core/data/first_order_dlm_smoothed.csv")
+smoothed = read_csv("../examples/data/first_order_dlm_smoothed.csv")
 
 smoothed %>%
   inner_join(data, by = "time") %>%
@@ -148,8 +148,8 @@ smoothed %>%
 The FFBS algorithm is used to sample from the full conditional $p(X_{0:T}|y_{1:T}, \psi)$. The figure below shows the mean and credible intervals for the sampled state using the FFBS algorithm:
 
 ```{r svd-sampled}
-svd_sampled = read_csv("../core/data/first_order_state_svd_sample.csv")
-sampled = read_csv("../core/data/first_order_state_sample.csv")
+svd_sampled = read_csv("../examples/data/first_order_state_svd_sample.csv")
+sampled = read_csv("../examples/data/first_order_state_sample.csv")
 
 p1 = sampled %>%
   inner_join(data, by = "time") %>%
@@ -198,7 +198,7 @@ actual_values = tibble(
 ```
 
 ```{r first-order-gibbs}
-gibbs_iters = read_csv("../core/data/first_order_dlm_gibbs.csv")
+gibbs_iters = read_csv("../examples/data/first_order_dlm_gibbs.csv")
 
 chain = mcmc(gibbs_iters[seq(1, nrow(gibbs_iters), by = 10),]) %>%
   ggs() %>%

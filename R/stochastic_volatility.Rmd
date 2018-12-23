@@ -1,0 +1,43 @@
+---
+title: "Stochastic Volatility"
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(patchwork)
+library(ggmcmc)
+library(coda)
+library(latex2exp)
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
+theme_set(theme_minimal())
+```
+
+Stochastic volatility models are a class of models for non-stationary time series data. The log of the variance of the series is assumed to evolve according to a latent Gaussian process. The equation below shows a univariate stochastic volatility model with an AR(1) latent state:
+
+\begin{align*}
+Y_t &= \varepsilon_t\exp(\alpha_t/2), &\varepsilon_t &\sim \mathcal{N}(0, 1), \\
+\alpha_t &= \mu + \phi(\alpha_{t-1} - \mu) + \eta_t, &\eta_t &\sim \mathcal{N}(0, \sigma_\eta^2).\numberthis \label{eq:usv-spec}
+\end{align*}
+
+$Y_t$, $t = 1,\dots,T$ are discrete observations of a time series process. The latent state represents the log-volatility and $\alpha_t$ follows an AR(1) process with mean $\mu$.
+
+Figure~\ref{fig:sv-simulation} shows a simulation from this model with fixed
+values of the parameters, $\phi = 0.8, \mu = 1, \sigma_\eta = 0.1$, the initial
+state of the log-volatility is the stationary solution of the AR(1) process:
+$\alpha_0 \sim \mathcal{N}\left(\mu, \frac{\sigma_\eta^2}{1 - \phi^2}\right)$.
+
+```{r}
+sims = read_csv("~/git/bayesian_dlms/examples/data/sv_sims.csv")
+
+sims %>%
+  filter(time < 1000) %>%
+  gather(key, value, -time) %>%
+  ggplot(aes(x = time, y = value)) +
+  geom_line() +
+  facet_wrap(~key, ncol = 1, scales = "free_y") +
+  labs(title = TeX(string = "$\\phi = 0.8$, $\\mu = 2$, $\\sigma_{\\eta} = 0.3$"))
+```
+
+
+## Parameter Inference
+

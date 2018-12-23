@@ -6,7 +6,10 @@ navbar:
     - text: "Home"
       href: index.html
     - text: "Model Building"
-      href: model_building_simulation.html
+      - text: "DLMs and DGLMs"
+      - href: model_building_simulation.html
+      - text: "Stochastic Volatility"
+      - href: stochastic_volatility.html
     - text: "Filtering"
       menu:
       - text: "Kalman Filter"

@@ -42,7 +42,7 @@ val data = Dlm.simulateRegular(0, mod, p, 1.0).
 The figure below shows a plot of 100 simulations:
 
 ```{r ar1-simulated}
-data = read_csv("../core/data/ar_dlm.csv")
+data = read_csv("../examples/data/ar_dlm.csv")
 
 data %>%
   gather(key, value, -time) %>%
@@ -62,7 +62,7 @@ val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
 ```
 
 ```{r ar1-filtered}
-filtered= read_csv("../core/data/ar_dlm_filtered.csv")
+filtered= read_csv("../examples/data/ar_dlm_filtered.csv")
 
 filtered %>%
   mutate(lower = qnorm(p = 0.005, mean = state_mean, sd = sqrt(state_variance)),
@@ -151,7 +151,7 @@ actual_params = tibble(
 The figure below shows the posterior distributions of the static parameters in the autoregressive DLM. 10,000 iterations are discarded as burnin and 100,000 samples are taken from the Markov Chain.
 
 ```{r ar1-parameter-diagnostics}
-chain = read_csv("../core/data/ar_dlm_gibbs.csv", col_names = c("Phi", "V", "W"), skip = 10000)
+chain = read_csv("../examples/data/ar_dlm_gibbs.csv", col_names = c("Phi", "V", "W"), skip = 10000)
 
 params = chain %>%
   add_column(Iteration = 1:nrow(chain)) %>%
