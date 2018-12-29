@@ -29,7 +29,7 @@ $\alpha_0 \sim \mathcal{N}\left(\mu, \frac{\sigma_\eta^2}{1 - \phi^2}\right)$.
 
 To define this model in Scala and simulate observations, first import the required libraries and use the method simulate which initialises a Breeze `MarkovChain` object with the initial state equivalent to the stationary solution of the AR(1) process. 
  
-```tut
+```tut:silent
 import com.github.jonnylaw.dlm._
 import cats.implicits._
 val p = SvParameters(phi = 0.8, mu = 2.0, sigmaEta = 0.3)
@@ -53,7 +53,7 @@ sims %>%
 
 To determine the posterior distribution of the parameters specify the prior distributions of the parameters:
 
-```tut
+```tut:silent
 import breeze.stats.distributions.Gaussian
 val priorPhi = Gaussian(0.8, 0.1)
 val priorMu = Gaussian(2.0, 1.0)
@@ -65,7 +65,7 @@ There are two inference algorithms defined for the stochastic volatility model, 
 y1. Likelihood Analysis of Non-Gaussian Measurement Time Series: http://www.jstor.org/stable/2337586
 2. Stochastic volatility: likelihood inference and comparison with ARCH models: https://faculty.mccombs.utexas.edu/carlos.carvalho/teaching/KSB98-SV.pdf
 
-```tut
+```tut:silent
 val iters1 = StochasticVolatilityKnots.sampleParametersAr(priorPhi,
                                                            priorMu,
                                                            priorSigma,

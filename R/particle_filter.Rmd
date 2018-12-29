@@ -42,7 +42,7 @@ Repeat the mean loop until $t = T$.
 
 To apply the particle filter to a model using this library, specify either a DGLM or a DLM model. Consider a poisson model
 
-```tut
+```tut:silent
 import com.github.jonnylaw.dlm._
 import breeze.linalg.{DenseMatrix, DenseVector}
 val mod = Dglm.poisson(Dlm.polynomial(1))
@@ -72,7 +72,7 @@ ggplot() +
 
 Then the bootstrap particle filter can be user to determine the latent-state of the partially observed inhomogeneous Poisson process:
 
-```tut
+```tut:silent
 val n = 500
 val filtered = ParticleFilter(n, n, ParticleFilter.metropolisResampling(10)).filter(mod, sims, params)
 ```

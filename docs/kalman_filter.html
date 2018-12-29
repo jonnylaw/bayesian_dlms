@@ -493,16 +493,7 @@ x_0 &amp;\sim \mathcal{N}(m_0, C_0).
 <h2>Filter Stability</h2>
 <p>Numerical stability is important when implementing the Kalman Filter. One way of improving the stability of the filter is to use a square root filter, a further improvement is found by using the Singular Value Decomposition as detailed in <a href="https://arxiv.org/abs/1611.03686" class="uri">https://arxiv.org/abs/1611.03686</a>.</p>
 <p>In order to run Singular Value Decomposition filter use:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> filtered = SvdFilter.<span class="fu">filterDlm</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)</code></pre></div>
-</div>
-<div id="other-filters" class="section level2">
-<h2>Other Filters</h2>
-<ul>
-<li>Particle Filter</li>
-<li>Auxiliary Particle Filter</li>
-<li>Particle Gibbs</li>
-<li>Particle Gibbs with Ancestor Resampling</li>
-</ul>
+<p>```scala val filtered = SvdFilter.filterDlm(mod, data.map(_._1), p)</p>
 </div>
 
 

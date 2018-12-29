@@ -26,7 +26,7 @@ We can joint posterior distribution of the parameters and latent-state, $p(\psi_
 The online filters will be demonstrated for a first order polynomial DLM, with
 $V = 2, W = 3$, plotted in the figure below.
 
-```tut
+```tut:silent
 import com.github.jonnylaw.dlm._
 import breeze.linalg.{DenseMatrix, DenseVector}
 
@@ -62,7 +62,7 @@ first_order %>%
 
 The Conjugate filter is an exact filter, which augments the Kalman Filter to learn the observation variance using a conjugate update of the Gamma distribution.
 
-```tut
+```tut:silent
 val prior = InverseGamma(3.0, 4.0)
 val filtered = ConjugateFilter(prior, ConjugateFilter.advanceState(p, mod.g)).filter(mod, data, p)
 ```
@@ -95,7 +95,7 @@ p1 / p2
 
 The Liu and West filter can be used for general state space models:
 
-```tut
+```tut:silent
 val n = 500
 val n0 = 500
 // smoothing parameter for the mixture of gaussians, equal to (3 delta - 1) / 2 delta
@@ -135,7 +135,7 @@ liu_and_west %>%
 
 The Rao-Blackwell filter marginalises the Gaussian part of the DLM in order to perform filtering using the Kalman filter conditional on sampled values of the static parameters. Parameter distributions at each time point are approximated by a weighted particle cloud. A Kalman filter is performed for conditional on the value of each particle. Thereby determining the join posterior of the parameters and latent state.
 
-```tut
+```tut:silent
 // smoothing parameter for the mixture of gaussians
 val delta = 0.99
 val a = (3 * delta - 1) / 2 * delta
@@ -181,7 +181,7 @@ p1 / p2
 
 Using conjugate updating for $V$ and $W$:
 
-```tut
+```tut:silent
 val priorV = InverseGamma(3.0, 4.0)
 val priorW = InverseGamma(3.0, 10.0)
 

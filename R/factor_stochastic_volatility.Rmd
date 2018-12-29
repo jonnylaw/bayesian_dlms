@@ -36,7 +36,7 @@ $$\begin{align}
 
 To define the factor stochastic volatility model, define the parmeters of the model and simulate using the parameters:
 
-```tut
+```tut:silent
 import com.github.jonnylaw.dlm._
 import breeze.linalg.DenseMatrix
 
@@ -69,7 +69,7 @@ sims %>%
 
 Gibbs sampling is used to perform inference for the parameter posterior distribution. First the prior distributions of the parameters can be specified, they must be from the same family as the distributions below, since the posterior distributions in Gibbs sampling are conditionally conjugate:
 
-```tut
+```tut:silent
 import breeze.stats.distributions._
 
 val priorBeta = Gaussian(0.0, 1.0)
@@ -81,7 +81,7 @@ val priorSigma = InverseGamma(10, 2.0)
 
 Then performing Gibbs sampling for the FSV model using the simulated data, `sims`:
 
-```tut
+```tut:silent
 val iters = FactorSv.sampleAr(priorBeta,
             priorSigmaEta,
             priorMu,

@@ -453,137 +453,42 @@ $(document).ready(function () {
 &amp;= \beta^T\exp\left\{\alpha_t\right\}\beta + V
 \end{align}\]</span></p>
 <p>To define the factor stochastic volatility model, define the parmeters of the model and simulate using the parameters:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
-&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
-                                      ^
-<span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
-
-scala&gt; <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
-&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
-                                      ^
-&lt;console&gt;:<span class="dv">15</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
-                            ^
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
 <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
 
-scala&gt; <span class="kw">val</span> beta = <span class="fu">DenseMatrix</span>((<span class="fl">1.0</span>, <span class="fl">0.0</span>),
-     |                        (<span class="fl">0.3</span>, <span class="fl">1.0</span>),
-     |                        (<span class="fl">0.07</span>, <span class="fl">0.25</span>),
-     |                        (<span class="fl">0.23</span>, <span class="fl">0.23</span>),
-     |                        (<span class="fl">0.4</span>, <span class="fl">0.25</span>),
-     |                        (<span class="fl">0.2</span>, <span class="fl">0.23</span>))
-&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
-                                      ^
-beta: breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>[Double] =
-<span class="fl">1.0</span>   <span class="fl">0.0</span>
-<span class="fl">0.3</span>   <span class="fl">1.0</span>
-<span class="fl">0.07</span>  <span class="fl">0.25</span>
-<span class="fl">0.23</span>  <span class="fl">0.23</span>
-<span class="fl">0.4</span>   <span class="fl">0.25</span>
-<span class="fl">0.2</span>   <span class="fl">0.23</span>
+<span class="kw">val</span> beta = <span class="fu">DenseMatrix</span>((<span class="fl">1.0</span>, <span class="fl">0.0</span>),
+                       (<span class="fl">0.3</span>, <span class="fl">1.0</span>),
+                       (<span class="fl">0.07</span>, <span class="fl">0.25</span>),
+                       (<span class="fl">0.23</span>, <span class="fl">0.23</span>),
+                       (<span class="fl">0.4</span>, <span class="fl">0.25</span>),
+                       (<span class="fl">0.2</span>, <span class="fl">0.23</span>))
 
-scala&gt; <span class="kw">val</span> params = <span class="fu">FsvParameters</span>(
-     |   v = DenseMatrix.<span class="fu">eye</span>[Double](<span class="dv">6</span>) * <span class="fl">0.1</span>,
-     |   beta,
-     |   Vector.<span class="fu">fill</span>(<span class="dv">2</span>)(<span class="fu">SvParameters</span>(<span class="fl">0.8</span>, <span class="fl">2.0</span>, <span class="fl">0.3</span>))
-     | )
-params: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">FsvParameters</span> =
-<span class="fu">FsvParameters</span>(<span class="fl">0.1</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.1</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.1</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.1</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.1</span>  <span class="fl">0.0</span>
-<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.1</span>  ,<span class="fl">1.0</span>   <span class="fl">0.0</span>
-<span class="fl">0.3</span>   <span class="fl">1.0</span>
-<span class="fl">0.07</span>  <span class="fl">0.25</span>
-<span class="fl">0.23</span>  <span class="fl">0.23</span>
-<span class="fl">0.4</span>   <span class="fl">0.25</span>
-<span class="fl">0.2</span>   <span class="fl">0.23</span>  ,Vector(<span class="fu">SvParameters</span>(<span class="fl">0.8</span>,<span class="fl">2.0</span>,<span class="fl">0.3</span>), <span class="fu">SvParameters</span>(<span class="fl">0.8</span>,<span class="fl">2.0</span>,<span class="fl">0.3</span>)))
-
-scala&gt; <span class="kw">val</span> sims = FactorSv.<span class="fu">simulate</span>(params).<span class="fu">steps</span>.<span class="fu">take</span>(<span class="dv">1000</span>)
-&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
-                            ^
-sims: Iterator[(com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Data</span>, scala.<span class="fu">collection</span>.<span class="fu">immutable</span>.<span class="fu">Vector</span>[Double], scala.<span class="fu">collection</span>.<span class="fu">immutable</span>.<span class="fu">Vector</span>[Double])] = &lt;iterator&gt;</code></pre></div>
+<span class="kw">val</span> params = <span class="fu">FsvParameters</span>(
+  v = DenseMatrix.<span class="fu">eye</span>[Double](<span class="dv">6</span>) * <span class="fl">0.1</span>,
+  beta,
+  Vector.<span class="fu">fill</span>(<span class="dv">2</span>)(<span class="fu">SvParameters</span>(<span class="fl">0.8</span>, <span class="fl">2.0</span>, <span class="fl">0.3</span>))
+)
+<span class="kw">val</span> sims = FactorSv.<span class="fu">simulate</span>(params).<span class="fu">steps</span>.<span class="fu">take</span>(<span class="dv">1000</span>)</code></pre></div>
 <p><img src="factor_stochastic_volatility_files/figure-html/fsv-sims-1.png" width="672" /></p>
 </div>
 <div id="parameter-inference" class="section level2">
 <h2>Parameter Inference</h2>
 <p>Gibbs sampling is used to perform inference for the parameter posterior distribution. First the prior distributions of the parameters can be specified, they must be from the same family as the distributions below, since the posterior distributions in Gibbs sampling are conditionally conjugate:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
-&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
-                                      ^
-&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
-                            ^
-&lt;console&gt;:<span class="dv">16</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
-                                         ^
-<span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
 
-scala&gt; <span class="kw">val</span> priorBeta = <span class="fu">Gaussian</span>(<span class="fl">0.0</span>, <span class="fl">1.0</span>)
-&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
-                                      ^
-&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
-                            ^
-priorBeta: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Gaussian</span> = <span class="fu">Gaussian</span>(<span class="fl">0.0</span>, <span class="fl">1.0</span>)
-
-scala&gt; <span class="kw">val</span> priorSigmaEta = <span class="fu">InverseGamma</span>(<span class="dv">2</span>, <span class="fl">2.0</span>)
-&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
-                            ^
-&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
-                                         ^
-priorSigmaEta: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">InverseGamma</span> = <span class="fu">InverseGamma</span>(<span class="fl">2.0</span>,<span class="fl">2.0</span>)
-
-scala&gt; <span class="kw">val</span> priorPhi = <span class="fu">Gaussian</span>(<span class="fl">0.8</span>, <span class="fl">0.1</span>)
-&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
-                                      ^
-&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
-                            ^
-priorPhi: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Gaussian</span> = <span class="fu">Gaussian</span>(<span class="fl">0.8</span>, <span class="fl">0.1</span>)
-
-scala&gt; <span class="kw">val</span> priorMu = <span class="fu">Gaussian</span>(<span class="fl">2.0</span>, <span class="fl">1.0</span>)
-&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
-                                      ^
-&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
-                            ^
-priorMu: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Gaussian</span> = <span class="fu">Gaussian</span>(<span class="fl">2.0</span>, <span class="fl">1.0</span>)
-
-scala&gt; <span class="kw">val</span> priorSigma = <span class="fu">InverseGamma</span>(<span class="dv">10</span>, <span class="fl">2.0</span>)
-&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
-                            ^
-&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
-                                         ^
-priorSigma: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">InverseGamma</span> = <span class="fu">InverseGamma</span>(<span class="fl">10.0</span>,<span class="fl">2.0</span>)</code></pre></div>
+<span class="kw">val</span> priorBeta = <span class="fu">Gaussian</span>(<span class="fl">0.0</span>, <span class="fl">1.0</span>)
+<span class="kw">val</span> priorSigmaEta = <span class="fu">InverseGamma</span>(<span class="dv">2</span>, <span class="fl">2.0</span>)
+<span class="kw">val</span> priorPhi = <span class="fu">Gaussian</span>(<span class="fl">0.8</span>, <span class="fl">0.1</span>)
+<span class="kw">val</span> priorMu = <span class="fu">Gaussian</span>(<span class="fl">2.0</span>, <span class="fl">1.0</span>)
+<span class="kw">val</span> priorSigma = <span class="fu">InverseGamma</span>(<span class="dv">10</span>, <span class="fl">2.0</span>)</code></pre></div>
 <p>Then performing Gibbs sampling for the FSV model using the simulated data, <code>sims</code>:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">val</span> iters = FactorSv.<span class="fu">sampleAr</span>(priorBeta,
-     |             priorSigmaEta,
-     |             priorMu,
-     |             priorPhi,
-     |             priorSigma,
-     |             sims.<span class="fu">toVector</span>.<span class="fu">map</span>(_._<span class="dv">1</span>),
-     |             params)
-&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
-                            ^
-&lt;console&gt;:<span class="dv">16</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
-                                         ^
-iters: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Process</span>[com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">FactorSv</span>.<span class="fu">State</span>] = breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">MarkovChain</span>$$anon$<span class="dv">1</span>@6fbac0da</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = FactorSv.<span class="fu">sampleAr</span>(priorBeta,
+            priorSigmaEta,
+            priorMu,
+            priorPhi,
+            priorSigma,
+            sims.<span class="fu">toVector</span>.<span class="fu">map</span>(_._<span class="dv">1</span>),
+            params)</code></pre></div>
 <p>The figure below shows the diagnostics from 100,000 iterations of the MCMC with the first 10,000 iterations dropped for burn-in and every 20th iteration selected.</p>
 <p><img src="factor_stochastic_volatility_files/figure-html/fsv-diagnostics-latent-state-1.png" width="672" /></p>
 <table>

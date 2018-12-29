@@ -175,7 +175,7 @@ Y_t &= x_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
 
 The Figure below shows a simulation from the OU process DLM with observation variance $V = 0.5$, $\phi = 0.2$, $\mu = 1.0$ and $\sigma = 0.3$. To simulate the OU process DLM, define parameters of the OU process and use the transition kernel defined in the `StochasticVolatility` class. The observation distribution is Gaussian with variance $V = 0.5$. Since this process can be simulated at arbitrary time points, a vector of random times is simulated by defining the difference between the observations to be `deltas`. Then the state, $\alpha_0$ is initialised at the stationary solution of the OU process and a scan is used to simulate the data.
 
-```tut
+```tut:silent
 import com.github.jonnylaw.dlm._
 
 val p = SvParameters(0.2, 1.0, 0.3)
@@ -207,7 +207,7 @@ ou_sims %>%
 
 The figure below shows a Kalman Filter for the OU process, since the transition kernel of the OU process is known and given by a Gaussian distribution the Kalman Filter can be performed:
 
-```tut
+```tut:silent
 val ys = sims.map { case (t, y, a) => (t, y.some) }
 val filtered = FilterOu.filterUnivariate(ys, Vector.fill(ys.size)(0.5), p)
 ```
@@ -230,7 +230,7 @@ filtered %>%
 
 Parameter inference is performed using the Kalman filter to calculate the marginal likelihood of the OU process which is then used in a Metropolis-Hastings algorithm to determine the static parameters of the latent state, $\phi, \mu$ and $\sigma$. The value of the observation variance, $V$, is determined using a Gibbs step:
 
-```tut
+```tut:silent
 import StochasticVolatility._
 
 val p = SvParameters(0.2, 1.0, 0.3)

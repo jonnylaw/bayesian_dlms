@@ -13,7 +13,7 @@ The algorithm uses an unbiased estimate of the marginal likelihood, $p(y_{1:T} |
 
 Firstly define a DGLM:
 
-```tut
+```tut:silent
 import com.github.jonnylaw.dlm._
 
 val model = Dlm.polynomial(1)
@@ -30,7 +30,7 @@ Then we need to define the proposal function, `def proposal: Parameters => Rand[
 
 The function accepts a parameter `delta`, a single `Double` value which controls the variance of the Gaussian proposal distribution:
 
-```tut
+```tut:silent
 def proposal = Metropolis.symmetricProposal(0.05) _
 ```
 
