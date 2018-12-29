@@ -1,4 +1,4 @@
-package dlm.core.model
+package com.github.jonnylaw.dlm
 
 import math.exp
 import breeze.stats.distributions.{Rand, Gaussian}

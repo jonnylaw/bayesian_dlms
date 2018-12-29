@@ -11,3 +11,4 @@ R/.RData
 *.pdf
 .Rproj.user
 *.csv
+travis-deploy-key*

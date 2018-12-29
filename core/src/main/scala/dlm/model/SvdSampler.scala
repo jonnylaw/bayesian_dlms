@@ -1,4 +1,4 @@
-package dlm.core.model
+package com.github.jonnylaw.dlm
 
 import breeze.linalg.{DenseVector, DenseMatrix, diag, svd}
 import breeze.stats.distributions.{Gaussian, Rand}
@@ -6,7 +6,6 @@ import cats.implicits._
 
 /**
   * Backward Sampler utilising the SVD for stability
-  * TODO: Check this
   */
 object SvdSampler {
 

@@ -1,12 +1,15 @@
-package examples.dlm
+package com.github.jonnylaw.dlm.example
 
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import cats.implicits._
 import Dlm._
 import breeze.linalg._
 import java.nio.file.Paths
 import kantan.csv._
 import kantan.csv.ops._
+import akka.actor.ActorSystem
+import akka.stream._
+import scaladsl._
 
 trait CorrelatedModel {
   // first define two models, one for each time series
@@ -74,29 +77,28 @@ object FilterCorrelatedDlm
 }
 
 object GibbsCorrelated extends App with CorrelatedModel with CorrelatedData {
+  implicit val system = ActorSystem("gibbs_correlated")
+  implicit val materializer = ActorMaterializer()
+
   val iters = GibbsWishart
     .sample(model,
             InverseGamma(6.0, 5.0),
             InverseWishart(4.0, DenseMatrix.eye[Double](2)),
             p,
             data)
-    .steps
-    .take(10000)
 
-  val out = new java.io.File("examples/data/correlated_dlm_gibbs.csv")
-  val headers = rfc.withHeader(false)
-  val writer = out.asCsvWriter[List[Double]](headers)
-
-  def formatParameters(p: DlmParameters) = {
-    (p.v.data ++ p.w.data).toList
+  def formatParameters(s: GibbsSampling.State) = {
+    (s.p.v.data ++ s.p.w.data).toList
   }
 
   // write iters to file
-  while (iters.hasNext) {
-    writer.write(formatParameters(iters.next.p))
-  }
-
-  writer.close()
+  Streaming
+    .writeParallelChain(iters,
+                        2,
+                        24000,
+                        "examples/data/correlated_dlm_gibbs",
+                        formatParameters)
+    .runWith(Sink.onComplete(_ => system.terminate()))
 }
 
 object FirstOrderLinearTrendDlm extends App {
@@ -135,7 +137,10 @@ object FirstOrderLinearTrendDlm extends App {
   writer.close()
 }
 
-object SusteInvestment extends App with CorrelatedModel {
+object SutseInvestment extends App with CorrelatedModel {
+  implicit val system = ActorSystem("sutse_investment")
+  implicit val materializer = ActorMaterializer()
+
   val rawData = Paths.get("examples/data/invest2.dat")
   val reader = rawData.asCsvReader[List[Double]](rfc.withHeader(false))
   val data = reader
@@ -162,32 +167,27 @@ object SusteInvestment extends App with CorrelatedModel {
   val meanW = 1.0
 
   val priorV = InverseGamma(alpha(meanV, variance), beta(meanV, variance))
-  val priorW = InverseGamma(alpha(meanW, variance), beta(meanW, variance))
+  val priorW = InverseWishart(2.0, DenseMatrix.eye[Double](2))
 
   val initP = DlmParameters(
     v = diag(DenseVector.fill(2)(priorV.draw)),
-    w = diag(DenseVector.fill(2)(priorW.draw)),
+    w = priorW.draw,
     m0 = DenseVector.zeros[Double](2),
     c0 = DenseMatrix.eye[Double](2)
   )
 
-  val iters = GibbsSampling
+  val iters = GibbsWishart
     .sample(model, priorV, priorW, initP, data)
-    .steps
-    .drop(12000)
-    .take(12000)
 
-  val out = new java.io.File("examples/data/correlated_investment.csv")
-  val writer = out.asCsvWriter[List[Double]](rfc.withHeader("V", "W1", "W2"))
-
-  def formatParameters(p: DlmParameters) = {
-    DenseVector.vertcat(diag(p.v), diag(p.w)).data.toList
+  def formatParameters(s: GibbsSampling.State) = {
+    DenseVector.vertcat(diag(s.p.v), DenseVector(s.p.w.data)).data.toList
   }
 
-  // write iters to file
-  while (iters.hasNext) {
-    writer.write(formatParameters(iters.next.p))
-  }
-
-  writer.close()
+  Streaming
+    .writeParallelChain(iters,
+                        2,
+                        24000,
+                        "examples/data/correlated_investment",
+                        formatParameters)
+    .runWith(Sink.onComplete(_ => system.terminate()))
 }

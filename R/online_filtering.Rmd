@@ -1,0 +1,208 @@
+---
+title: "Online Parameter Inference"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(coda)
+library(ggmcmc)
+library(patchwork)
+library(latex2exp)
+theme_set(theme_minimal())
+source("mcmc_summarise.R")
+```
+
+Given a DLM, with observations $Y_{1:N}$ and latent state $x_{0:N}$ with observation and state equations:
+
+\begin{align*}
+Y_t &= F_t^Tx_t + v_t, & v_t &\sim \mathcal{N}(0, V_t), \\
+X_t &= G_tx_{t-1} + w_t, & w_t &\sim \mathcal{N}(0, W_t), \\
+x_0 &\sim \mathcal{N}(m_0, C_0)
+\end{align*}
+
+We can joint posterior distribution of the parameters and latent-state, $p(\psi_t, x_t|y_{1:N})$ using on of the following online algorithms. These are useful for streaming data as they don't require re-running of costly MCMC algorithms as each new data point is observed. 
+
+The online filters will be demonstrated for a first order polynomial DLM, with
+$V = 2, W = 3$, plotted in the figure below.
+
+```tut
+import com.github.jonnylaw.dlm._
+import breeze.linalg.{DenseMatrix, DenseVector}
+
+val mod = Dlm(
+  f = (t: Double) => DenseMatrix((1.0)),
+  g = (t: Double) => DenseMatrix((1.0))
+)
+val p = DlmParameters(v = DenseMatrix(2.0),
+                      w = DenseMatrix(3.0),
+                      DenseVector(0.0),
+                      DenseMatrix(1.0))
+
+val data = Dlm.simulateRegular(mod, p, 1.0).
+             steps.
+             take(100).
+             toVector.
+             map(_._1)
+```
+
+```{r first-order-simulated-online}
+first_order = read_csv("../examples/data/first_order_dlm.csv")
+
+first_order %>%
+  gather(key, value, -time) %>%
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  theme(legend.position = "bottom") +
+    labs(title = "Simulated values from the first order DLM",
+         subtitle = TeX("$$W = 3$, V = 2$"))
+```
+
+## Conjugate Filter
+
+The Conjugate filter is an exact filter, which augments the Kalman Filter to learn the observation variance using a conjugate update of the Gamma distribution.
+
+```tut
+val prior = InverseGamma(3.0, 4.0)
+val filtered = ConjugateFilter(prior, ConjugateFilter.advanceState(p, mod.g)).filter(mod, data, p)
+```
+
+```{r}
+conjugate_filter = read_csv("../examples/data/first_order_dlm_conjugate_filtered.csv")
+
+p1 = conjugate_filter %>%
+    mutate(upper = v_mean + 2 * sqrt(v_variance),
+         lower = v_mean - 2 * sqrt(v_variance)) %>%
+    ggplot(aes(x = time, y = v_mean)) +
+    geom_line() +
+    geom_hline(aes(yintercept = 2.0), linetype = "dashed") +
+    geom_ribbon(aes(x = time, ymin = lower, ymax = upper), alpha = 0.5) +
+    ylab("Observation Variance")
+
+p2 = conjugate_filter %>%
+    inner_join(first_order, by = "time") %>%
+    mutate(upper = qnorm(p = 0.995, mean = state_mean, sd = sqrt(state_variance)),
+           lower = qnorm(p = 0.005, mean = state_mean, sd = sqrt(state_variance))) %>%
+    gather(key, value, state, state_mean) %>%
+    ggplot(aes(x = time, y = value, colour = key)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = lower, ymax = upper), colour = NA, alpha = 0.5)
+
+p1 / p2
+```
+
+## Liu and West Filter
+
+The Liu and West filter can be used for general state space models:
+
+```tut
+val n = 500
+val n0 = 500
+// smoothing parameter for the mixture of gaussians, equal to (3 delta - 1) / 2 delta
+val a = (3 * 0.95 - 1) / 2 * 0.95
+
+val prior = for {
+  v <- InverseGamma(3.0, 4.0)
+  w <- InverseGamma(3.0, 10.0)
+} yield DlmParameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)
+
+val filtered = LiuAndWestFilter(n, prior, a, n0).filter(mod, data, p)
+```
+
+```{r liu-and-west}
+true_values = data_frame(param = c("v", "w"), value = c(2.0, 3.0))
+
+liu_and_west = read_csv("~/git/bayesian_dlms/examples/data/liuandwest_filtered.csv")
+
+liu_and_west %>%
+    select(time, v = v_mean, w = w_mean) %>%
+    gather(key = param, value = mean, v, w) %>%
+    inner_join(liu_and_west %>%
+    select(time, v = v_variance, w = w_variance) %>%
+    gather(key = param, value = variance, v, w)) %>%
+    rowwise() %>%
+    mutate(upper = mean + 2 * sqrt(variance), lower = mean - 2 * sqrt(variance)) %>%
+    select(time, param, mean, upper, lower) %>%
+    ggplot(aes(x = time, y = mean)) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.5) +
+    geom_line() +
+    geom_hline(data = true_values, aes(yintercept = value), 
+               linetype = "dashed", colour = "#666666") +
+    facet_wrap(~param, scales = "free_y", ncol = 1)
+```
+
+## RB Filter
+
+The Rao-Blackwell filter marginalises the Gaussian part of the DLM in order to perform filtering using the Kalman filter conditional on sampled values of the static parameters. Parameter distributions at each time point are approximated by a weighted particle cloud. A Kalman filter is performed for conditional on the value of each particle. Thereby determining the join posterior of the parameters and latent state.
+
+```tut
+// smoothing parameter for the mixture of gaussians
+val delta = 0.99
+val a = (3 * delta - 1) / 2 * delta
+
+val prior = for {
+  v <- InverseGamma(3.0, 4.0)
+  w <- InverseGamma(3.0, 10.0)
+} yield DlmParameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)
+
+val filtered = RaoBlackwellFilter(500, prior, a, 250).filter(mod, data, p)
+```
+
+```{r rb-filter}
+rb_filter = read_csv("~/git/bayesian_dlms/examples/data/fo_raoblackwellfilter.csv")
+
+# RB Parameters
+p1 = rb_filter %>%
+    select(time, v = v_mean, w = w_mean, contains("variance")) %>%
+    gather(key = param, value = mean, v, w) %>%
+    inner_join(rb_filter %>%
+    select(time, v = v_variance, w = w_variance) %>%
+    gather(key = param, value = variance, v, w)) %>%
+    rowwise() %>%
+    mutate(upper = mean + 2 * sqrt(variance), lower = mean - 2 * sqrt(variance)) %>%
+    ggplot(aes(x = time, y = mean)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.5) +
+    geom_hline(data = true_values, aes(yintercept = value), linetype = "dashed", colour = "#666666") +
+    facet_wrap(~param, scales = "free_y", ncol = 1, strip.position = "right")
+
+# RB State
+p2 = rb_filter %>%
+    inner_join(first_order, by = "time") %>%
+    gather(key, value, contains("state")) %>%
+    ggplot(aes(x = time, y = value, colour = key)) +
+    geom_line(alpha = 0.75) +
+    theme(legend.position = c(0.9, 0.2))
+
+p1 / p2
+```
+
+## Storvik Filter
+
+Using conjugate updating for $V$ and $W$:
+
+```tut
+val priorV = InverseGamma(3.0, 4.0)
+val priorW = InverseGamma(3.0, 10.0)
+
+val filtered = StorvikFilter.filterTs(mod, data, p, priorV, priorW, n, n)
+```
+
+```{r storvik-filter}
+storvik = read_csv("~/git/bayesian_dlms/examples/data/fo_storvik_filtered.csv")
+
+storvik %>%
+    select(time, v = v_mean, w = w_mean) %>%
+    gather(key = param, value = mean, v, w) %>%
+    inner_join(storvik %>%
+    select(time, v = v_variance, w = w_variance) %>%
+    gather(key = param, value = variance, v, w)) %>%
+    rowwise() %>%
+    mutate(upper = mean + 2 * sqrt(variance), lower = mean - 2 * sqrt(variance)) %>%
+    ggplot(aes(x = time, y = mean)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.5) +
+    geom_hline(data = true_values, aes(yintercept = value), linetype = "dashed", colour = "#666666") +
+    facet_wrap(~param, scales = "free_y", ncol = 1)
+```
+

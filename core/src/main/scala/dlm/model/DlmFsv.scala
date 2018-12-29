@@ -1,4 +1,4 @@
-package dlm.core.model
+package com.github.jonnylaw.dlm
 
 import breeze.linalg.{DenseVector, DenseMatrix, diag}
 import breeze.stats.distributions._
@@ -62,7 +62,6 @@ object DlmFsvParameters {
   * as latent-factors
   */
 object DlmFsv {
-
   /**
     * Simulate a single step in the DLM FSV model
     * @param time the time of the next observation

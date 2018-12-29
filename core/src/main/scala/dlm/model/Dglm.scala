@@ -1,4 +1,4 @@
-package dlm.core.model
+package com.github.jonnylaw.dlm
 
 import breeze.stats.distributions._
 import breeze.linalg.{DenseVector, DenseMatrix}
@@ -204,13 +204,9 @@ object Dglm {
 
   def stepState(model: Dglm, params: DlmParameters)(
       state: DenseVector[Double],
-      dt: Double): Rand[DenseVector[Double]] = {
+      dt: Double): MultivariateGaussianSvd = {
 
-    for {
-      w <- MultivariateGaussianSvd(DenseVector.zeros[Double](params.w.cols),
-                                   params.w * dt)
-      x1 = model.g(dt) * state + w
-    } yield x1
+    MultivariateGaussianSvd(model.g(dt) * state, params.w * dt)
   }
 
   def simStep(model: Dglm, params: DlmParameters)(

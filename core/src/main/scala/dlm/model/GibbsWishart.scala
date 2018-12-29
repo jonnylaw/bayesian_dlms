@@ -1,14 +1,13 @@
-package dlm.core.model
+package com.github.jonnylaw.dlm
 
 import breeze.stats.distributions._
 import breeze.linalg.DenseMatrix
 
 /**
   * This class learns a correlated system matrix
-  *  using the InverseWishart prior on the system noise matrix
+  * using the InverseWishart prior on the system noise matrix
   */
 object GibbsWishart {
-
   /**
     * Sample the system covariance matrix using an
     * Inverse Wishart prior on the system covariance matrix

@@ -1,6 +1,6 @@
-package examples.dlm
+package com.github.jonnylaw.dlm.example
 
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import breeze.linalg.{DenseMatrix, DenseVector}
 import breeze.stats.distributions.{MarkovChain, MultivariateGaussian}
 import java.nio.file.Paths
@@ -134,7 +134,6 @@ object SimulateNegativeBinomial extends App {
 }
 
 object FilterPoisson extends App with PoissonDglm with PoissonData {
-  val advState = (s: PfState, dt: Double) => s
   val n = 500
 
   data.foreach(println)

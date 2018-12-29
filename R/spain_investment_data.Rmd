@@ -7,7 +7,8 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 library(tidyverse)
 library(coda)
 library(ggmcmc)
-theme_set(theme_bw())
+theme_set(theme_minimal())
+source("mcmc_summarise.R")
 ```
 
 ## R Markdown
@@ -110,29 +111,21 @@ gridExtra::grid.arrange(p1, p2, ncol = 1)
 The posterior densities summarised from 12,000 MCMC draws are plotted below:
 
 ```{r read_iters}
-gibbs_iters = read_csv("../examples/data/gibbs_spain_investment.csv")
+files = c("../examples/data/correlated_investment_0.csv",
+          "../examples/data/correlated_investment_1.csv")
+chains = read_chains(files, param_names = c("V1", "V4", paste0("W", 1:4)), drop = 12000, nth = 2)
 ```
 
 
-```{r plot_gibbs_distributions}
-params = gibbs_iters %>% mcmc() %>% ggs()
-
-p1 = ggs_traceplot(params) + facet_wrap(~Parameter, strip.position = "top", ncol = 3)
-
-p2 = ggs_histogram(params) +
-  facet_wrap(~Parameter, ncol = 3) +
-  theme(
-    strip.background = element_blank(),
-    strip.text.x = element_blank(),
-    legend.position = "none"
-  )
-
-p3 = ggs_autocorrelation(params) + 
-  facet_wrap(~Parameter, ncol = 3) + 
-  theme(
-    strip.background = element_blank(),
-    strip.text.x = element_blank()
-  )
-
-gridExtra::grid.arrange(p1, p2, p3, ncol = 1)
+```{r observation_matrix}
+chains %>%
+  filter(Parameter %in% c("V1", "V4")) %>%
+  plot_diagnostics()
 ```
+
+```{r system_matrix}
+chains %>%
+  filter(grepl("W", Parameter)) %>%
+  density_plot()
+```
+

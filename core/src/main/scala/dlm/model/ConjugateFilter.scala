@@ -1,4 +1,4 @@
-package dlm.core.model
+package com.github.jonnylaw.dlm
 
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import cats.Traverse
@@ -63,7 +63,7 @@ case class ConjugateFilter(
     // calculate the mean of the forecast distribution for y
     val v = meanVariance(s.variance)
     val ft = f.t * st.kfState.at
-    val qt = f.t * st.kfState.rt * f + v
+    val qt = f.t * st.kfState.rt * f + v 
 
     // calculate the difference between the mean of the
     // predictive distribution and the actual observation

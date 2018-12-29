@@ -11,7 +11,7 @@ Performing forecasting for future observations of the process using a DLM is equ
 Define the seasonal model:
 
 ```tut:silent
-import core.dlm.model._
+import com.github.jonnylaw.dlm._
 import cats.implicits._
 
 val mod = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
@@ -29,7 +29,7 @@ val rawData = Paths.get("examples/data/seasonal_dlm.csv")
 val reader = rawData.asCsvReader[List[Double]](rfc.withHeader)
 val data = reader.
   collect { 
-    case Right(a) => Dlm.Data(a.head.toInt, DenseVector(Some(a(1))))
+    case Right(a) => Data(a.head.toInt, DenseVector(Some(a(1))))
   }.
   toVector
 ```
@@ -48,7 +48,7 @@ val params: List[Double] = read.
   transpose.
   map(a => mean(a))
 
-val meanParameters = Dlm.Parameters(
+val meanParameters = DlmParameters(
   v =  DenseMatrix(params.head), 
   w =  diag(DenseVector(params.tail.toArray)), 
   m0 = DenseVector.zeros[Double](7),
@@ -59,7 +59,7 @@ val meanParameters = Dlm.Parameters(
 When then use these parameters to get the posterior distribution of the final state:
 
 ```tut:silent
-val filtered = KalmanFilter.filter(mod, data, meanParameters)
+val filtered = KalmanFilter.filterDlm(mod, data, meanParameters)
 val (mt, ct, initTime) = filtered.map(a => (a.mt, a.ct, a.time)).last
 ```
 
@@ -78,18 +78,15 @@ sims = read_csv("../examples/data/seasonal_dlm.csv")
 forecast = read_csv("../examples/data/seasonal_model_forecast.csv")
 
 forecast %>%
-  mutate(upper = qnorm(p = 0.95, mean = forecast, sd = sqrt(variance)),
-         lower = qnorm(p = 0.05, mean = forecast, sd = sqrt(variance))) %>%
   bind_rows(sims) %>%
   filter(time > 900) %>%
   gather(key, value, forecast, observation) %>%
-  ggplot() +
-  geom_line(aes(x = time, y = value, colour = key)) +
-  geom_line(aes(x = time, y = lower), linetype = 2) +
-  geom_line(aes(x = time, y = upper), linetype = 2) +
+  ggplot(aes(x = time, y = value, colour = key)) +
+  geom_line() +
+  geom_ribbon(aes(x = time, ymin = lower, ymax = upper), colour = NA, alpha = 0.3) +
   labs(title = "Forecast for 100 Time Points") +
   theme(legend.position = "bottom") +
-  coord_cartesian(ylim = c(-50, 50))
+  coord_cartesian(ylim = c(-75, 75))
 ```
 
 # Forecasting using a DGLM

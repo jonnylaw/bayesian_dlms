@@ -6,7 +6,7 @@ import cats.kernel.laws.discipline._
 
 import org.typelevel.discipline.scalatest.Discipline
 
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import org.scalatest._
 import cats.implicits._
 import breeze.linalg.diag
@@ -123,29 +123,4 @@ class ParameterLaws
 
   checkAll("Additive SV Parameter Semigroup",
            SemigroupTests[SvParameters].semigroup)
-
-  def smallInt(n: Int) = arbitrary[Int].suchThat(x => x > 0 & x < n)
-
-  def factorParameters =
-    for {
-      v <- smallDouble
-      p <- smallInt(10)
-      k <- smallInt(p)
-      beta <- denseMatrix(p, k)
-      fsv <- Gen.listOfN(k, svParameters)
-    } yield FsvParameters(v, beta, fsv.toVector)
-
-  implicit def genFsvArb: Arbitrary[FsvParameters] =
-    Arbitrary(factorParameters)
-
-  implicit def eqFsv(implicit eqsv: Eq[SvParameters]) = new Eq[FsvParameters] {
-    def eqv(x: FsvParameters, y: FsvParameters) = {
-      x.v === y.v && x.beta === y.beta &&
-        x.factorParams.zip(y.factorParams).forall { case (xi, yi) =>
-          eqsv.eqv(xi, yi) }
-    }
-  }
-
-  // checkAll("Additive Fsv Parameter Semigroup",
-  //          SemigroupTests[FsvParameters].semigroup)
 }

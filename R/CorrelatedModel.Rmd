@@ -67,7 +67,7 @@ $$G = \begin{pmatrix}
 In order to compose these two models in the Scala package, we first define the two models:
 
 ```tut:silent
-import core.dlm.model._
+import com.github.jonnylaw.dlm._
 
 val mod1 = Dlm.polynomial(1)
 val mod2 = Dlm.polynomial(2)
@@ -80,7 +80,7 @@ import breeze.linalg.{diag, DenseMatrix, DenseVector}
 
 val composedModel = mod1 |*| mod2
 
-val p = Dlm.Parameters(
+val p = DlmParameters(
   v = diag(DenseVector(1.0, 2.0)), 
   w = diag(DenseVector(2.0, 3.0, 1.0)),
   m0 = DenseVector.zeros[Double](3), 
@@ -91,7 +91,7 @@ val p = Dlm.Parameters(
 Then we can simulate observations from the `composedModel`:
 
 ```tut:silent
-val sims = Dlm.simulateRegular(0, composedModel, p, 1.0).
+val sims = Dlm.simulateRegular(composedModel, p, 1.0).
   steps.
   take(1000).
   toVector
@@ -135,7 +135,7 @@ data %>%
 
 # Kalman Filtering
 
-Given that we have simulated the model, we can perform the Kalman filter to determine the filtering distribution of the latent state using the true value of the parameters. The figure below shows the filtering distribution with 90% probability intervals for time $t = 200, \dots , 300$.
+Given that we have simulated data from the model, we can perform the Kalman filter to determine the filtering distribution of the latent state using the true value of the parameters. The figure below shows the filtering distribution with 90% probability intervals for time $t = 200, \dots , 300$.
 
 ```{r filter-correlated}
 filtered = read_csv("../examples/data/correlated_dlm_filtered.csv", 
@@ -157,11 +157,9 @@ filtered %>%
 ```
 
 
-## Parameter Learning
+## Parameter Inference
 
 The unkown parameters of the model are the system noise matrix, $W$ and the observation noise matrix, $V$. The observation noise matrix is assumed to be diagonal, meaning the measurement noise of each process is considered to be independent. We can use Gibbs Sampling to determine the values of $W$ and $V$ as expanded upon in the section on [Gibbs Sampling](gibbs_sampling.html).
-
-## Gibbs Sampling Correlated Model
 
 In order to perform Gibbs Sampling for the Correlated model in Scala:
 
@@ -175,61 +173,22 @@ val iters = GibbsSampling.sample(
 ```
 
 ```{r correlated-v-diagnostics}
-iters = read_csv("../examples/data/correlated_dlm_gibbs.csv", col_names = c(paste0("V", 1:4), paste0("W", 1:4)))
+files = c("../examples/data/correlated_dlm_gibbs_0.csv",
+          "../examples/data/correlated_dlm_gibbs_1.csv")
+chains = read_chains(files, param_names = c(paste0("V", 1:4), paste0("W", 1:4)), nth = 2, drop = 12000)
 
 actual_values = tibble(
   Parameter = c("V1", "V4", paste0("W", 1:4)),
   actual_value = c(1.0, 4.0, 0.75, 0.5, 0.5, 1.25)
 )
 
-# Remove burn-in and thin chain
-# burnin = 1e3
-# thin = 4
-# iters = iters[seq(from = burnin, to = nrow(iters), by = thin),]
-
-params = ggs(mcmc(iters))
-
-p1 = params %>%
+chains %>%
   filter(Parameter %in% c("V1", "V4")) %>%
-  inner_join(actual_values) %>%
-  ggplot(aes(x = Iteration, y = value)) +
-  geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~Parameter, scales = "free_y") +
-  labs(title = "Diagnostic plots for the Observation noise covariance matrix",
-       subtitle = "(Top) Traceplots (Middle) Autocorrelation (Bottom) Empirical density")
-
-p2 = params %>% 
-  filter(Parameter %in% c("V1", "V4")) %>%
-  ggs_autocorrelation()
-
-p3 = params %>% 
-  filter(Parameter %in% c("V1", "V4")) %>%
-  ggs_density() +
-  facet_wrap(~Parameter, ncol = 2, scales = "free_x")
-
-p1 / p2 / p3
+  plot_diagnostics_sim(actual_values)
 ```
 
 ```{r correlated-w-diagnostics}
-p1 = params %>%
-  filter(Parameter %in% paste0("W",c(1,2,4))) %>%
-  inner_join(actual_values) %>%
-  ggplot(aes(x = Iteration, y = value)) +
-  geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~Parameter, scales = "free_y") +
-  labs(title = "Diagnostic plots for the System noise covariance matrix",
-       subtitle = "(Top) Traceplots (Middle) Autocorrelation (Bottom) Empirical density")
-
-p2 = params %>%
-  filter(Parameter %in% paste0("W", c(1,2,4))) %>%
-  ggs_autocorrelation()
-
-p3 = params %>% 
-  filter(Parameter %in% paste0("W", c(1,2,4))) %>%
-  ggs_density() +
-  facet_wrap(~Parameter, ncol = 3, scales = "free_x", strip.position = "right")
-
-p1 / p2 / p3
+chains %>%
+  filter(grepl(pattern = "W", Parameter)) %>%
+  plot_diagnostics_sim(actual_values)
 ```

@@ -1,6 +1,6 @@
-package examples.dlm
+package com.github.jonnylaw.dlm.example
 
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import Dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions.{RandBasis, Gamma, Rand}
@@ -23,7 +23,7 @@ trait FirstOrderDlm {
                         DenseMatrix(1.0))
 
   // particles in particle filter
-  val n = 500
+  val n = 1000
   // if neff < n0 then resample
   val n0 = 250
 }
@@ -41,15 +41,12 @@ object SimulateDlm extends App with FirstOrderDlm {
 
   val out = new java.io.File("examples/data/first_order_dlm.csv")
   val headers = rfc.withHeader("time", "observation", "state")
+
   def formatData(d: (Data, DenseVector[Double])) = d match {
     case (Data(t, y), x) =>
       t :: KalmanFilter.flattenObs(y).data.toList ::: x.data.toList
   }
   out.writeCsv(sims.map(formatData), headers)
-
-  // TimeSeries.plotObservations(sims.map(_._1).map(d => (d.time, d.observation)))
-  //   .render()
-  //   .write(new java.io.File("figures/first_order.png"))
 }
 
 object FilterDlm extends App with SimulatedData {
@@ -112,15 +109,16 @@ object ParticleFilterFo extends App with FirstOrderDlm with SimulatedData {
 }
 
 object LiuAndWest extends App with FirstOrderDlm with SimulatedData {
-  // smoothing parameter for the mixture of gaussians, equal to (3 delta - 1) / 2 delta
+  // smoothing parameter for the mixture of gaussians,
+  // equal to (3 delta - 1) / 2 delta
   val a = (3 * 0.95 - 1) / 2 * 0.95
 
   val prior = for {
     v <- InverseGamma(3.0, 4.0)
-    w <- InverseGamma(3.0, 10.0)
+    w <- InverseGamma(3.0, 3.0)
   } yield DlmParameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)
 
-  val filtered = LiuAndWestFilter(n, prior, a, n0).filter(mod, data, p)
+  val filtered = LiuAndWestFilter(n, prior, a, n).filter(mod, data, p)
 
   val out = new java.io.File("examples/data/liuandwest_filtered.csv")
 
@@ -258,13 +256,6 @@ object SmoothDlm extends App with SimulatedData {
 
 object SampleStates extends App with FirstOrderDlm with SimulatedData {
   implicit val basis = RandBasis.withSeed(7)
-
-  val svdSampled = SvdSampler.ffbsDlm(mod, data, p).sample(1000)
-  val meanStateSvd = SvdSampler.meanState(svdSampled)
-  val outSvd =
-    new java.io.File("examples/data/first_order_state_svd_sample.csv")
-
-  outSvd.writeCsv(meanStateSvd, rfc.withHeader("time", "sampled_mean"))
 
   val sampled = Smoothing.ffbsDlm(mod, data, p).sample(1000)
   val meanState = SvdSampler.meanState(sampled)

@@ -1,6 +1,6 @@
-package examples.dlm
+package com.github.jonnylaw.dlm.example
 
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions.{Poisson, Gamma, NegativeBinomial}
 import java.nio.file.Paths
@@ -106,15 +106,10 @@ object StudentTpmmh extends App with StudenttDglm with StudenttData {
   val priorV = InverseGamma(3.0, 3.0)
   val priorNu = Poisson(3)
 
-  // nu is the mean of the negative binomial proposal (A Gamma mixture of Poissons)
   val propNu = (size: Double) =>
     (nu: Int) => {
       val prob = nu / (size + nu)
-
-      for {
-        lambda <- Gamma(size, prob / (1 - prob))
-        x <- Poisson(lambda)
-      } yield x + 1
+      NegativeBinomial(size, prob).map(_ + 1)
   }
 
   val propNuP = (size: Double) =>
@@ -139,7 +134,7 @@ object StudentTpmmh extends App with StudenttDglm with StudenttData {
 
   def format(s: StudentT.PmmhState) = {
     DenseVector.vertcat(diag(s.p.v), diag(s.p.w)).data.toList ++
-      List(s.nu.toDouble) ++ List(s.accepted.toDouble)
+      List(s.nu.toDouble) ++ List(s.accepted.toDouble) ++ List(s.ll)
   }
 
   Streaming
