@@ -1,4 +1,4 @@
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import breeze.linalg.{Vector => _, _}
 import org.scalatest._
 import prop._
@@ -40,16 +40,24 @@ class ParticleFilter
   }
 
   val n = 100
-  val collectionParams = Gen.nonEmptyListOf(params)
+  val collectionParams: Gen[Vector[(Double, DlmParameters)]] = for {
+    ps <- Gen.nonEmptyListOf(params)
+    n = ps.size
+  } yield Vector.fill(n)(1.0) zip ps
+
+  def noShrink[T](gen: Gen[T]): Gen[NoShrinkWrapper[T]] =
+    gen.map(NoShrinkWrapper.apply)
+  case class NoShrinkWrapper[T](value: T)
 
   property("Variance of collection of parameters") {
-    forAll(collectionParams) { ps =>
+    forAll(noShrink(collectionParams)) { wsps =>
       implicit val tol = 0.01
-      val ws = Vector.fill(n)(1.0)
-      val variance = LiuAndWestFilter.weightedVarParameters(ps.toVector, ws)
-      val variance2 = LiuAndWestFilter.varParameters(ps.toVector)
+      val (ws, ps) = wsps.value.unzip
 
-      assert(variance === variance2)
+      val (_, variance2) = LiuAndWestFilter.weightedMeanVarianceParams(ps, ws)
+      val variance3 = LiuAndWestFilter.weightedVarParameters(ps, ws)
+
+      assert(variance3 === variance2)
     }
   }
 }

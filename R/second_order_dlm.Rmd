@@ -22,7 +22,7 @@ Y_t &= F \textbf{x}_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
 
 The state is two dimensional, as such the system noise matrix $W$ is a $2 \times 2$ matrix. The observation and system evolution matrices do not depend on time, the observation matrix is $F = (1 \quad 0)$ and the system evolution matrix is:
 
-$$G = \begin{pmatrix} 
+$$G = \begin{pmatrix}
 1 & 1 \\
 0 & 1
 \end{pmatrix}.$$
@@ -30,18 +30,18 @@ $$G = \begin{pmatrix}
 In order to examine the properties of this model, first we can simulate a time series of values from it:
 
 ```tut:silent
-import core.dlm.model._
+import com.github.jonnylaw.dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 
 val mod = Dlm.polynomial(2)
-  val p = Dlm.Parameters(
+  val p = DlmParameters(
     DenseMatrix(3.0),
     diag(DenseVector(2.0, 1.0)),
-    DenseVector(0.0, 0.0), 
+    DenseVector(0.0, 0.0),
     diag(DenseVector(100.0, 100.0))
   )
 
-val data = Dlm.simulateRegular(0, mod, p, 1.0).
+val data = Dlm.simulateRegular(mod, p, 1.0).
   steps.
   take(1000).
   toVector
@@ -66,7 +66,8 @@ data %>%
 Kalman Filtering can be performed to learn the posterior distribution of the states, given the observations:
 
 ```tut:silent
-val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
+import cats.implicits._
+val filtered = KalmanFilter.filterDlm(mod, data.map(_._1), p)
 ```
 
 ```{r filtering, message=FALSE, echo=FALSE, fig.cap="Filtered State of the second order model, with 90% probability intervals"}
@@ -86,16 +87,16 @@ filtered %>%
   ggtitle("Kalman Filtered")
 ```
 
-# Learn Parameters
+# Parameters Inference
 
-The parameters can be learned using Gibbs sampling. The state evolution distribution and the observation distribution are Gaussian with unknown variance $W$ and $V$ respectively. The state is assumed to have a diagonal, $2 \times 2$ covariance matrix and hence the unknown variances are chosen to have Inverse Gamma priors. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. To perform gibbs sampling using the Bayesian DLMs package:
+The parameter posterior distributions can be learned using Gibbs sampling. The state evolution distribution and the observation distribution are Gaussian with unknown variance $W$ and $V$ respectively. The state is assumed to have a diagonal, $2 \times 2$ covariance matrix and hence the unknown variances are chosen to have Inverse Gamma priors. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. To perform gibbs sampling using the Bayesian DLMs package:
 
 ```tut:silent
 val iters = GibbsSampling.sample(
-    mod, 
-    InverseGamma(4.0, 9.0), 
-    InverseGamma(5.0, 8.0), 
-    p, 
+    mod,
+    InverseGamma(4.0, 9.0),
+    InverseGamma(5.0, 8.0),
+    p,
     data.map(_._1))
 ```
 
@@ -107,13 +108,9 @@ actual_values = tibble(
   actual_value = c(3.0, 2.0, 1.0)
 )
 
-gibbs_iters %>%
-  gather(key = "Parameter", value) %>%
-  group_by(Parameter) %>%
-  summarise(mean = mean(value), lower = quantile(value, probs = 0.025), 
-            upper = quantile(value, probs = 0.975), sd = sd(value)) %>%
-  inner_join(actual_values) %>%
-  knitr::kable(caption = "Summary Statistics of the parameters of the second order DLM", digits = 2)
+# gibbs_iters %>%
+#   mcmc() %>% ggs() %>%
+#   summary_table()
 ```
 
 ```{r second-order-diagnostics, fig.cap="Diagnostic plots of the parameter posterior distributions for the second order DLM (Top) Traceplots (Bottom) Autocorrelation"}
@@ -126,9 +123,8 @@ p1 = params %>%
   geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
   facet_wrap(~Parameter, scales = "free_y")
 
-p2 = params %>% 
+p2 = params %>%
   ggs_autocorrelation()
 
 p1 + p2 + plot_layout(ncol = 1)
 ```
-

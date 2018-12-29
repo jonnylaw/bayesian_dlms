@@ -1,6 +1,6 @@
-package examples.dlm
+package com.github.jonnylaw.dlm.example
 
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import Dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions.{RandBasis, Gamma, Rand}
@@ -256,13 +256,6 @@ object SmoothDlm extends App with SimulatedData {
 
 object SampleStates extends App with FirstOrderDlm with SimulatedData {
   implicit val basis = RandBasis.withSeed(7)
-
-  val svdSampled = SvdSampler.ffbsDlm(mod, data, p).sample(1000)
-  val meanStateSvd = SvdSampler.meanState(svdSampled)
-  val outSvd =
-    new java.io.File("examples/data/first_order_state_svd_sample.csv")
-
-  outSvd.writeCsv(meanStateSvd, rfc.withHeader("time", "sampled_mean"))
 
   val sampled = Smoothing.ffbsDlm(mod, data, p).sample(1000)
   val meanState = SvdSampler.meanState(sampled)

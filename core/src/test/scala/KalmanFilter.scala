@@ -1,4 +1,4 @@
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag, inv, cholesky}
 import org.scalatest._
 import prop._

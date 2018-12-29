@@ -15,7 +15,7 @@ theme_set(theme_minimal())
 
 # Simulation
 
-```{r}
+```{r mv_regression}
 data = read_csv("../examples/data/multivariate_regression_sims.csv")
 
 p1 = data %>%
@@ -37,21 +37,17 @@ p1 / p2
 
 ```{r}
 actual_values = tibble(
-  Parameter = c("W", "V"),
-  actual_value = c(3.0, 2.0)
+  Parameter = c(paste0("V", 1:4), paste0("W", 1:8)),
+  actual_value = c(rep(2.0, 4), rep(3.0, 8))
 )
 ```
 
 ```{r first-order-gibbs}
 params = c(paste0("V", 1:4), paste0("W", 1:8))
-iters = read_csv("../examples/data/multivariate_regression_gibbs_0.csv", col_names = params)
-iters2 = read_csv("../examples/data/multivariate_regression_gibbs_1.csv", col_names = params)
-chain = ggs(mcmc.list(mcmc(iters[seq(1, nrow(iters), by = 10),]), mcmc(iters2[seq(1, nrow(iters2), by = 10),])))
+files = c("../examples/data/multivariate_regression_gibbs_0.csv",
+          "../examples/data/multivariate_regression_gibbs_1.csv")
+chains = read_chains(files, param_names = actual_values$Parameter, drop = 1e3, nth = 1)
 
-ggs_traceplot(chain) + facet_wrap(~Parameter, strip.position = "right")
-
-ggs_autocorrelation(chain)
-
-ggs_density(chain) +
+plot_diagnostics_sim(chains, actual_values)
 ```
 

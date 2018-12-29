@@ -23,7 +23,7 @@
 
 
 <style type="text/css">code{white-space: pre;}</style>
-<style type="text/css">
+<style type="text/css" data-origin="pandoc">
 div.sourceCode { overflow-x: auto; }
 table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
   margin: 0; padding: 0; vertical-align: baseline; border: none; }
@@ -62,7 +62,29 @@ code > span.wa { color: #bf0303; } /* Warning */
 code > span.al { color: #bf0303; font-weight: bold; } /* Alert */
 code > span.er { color: #bf0303; text-decoration: underline; } /* Error */
 code > span. { color: #1f1c1b; } /* Normal */
+
 </style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' || rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
 <style type="text/css">
   pre:not([class]) {
     background-color: white;
@@ -119,8 +141,14 @@ img {
 .tabbed-pane {
   padding-top: 12px;
 }
+.html-widget {
+  margin-bottom: 20px;
+}
 button.code-folding-btn:focus {
   outline: none;
+}
+summary {
+  display: list-item;
 }
 </style>
 
@@ -136,7 +164,6 @@ body {
   padding-top: 56px;
   margin-top: -56px;
 }
-
 .section h2 {
   padding-top: 56px;
   margin-top: -56px;
@@ -156,6 +183,43 @@ body {
 .section h6 {
   padding-top: 56px;
   margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
 }
 </style>
 
@@ -177,18 +241,77 @@ $(document).ready(function () {
 });
 </script>
 
-
 <div class="container-fluid main-container">
 
 <!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
 <script>
 $(document).ready(function () {
   window.buildTabsets("TOC");
 });
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
 </script>
 
 <!-- code folding -->
-
 
 
 
@@ -209,8 +332,23 @@ $(document).ready(function () {
         <li>
   <a href="index.html">Home</a>
 </li>
-<li>
-  <a href="model_building_simulation.html">Model Building</a>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Model Building
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="model_building_simulation.html">DLMs and DGLMs</a>
+    </li>
+    <li>
+      <a href="stochastic_volatility.html">Stochastic Volatility</a>
+    </li>
+    <li>
+      <a href="factor_stochastic_volatility.html">Factor Stochastic Volatility</a>
+    </li>
+  </ul>
 </li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
@@ -229,7 +367,7 @@ $(document).ready(function () {
 </li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
-    Parameter Learning
+    Parameter Inference
      
     <span class="caret"></span>
   </a>
@@ -239,6 +377,9 @@ $(document).ready(function () {
     </li>
     <li>
       <a href="pmmh.html">PMMH</a>
+    </li>
+    <li>
+      <a href="online_filtering.html">Online Parameter Inference</a>
     </li>
   </ul>
 </li>
@@ -275,6 +416,9 @@ $(document).ready(function () {
     </li>
   </ul>
 </li>
+<li>
+  <a href="https://git.io/dlm">Github</a>
+</li>
       </ul>
       <ul class="nav navbar-nav navbar-right">
         
@@ -296,21 +440,21 @@ $(document).ready(function () {
 <h1>Simulation</h1>
 <p><span class="math display">\[\begin{align}
 Y_t &amp;= x_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
-X_t &amp;= \phi x_{t-1} + w_t, \quad w_t \sim \mathcal{N}(0, W), \\
-X_0 &amp;\sim \mathcal{N}(m_0, C_0).
+\alpha_t &amp;= \phi (\alpha_{t-1}-\mu) + eta_t, \quad w_t \sim \mathcal{N}(0, \sigma_\eta), \\
+\alpha_0 &amp;\sim \mathcal{N}(m_0, C_0).
 \end{align}\]</span></p>
 <p>The code required to simulate from this model is given below:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> core.<span class="fu">dlm</span>.<span class="fu">model</span>._
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
 <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
 
 <span class="kw">val</span> mod = Dlm.<span class="fu">autoregressive</span>(phi = <span class="fl">0.9</span>)
-<span class="kw">val</span> p = Dlm.<span class="fu">Parameters</span>(
-  <span class="fu">DenseMatrix</span>(<span class="fl">4.0</span>), 
-  <span class="fu">DenseMatrix</span>(<span class="fl">2.0</span>), 
-  <span class="fu">DenseVector</span>(<span class="fl">0.0</span>), 
+<span class="kw">val</span> p = <span class="fu">DlmParameters</span>(
+  <span class="fu">DenseMatrix</span>(<span class="fl">4.0</span>),
+  <span class="fu">DenseMatrix</span>(<span class="fl">2.0</span>),
+  <span class="fu">DenseVector</span>(<span class="fl">0.0</span>),
   <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>))
 
-<span class="kw">val</span> data = Dlm.<span class="fu">simulateRegular</span>(<span class="dv">0</span>, mod, p, <span class="fl">1.0</span>).
+<span class="kw">val</span> data = Dlm.<span class="fu">simulateRegular</span>(mod, p, <span class="fl">1.0</span>).
   steps.
   <span class="fu">take</span>(<span class="dv">1000</span>).
   toVector</code></pre></div>
@@ -319,12 +463,14 @@ X_0 &amp;\sim \mathcal{N}(m_0, C_0).
 </div>
 <div id="filtering" class="section level1">
 <h1>Filtering</h1>
-<p>To perform Kalman Filtering on a <code>Vector</code> of <code>Data</code>, we simply discard the state from the simulated data and pass it into the <code>KalmanFilter.filter</code> function:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> filtered = KalmanFilter.<span class="fu">filter</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)</code></pre></div>
+<p>To perform Kalman Filtering on a <code>Vector</code> of <code>Data</code>, we simply discard the state from the simulated data and pass it into the <code>KalmanFilter.filterDlm</code> function:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> cats.<span class="fu">implicits</span>._
+<span class="kw">val</span> filtered = KalmanFilter.<span class="fu">filterDlm</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)</code></pre></div>
+<p>The <code>filterDlm</code> function is implemented for any collection which has a <code>Traverse</code> instance, cats provides an instance for <code>Vector[A]</code> (via the import <code>cats.implicits._</code>).</p>
 <p><img src="ar1_files/figure-html/ar1-filtered-1.png" width="672" /></p>
 </div>
-<div id="parameter-learning" class="section level1">
-<h1>Parameter Learning</h1>
+<div id="parameter-inference" class="section level1">
+<h1>Parameter Inference</h1>
 <p>The figure below shows the prior distributions for the parameters and the diagnostics from 100,000 iterations of the MCMC algorithm. A Beta prior and proposal is used in a Metropolis-Hastings step to learn the autoregressive parameter <span class="math inline">\(\phi\)</span>.</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
 
@@ -333,27 +479,481 @@ X_0 &amp;\sim \mathcal{N}(m_0, C_0).
 <span class="kw">val</span> priorPhi = <span class="kw">new</span> <span class="fu">Beta</span>(<span class="dv">20</span>, <span class="dv">2</span>)</code></pre></div>
 <p>First we define the prior distributions for the parameters, the prior for V and W are plotted in the Figure below</p>
 <p><img src="ar1_files/figure-html/prior-distributions-1.png" width="672" /></p>
-<p>Next we can use the prior distribution to construct at <code>Dlm.Parameters</code> object which can be drawn from to initialise the Markov chain.</p>
+<p>Next we can use the prior distribution to construct at <code>DlmParameters</code> object which can be drawn from to initialise the Markov chain.</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> prior = <span class="kw">for</span> {
   v &lt;- priorV
   w &lt;- priorW
-} <span class="kw">yield</span> Dlm.<span class="fu">Parameters</span>(<span class="fu">DenseMatrix</span>(v), <span class="fu">DenseMatrix</span>(w), p.<span class="fu">m0</span>, p.<span class="fu">c0</span>)</code></pre></div>
+} <span class="kw">yield</span> <span class="fu">DlmParameters</span>(<span class="fu">DenseMatrix</span>(v), <span class="fu">DenseMatrix</span>(w), p.<span class="fu">m0</span>, p.<span class="fu">c0</span>)</code></pre></div>
 <p>Next we create a single step of the Markov Chain which samples the value of <span class="math inline">\(\phi\)</span> using a Metropolis Hastings step. The function <code>updateModel</code> is used to change the value of the system evolution matrix <span class="math inline">\(G\)</span> to include the new value of the autoregressive parameter <span class="math inline">\(\phi\)</span>.</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> step = (s: (Double, GibbsSampling.<span class="fu">State</span>)) =&gt; <span class="kw">for</span> {
   newS &lt;- GibbsSampling.<span class="fu">dinvGammaStep</span>(GibbsSampling.<span class="fu">updateModel</span>(mod, s._<span class="dv">1</span>),
     priorV, priorW, data.<span class="fu">map</span>(_._<span class="dv">1</span>))(s._<span class="dv">2</span>)
   phi &lt;- GibbsSampling.<span class="fu">samplePhi</span>(priorPhi, <span class="dv">1000</span>, <span class="fl">0.5</span>, newS)(s._<span class="dv">1</span>)
 } <span class="kw">yield</span> (phi, newS)</code></pre></div>
-<p>Next the inital state of the MCMC is created:</p>
+<p>Next the inital parameter distribution can be defined as:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> init = <span class="kw">for</span> {
   p &lt;- prior
   phi &lt;- priorPhi
-  state &lt;- Smoothing.<span class="fu">ffbs</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)
+  state &lt;- Smoothing.<span class="fu">ffbsDlm</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)
 } <span class="kw">yield</span> (phi, GibbsSampling.<span class="fu">State</span>(p, state))</code></pre></div>
-<p>Finally we can construct the Markov Chain:</p>
+<p>This allows us to intialise the MCMC with a draw from the prior distribution. Finally we can construct the Markov Chain:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = <span class="fu">MarkovChain</span>(init.<span class="fu">draw</span>)(step).<span class="fu">steps</span>.<span class="fu">take</span>(<span class="dv">100000</span>)</code></pre></div>
 <p>The figure below shows the posterior distributions of the static parameters in the autoregressive DLM. 10,000 iterations are discarded as burnin and 100,000 samples are taken from the Markov Chain.</p>
 <p><img src="ar1_files/figure-html/ar1-parameter-diagnostics-1.png" width="672" /></p>
+<div id="continuous-time-autoregressive-process" class="section level2">
+<h2>Continuous Time Autoregressive Process</h2>
+<p>The Ornstein-Uhlenbeck process is a continuous time autoregressive process. Define a partially observed Markov process with an OU latent-state as:</p>
+<span class="math display">\[\begin{align*}
+Y_t &amp;= x_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
+\textrm{d}\alpha_t &amp;= \phi(\alpha_t - \mu)\textrm{d}t + \sigma  \textrm{d}W_t. 
+\end{align*}\]</span>
+<p>The Figure below shows a simulation from the OU process DLM with observation variance <span class="math inline">\(V = 0.5\)</span>, <span class="math inline">\(\phi = 0.2\)</span>, <span class="math inline">\(\mu = 1.0\)</span> and <span class="math inline">\(\sigma = 0.3\)</span>. To simulate the OU process DLM, define parameters of the OU process and use the transition kernel defined in the <code>StochasticVolatility</code> class. The observation distribution is Gaussian with variance <span class="math inline">\(V = 0.5\)</span>. Since this process can be simulated at arbitrary time points, a vector of random times is simulated by defining the difference between the observations to be <code>deltas</code>. Then the state, <span class="math inline">\(\alpha_0\)</span> is initialised at the stationary solution of the OU process and a scan is used to simulate the data.</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                          ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+&lt;console&gt;:<span class="dv">17</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+&lt;console&gt;:<span class="dv">22</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+<span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+
+scala&gt; <span class="kw">val</span> p = <span class="fu">SvParameters</span>(<span class="fl">0.2</span>, <span class="fl">1.0</span>, <span class="fl">0.3</span>)
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                          ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+&lt;console&gt;:<span class="dv">17</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+p: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">SvParameters</span> = <span class="fu">SvParameters</span>(<span class="fl">0.2</span>,<span class="fl">1.0</span>,<span class="fl">0.3</span>)
+
+scala&gt; <span class="kw">def</span> <span class="fu">stepDlm</span>(t: Double, dt: Double, x: Double) =
+     |   <span class="kw">for</span> {
+     |     x1 &lt;- StochasticVolatility.<span class="fu">stepOu</span>(p, x, dt)
+     |     y &lt;- <span class="fu">Gaussian</span>(x1, math.<span class="fu">sqrt</span>(<span class="fl">0.5</span>))
+     |   } <span class="kw">yield</span> (t + dt, y, x1)
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                          ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+stepDlm: (t: Double, dt: Double, x: Double)breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Rand</span>[(Double, Double, Double)]
+
+scala&gt; <span class="kw">val</span> deltas = Vector.<span class="fu">fill</span>(<span class="dv">5000</span>)(scala.<span class="fu">util</span>.<span class="fu">Random</span>.<span class="fu">nextDouble</span>())
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                          ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+&lt;console&gt;:<span class="dv">17</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+&lt;console&gt;:<span class="dv">20</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+deltas: scala.<span class="fu">collection</span>.<span class="fu">immutable</span>.<span class="fu">Vector</span>[Double] = Vector(<span class="fl">0.9112652524891296</span>, <span class="fl">0.7170770448866899</span>, <span class="fl">0.8861592330571312</span>, <span class="fl">0.27463750868967585</span>, <span class="fl">0.2616763853561149</span>, <span class="fl">0.40735279441147565</span>, <span class="fl">0.4115805846130032</span>, <span class="fl">0.1714318530384753</span>, <span class="fl">0.6422959068219808</span>, <span class="fl">0.12274509299680303</span>, <span class="fl">0.12991670749722417</span>, <span class="fl">0.9703919078187349</span>, <span class="fl">0.43335889663980975</span>, <span class="fl">0.4898222138198741</span>, <span class="fl">0.3131044366055894</span>, <span class="fl">0.18608258678301481</span>, <span class="fl">0.7254068467362147</span>, <span class="fl">0.40424292348186364</span>, <span class="fl">0.1463444483450903</span>, <span class="fl">0.8277156979175803</span>, <span class="fl">0.7237703499815168</span>, <span class="fl">0.1651084945599559</span>, <span class="fl">0.46367745798055904</span>, <span class="fl">0.8971764949998614</span>, <span class="fl">0.6770627693085174</span>, <span class="fl">0.09771893596462333</span>, <span class="fl">0.08095055010925845</span>, <span class="fl">0.9318664758150106</span>, <span class="fl">0.2403594414452308</span>, <span class="fl">0.6137387001307241</span>, <span class="fl">0.8248371072146025</span>, <span class="fl">0.5301365992975726</span>, <span class="fl">0.4425267131293412</span>, <span class="fl">0.330628432879301</span>, <span class="fl">0.5059874880342983</span>, <span class="fl">0.9855625510887926</span>, <span class="fl">0.7172039</span>...
+
+scala&gt; <span class="kw">val</span> init = <span class="fu">Gaussian</span>(p.<span class="fu">mu</span>, math.<span class="fu">sqrt</span>(p.<span class="fu">sigmaEta</span> * p.<span class="fu">sigmaEta</span> / <span class="dv">2</span> * p.<span class="fu">phi</span>))
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                          ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+&lt;console&gt;:<span class="dv">20</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+init: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Gaussian</span> = <span class="fu">Gaussian</span>(<span class="fl">1.0</span>, <span class="fl">0.09486832980505137</span>)
+
+scala&gt; <span class="kw">val</span> sims = deltas.<span class="fu">scanLeft</span>((<span class="fl">0.0</span>, <span class="fl">0.0</span>, init.<span class="fu">draw</span>)) {
+     |   <span class="kw">case</span> ((t, y, xt), dt) =&gt;
+     |     <span class="fu">stepDlm</span>(t + dt, dt, xt).<span class="fu">draw</span>
+     | }
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                          ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+&lt;console&gt;:<span class="dv">17</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+&lt;console&gt;:<span class="dv">20</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+sims: scala.<span class="fu">collection</span>.<span class="fu">immutable</span>.<span class="fu">Vector</span>[(Double, Double, Double)] = Vector((<span class="fl">0.0</span>,<span class="fl">0.0</span>,<span class="fl">1.2674664723598252</span>), (<span class="fl">1.8225305049782592</span>,<span class="fl">0.7097903517586646</span>,<span class="fl">0.7363591030582783</span>), (<span class="fl">3.256684594751639</span>,<span class="fl">0.8982230407590618</span>,<span class="fl">0.9438613298682959</span>), (<span class="fl">5.029003060865901</span>,-<span class="fl">0.2956180673596438</span>,<span class="fl">0.9278377972558407</span>), (<span class="fl">5.578278078245252</span>,<span class="fl">0.9267980411369601</span>,<span class="fl">1.0300856169569532</span>), (<span class="fl">6.101630848957481</span>,<span class="fl">0.8765858414149623</span>,<span class="fl">0.7736046688534646</span>), (<span class="fl">6.916336437780433</span>,<span class="fl">0.06618320263200961</span>,<span class="fl">0.9607844474734939</span>), (<span class="fl">7.739497607006439</span>,<span class="fl">1.1523750169700686</span>,<span class="fl">0.8342216698015905</span>), (<span class="fl">8.08236131308339</span>,<span class="fl">1.247341169794061</span>,<span class="fl">0.9557244727919915</span>), (<span class="fl">9.36695312672735</span>,<span class="fl">1.4070041544885619</span>,<span class="fl">0.9151253216412034</span>), (<span class="fl">9.612443312720956</span>,<span class="fl">0.4407009735294981</span>,<span class="fl">0.9738279180733308</span>), (<span class="fl">9.872276727715406</span>,<span class="fl">0.42433406504140525</span>,<span class="fl">1.0164008947436398</span>), (<span class="fl">11.813060543352876</span>,<span class="fl">1.6205818934851994</span>,<span class="fl">1.0</span>...</code></pre></div>
+<p><img src="ar1_files/figure-html/ou-sums-1.png" width="672" /></p>
+<p>The figure below shows a Kalman Filter for the OU process, since the transition kernel of the OU process is known and given by a Gaussian distribution the Kalman Filter can be performed:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">val</span> ys = sims.<span class="fu">map</span> { <span class="kw">case</span> (t, y, a) =&gt; (t, y.<span class="fu">some</span>) }
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                          ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">17</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+&lt;console&gt;:<span class="dv">20</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+ys: scala.<span class="fu">collection</span>.<span class="fu">immutable</span>.<span class="fu">Vector</span>[(Double, Option[Double])] = Vector((<span class="fl">0.0</span>,Some(<span class="fl">0.0</span>)), (<span class="fl">1.8225305049782592</span>,Some(<span class="fl">0.7097903517586646</span>)), (<span class="fl">3.256684594751639</span>,Some(<span class="fl">0.8982230407590618</span>)), (<span class="fl">5.029003060865901</span>,Some(-<span class="fl">0.2956180673596438</span>)), (<span class="fl">5.578278078245252</span>,Some(<span class="fl">0.9267980411369601</span>)), (<span class="fl">6.101630848957481</span>,Some(<span class="fl">0.8765858414149623</span>)), (<span class="fl">6.916336437780433</span>,Some(<span class="fl">0.06618320263200961</span>)), (<span class="fl">7.739497607006439</span>,Some(<span class="fl">1.1523750169700686</span>)), (<span class="fl">8.08236131308339</span>,Some(<span class="fl">1.247341169794061</span>)), (<span class="fl">9.36695312672735</span>,Some(<span class="fl">1.4070041544885619</span>)), (<span class="fl">9.612443312720956</span>,Some(<span class="fl">0.4407009735294981</span>)), (<span class="fl">9.872276727715406</span>,Some(<span class="fl">0.42433406504140525</span>)), (<span class="fl">11.813060543352876</span>,Some(<span class="fl">1.6205818934851994</span>)), (<span class="fl">12.679778336632495</span>,Some(<span class="fl">0.7825244871108019</span>)), (<span class="fl">13.659422764272243</span>,Some(-<span class="fl">0.1743629107022191</span>)), (<span class="fl">14.285631637483423</span>,Some(-<span class="fl">0.7103486761484656</span>)), (<span class="fl">14.657796</span>...
+
+scala&gt; <span class="kw">val</span> filtered = FilterOu.<span class="fu">filterUnivariate</span>(ys, Vector.<span class="fu">fill</span>(ys.<span class="fu">size</span>)(<span class="fl">0.5</span>), p)
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                          ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+&lt;console&gt;:<span class="dv">17</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+filtered: scala.<span class="fu">collection</span>.<span class="fu">immutable</span>.<span class="fu">Vector</span>[com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">FilterAr</span>.<span class="fu">FilterState</span>] = Vector(<span class="fu">FilterState</span>(<span class="fl">0.0</span>,<span class="fl">1.0</span>,<span class="fl">0.09</span>,<span class="fl">1.0</span>,<span class="fl">0.09</span>), <span class="fu">FilterState</span>(<span class="fl">0.0</span>,<span class="fl">0.847457627118644</span>,<span class="fl">0.07627118644067797</span>,<span class="fl">1.0</span>,<span class="fl">0.09</span>), <span class="fu">FilterState</span>(<span class="fl">1.8225305049782592</span>,<span class="fl">0.8508247205567557</span>,<span class="fl">0.11730129618998475</span>,<span class="fl">0.8940532815700306</span>,<span class="fl">0.1532554134913103</span>), <span class="fu">FilterState</span>(<span class="fl">3.256684594751639</span>,<span class="fl">0.8905461395477265</span>,<span class="fl">0.12367321421817269</span>,<span class="fl">0.8880232602738828</span>,<span class="fl">0.16431625237788855</span>), <span class="fu">FilterState</span>(<span class="fl">5.029003060865901</span>,<span class="fl">0.6070459365501255</span>,<span class="fl">0.12970084279855587</span>,<span class="fl">0.9232126892800705</span>,<span class="fl">0.1751298109598426</span>), <span class="fu">FilterState</span>(<span class="fl">5.578278078245252</span>,<span class="fl">0.7117853845806112</span>,<span class="fl">0.11449406893664624</span>,<span class="fl">0.647927290739849</span>,<span class="fl">0.14849845321553606</span>), <span class="fu">FilterState</span>(<span class="fl">6.101630848957481</span>,<span class="fl">0.769436654126097</span>,<span class="fl">0.10652637015317834</span>,<span class="fl">0.7404278130731669</span>,<span class="fl">0.13536659393750072</span>), <span class="fu">FilterState</span>(<span class="fl">6.916336437780433</span>,<span class="fl">0.6431569860212298</span>,<span class="dv">0</span>...</code></pre></div>
+<p><img src="ar1_files/figure-html/filtering-ou-process-1.png" width="672" /></p>
+<p>Parameter inference is performed using the Kalman filter to calculate the marginal likelihood of the OU process which is then used in a Metropolis-Hastings algorithm to determine the static parameters of the latent state, <span class="math inline">\(\phi, \mu\)</span> and <span class="math inline">\(\sigma\)</span>. The value of the observation variance, <span class="math inline">\(V\)</span>, is determined using a Gibbs step:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">import</span> StochasticVolatility._
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                          ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+&lt;console&gt;:<span class="dv">17</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+&lt;console&gt;:<span class="dv">25</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> StochasticVolatility._
+                                   ^
+<span class="kw">import</span> StochasticVolatility._
+
+scala&gt; <span class="kw">val</span> p = <span class="fu">SvParameters</span>(<span class="fl">0.2</span>, <span class="fl">1.0</span>, <span class="fl">0.3</span>)
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                          ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+&lt;console&gt;:<span class="dv">17</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+&lt;console&gt;:<span class="dv">23</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> StochasticVolatility._
+                                   ^
+p: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">SvParameters</span> = <span class="fu">SvParameters</span>(<span class="fl">0.2</span>,<span class="fl">1.0</span>,<span class="fl">0.3</span>)
+
+scala&gt; <span class="kw">val</span> priorPhi = <span class="kw">new</span> <span class="fu">Beta</span>(<span class="fl">2.0</span>, <span class="fl">5.0</span>)
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                          ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+&lt;console&gt;:<span class="dv">23</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> StochasticVolatility._
+                                   ^
+priorPhi: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Beta</span> = breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Beta</span>@163831a8
+
+scala&gt; <span class="kw">val</span> priorMu = <span class="fu">Gaussian</span>(<span class="fl">1.0</span>, <span class="fl">1.0</span>)
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                          ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+&lt;console&gt;:<span class="dv">23</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> StochasticVolatility._
+                                   ^
+priorMu: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Gaussian</span> = <span class="fu">Gaussian</span>(<span class="fl">1.0</span>, <span class="fl">1.0</span>)
+
+scala&gt; <span class="kw">val</span> priorSigma = <span class="fu">InverseGamma</span>(<span class="fl">5.0</span>, <span class="fl">1.0</span>)
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                          ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+&lt;console&gt;:<span class="dv">17</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+&lt;console&gt;:<span class="dv">23</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> StochasticVolatility._
+                                   ^
+priorSigma: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">InverseGamma</span> = <span class="fu">InverseGamma</span>(<span class="fl">5.0</span>,<span class="fl">1.0</span>)
+
+scala&gt; <span class="kw">val</span> priorV = <span class="fu">InverseGamma</span>(<span class="fl">2.0</span>, <span class="fl">2.0</span>)
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                          ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+&lt;console&gt;:<span class="dv">17</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+&lt;console&gt;:<span class="dv">23</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> StochasticVolatility._
+                                   ^
+priorV: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">InverseGamma</span> = <span class="fu">InverseGamma</span>(<span class="fl">2.0</span>,<span class="fl">2.0</span>)
+
+scala&gt; <span class="kw">val</span> f = (dt: Double) =&gt; <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>)
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                          ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+&lt;console&gt;:<span class="dv">17</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+&lt;console&gt;:<span class="dv">23</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> StochasticVolatility._
+                                   ^
+f: Double =&gt; breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>[Double] = $$Lambda$<span class="dv">6738</span>/<span class="dv">1042733082</span>@<span class="dv">23426493</span>
+
+scala&gt; <span class="kw">val</span> step = (s: (StochasticVolatilityKnots.<span class="fu">OuSvState</span>, DenseMatrix[Double])) =&gt;
+     |   <span class="kw">for</span> {
+     |     theta &lt;- FilterOu.<span class="fu">ffbs</span>(s._<span class="fl">1.</span>params, ys, Vector.<span class="fu">fill</span>(ys.<span class="fu">size</span>)(s._<span class="dv">2</span>(<span class="dv">0</span>, <span class="dv">0</span>)))
+     |     st = theta.<span class="fu">map</span>(x =&gt; (x.<span class="fu">time</span>, x.<span class="fu">sample</span>))
+     |     (phi, acceptedPhi) &lt;- <span class="fu">samplePhiOu</span>(priorPhi, s._<span class="fl">1.</span>params, st, <span class="fl">0.05</span>, <span class="fl">0.25</span>)(
+     |       s._<span class="fl">1.</span>params.<span class="fu">phi</span>)
+     |     (mu, acceptedMu) &lt;- <span class="fu">sampleMuOu</span>(priorMu, <span class="fl">0.2</span>, s._<span class="fl">1.</span>params, st)(
+     |       s._<span class="fl">1.</span>params.<span class="fu">mu</span>)
+     |     (sigma, acceptedSigma) &lt;- <span class="fu">sampleSigmaMetropOu</span>(priorSigma,
+     |                                                   <span class="fl">0.1</span>,
+     |                                                   s._<span class="fl">1.</span>params,
+     |                                                   st)(s._<span class="fl">1.</span>params.<span class="fu">sigmaEta</span>)
+     |     v &lt;- GibbsSampling.<span class="fu">sampleObservationMatrix</span>(
+     |       priorV,
+     |       f,
+     |       ys.<span class="fu">map</span>(x =&gt; <span class="fu">DenseVector</span>(x._<span class="dv">2</span>)),
+     |       st.<span class="fu">map</span> { <span class="kw">case</span> (t, x) =&gt; (t, <span class="fu">DenseVector</span>(x)) })
+     |     accepted = <span class="fu">DenseVector</span>(Array(acceptedPhi, acceptedMu, acceptedSigma))
+     |   } <span class="kw">yield</span>
+     |     (StochasticVolatilityKnots.<span class="fu">OuSvState</span>(<span class="fu">SvParameters</span>(phi, mu, sigma),
+     |                                          theta,
+     |                                          s._<span class="fl">1.</span>accepted + accepted),
+     |      v)
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+&lt;console&gt;:<span class="dv">17</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+step: ((com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">StochasticVolatilityKnots</span>.<span class="fu">OuSvState</span>, breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>[Double])) =&gt; breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Rand</span>[(com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">StochasticVolatilityKnots</span>.<span class="fu">OuSvState</span>, breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>[Double])] = $$Lambda$<span class="dv">6781</span>/<span class="dv">1487300472</span>@77c16fae
+
+scala&gt; <span class="kw">val</span> initState = FilterOu.<span class="fu">ffbs</span>(p, ys, Vector.<span class="fu">fill</span>(ys.<span class="fu">size</span>)(priorV.<span class="fu">draw</span>))
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                          ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+&lt;console&gt;:<span class="dv">17</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+&lt;console&gt;:<span class="dv">24</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> StochasticVolatility._
+                                   ^
+initState: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Rand</span>[Vector[com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">FilterAr</span>.<span class="fu">SampleState</span>]] = breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">RandBasis</span>$$anon$<span class="dv">9</span>@78819b1
+
+scala&gt; <span class="kw">val</span> init = (StochasticVolatilityKnots.<span class="fu">OuSvState</span>(p,
+     |                                                 initState.<span class="fu">draw</span>,
+     |                                                 DenseVector.<span class="fu">zeros</span>[Int](<span class="dv">3</span>)),
+     |             <span class="fu">DenseMatrix</span>(priorV.<span class="fu">draw</span>))
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+&lt;console&gt;:<span class="dv">17</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+&lt;console&gt;:<span class="dv">23</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> StochasticVolatility._
+                                   ^
+init: (com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">StochasticVolatilityKnots</span>.<span class="fu">OuSvState</span>, breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>[Double]) = (<span class="fu">OuSvState</span>(<span class="fu">SvParameters</span>(<span class="fl">0.2</span>,<span class="fl">1.0</span>,<span class="fl">0.3</span>),Vector(<span class="fu">SampleState</span>(<span class="fl">0.0</span>,<span class="fl">1.282651836274979</span>,<span class="fl">1.0</span>,<span class="fl">0.09</span>,<span class="fl">1.0</span>,<span class="fl">0.09</span>), <span class="fu">SampleState</span>(<span class="fl">0.0</span>,<span class="fl">1.282651836274979</span>,<span class="fl">0.9569170058287079</span>,<span class="fl">0.08612253052458371</span>,<span class="fl">1.0</span>,<span class="fl">0.09</span>), <span class="fu">SampleState</span>(<span class="fl">1.8225305049782592</span>,<span class="fl">1.4114428394695446</span>,<span class="fl">0.9372100455695462</span>,<span class="fl">0.13805552091956633</span>,<span class="fl">0.9700771545219369</span>,<span class="fl">0.1580075566096492</span>), <span class="fu">SampleState</span>(<span class="fl">3.256684594751639</span>,<span class="fl">1.1509840174489756</span>,<span class="fl">0.9484432680810332</span>,<span class="fl">0.16176010609461142</span>,<span class="fl">0.9528674294365996</span>,<span class="fl">0.1760103962350349</span>), <span class="fu">SampleState</span>(<span class="fl">5.029003060865901</span>,<span class="fl">0.7522288442732704</span>,<span class="fl">0.7414913596161166</span>,<span class="fl">0.15964900984398722</span>,<span class="fl">0.9638303959567323</span>,<span class="fl">0.19387510602841157</span>), <span class="fu">SampleState</span>(<span class="fl">5.578278078245252</span>,<span class="fl">0.9126935798009213</span>,<span class="fl">0.8014307919717945</span>,<span class="fl">0.13654724647161118</span>,<span class="fl">0.7683855548201457</span>,<span class="fl">0.172539390928050</span>...
+
+scala&gt; <span class="kw">val</span> iters = <span class="fu">MarkovChain</span>(init)(step)
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                          ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
+                                                       ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> cats.<span class="fu">implicits</span>._
+                             ^
+&lt;console&gt;:<span class="dv">23</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> StochasticVolatility._
+                                   ^
+iters: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Process</span>[(com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">StochasticVolatilityKnots</span>.<span class="fu">OuSvState</span>, breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>[Double])] = breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">MarkovChain</span>$$anon$<span class="dv">1</span>@734b0025</code></pre></div>
+<p><img src="ar1_files/figure-html/parameter-inference-ou-1.png" width="672" /></p>
+</div>
 </div>
 
 

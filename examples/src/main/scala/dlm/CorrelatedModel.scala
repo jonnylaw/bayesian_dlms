@@ -1,6 +1,6 @@
-package examples.dlm
+package com.github.jonnylaw.dlm.example
 
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import cats.implicits._
 import Dlm._
 import breeze.linalg._
@@ -137,7 +137,7 @@ object FirstOrderLinearTrendDlm extends App {
   writer.close()
 }
 
-object SusteInvestment extends App with CorrelatedModel {
+object SutseInvestment extends App with CorrelatedModel {
   implicit val system = ActorSystem("sutse_investment")
   implicit val materializer = ActorMaterializer()
 
@@ -167,16 +167,16 @@ object SusteInvestment extends App with CorrelatedModel {
   val meanW = 1.0
 
   val priorV = InverseGamma(alpha(meanV, variance), beta(meanV, variance))
-  val priorW = InverseGamma(alpha(meanW, variance), beta(meanW, variance))
+  val priorW = InverseWishart(2.0, DenseMatrix.eye[Double](2))
 
   val initP = DlmParameters(
     v = diag(DenseVector.fill(2)(priorV.draw)),
-    w = diag(DenseVector.fill(2)(priorW.draw)),
+    w = priorW.draw,
     m0 = DenseVector.zeros[Double](2),
     c0 = DenseMatrix.eye[Double](2)
   )
 
-  val iters = GibbsSampling
+  val iters = GibbsWishart
     .sample(model, priorV, priorW, initP, data)
 
   def formatParameters(s: GibbsSampling.State) = {

@@ -32,18 +32,18 @@ The Kalman filter proceeds as follows, given observations of the process up unti
 In order to illustrate the Kalman Filter implementation in Scala, we consider a first order polynomial DLM, where $F_t = 1$, $G_t = 1$ and the latent-state is one-dimensional:
 
 ```tut:silent
-import core.dlm.model._
+import com.github.jonnylaw.dlm._
 import breeze.linalg.{DenseMatrix, DenseVector}
 
 val mod = Dlm.polynomial(1)
-val p = Dlm.Parameters(
+val p = DlmParameters(
   v = DenseMatrix(3.0),
   w = DenseMatrix(1.0),
   m0 = DenseVector(0.0),
   c0 = DenseMatrix(1.0)
 )
 
-val data = Dlm.simulateRegular(0, mod, p, 1.0).
+val data = Dlm.simulateRegular(mod, p, 1.0).
   steps.
   take(1000).
   toVector
@@ -74,7 +74,8 @@ val (mt1, ct1) = KalmanFilter.updateState(mod.f, at, rt, ft, qt, y, p.v)
 These three steps are implemented together into a single function `stepKalmanFilter`. This function is then used to fold over an `Array[Dlm.Data]` to determine the filtering distribution:
 
 ```tut:silent
-val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
+import cats.implicits._
+val filtered = KalmanFilter.filterDlm(mod, data.map(_._1), p)
 ```
 
 The result of filtering the simulated observations is plotted below, with 90% probability intervals. The system and observation variances, $W_t$ and $V_t$ are assumed to be constant in time and known.
@@ -102,7 +103,7 @@ Numerical stability is important when implementing the Kalman Filter. One way of
 In order to run Singular Value Decomposition filter use:
 
 ```tut:silent
-val filtered = SvdFilter.filter(mod, data.map(_._1), p)
+val filtered = SvdFilter.filterDlm(mod, data.map(_._1), p)
 ```
 
 ## Other Filters

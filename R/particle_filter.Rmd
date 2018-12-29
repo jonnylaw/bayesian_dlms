@@ -43,30 +43,38 @@ Repeat the mean loop until $t = T$.
 To apply the particle filter to a model using this library, specify either a DGLM or a DLM model. Consider a poisson model
 
 ```tut
+import com.github.jonnylaw.dlm._
+import breeze.linalg.{DenseMatrix, DenseVector}
 val mod = Dglm.poisson(Dlm.polynomial(1))
 val params = DlmParameters(DenseMatrix(2.0),
                            DenseMatrix(0.05),
                            DenseVector(0.0),
                            DenseMatrix(1.0))
+
+val sims = Dglm.simulateRegular(mod, params, 1.0).
+             steps.take(100).map(_._1).toVector
 ```
 
 A simulation from the Poisson model is presented in the figure below:
 
-```{r}
-sims = read_csv("../examples/data/poisson_dglm.csv")
+```{r poisson-dglm}
+poisson_sims = read_csv("../examples/data/poisson_dglm.csv")
 
-sims %>%
+data = poisson_sims %>%
   gather(key, value, -time)
-  ggplot(aes(x = time, y = value)) +
-    geom_line() +
-    facet_wrap(~key)
+
+ggplot() +
+  geom_line(data = subset(data, key == "state"), aes(x = time, y = value)) +
+  geom_step(data = subset(data, key == "observation"), aes(x = time, y = value)) +
+  facet_wrap(~key, scales = "free_y", ncol = 1) +
+  theme(legend.position = "none")
 ```
 
 Then the bootstrap particle filter can be user to determine the latent-state of the partially observed inhomogeneous Poisson process:
 
 ```tut
-val filtered = ParticleFilter(n, n, ParticleFilter.metropolisResampling(10))
-  .filter(mod, data, params)
+val n = 500
+val filtered = ParticleFilter(n, n, ParticleFilter.metropolisResampling(10)).filter(mod, sims, params)
 ```
 
 ```{r}
@@ -87,4 +95,3 @@ p2 = poisson_sims %>%
 
 p1 / p2
 ```
-

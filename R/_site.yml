@@ -8,9 +8,11 @@ navbar:
     - text: "Model Building"
       menu:
       - text: "DLMs and DGLMs"
-      - href: model_building_simulation.html
+        href: model_building_simulation.html
       - text: "Stochastic Volatility"
-      - href: stochastic_volatility.html
+        href: stochastic_volatility.html
+      - text: "Factor Stochastic Volatility"
+        href: factor_stochastic_volatility.html
     - text: "Filtering"
       menu:
       - text: "Kalman Filter"

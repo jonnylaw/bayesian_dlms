@@ -23,7 +23,7 @@
 
 
 <style type="text/css">code{white-space: pre;}</style>
-<style type="text/css">
+<style type="text/css" data-origin="pandoc">
 div.sourceCode { overflow-x: auto; }
 table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
   margin: 0; padding: 0; vertical-align: baseline; border: none; }
@@ -62,7 +62,29 @@ code > span.wa { color: #bf0303; } /* Warning */
 code > span.al { color: #bf0303; font-weight: bold; } /* Alert */
 code > span.er { color: #bf0303; text-decoration: underline; } /* Error */
 code > span. { color: #1f1c1b; } /* Normal */
+
 </style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' || rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
 <style type="text/css">
   pre:not([class]) {
     background-color: white;
@@ -119,8 +141,14 @@ img {
 .tabbed-pane {
   padding-top: 12px;
 }
+.html-widget {
+  margin-bottom: 20px;
+}
 button.code-folding-btn:focus {
   outline: none;
+}
+summary {
+  display: list-item;
 }
 </style>
 
@@ -136,7 +164,6 @@ body {
   padding-top: 56px;
   margin-top: -56px;
 }
-
 .section h2 {
   padding-top: 56px;
   margin-top: -56px;
@@ -156,6 +183,43 @@ body {
 .section h6 {
   padding-top: 56px;
   margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
 }
 </style>
 
@@ -177,18 +241,77 @@ $(document).ready(function () {
 });
 </script>
 
-
 <div class="container-fluid main-container">
 
 <!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
 <script>
 $(document).ready(function () {
   window.buildTabsets("TOC");
 });
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
 </script>
 
 <!-- code folding -->
-
 
 
 
@@ -209,8 +332,23 @@ $(document).ready(function () {
         <li>
   <a href="index.html">Home</a>
 </li>
-<li>
-  <a href="model_building_simulation.html">Model Building</a>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Model Building
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="model_building_simulation.html">DLMs and DGLMs</a>
+    </li>
+    <li>
+      <a href="stochastic_volatility.html">Stochastic Volatility</a>
+    </li>
+    <li>
+      <a href="factor_stochastic_volatility.html">Factor Stochastic Volatility</a>
+    </li>
+  </ul>
 </li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
@@ -229,7 +367,7 @@ $(document).ready(function () {
 </li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
-    Parameter Learning
+    Parameter Inference
      
     <span class="caret"></span>
   </a>
@@ -239,6 +377,9 @@ $(document).ready(function () {
     </li>
     <li>
       <a href="pmmh.html">PMMH</a>
+    </li>
+    <li>
+      <a href="online_filtering.html">Online Parameter Inference</a>
     </li>
   </ul>
 </li>
@@ -275,6 +416,9 @@ $(document).ready(function () {
     </li>
   </ul>
 </li>
+<li>
+  <a href="https://git.io/dlm">Github</a>
+</li>
       </ul>
       <ul class="nav navbar-nav navbar-right">
         
@@ -293,25 +437,25 @@ $(document).ready(function () {
 
 
 <p>The Particle Marginal Metropolis Hastings (PMMH) algorithm can be used to learn parameters of a Dynamic Generalised Linear Model (DGLM).</p>
-<p>The algorithm uses an unbiased estimate of the marginal likelihood, <span class="math inline">\(p(y_{1:T} | x_{0:T}, V, W)\)</span> in a <a href="https://en.wikipedia.org/wiki/Metropolis–Hastings_algorithm">Metropolis-Hastings Algorithm</a>. The pseudo marginal likelihood can be calculated using the Particle Filter.</p>
+<p>The algorithm uses an unbiased estimate of the marginal likelihood, <span class="math inline">\(p(y_{1:T} | x_{0:T}, V, W)\)</span> in a <a href="https://en.wikipedia.org/wiki/Metropolisâ€“Hastings_algorithm">Metropolis-Hastings Algorithm</a>. The pseudo marginal likelihood can be calculated using the Particle Filter.</p>
 <p>Firstly define a DGLM:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">import</span> core.<span class="fu">dlm</span>.<span class="fu">model</span>._
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
 &lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
-       <span class="kw">import</span> core.<span class="fu">dlm</span>.<span class="fu">model</span>._
-                             ^
-<span class="kw">import</span> core.<span class="fu">dlm</span>.<span class="fu">model</span>._
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+<span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
 
 scala&gt; <span class="kw">val</span> model = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>)
-model: core.<span class="fu">dlm</span>.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Model</span> = <span class="fu">Model</span>(core.<span class="fu">dlm</span>.<span class="fu">model</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">4354</span>/<span class="dv">1989540587</span>@2a3001f7,core.<span class="fu">dlm</span>.<span class="fu">model</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">4355</span>/<span class="dv">1850400013</span>@2f2f4354)
+model: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Dlm</span> = <span class="fu">Dlm</span>(com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">6788</span>/<span class="dv">1540206298</span>@3523d50b,com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">6789</span>/<span class="dv">1989125347</span>@<span class="dv">26334918</span>)
 
 scala&gt; <span class="kw">val</span> dglm = Dglm.<span class="fu">poisson</span>(model)
-dglm: core.<span class="fu">dlm</span>.<span class="fu">model</span>.<span class="fu">Dglm</span>.<span class="fu">Model</span> = <span class="fu">Model</span>(core.<span class="fu">dlm</span>.<span class="fu">model</span>.<span class="fu">Dglm</span>$$$Lambda$<span class="dv">4445</span>/<span class="dv">228758914</span>@5d61dacf,core.<span class="fu">dlm</span>.<span class="fu">model</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">4354</span>/<span class="dv">1989540587</span>@2a3001f7,core.<span class="fu">dlm</span>.<span class="fu">model</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">4355</span>/<span class="dv">1850400013</span>@2f2f4354,core.<span class="fu">dlm</span>.<span class="fu">model</span>.<span class="fu">Dglm</span>$$$Lambda$<span class="dv">4446</span>/<span class="dv">572676423</span>@15af710f)</code></pre></div>
+dglm: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Dglm</span> = <span class="fu">Dglm</span>(com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Dglm</span>$$$Lambda$<span class="dv">7171</span>/<span class="dv">2056819218</span>@77b45cca,com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">6788</span>/<span class="dv">1540206298</span>@3523d50b,com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">6789</span>/<span class="dv">1989125347</span>@<span class="dv">26334918</span>,com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Dglm</span>$$$Lambda$<span class="dv">7172</span>/<span class="dv">1171156020</span>@4982582c,com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Dglm</span>$$$Lambda$<span class="dv">7173</span>/<span class="dv">490903945</span>@7f9b32e4)</code></pre></div>
 <p>Assume we have some observations of a process which can be modelled using the specified model:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> observations = <span class="co">// some observations</span></code></pre></div>
 <p>Then we need to define the proposal function, <code>def proposal: Parameters =&gt; Rand[Parameters]</code>. A symmetric proposal distribution is implemented in the <code>Metropolis</code> object. This proposal distribution is simply a Normal centered at the previous value of the parameters. In the case of the non-negative parameters, <span class="math inline">\(V\)</span>, <span class="math inline">\(W\)</span> and <span class="math inline">\(C_0\)</span> the parameter is multiplied by the exponential of a Normal random number.</p>
 <p>The function accepts a parameter <code>delta</code>, a single <code>Double</code> value which controls the variance of the Gaussian proposal distribution:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">def</span> proposal = Metropolis.<span class="fu">symmetricProposal</span>(<span class="fl">0.05</span>) _
-proposal: core.<span class="fu">dlm</span>.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Parameters</span> =&gt; breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Rand</span>[core.<span class="fu">dlm</span>.<span class="fu">model</span>.<span class="fu">Dlm</span>.<span class="fu">Parameters</span>]</code></pre></div>
+proposal: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">DlmParameters</span> =&gt; breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Rand</span>[com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">DlmParameters</span>]</code></pre></div>
 <p>Then we need to specify a prior distribution for the parameters, which encapsulates our prior beliefs about the parameters.</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">def</span> <span class="fu">prior</span>(p: Dlm.<span class="fu">Parameters</span>): Double = ???</code></pre></div>
 <p>Then we must specify the initial value of the parameters to start the MCMC, this can be a sample from the prior distribution. The PMMH algorithm is available to use in the Bayesian DLM Scala library, using the bootstrap particle filter to estimate the likelihood:</p>

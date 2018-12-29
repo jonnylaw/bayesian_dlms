@@ -26,18 +26,18 @@ X_0 &\sim \mathcal{N}(m_0, C_0).
 The code required to simulate from this model is given below:
 
 ```tut:silent
-import core.dlm.model._
+import com.github.jonnylaw.dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 
 val mod = Dlm.polynomial(1)
-val p = Dlm.Parameters(
+val p = DlmParameters(
   v = DenseMatrix(2.0),
   w = DenseMatrix(3.0),
   m0 = DenseVector(0.0),
   c0 = DenseMatrix(1.0)
 )
 
-val data = Dlm.simulateRegular(0, mod, p, 1.0).
+val data = Dlm.simulateRegular(mod, p, 1.0).
   steps.
   take(1000).
   toVector
@@ -46,8 +46,8 @@ val data = Dlm.simulateRegular(0, mod, p, 1.0).
 The value `mod` is the `case class` called `Model` containing the definition of the observation and system matrices. These observation matrix, `f`, is a function from `(t: Double) => DenseMatrix[Double]` and the system evolution matrix `g` is a function from `(dt: Double) => DenseMatrix[Double]`. The function `Dlm.polynomial(1)` is equivalent to writing:
 
 ```tut:silent
-Dlm.Model(
-  f = (t: Double) => DenseMatrix(1.0), 
+Dlm(
+  f = (t: Double) => DenseMatrix(1.0),
   g = (dt: Double) => DenseMatrix(1.0)
 )
 ```
@@ -79,7 +79,8 @@ The result of filtering the simulated observations is plotted below, with 90% pr
 To perform Kalman Filtering on a `Vector` of `Data`, we simply discard the state from the simulated data and pass it into the `KalmanFilter.filter` function:
 
 ```tut:silent
-val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
+import cats.implicits._
+val filtered = KalmanFilter.filterDlm(mod, data.map(_._1), p)
 ```
 
 ```{r first-order-filtered}

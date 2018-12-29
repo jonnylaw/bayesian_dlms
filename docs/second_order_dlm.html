@@ -23,7 +23,7 @@
 
 
 <style type="text/css">code{white-space: pre;}</style>
-<style type="text/css">
+<style type="text/css" data-origin="pandoc">
 div.sourceCode { overflow-x: auto; }
 table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
   margin: 0; padding: 0; vertical-align: baseline; border: none; }
@@ -62,7 +62,29 @@ code > span.wa { color: #bf0303; } /* Warning */
 code > span.al { color: #bf0303; font-weight: bold; } /* Alert */
 code > span.er { color: #bf0303; text-decoration: underline; } /* Error */
 code > span. { color: #1f1c1b; } /* Normal */
+
 </style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' || rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
 <style type="text/css">
   pre:not([class]) {
     background-color: white;
@@ -119,8 +141,14 @@ img {
 .tabbed-pane {
   padding-top: 12px;
 }
+.html-widget {
+  margin-bottom: 20px;
+}
 button.code-folding-btn:focus {
   outline: none;
+}
+summary {
+  display: list-item;
 }
 </style>
 
@@ -136,7 +164,6 @@ body {
   padding-top: 56px;
   margin-top: -56px;
 }
-
 .section h2 {
   padding-top: 56px;
   margin-top: -56px;
@@ -156,6 +183,43 @@ body {
 .section h6 {
   padding-top: 56px;
   margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
 }
 </style>
 
@@ -177,18 +241,77 @@ $(document).ready(function () {
 });
 </script>
 
-
 <div class="container-fluid main-container">
 
 <!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
 <script>
 $(document).ready(function () {
   window.buildTabsets("TOC");
 });
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
 </script>
 
 <!-- code folding -->
-
 
 
 
@@ -209,8 +332,23 @@ $(document).ready(function () {
         <li>
   <a href="index.html">Home</a>
 </li>
-<li>
-  <a href="model_building_simulation.html">Model Building</a>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Model Building
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="model_building_simulation.html">DLMs and DGLMs</a>
+    </li>
+    <li>
+      <a href="stochastic_volatility.html">Stochastic Volatility</a>
+    </li>
+    <li>
+      <a href="factor_stochastic_volatility.html">Factor Stochastic Volatility</a>
+    </li>
+  </ul>
 </li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
@@ -229,7 +367,7 @@ $(document).ready(function () {
 </li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
-    Parameter Learning
+    Parameter Inference
      
     <span class="caret"></span>
   </a>
@@ -239,6 +377,9 @@ $(document).ready(function () {
     </li>
     <li>
       <a href="pmmh.html">PMMH</a>
+    </li>
+    <li>
+      <a href="online_filtering.html">Online Parameter Inference</a>
     </li>
   </ul>
 </li>
@@ -275,6 +416,9 @@ $(document).ready(function () {
     </li>
   </ul>
 </li>
+<li>
+  <a href="https://git.io/dlm">Github</a>
+</li>
       </ul>
       <ul class="nav navbar-nav navbar-right">
         
@@ -301,23 +445,23 @@ Y_t &amp;= F \textbf{x}_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
 \textbf{X}_0 &amp;\sim \textrm{MVN}(m_0, C_0).
 \end{align}\]</span></p>
 <p>The state is two dimensional, as such the system noise matrix <span class="math inline">\(W\)</span> is a <span class="math inline">\(2 \times 2\)</span> matrix. The observation and system evolution matrices do not depend on time, the observation matrix is <span class="math inline">\(F = (1 \quad 0)\)</span> and the system evolution matrix is:</p>
-<p><span class="math display">\[G = \begin{pmatrix} 
+<p><span class="math display">\[G = \begin{pmatrix}
 1 &amp; 1 \\
 0 &amp; 1
 \end{pmatrix}.\]</span></p>
 <p>In order to examine the properties of this model, first we can simulate a time series of values from it:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> core.<span class="fu">dlm</span>.<span class="fu">model</span>._
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
 <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
 
 <span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">2</span>)
-  <span class="kw">val</span> p = Dlm.<span class="fu">Parameters</span>(
+  <span class="kw">val</span> p = <span class="fu">DlmParameters</span>(
     <span class="fu">DenseMatrix</span>(<span class="fl">3.0</span>),
     <span class="fu">diag</span>(<span class="fu">DenseVector</span>(<span class="fl">2.0</span>, <span class="fl">1.0</span>)),
-    <span class="fu">DenseVector</span>(<span class="fl">0.0</span>, <span class="fl">0.0</span>), 
+    <span class="fu">DenseVector</span>(<span class="fl">0.0</span>, <span class="fl">0.0</span>),
     <span class="fu">diag</span>(<span class="fu">DenseVector</span>(<span class="fl">100.0</span>, <span class="fl">100.0</span>))
   )
 
-<span class="kw">val</span> data = Dlm.<span class="fu">simulateRegular</span>(<span class="dv">0</span>, mod, p, <span class="fl">1.0</span>).
+<span class="kw">val</span> data = Dlm.<span class="fu">simulateRegular</span>(mod, p, <span class="fl">1.0</span>).
   steps.
   <span class="fu">take</span>(<span class="dv">1000</span>).
   toVector</code></pre></div>
@@ -327,7 +471,8 @@ Y_t &amp;= F \textbf{x}_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
 <div id="filtered" class="section level1">
 <h1>Filtered</h1>
 <p>Kalman Filtering can be performed to learn the posterior distribution of the states, given the observations:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> filtered = KalmanFilter.<span class="fu">filter</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> cats.<span class="fu">implicits</span>._
+<span class="kw">val</span> filtered = KalmanFilter.<span class="fu">filterDlm</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)</code></pre></div>
 <div class="figure">
 <img src="second_order_dlm_files/figure-html/filtering-1.png" alt="Filtered State of the second order model, with 90% probability intervals" width="672" />
 <p class="caption">
@@ -335,68 +480,25 @@ Filtered State of the second order model, with 90% probability intervals
 </p>
 </div>
 </div>
-<div id="learn-parameters" class="section level1">
-<h1>Learn Parameters</h1>
-<p>The parameters can be learned using Gibbs sampling. The state evolution distribution and the observation distribution are Gaussian with unknown variance <span class="math inline">\(W\)</span> and <span class="math inline">\(V\)</span> respectively. The state is assumed to have a diagonal, <span class="math inline">\(2 \times 2\)</span> covariance matrix and hence the unknown variances are chosen to have Inverse Gamma priors. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. To perform gibbs sampling using the Bayesian DLMs package:</p>
+<div id="parameters-inference" class="section level1">
+<h1>Parameters Inference</h1>
+<p>The parameter posterior distributions can be learned using Gibbs sampling. The state evolution distribution and the observation distribution are Gaussian with unknown variance <span class="math inline">\(W\)</span> and <span class="math inline">\(V\)</span> respectively. The state is assumed to have a diagonal, <span class="math inline">\(2 \times 2\)</span> covariance matrix and hence the unknown variances are chosen to have Inverse Gamma priors. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. To perform gibbs sampling using the Bayesian DLMs package:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = GibbsSampling.<span class="fu">sample</span>(
-    mod, 
-    <span class="fu">InverseGamma</span>(<span class="fl">4.0</span>, <span class="fl">9.0</span>), 
-    <span class="fu">InverseGamma</span>(<span class="fl">5.0</span>, <span class="fl">8.0</span>), 
-    p, 
+    mod,
+    <span class="fu">InverseGamma</span>(<span class="fl">4.0</span>, <span class="fl">9.0</span>),
+    <span class="fu">InverseGamma</span>(<span class="fl">5.0</span>, <span class="fl">8.0</span>),
+    p,
     data.<span class="fu">map</span>(_._<span class="dv">1</span>))</code></pre></div>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">gibbs_iters =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../core/data/second_order_dlm_gibbs.csv&quot;</span>)
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">gibbs_iters =<span class="st"> </span><span class="kw">read_csv</span>(<span class="st">&quot;../examples/data/second_order_dlm_gibbs.csv&quot;</span>)
 
 actual_values =<span class="st"> </span><span class="kw">tibble</span>(
   <span class="dt">Parameter =</span> <span class="kw">c</span>(<span class="st">&quot;V&quot;</span>, <span class="st">&quot;W1&quot;</span>, <span class="st">&quot;W2&quot;</span>),
   <span class="dt">actual_value =</span> <span class="kw">c</span>(<span class="fl">3.0</span>, <span class="fl">2.0</span>, <span class="fl">1.0</span>)
 )
 
-gibbs_iters <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">gather</span>(<span class="dt">key =</span> <span class="st">&quot;Parameter&quot;</span>, value) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">group_by</span>(Parameter) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">summarise</span>(<span class="dt">mean =</span> <span class="kw">mean</span>(value), <span class="dt">lower =</span> <span class="kw">quantile</span>(value, <span class="dt">probs =</span> <span class="fl">0.025</span>), 
-            <span class="dt">upper =</span> <span class="kw">quantile</span>(value, <span class="dt">probs =</span> <span class="fl">0.975</span>), <span class="dt">sd =</span> <span class="kw">sd</span>(value)) <span class="op">%&gt;%</span>
-<span class="st">  </span><span class="kw">inner_join</span>(actual_values) <span class="op">%&gt;%</span>
-<span class="st">  </span>knitr<span class="op">::</span><span class="kw">kable</span>(<span class="dt">caption =</span> <span class="st">&quot;Summary Statistics of the parameters of the second order DLM&quot;</span>, <span class="dt">digits =</span> <span class="dv">2</span>)</code></pre></div>
-<table>
-<caption>Summary Statistics of the parameters of the second order DLM</caption>
-<thead>
-<tr class="header">
-<th align="left">Parameter</th>
-<th align="right">mean</th>
-<th align="right">lower</th>
-<th align="right">upper</th>
-<th align="right">sd</th>
-<th align="right">actual_value</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="left">V</td>
-<td align="right">2.85</td>
-<td align="right">2.26</td>
-<td align="right">3.40</td>
-<td align="right">0.29</td>
-<td align="right">3</td>
-</tr>
-<tr class="even">
-<td align="left">W1</td>
-<td align="right">1.81</td>
-<td align="right">0.97</td>
-<td align="right">3.01</td>
-<td align="right">0.53</td>
-<td align="right">2</td>
-</tr>
-<tr class="odd">
-<td align="left">W2</td>
-<td align="right">0.95</td>
-<td align="right">0.73</td>
-<td align="right">1.20</td>
-<td align="right">0.12</td>
-<td align="right">1</td>
-</tr>
-</tbody>
-</table>
+<span class="co"># gibbs_iters %&gt;%</span>
+<span class="co">#   mcmc() %&gt;% ggs() %&gt;%</span>
+<span class="co">#   summary_table()</span></code></pre></div>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">params =<span class="st"> </span><span class="kw">ggs</span>(<span class="kw">mcmc</span>(gibbs_iters))
 
 p1 =<span class="st"> </span>params <span class="op">%&gt;%</span>
@@ -406,7 +508,7 @@ p1 =<span class="st"> </span>params <span class="op">%&gt;%</span>
 <span class="st">  </span><span class="kw">geom_hline</span>(<span class="kw">aes</span>(<span class="dt">yintercept =</span> actual_value), <span class="dt">colour =</span> <span class="st">&quot;#ff0000&quot;</span>) <span class="op">+</span>
 <span class="st">  </span><span class="kw">facet_wrap</span>(<span class="op">~</span>Parameter, <span class="dt">scales =</span> <span class="st">&quot;free_y&quot;</span>)
 
-p2 =<span class="st"> </span>params <span class="op">%&gt;%</span><span class="st"> </span>
+p2 =<span class="st"> </span>params <span class="op">%&gt;%</span>
 <span class="st">  </span><span class="kw">ggs_autocorrelation</span>()
 
 p1 <span class="op">+</span><span class="st"> </span>p2 <span class="op">+</span><span class="st"> </span><span class="kw">plot_layout</span>(<span class="dt">ncol =</span> <span class="dv">1</span>)</code></pre></div>

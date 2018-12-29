@@ -11,7 +11,7 @@
 
 
 
-<title>Gibbs Sampling</title>
+<title></title>
 
 <script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -73,8 +73,14 @@ img {
 .tabbed-pane {
   padding-top: 12px;
 }
+.html-widget {
+  margin-bottom: 20px;
+}
 button.code-folding-btn:focus {
   outline: none;
+}
+summary {
+  display: list-item;
 }
 </style>
 
@@ -90,7 +96,6 @@ body {
   padding-top: 56px;
   margin-top: -56px;
 }
-
 .section h2 {
   padding-top: 56px;
   margin-top: -56px;
@@ -110,6 +115,43 @@ body {
 .section h6 {
   padding-top: 56px;
   margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
 }
 </style>
 
@@ -131,18 +173,77 @@ $(document).ready(function () {
 });
 </script>
 
-
 <div class="container-fluid main-container">
 
 <!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
 <script>
 $(document).ready(function () {
   window.buildTabsets("TOC");
 });
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
 </script>
 
 <!-- code folding -->
-
 
 
 
@@ -163,8 +264,23 @@ $(document).ready(function () {
         <li>
   <a href="index.html">Home</a>
 </li>
-<li>
-  <a href="model_building_simulation.html">Model Building</a>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Model Building
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="model_building_simulation.html">DLMs and DGLMs</a>
+    </li>
+    <li>
+      <a href="stochastic_volatility.html">Stochastic Volatility</a>
+    </li>
+    <li>
+      <a href="factor_stochastic_volatility.html">Factor Stochastic Volatility</a>
+    </li>
+  </ul>
 </li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
@@ -183,7 +299,7 @@ $(document).ready(function () {
 </li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
-    Parameter Learning
+    Parameter Inference
      
     <span class="caret"></span>
   </a>
@@ -193,6 +309,9 @@ $(document).ready(function () {
     </li>
     <li>
       <a href="pmmh.html">PMMH</a>
+    </li>
+    <li>
+      <a href="online_filtering.html">Online Parameter Inference</a>
     </li>
   </ul>
 </li>
@@ -229,6 +348,9 @@ $(document).ready(function () {
     </li>
   </ul>
 </li>
+<li>
+  <a href="https://git.io/dlm">Github</a>
+</li>
       </ul>
       <ul class="nav navbar-nav navbar-right">
         
@@ -241,11 +363,11 @@ $(document).ready(function () {
 
 
 
-<h1 class="title toc-ignore">Gibbs Sampling</h1>
 
 </div>
 
 
+<p>N— title: “Gibbs Sampling” —</p>
 <p>The DLM is simple to specify and the distribution of the latent-state can be learned on-line using the exact filtering recursions given in the <a href="kalman_filter.html">Kalman Filter</a>. It remains to determine the values of the static parameters, <span class="math inline">\(V\)</span> and <span class="math inline">\(W\)</span>. A Gibbs sampler can be used for this purpose. Consider a general DLM given by the following equation:</p>
 <p><span class="math display">\[\begin{aligned}
 y_t &amp;= F_t x_t + v_t, &amp;v_t &amp;\sim \mathcal{N}(0, V), \\
@@ -259,13 +381,13 @@ x_0 &amp;\sim \mathcal{N}(m_0, C_0).
 <h2>Observation Noise Matrix: d-Inverse Gamma</h2>
 <p>First consider the observation variance matrix, this matrix is diagonal and hence we only need to learn the variances. The following steps are simplified by considering only one time series in the observation vector. The prior distribution of the observation variance, <span class="math inline">\(V\)</span>, is the Inverse Gamma distribution:</p>
 <p><span class="math display">\[p(V) = \textrm{InverseGamma}(\alpha, \beta)\]</span></p>
-<p>The likelihood of <span class="math inline">\(y_t\)</span> is Gaussian, with mean <span class="math inline">\(F^T \textbf{x}_t\)</span> and variance <span class="math inline">\(V\)</span>. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. The posterior distribution of the observation variance is:</p>
+<p>The likelihood of <span class="math inline">\(y_t\)</span> is Gaussian, with mean <span class="math inline">\(F^T \textbf{x}_t\)</span> and variance <span class="math inline">\(V\)</span>. The Inverse Gamma distribution is conjugate to the Normal distribution with known mean and unknown variance. The full conditional distribution of the observation variance is:</p>
 <p><span class="math display">\[\begin{align*}
 p(V | y_{1:T}, \textbf{x}_{0:T}) &amp;\propto  p(x_0) p(V) \prod_{t=1}^Tp(y_t | V, x_t) p(x_t|x_{t-1}) \\
 &amp;= V^{-\alpha-1}\exp\left( -\frac{\beta}{V} \right)(2\pi V)^{-T/2} \exp \left\{ -V^{-1} \sum_{t=1}^T(y_t - F_t \textbf{x}_t)^2 \right\} \\
 &amp;= V^{-(\alpha + T/2) - 1} \exp \left\{ -\frac{1}{V}\left(\beta + \frac{1}{2}\sum_{t=1}^T(y_t - F_t \textbf{x}_t)^2\right) \right\}
 \end{align*}\]</span></p>
-<p>The the posterior distribution of the observation variance is the Inverse Gamma distribution:</p>
+<p>We recognise the full conditional distribution of the observation variance as the Inverse Gamma distribution:</p>
 <p><span class="math display">\[p(V | y_{1:T}, \textbf{x}_{1:T}) = \textrm{InverseGamma}\left(\alpha + \frac{T}{2}, \beta + \frac{1}{2}\sum_{i=1}^T(y_t - F_t\textbf{x}_t)^2\right).\]</span></p>
 </div>
 <div id="system-noise-matrix-inverse-wishart-prior" class="section level2">
@@ -292,10 +414,6 @@ p(V | y_{1:T}, \textbf{x}_{0:T}) &amp;\propto  p(x_0) p(V) \prod_{t=1}^Tp(y_t | 
 <p>We recognise the posterior distribution for the system noise covariance as the Inverse Wishart distribution:</p>
 <p><span class="math display">\[p(W|x_{1:T}) = \mathcal{W}^{-1}(\nu + T, \mathbf{\Psi} + \sum_{i=1}^T(x_i - Gx_{i-1})(x_i-Gx_{i-1})^T)\]</span>.</p>
 <p>Now in order to perform gibbs sampling, we alternate between drawing values of <span class="math inline">\(V, W\)</span> from these posterior distributions and values of the state <span class="math inline">\(x_0,\dots,x_T\)</span> using forward filtering backward sampling.</p>
-</div>
-<div id="forward-filtering-backward-sampling" class="section level2">
-<h2>Forward Filtering Backward Sampling</h2>
-<p>Can be implemented using SVD</p>
 </div>
 
 

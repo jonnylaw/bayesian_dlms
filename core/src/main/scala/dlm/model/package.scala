@@ -1,10 +1,10 @@
-package dlm.core
+package com.github.jonnylaw
 
 import breeze.linalg.{DenseVector, DenseMatrix}
 import breeze.stats.distributions.{Rand, MultivariateGaussian, Gaussian}
 import cats._
 
-package object model {
+package object dlm {
 
   /**
     * A Gaussian DLM can be implicitly converted to a DGLM

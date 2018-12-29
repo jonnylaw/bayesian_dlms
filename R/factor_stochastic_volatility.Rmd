@@ -37,21 +37,22 @@ $$\begin{align}
 To define the factor stochastic volatility model, define the parmeters of the model and simulate using the parameters:
 
 ```tut
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
+import breeze.linalg.DenseMatrix
 
-  val beta = DenseMatrix((1.0, 0.0),
-                         (0.3, 1.0),
-                         (0.07, 0.25),
-                         (0.23, 0.23),
-                         (0.4, 0.25),
-                         (0.2, 0.23))
+val beta = DenseMatrix((1.0, 0.0),
+                       (0.3, 1.0),
+                       (0.07, 0.25),
+                       (0.23, 0.23),
+                       (0.4, 0.25),
+                       (0.2, 0.23))
 
-  val params = FsvParameters(
-    v = DenseMatrix.eye[Double](6) * 0.1,
-    beta,
-    Vector.fill(2)(SvParameters(0.8, 2.0, 0.3))
-  )
-  val sims = FactorSv.simulate(params).steps.take(1000)
+val params = FsvParameters(
+  v = DenseMatrix.eye[Double](6) * 0.1,
+  beta,
+  Vector.fill(2)(SvParameters(0.8, 2.0, 0.3))
+)
+val sims = FactorSv.simulate(params).steps.take(1000)
 ```
 
 ```{r fsv-sims}
@@ -81,14 +82,13 @@ val priorSigma = InverseGamma(10, 2.0)
 Then performing Gibbs sampling for the FSV model using the simulated data, `sims`:
 
 ```tut
-  val iters = FactorSv
-    .sampleAr(priorBeta,
-              priorSigmaEta,
-              priorMu,
-              priorPhi,
-              priorSigma,
-              sims,
-              params)
+val iters = FactorSv.sampleAr(priorBeta,
+            priorSigmaEta,
+            priorMu,
+            priorPhi,
+            priorSigma,
+            sims.toVector.map(_._1),
+            params)
 ```
 
 The figure below shows the diagnostics from 100,000 iterations of the MCMC with the first 10,000 iterations dropped for burn-in and every 20th iteration selected.
@@ -97,8 +97,9 @@ The figure below shows the diagnostics from 100,000 iterations of the MCMC with 
 beta = matrix(c(1, 0, 0.3, 1.0, 0.07, 0.25, 0.23, 0.23, 0.4, 0.25, 0.2, 0.23), ncol = 2, byrow = T)
 actual_values = tibble(
   Parameter = c(paste0("v", 1:6), 
-                paste0(c("phi", "mu", "sigma_eta"), rep(1:2, each = 3)), paste0("beta", 1:12)),
-  actual_value = c(rep(0.1, 6), rep(x = c(0.8, 2.0, 0.2), times = 2), beta)
+                paste0("beta", 1:12),
+                paste0(c("phi", "mu", "sigma_eta"), rep(1:2, each = 3))),
+  actual_value = c(rep(0.1, 6), beta, rep(x = c(0.8, 2.0, 0.2), times = 2))
 )
 files = c("../examples/data/factor_sv_gibbs_0.csv", 
           "../examples/data/factor_sv_gibbs_1.csv")
@@ -109,4 +110,12 @@ chains = read_chains(files, param_names = actual_values$Parameter, nth = 20, dro
 chains %>%
   filter(grepl(Parameter, pattern = "phi|sigma_eta|mu")) %>%
   plot_diagnostics_sim(actual_values)
+```
+
+```{r beta-matrix}
+chains %>%
+  filter(grepl(Parameter, pattern = "beta")) %>%
+  summary_table() %>%
+  inner_join(actual_values) %>%
+  kable()
 ```

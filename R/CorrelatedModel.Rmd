@@ -67,7 +67,7 @@ $$G = \begin{pmatrix}
 In order to compose these two models in the Scala package, we first define the two models:
 
 ```tut:silent
-import core.dlm.model._
+import com.github.jonnylaw.dlm._
 
 val mod1 = Dlm.polynomial(1)
 val mod2 = Dlm.polynomial(2)
@@ -80,7 +80,7 @@ import breeze.linalg.{diag, DenseMatrix, DenseVector}
 
 val composedModel = mod1 |*| mod2
 
-val p = Dlm.Parameters(
+val p = DlmParameters(
   v = diag(DenseVector(1.0, 2.0)), 
   w = diag(DenseVector(2.0, 3.0, 1.0)),
   m0 = DenseVector.zeros[Double](3), 
@@ -91,7 +91,7 @@ val p = Dlm.Parameters(
 Then we can simulate observations from the `composedModel`:
 
 ```tut:silent
-val sims = Dlm.simulateRegular(0, composedModel, p, 1.0).
+val sims = Dlm.simulateRegular(composedModel, p, 1.0).
   steps.
   take(1000).
   toVector
@@ -175,7 +175,6 @@ val iters = GibbsSampling.sample(
 ```{r correlated-v-diagnostics}
 files = c("../examples/data/correlated_dlm_gibbs_0.csv",
           "../examples/data/correlated_dlm_gibbs_1.csv")
-          
 chains = read_chains(files, param_names = c(paste0("V", 1:4), paste0("W", 1:4)), nth = 2, drop = 12000)
 
 actual_values = tibble(

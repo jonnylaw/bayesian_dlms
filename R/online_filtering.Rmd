@@ -23,7 +23,28 @@ x_0 &\sim \mathcal{N}(m_0, C_0)
 
 We can joint posterior distribution of the parameters and latent-state, $p(\psi_t, x_t|y_{1:N})$ using on of the following online algorithms. These are useful for streaming data as they don't require re-running of costly MCMC algorithms as each new data point is observed. 
 
-The online filters will be demonstrated for a first order polynomial DLM, with $V = 2, W = 3$, plotted in the figure below:
+The online filters will be demonstrated for a first order polynomial DLM, with
+$V = 2, W = 3$, plotted in the figure below.
+
+```tut
+import com.github.jonnylaw.dlm._
+import breeze.linalg.{DenseMatrix, DenseVector}
+
+val mod = Dlm(
+  f = (t: Double) => DenseMatrix((1.0)),
+  g = (t: Double) => DenseMatrix((1.0))
+)
+val p = DlmParameters(v = DenseMatrix(2.0),
+                      w = DenseMatrix(3.0),
+                      DenseVector(0.0),
+                      DenseMatrix(1.0))
+
+val data = Dlm.simulateRegular(mod, p, 1.0).
+             steps.
+             take(100).
+             toVector.
+             map(_._1)
+```
 
 ```{r first-order-simulated-online}
 first_order = read_csv("../examples/data/first_order_dlm.csv")
@@ -43,8 +64,7 @@ The Conjugate filter is an exact filter, which augments the Kalman Filter to lea
 
 ```tut
 val prior = InverseGamma(3.0, 4.0)
-val filtered = ConjugateFilter(prior, ConjugateFilter.advanceState(p, mod.g))
-  .filter(mod, data, p)
+val filtered = ConjugateFilter(prior, ConjugateFilter.advanceState(p, mod.g)).filter(mod, data, p)
 ```
 
 ```{r}
@@ -77,15 +97,16 @@ The Liu and West filter can be used for general state space models:
 
 ```tut
 val n = 500
-  // smoothing parameter for the mixture of gaussians, equal to (3 delta - 1) / 2 delta
-  val a = (3 * 0.95 - 1) / 2 * 0.95
+val n0 = 500
+// smoothing parameter for the mixture of gaussians, equal to (3 delta - 1) / 2 delta
+val a = (3 * 0.95 - 1) / 2 * 0.95
 
-  val prior = for {
-    v <- InverseGamma(3.0, 4.0)
-    w <- InverseGamma(3.0, 10.0)
-  } yield DlmParameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)
+val prior = for {
+  v <- InverseGamma(3.0, 4.0)
+  w <- InverseGamma(3.0, 10.0)
+} yield DlmParameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)
 
-  val filtered = LiuAndWestFilter(n, prior, a, n0).filter(mod, data, p)
+val filtered = LiuAndWestFilter(n, prior, a, n0).filter(mod, data, p)
 ```
 
 ```{r liu-and-west}
@@ -183,6 +204,5 @@ storvik %>%
     geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.5) +
     geom_hline(data = true_values, aes(yintercept = value), linetype = "dashed", colour = "#666666") +
     facet_wrap(~param, scales = "free_y", ncol = 1)
-
 ```
 

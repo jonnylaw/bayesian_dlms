@@ -1,4 +1,4 @@
-package dlm.core.model
+package com.github.jonnylaw.dlm
 
 import cats.implicits._
 import breeze.linalg.{DenseMatrix, diag, sum}
@@ -231,8 +231,8 @@ object StudentT {
   case class PmmhState(ll: Double, p: DlmParameters, nu: Int, accepted: Int)
 
   /**
-    * Perform a single step of the PMMH algorithm for the Student's t distributed state
-    * space model
+    * Perform a single step of the PMMH algorithm for the Student's t
+    * distributed statespace model
     * @param priorW
     */
   def stepPmmh(priorW: ContinuousDistr[Double],
@@ -252,7 +252,7 @@ object StudentT {
       nu <- propNu(s.nu)
       propP <- prop(s.p)
       ll = logMeasure(propP, nu)
-      a = ll + propNuP(nu, s.nu) - s.ll - propNuP(s.nu, nu)
+      a = ll - s.ll
       u <- Uniform(0, 1)
       next = if (math.log(u) < a) {
         PmmhState(ll, propP, nu, s.accepted + 1)

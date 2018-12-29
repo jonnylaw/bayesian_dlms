@@ -1,4 +1,4 @@
-package dlm.core.model
+package com.github.jonnylaw.dlm
 
 import breeze.linalg.{DenseVector, DenseMatrix, diag, svd}
 import cats.Traverse

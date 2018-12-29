@@ -1,4 +1,4 @@
-package dlm.core.model
+package com.github.jonnylaw.dlm
 
 import breeze.linalg.{DenseMatrix, DenseVector, cholesky, sum, diag}
 import breeze.stats.distributions._

@@ -30,9 +30,11 @@ $\alpha_0 \sim \mathcal{N}\left(\mu, \frac{\sigma_\eta^2}{1 - \phi^2}\right)$.
 To define this model in Scala and simulate observations, first import the required libraries and use the method simulate which initialises a Breeze `MarkovChain` object with the initial state equivalent to the stationary solution of the AR(1) process. 
  
 ```tut
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
+import cats.implicits._
 val p = SvParameters(phi = 0.8, mu = 2.0, sigmaEta = 0.3)
-val sims = StochasticVolatility.simulate(p).steps.take(1000).toVector.tail
+val sims = StochasticVolatility.simulate(p).
+  steps.take(1000).toVector.tail.map { case (t, y, a) => (t, y)}
 ```
 
 ```{r}
@@ -47,12 +49,12 @@ sims %>%
   labs(title = TeX(string = "$\\phi = 0.8$, $\\mu = 2$, $\\sigma_{\\eta} = 0.3$"))
 ```
 
-
 ## Parameter Inference
 
 To determine the posterior distribution of the parameters specify the prior distributions of the parameters:
 
 ```tut
+import breeze.stats.distributions.Gaussian
 val priorPhi = Gaussian(0.8, 0.1)
 val priorMu = Gaussian(2.0, 1.0)
 val priorSigma = InverseGamma(2.0, 2.0)
@@ -60,7 +62,7 @@ val priorSigma = InverseGamma(2.0, 2.0)
 
 There are two inference algorithms defined for the stochastic volatility model, either one can be used and should produce identical inferences:
 
-1. Likelihood Analysis of Non-Gaussian Measurement Time Series: http://www.jstor.org/stable/2337586
+y1. Likelihood Analysis of Non-Gaussian Measurement Time Series: http://www.jstor.org/stable/2337586
 2. Stochastic volatility: likelihood inference and comparison with ARCH models: https://faculty.mccombs.utexas.edu/carlos.carvalho/teaching/KSB98-SV.pdf
 
 ```tut

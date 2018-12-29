@@ -1,4 +1,4 @@
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import breeze.linalg._
 import breeze.stats.distributions._
 import breeze.stats.{meanAndVariance, variance}

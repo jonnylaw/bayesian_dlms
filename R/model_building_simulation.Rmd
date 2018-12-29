@@ -6,6 +6,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 library(tidyverse)
+library(magrittr)
 theme_set(theme_minimal())
 ```
 
@@ -14,7 +15,7 @@ theme_set(theme_minimal())
 DLMs are represented as a `case class` containing the observation matrix and the system matrix:
 
 ```tut:silent
-import core.dlm.model._
+import com.github.jonnylaw.dlm._
 import breeze.linalg.{DenseMatrix, DenseVector}
 
 case class Model(
@@ -68,7 +69,7 @@ val poisson = Dglm.poisson(linear)
 Simulation is useful to test inference algorithms or to get a feel for how a model behaves with different sets of parameters. First we must define the model `Parameters`:
 
 ```tut:silent
-val p = Dlm.Parameters(
+val p = DlmParameters(
   v =  DenseMatrix(1.0),
   w =  DenseMatrix(3.0),
   m0 = DenseVector(0.0),
@@ -79,7 +80,7 @@ val p = Dlm.Parameters(
 Then we can simulate from the model:
 
 ```tut:silent
-val data = Dlm.simulateRegular(0, linear, p, 1.0).
+val data = Dlm.simulateRegular(linear, p, 1.0).
   steps.
   take(1000)
 ```
@@ -101,15 +102,14 @@ Simulation from any DLM is possible using the same syntax. The parameters must b
 In order to simulate from a DGLM we must know how to sample from the chosen observation distribution of the DGLM. The `Dglm.Model` class and its associated model building functions provide this function and an associated `simulate` function. The figure below shows a simulation from the Poisson model.
 
 ```tut:silent
-Dglm.simulate(poisson, p)
+Dglm.simulateRegular(poisson, p, 1.0)
 ```
 
 ```{r poisson-sims, fig.cap="Simulation from the poisson DGLM with $(W, m_0, C_0) = (0.01, 0.0, 1.0)$"}
 data = read_csv("../examples/data/poisson_dglm.csv")
 
 data %<>%
-  gather(key, value, -time) %>%
-  filter(time > 900) 
+  gather(key, value, -time)
 
 ggplot() +
   geom_line(data = subset(data, key == "state"), aes(x = time, y = value)) +
@@ -118,4 +118,4 @@ ggplot() +
   theme(legend.position = "none")
 ```
 
-Note that the Poisson distribution has only one parameter, the rate and hence `v` in the `Dlm.Parameters` specification is unused. For observation distributions with additional parameters, then the `v` is used for this purpose.
+Note that the Poisson distribution has only one parameter, the rate and hence `v` in the `DlmParameters` specification is unused. For observation distributions with additional parameters, then the `v` is used for this purpose.

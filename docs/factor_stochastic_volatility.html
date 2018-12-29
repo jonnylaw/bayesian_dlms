@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+
+
+
+<title>Factor Stochastic Volatility</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css" data-origin="pandoc">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; background-color: #ffffff; color: #1f1c1b; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; background-color: #ffffff; color: #a0a0a0; border-right: 1px solid #a0a0a0; }
+td.sourceCode { padding-left: 5px; }
+pre, code { color: #1f1c1b; background-color: #ffffff; }
+code > span.kw { color: #1f1c1b; font-weight: bold; } /* Keyword */
+code > span.dt { color: #0057ae; } /* DataType */
+code > span.dv { color: #b08000; } /* DecVal */
+code > span.bn { color: #b08000; } /* BaseN */
+code > span.fl { color: #b08000; } /* Float */
+code > span.cn { color: #aa5500; } /* Constant */
+code > span.ch { color: #924c9d; } /* Char */
+code > span.sc { color: #3daee9; } /* SpecialChar */
+code > span.st { color: #bf0303; } /* String */
+code > span.vs { color: #bf0303; } /* VerbatimString */
+code > span.ss { color: #ff5500; } /* SpecialString */
+code > span.im { color: #ff5500; } /* Import */
+code > span.co { color: #898887; } /* Comment */
+code > span.do { color: #607880; } /* Documentation */
+code > span.an { color: #ca60ca; } /* Annotation */
+code > span.cv { color: #0095ff; } /* CommentVar */
+code > span.ot { color: #006e28; } /* Other */
+code > span.fu { color: #644a9b; } /* Function */
+code > span.va { color: #0057ae; } /* Variable */
+code > span.cf { color: #1f1c1b; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #1f1c1b; } /* Operator */
+code > span.bu { color: #644a9b; font-weight: bold; } /* BuiltIn */
+code > span.ex { color: #0095ff; font-weight: bold; } /* Extension */
+code > span.pp { color: #006e28; } /* Preprocessor */
+code > span.at { color: #0057ae; } /* Attribute */
+code > span.re { color: #0057ae; } /* RegionMarker */
+code > span.in { color: #b08000; } /* Information */
+code > span.wa { color: #bf0303; } /* Warning */
+code > span.al { color: #bf0303; font-weight: bold; } /* Alert */
+code > span.er { color: #bf0303; text-decoration: underline; } /* Error */
+code > span. { color: #1f1c1b; } /* Normal */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' || rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+  height: auto;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 51px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h2 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h3 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h4 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h5 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h6 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+<div class="container-fluid main-container">
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Bayesian Inference for DLMs</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Model Building
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="model_building_simulation.html">DLMs and DGLMs</a>
+    </li>
+    <li>
+      <a href="stochastic_volatility.html">Stochastic Volatility</a>
+    </li>
+    <li>
+      <a href="factor_stochastic_volatility.html">Factor Stochastic Volatility</a>
+    </li>
+  </ul>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Filtering
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="kalman_filter.html">Kalman Filter</a>
+    </li>
+    <li>
+      <a href="particle_filter.html">Bootstrap Particle Filter</a>
+    </li>
+  </ul>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Parameter Inference
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="gibbs_sampling.html">Gibbs Sampling</a>
+    </li>
+    <li>
+      <a href="pmmh.html">PMMH</a>
+    </li>
+    <li>
+      <a href="online_filtering.html">Online Parameter Inference</a>
+    </li>
+  </ul>
+</li>
+<li>
+  <a href="forecasting.html">Forecasting</a>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Examples
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="FirstOrderDlm.html">First Order DLM</a>
+    </li>
+    <li>
+      <a href="second_order_dlm.html">Linear Growth DLM</a>
+    </li>
+    <li>
+      <a href="seasonal_dlm.html">Seasonal Composed DLM</a>
+    </li>
+    <li>
+      <a href="CorrelatedModel.html">Multivariate DLM</a>
+    </li>
+    <li>
+      <a href="student_t_filtering.html">Student's t-distributed DLM</a>
+    </li>
+    <li>
+      <a href="ar1.html">Autoregressive Model</a>
+    </li>
+    <li>
+      <a href="spain_investment_data.html">Spain Investment Data</a>
+    </li>
+  </ul>
+</li>
+<li>
+  <a href="https://git.io/dlm">Github</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">Factor Stochastic Volatility</h1>
+
+</div>
+
+
+<div id="factor-stochastic-volatility-model" class="section level2">
+<h2>Factor Stochastic Volatility Model</h2>
+<p>A factor structure can be used in order to model a full time varying covariance matrix. This reduces the amount of parameters to learn; if the covariance matrix is <span class="math inline">\(p \times p\)</span> and the number of factors used <span class="math inline">\(k\)</span>, then the number of parameters to learn in a model with an AR(1) latent-state is <span class="math inline">\(p \times k - \frac{k}{2}(k + 1) + 3k\)</span>. If <span class="math inline">\(k &lt;&lt; p\)</span> then this results in a much lower dimensional parameter space.</p>
+<p>The factor stochastic volatility (FSV) model is written as:</p>
+<p><span class="math display">\[\begin{align}
+    Y_t &amp;= \beta^Tf_t + v_t, &amp;v_t &amp;\sim \mathcal{N}(0, V), \\
+    f_t &amp;= \sigma_t\exp\left\{ \frac{\alpha_t}{2} \right\}, &amp; \sigma_t &amp;\sim \mathcal{N}(0, 1), \\
+    \alpha_t &amp;= \mu + \phi (\alpha_{t-1} - \mu) + \eta_t, &amp; \eta_t &amp;\sim \mathcal{N}(0, \sigma_\eta), \\
+    \alpha_0 &amp;\sim \mathcal{N}(0, \sigma^2/(1-\phi^2)).
+\end{align}\]</span></p>
+<p>Where <span class="math inline">\(V\)</span> is a diagonal <span class="math inline">\(p \times p\)</span> matrix. Then the variance of the observations is:</p>
+<p><span class="math display">\[\begin{align}
+\operatorname{Var}(Y_t) &amp;= \operatorname{Var}(\beta^Tf_t + v_t) \\
+&amp;= \beta^T\operatorname{Var}(f_t)\beta + \operatorname{Var}(v_t) + 2\beta^T\operatorname{Cov}(f_t, v_t)\beta \\
+&amp;= \beta^T\exp\left\{\alpha_t\right\}\beta + V
+\end{align}\]</span></p>
+<p>To define the factor stochastic volatility model, define the parmeters of the model and simulate using the parameters:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+<span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+
+scala&gt; <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">15</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
+                            ^
+<span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
+
+scala&gt; <span class="kw">val</span> beta = <span class="fu">DenseMatrix</span>((<span class="fl">1.0</span>, <span class="fl">0.0</span>),
+     |                        (<span class="fl">0.3</span>, <span class="fl">1.0</span>),
+     |                        (<span class="fl">0.07</span>, <span class="fl">0.25</span>),
+     |                        (<span class="fl">0.23</span>, <span class="fl">0.23</span>),
+     |                        (<span class="fl">0.4</span>, <span class="fl">0.25</span>),
+     |                        (<span class="fl">0.2</span>, <span class="fl">0.23</span>))
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+beta: breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>[Double] =
+<span class="fl">1.0</span>   <span class="fl">0.0</span>
+<span class="fl">0.3</span>   <span class="fl">1.0</span>
+<span class="fl">0.07</span>  <span class="fl">0.25</span>
+<span class="fl">0.23</span>  <span class="fl">0.23</span>
+<span class="fl">0.4</span>   <span class="fl">0.25</span>
+<span class="fl">0.2</span>   <span class="fl">0.23</span>
+
+scala&gt; <span class="kw">val</span> params = <span class="fu">FsvParameters</span>(
+     |   v = DenseMatrix.<span class="fu">eye</span>[Double](<span class="dv">6</span>) * <span class="fl">0.1</span>,
+     |   beta,
+     |   Vector.<span class="fu">fill</span>(<span class="dv">2</span>)(<span class="fu">SvParameters</span>(<span class="fl">0.8</span>, <span class="fl">2.0</span>, <span class="fl">0.3</span>))
+     | )
+params: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">FsvParameters</span> =
+<span class="fu">FsvParameters</span>(<span class="fl">0.1</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
+<span class="fl">0.0</span>  <span class="fl">0.1</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
+<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.1</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
+<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.1</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>
+<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.1</span>  <span class="fl">0.0</span>
+<span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.0</span>  <span class="fl">0.1</span>  ,<span class="fl">1.0</span>   <span class="fl">0.0</span>
+<span class="fl">0.3</span>   <span class="fl">1.0</span>
+<span class="fl">0.07</span>  <span class="fl">0.25</span>
+<span class="fl">0.23</span>  <span class="fl">0.23</span>
+<span class="fl">0.4</span>   <span class="fl">0.25</span>
+<span class="fl">0.2</span>   <span class="fl">0.23</span>  ,Vector(<span class="fu">SvParameters</span>(<span class="fl">0.8</span>,<span class="fl">2.0</span>,<span class="fl">0.3</span>), <span class="fu">SvParameters</span>(<span class="fl">0.8</span>,<span class="fl">2.0</span>,<span class="fl">0.3</span>)))
+
+scala&gt; <span class="kw">val</span> sims = FactorSv.<span class="fu">simulate</span>(params).<span class="fu">steps</span>.<span class="fu">take</span>(<span class="dv">1000</span>)
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
+                            ^
+sims: Iterator[(com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Data</span>, scala.<span class="fu">collection</span>.<span class="fu">immutable</span>.<span class="fu">Vector</span>[Double], scala.<span class="fu">collection</span>.<span class="fu">immutable</span>.<span class="fu">Vector</span>[Double])] = &lt;iterator&gt;</code></pre></div>
+<p><img src="factor_stochastic_volatility_files/figure-html/fsv-sims-1.png" width="672" /></p>
+</div>
+<div id="parameter-inference" class="section level2">
+<h2>Parameter Inference</h2>
+<p>Gibbs sampling is used to perform inference for the parameter posterior distribution. First the prior distributions of the parameters can be specified, they must be from the same family as the distributions below, since the posterior distributions in Gibbs sampling are conditionally conjugate:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
+                            ^
+&lt;console&gt;:<span class="dv">16</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+<span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+
+scala&gt; <span class="kw">val</span> priorBeta = <span class="fu">Gaussian</span>(<span class="fl">0.0</span>, <span class="fl">1.0</span>)
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
+                            ^
+priorBeta: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Gaussian</span> = <span class="fu">Gaussian</span>(<span class="fl">0.0</span>, <span class="fl">1.0</span>)
+
+scala&gt; <span class="kw">val</span> priorSigmaEta = <span class="fu">InverseGamma</span>(<span class="dv">2</span>, <span class="fl">2.0</span>)
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
+                            ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+priorSigmaEta: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">InverseGamma</span> = <span class="fu">InverseGamma</span>(<span class="fl">2.0</span>,<span class="fl">2.0</span>)
+
+scala&gt; <span class="kw">val</span> priorPhi = <span class="fu">Gaussian</span>(<span class="fl">0.8</span>, <span class="fl">0.1</span>)
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
+                            ^
+priorPhi: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Gaussian</span> = <span class="fu">Gaussian</span>(<span class="fl">0.8</span>, <span class="fl">0.1</span>)
+
+scala&gt; <span class="kw">val</span> priorMu = <span class="fu">Gaussian</span>(<span class="fl">2.0</span>, <span class="fl">1.0</span>)
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
+                            ^
+priorMu: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Gaussian</span> = <span class="fu">Gaussian</span>(<span class="fl">2.0</span>, <span class="fl">1.0</span>)
+
+scala&gt; <span class="kw">val</span> priorSigma = <span class="fu">InverseGamma</span>(<span class="dv">10</span>, <span class="fl">2.0</span>)
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
+                            ^
+&lt;console&gt;:<span class="dv">14</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+priorSigma: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">InverseGamma</span> = <span class="fu">InverseGamma</span>(<span class="fl">10.0</span>,<span class="fl">2.0</span>)</code></pre></div>
+<p>Then performing Gibbs sampling for the FSV model using the simulated data, <code>sims</code>:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">val</span> iters = FactorSv.<span class="fu">sampleAr</span>(priorBeta,
+     |             priorSigmaEta,
+     |             priorMu,
+     |             priorPhi,
+     |             priorSigma,
+     |             sims.<span class="fu">toVector</span>.<span class="fu">map</span>(_._<span class="dv">1</span>),
+     |             params)
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.<span class="fu">DenseMatrix</span>
+                            ^
+&lt;console&gt;:<span class="dv">16</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>._
+                                         ^
+iters: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Process</span>[com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">FactorSv</span>.<span class="fu">State</span>] = breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">MarkovChain</span>$$anon$<span class="dv">1</span>@6fbac0da</code></pre></div>
+<p>The figure below shows the diagnostics from 100,000 iterations of the MCMC with the first 10,000 iterations dropped for burn-in and every 20th iteration selected.</p>
+<p><img src="factor_stochastic_volatility_files/figure-html/fsv-diagnostics-latent-state-1.png" width="672" /></p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+Parameter
+</th>
+<th style="text-align:right;">
+mean
+</th>
+<th style="text-align:right;">
+median
+</th>
+<th style="text-align:right;">
+upper
+</th>
+<th style="text-align:right;">
+lower
+</th>
+<th style="text-align:right;">
+ESS
+</th>
+<th style="text-align:right;">
+actual_value
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+beta1
+</td>
+<td style="text-align:right;">
+1.0000000
+</td>
+<td style="text-align:right;">
+1.0000000
+</td>
+<td style="text-align:right;">
+1.0000000
+</td>
+<td style="text-align:right;">
+1.0000000
+</td>
+<td style="text-align:right;">
+NaN
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+beta10
+</td>
+<td style="text-align:right;">
+0.2334747
+</td>
+<td style="text-align:right;">
+0.2334737
+</td>
+<td style="text-align:right;">
+0.2335777
+</td>
+<td style="text-align:right;">
+0.2333746
+</td>
+<td style="text-align:right;">
+2802
+</td>
+<td style="text-align:right;">
+0.23
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+beta11
+</td>
+<td style="text-align:right;">
+0.2530543
+</td>
+<td style="text-align:right;">
+0.2530527
+</td>
+<td style="text-align:right;">
+0.2531831
+</td>
+<td style="text-align:right;">
+0.2529261
+</td>
+<td style="text-align:right;">
+2913
+</td>
+<td style="text-align:right;">
+0.25
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+beta12
+</td>
+<td style="text-align:right;">
+0.2307056
+</td>
+<td style="text-align:right;">
+0.2307050
+</td>
+<td style="text-align:right;">
+0.2308070
+</td>
+<td style="text-align:right;">
+0.2306065
+</td>
+<td style="text-align:right;">
+2957
+</td>
+<td style="text-align:right;">
+0.23
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+beta2
+</td>
+<td style="text-align:right;">
+0.3136651
+</td>
+<td style="text-align:right;">
+0.3136611
+</td>
+<td style="text-align:right;">
+0.3140995
+</td>
+<td style="text-align:right;">
+0.3132333
+</td>
+<td style="text-align:right;">
+2940
+</td>
+<td style="text-align:right;">
+0.30
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+beta3
+</td>
+<td style="text-align:right;">
+0.0722864
+</td>
+<td style="text-align:right;">
+0.0722852
+</td>
+<td style="text-align:right;">
+0.0724226
+</td>
+<td style="text-align:right;">
+0.0721516
+</td>
+<td style="text-align:right;">
+2884
+</td>
+<td style="text-align:right;">
+0.07
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+beta4
+</td>
+<td style="text-align:right;">
+0.2344680
+</td>
+<td style="text-align:right;">
+0.2344690
+</td>
+<td style="text-align:right;">
+0.2345967
+</td>
+<td style="text-align:right;">
+0.2343358
+</td>
+<td style="text-align:right;">
+3038
+</td>
+<td style="text-align:right;">
+0.23
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+beta5
+</td>
+<td style="text-align:right;">
+0.4060201
+</td>
+<td style="text-align:right;">
+0.4060203
+</td>
+<td style="text-align:right;">
+0.4061998
+</td>
+<td style="text-align:right;">
+0.4058379
+</td>
+<td style="text-align:right;">
+3093
+</td>
+<td style="text-align:right;">
+0.40
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+beta6
+</td>
+<td style="text-align:right;">
+0.2039967
+</td>
+<td style="text-align:right;">
+0.2039964
+</td>
+<td style="text-align:right;">
+0.2041210
+</td>
+<td style="text-align:right;">
+0.2038716
+</td>
+<td style="text-align:right;">
+3005
+</td>
+<td style="text-align:right;">
+0.20
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+beta7
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+<td style="text-align:right;">
+NaN
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+beta8
+</td>
+<td style="text-align:right;">
+1.0000000
+</td>
+<td style="text-align:right;">
+1.0000000
+</td>
+<td style="text-align:right;">
+1.0000000
+</td>
+<td style="text-align:right;">
+1.0000000
+</td>
+<td style="text-align:right;">
+NaN
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+beta9
+</td>
+<td style="text-align:right;">
+0.2510994
+</td>
+<td style="text-align:right;">
+0.2510981
+</td>
+<td style="text-align:right;">
+0.2512251
+</td>
+<td style="text-align:right;">
+0.2509793
+</td>
+<td style="text-align:right;">
+2979
+</td>
+<td style="text-align:right;">
+0.25
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

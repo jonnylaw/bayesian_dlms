@@ -1,6 +1,6 @@
-package examples.dlm
+package com.github.jonnylaw.dlm.example
 
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, sum, diag}
 import breeze.stats.distributions.{MarkovChain, Gaussian, Beta}
 import breeze.stats.mean

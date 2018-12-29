@@ -1,4 +1,4 @@
-package dlm.core.model
+package com.github.jonnylaw.dlm
 
 // exclude vector
 import breeze.linalg.{Vector => _, _}

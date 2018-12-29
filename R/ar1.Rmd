@@ -24,17 +24,17 @@ Y_t &= x_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
 The code required to simulate from this model is given below:
 
 ```tut:silent
-import core.dlm.model._
+import com.github.jonnylaw.dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 
 val mod = Dlm.autoregressive(phi = 0.9)
-val p = Dlm.Parameters(
-  DenseMatrix(4.0), 
-  DenseMatrix(2.0), 
-  DenseVector(0.0), 
+val p = DlmParameters(
+  DenseMatrix(4.0),
+  DenseMatrix(2.0),
+  DenseVector(0.0),
   DenseMatrix(1.0))
 
-val data = Dlm.simulateRegular(0, mod, p, 1.0).
+val data = Dlm.simulateRegular(mod, p, 1.0).
   steps.
   take(1000).
   toVector
@@ -56,14 +56,18 @@ data %>%
 
 # Filtering
 
-To perform Kalman Filtering on a `Vector` of `Data`, we simply discard the state from the simulated data and pass it into the `KalmanFilter.filter` function:
+To perform Kalman Filtering on a `Vector` of `Data`, we simply discard the state from the simulated data and pass it into the `KalmanFilter.filterDlm` function:
 
 ```tut:silent
-val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
+import cats.implicits._
+val filtered = KalmanFilter.filterDlm(mod, data.map(_._1), p)
 ```
 
+The `filterDlm` function is implemented for any collection which has a
+`Traverse` instance, cats provides an instance for `Vector[A]` (via the import `cats.implicits._`).
+
 ```{r ar1-filtered}
-filtered= read_csv("../examples/data/ar_dlm_filtered.csv")
+filtered = read_csv("../examples/data/ar_dlm_filtered.csv")
 
 filtered %>%
   filter(time < 500) %>%
@@ -108,13 +112,13 @@ phi = plot_density(dbeta, 20, 2, range = c(0, 1), title = TeX("Prior distributio
 phi + v + w + plot_layout(ncol = 1)
 ```
 
-Next we can use the prior distribution to construct at `Dlm.Parameters` object which can be drawn from to initialise the Markov chain.
+Next we can use the prior distribution to construct at `DlmParameters` object which can be drawn from to initialise the Markov chain.
 
 ```tut:silent
 val prior = for {
   v <- priorV
   w <- priorW
-} yield Dlm.Parameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)
+} yield DlmParameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)
 ```
 
 Next we create a single step of the Markov Chain which samples the value of $\phi$ using a Metropolis Hastings step. The function `updateModel` is used to change the value of the system evolution matrix $G$ to include the new value of the autoregressive parameter $\phi$. 
@@ -133,7 +137,7 @@ Next the inital parameter distribution can be defined as:
 val init = for {
   p <- prior
   phi <- priorPhi
-  state <- Smoothing.ffbs(mod, data.map(_._1), p)
+  state <- Smoothing.ffbsDlm(mod, data.map(_._1), p)
 } yield (phi, GibbsSampling.State(p, state))
 ```
 
@@ -172,7 +176,7 @@ Y_t &= x_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
 The Figure below shows a simulation from the OU process DLM with observation variance $V = 0.5$, $\phi = 0.2$, $\mu = 1.0$ and $\sigma = 0.3$. To simulate the OU process DLM, define parameters of the OU process and use the transition kernel defined in the `StochasticVolatility` class. The observation distribution is Gaussian with variance $V = 0.5$. Since this process can be simulated at arbitrary time points, a vector of random times is simulated by defining the difference between the observations to be `deltas`. Then the state, $\alpha_0$ is initialised at the stationary solution of the OU process and a scan is used to simulate the data.
 
 ```tut
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 
 val p = SvParameters(0.2, 1.0, 0.3)
 def stepDlm(t: Double, dt: Double, x: Double) =
@@ -204,6 +208,7 @@ ou_sims %>%
 The figure below shows a Kalman Filter for the OU process, since the transition kernel of the OU process is known and given by a Gaussian distribution the Kalman Filter can be performed:
 
 ```tut
+val ys = sims.map { case (t, y, a) => (t, y.some) }
 val filtered = FilterOu.filterUnivariate(ys, Vector.fill(ys.size)(0.5), p)
 ```
 
@@ -226,6 +231,8 @@ filtered %>%
 Parameter inference is performed using the Kalman filter to calculate the marginal likelihood of the OU process which is then used in a Metropolis-Hastings algorithm to determine the static parameters of the latent state, $\phi, \mu$ and $\sigma$. The value of the observation variance, $V$, is determined using a Gibbs step:
 
 ```tut
+import StochasticVolatility._
+
 val p = SvParameters(0.2, 1.0, 0.3)
 val priorPhi = new Beta(2.0, 5.0)
 val priorMu = Gaussian(1.0, 1.0)
@@ -278,4 +285,3 @@ chains = read_chains(files = files, drop = 1e4, nth = 20, param_names = param_na
 
 plot_diagnostics_sim(chains, actual_values_ou)
 ```
-
