@@ -128,24 +128,15 @@ object InterpolateUo extends App with EmoteData {
     .map(envToData)
     .grouped(10000)
     .mapAsync(1) { d =>
-      val dlmFile =
-        "examples/data/uo_dlm_seasonal_daily_log_no_new_new_emote_2603_0.csv"
-      val fsvFile = "examples/data/uo_residuals_factor_new_new_emote_2603_0.csv"
+      val file =
+        "examples/data/uo_gibbs_two_factors_new_new_emote_2604_10000_0.csv"
 
-      val dlmPs: Future[DlmParameters] = Streaming
-        .readCsv(dlmFile)
+      val ps: Future[DlmFsvParameters] = Streaming
+        .readCsv(file)
         .map(_.map(_.toDouble).toList)
-        .drop(1000)
-        .map(x => DlmParameters.fromList(4, 28)(x))
-        .via(Streaming.meanParameters(4, 28))
-        .runWith(Sink.head)
-
-      val ps: Future[FsvParameters] = Streaming
-        .readCsv(fsvFile)
-        .map(_.map(_.toDouble).toList)
-        .drop(500)
-        .map(x => FsvParameters.fromList(4, 1)(x))
-        .via(Streaming.meanFsvParameters(4, 1))
+        .drop(5000)
+        .map(x => DlmFsvSystem.paramsFromList(4, 28, 2)(x))
+        .via(Streaming.meanDlmFsvSystemParameters(4, 28, 2))
         .runWith(Sink.head)
 
       val out =
@@ -154,15 +145,12 @@ object InterpolateUo extends App with EmoteData {
 
       // use mcmc to sample the missing observations
       for {
-        dlmP <- dlmPs
-        fsvP <- ps
-        params = DlmFsvParameters(dlmP, fsvP)
-        _ = println(params)
-        iters = DlmFsv
+        params <- ps
+        iters = DlmFsvSystem
           .sampleStateAr(d.toVector, dlmComp, params)
           .steps
           .take(1000)
-          .map { (s: DlmFsv.State) =>
+          .map { (s: DlmFsvSystem.State) =>
             val vol = s.volatility.map(x => (x.time, x.sample))
             val st = s.theta.map(x => (x.time, x.sample))
             DlmFsv.obsVolatility(vol, st, dlmComp, params)
