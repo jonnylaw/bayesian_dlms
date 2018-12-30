@@ -1,4 +1,4 @@
-package dlm.core.model
+package com.github.jonnylaw.dlm
 
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions._
@@ -43,6 +43,12 @@ case class DlmParameters(v: DenseMatrix[Double],
 
   def add(p: DlmParameters) =
     p.copy(v = p.v + v, w = p.w + w, m0 = p.m0 + m0, c0 = p.c0 + c0)
+
+  def minus(p: DlmParameters) =
+    p.copy(v = p.v - v, w = p.w - w, m0 = p.m0 - m0, c0 = p.c0 - c0)
+
+  def times(p: DlmParameters) =
+    p.copy(v = p.v * v, w = p.w * w, m0 = p.m0 * m0, c0 = p.c0 * c0)
 
   def |*|(y: DlmParameters): DlmParameters =
     Dlm.outerSumParameters(self, y)

@@ -23,7 +23,7 @@
 
 
 <style type="text/css">code{white-space: pre;}</style>
-<style type="text/css">
+<style type="text/css" data-origin="pandoc">
 div.sourceCode { overflow-x: auto; }
 table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
   margin: 0; padding: 0; vertical-align: baseline; border: none; }
@@ -62,7 +62,29 @@ code > span.wa { color: #bf0303; } /* Warning */
 code > span.al { color: #bf0303; font-weight: bold; } /* Alert */
 code > span.er { color: #bf0303; text-decoration: underline; } /* Error */
 code > span. { color: #1f1c1b; } /* Normal */
+
 </style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' || rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
 <style type="text/css">
   pre:not([class]) {
     background-color: white;
@@ -119,8 +141,14 @@ img {
 .tabbed-pane {
   padding-top: 12px;
 }
+.html-widget {
+  margin-bottom: 20px;
+}
 button.code-folding-btn:focus {
   outline: none;
+}
+summary {
+  display: list-item;
 }
 </style>
 
@@ -136,7 +164,6 @@ body {
   padding-top: 56px;
   margin-top: -56px;
 }
-
 .section h2 {
   padding-top: 56px;
   margin-top: -56px;
@@ -156,6 +183,43 @@ body {
 .section h6 {
   padding-top: 56px;
   margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
 }
 </style>
 
@@ -177,18 +241,77 @@ $(document).ready(function () {
 });
 </script>
 
-
 <div class="container-fluid main-container">
 
 <!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
 <script>
 $(document).ready(function () {
   window.buildTabsets("TOC");
 });
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
 </script>
 
 <!-- code folding -->
-
 
 
 
@@ -209,8 +332,23 @@ $(document).ready(function () {
         <li>
   <a href="index.html">Home</a>
 </li>
-<li>
-  <a href="model_building_simulation.html">Model Building</a>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Model Building
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="model_building_simulation.html">DLMs and DGLMs</a>
+    </li>
+    <li>
+      <a href="stochastic_volatility.html">Stochastic Volatility</a>
+    </li>
+    <li>
+      <a href="factor_stochastic_volatility.html">Factor Stochastic Volatility</a>
+    </li>
+  </ul>
 </li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
@@ -229,7 +367,7 @@ $(document).ready(function () {
 </li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
-    Parameter Learning
+    Parameter Inference
      
     <span class="caret"></span>
   </a>
@@ -239,6 +377,9 @@ $(document).ready(function () {
     </li>
     <li>
       <a href="pmmh.html">PMMH</a>
+    </li>
+    <li>
+      <a href="online_filtering.html">Online Parameter Inference</a>
     </li>
   </ul>
 </li>
@@ -275,6 +416,9 @@ $(document).ready(function () {
     </li>
   </ul>
 </li>
+<li>
+  <a href="https://git.io/dlm">Github</a>
+</li>
       </ul>
       <ul class="nav navbar-nav navbar-right">
         
@@ -301,27 +445,27 @@ X_t &amp;= x_{t-1} + w_t, \quad w_t \sim \mathcal{N}(0, W), \\
 X_0 &amp;\sim \mathcal{N}(m_0, C_0).
 \end{align}\]</span></p>
 <p>The code required to simulate from this model is given below:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> core.<span class="fu">dlm</span>.<span class="fu">model</span>._
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
 <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector, diag}
 
 <span class="kw">val</span> mod = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>)
-<span class="kw">val</span> p = Dlm.<span class="fu">Parameters</span>(
+<span class="kw">val</span> p = <span class="fu">DlmParameters</span>(
   v = <span class="fu">DenseMatrix</span>(<span class="fl">2.0</span>),
   w = <span class="fu">DenseMatrix</span>(<span class="fl">3.0</span>),
   m0 = <span class="fu">DenseVector</span>(<span class="fl">0.0</span>),
   c0 = <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>)
 )
 
-<span class="kw">val</span> data = Dlm.<span class="fu">simulateRegular</span>(<span class="dv">0</span>, mod, p, <span class="fl">1.0</span>).
+<span class="kw">val</span> data = Dlm.<span class="fu">simulateRegular</span>(mod, p, <span class="fl">1.0</span>).
   steps.
   <span class="fu">take</span>(<span class="dv">1000</span>).
   toVector</code></pre></div>
 <p>The value <code>mod</code> is the <code>case class</code> called <code>Model</code> containing the definition of the observation and system matrices. These observation matrix, <code>f</code>, is a function from <code>(t: Double) =&gt; DenseMatrix[Double]</code> and the system evolution matrix <code>g</code> is a function from <code>(dt: Double) =&gt; DenseMatrix[Double]</code>. The function <code>Dlm.polynomial(1)</code> is equivalent to writing:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">Dlm.<span class="fu">Model</span>(
-  f = (t: Double) =&gt; <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>), 
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="fu">Dlm</span>(
+  f = (t: Double) =&gt; <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>),
   g = (dt: Double) =&gt; <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>)
 )</code></pre></div>
-<p>The figure below shows a plot of 100 simulations</p>
+<p>The figure below shows a plot of the simulations from the first order model.</p>
 <p><img src="FirstOrderDlm_files/figure-html/first-order-simulated-1.png" width="672" /></p>
 </div>
 <div id="kalman-filtering" class="section level1">
@@ -334,7 +478,8 @@ X_0 &amp;\sim \mathcal{N}(m_0, C_0).
 </ol>
 <p>The result of filtering the simulated observations is plotted below, with 90% probability intervals. The system and observation variances, <span class="math inline">\(W_t\)</span> and <span class="math inline">\(V_t\)</span> are assumed to be constant in time and known.</p>
 <p>To perform Kalman Filtering on a <code>Vector</code> of <code>Data</code>, we simply discard the state from the simulated data and pass it into the <code>KalmanFilter.filter</code> function:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> filtered = KalmanFilter.<span class="fu">filter</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> cats.<span class="fu">implicits</span>._
+<span class="kw">val</span> filtered = KalmanFilter.<span class="fu">filterDlm</span>(mod, data.<span class="fu">map</span>(_._<span class="dv">1</span>), p)</code></pre></div>
 <p><img src="FirstOrderDlm_files/figure-html/first-order-filtered-1.png" width="672" /></p>
 <div id="implementation-details" class="section level2">
 <h2>Implementation Details</h2>
@@ -366,8 +511,7 @@ H_t &amp;= C_t - C_t G^T_{t + 1} R_{t+1}^{-1} (R_{t+1} - S_{t+1})R_{t+1}^{-1} G_
 </div>
 <div id="gibbs-sampling" class="section level1">
 <h1>Gibbs Sampling</h1>
-<p>In order to perform Gibbs Sampling, we must have access to full conditional distributions for sampling from.</p>
-<p>Inverse gamma priors on the system and observation variances, <span class="math inline">\(p(V) = \textrm{InverseGamma}(4.0, 9.0)\)</span>, meaning the prior mean of the observation variance is <span class="math inline">\(\mathbb{E}(V) = 9 / 3 = 3\)</span>.</p>
+<p>In order to perform Gibbs Sampling, we must have derive the full conditional distributions for the static parameters. Inverse gamma priors on the system and observation variances, <span class="math inline">\(p(V) = \textrm{InverseGamma}(4.0, 9.0)\)</span>, meaning the prior mean of the observation variance is <span class="math inline">\(\mathbb{E}(V) = 9 / 3 = 3\)</span>.</p>
 <p>To perform gibbs sampling with inverse gamma priors:</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = GibbsSampling.<span class="fu">sample</span>(
     mod, 

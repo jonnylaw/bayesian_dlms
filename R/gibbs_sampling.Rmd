@@ -1,4 +1,4 @@
----
+N---
 title: "Gibbs Sampling"
 ---
 
@@ -68,8 +68,4 @@ We recognise the posterior distribution for the system noise covariance as the I
 $$p(W|x_{1:T}) = \mathcal{W}^{-1}(\nu + T, \mathbf{\Psi} + \sum_{i=1}^T(x_i - Gx_{i-1})(x_i-Gx_{i-1})^T)$$.
 
 Now in order to perform gibbs sampling, we alternate between drawing values of $V, W$ from these posterior distributions and values of the state $x_0,\dots,x_T$ using forward filtering backward sampling. 
-
-## Forward Filtering Backward Sampling
-
-Can be implemented using SVD
 

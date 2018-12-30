@@ -14,7 +14,7 @@ The algorithm uses an unbiased estimate of the marginal likelihood, $p(y_{1:T} |
 Firstly define a DGLM:
 
 ```tut
-import core.dlm.model._
+import com.github.jonnylaw.dlm._
 
 val model = Dlm.polynomial(1)
 val dglm = Dglm.poisson(model)

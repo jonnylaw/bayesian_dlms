@@ -1,9 +1,10 @@
-package examples.dlm
+package com.github.jonnylaw.dlm.example
 
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, sum, diag}
 import breeze.stats.distributions._
 import java.nio.file.Paths
+import cats.Applicative
 import cats.implicits._
 import kantan.csv._
 import kantan.csv.ops._
@@ -15,6 +16,7 @@ import akka.actor.ActorSystem
 import akka.stream._
 import scaladsl._
 import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 
 trait ReadTrafficData {
   val format = DateTimeFormatter.ISO_DATE_TIME
@@ -111,7 +113,6 @@ object TrafficNegBin extends App with ReadTrafficData {
                              DenseVector.fill(9)(0.0),
                              diag(DenseVector.fill(9)(10.0)))
 
-  // very vague prior
   def prior(params: DlmParameters) = {
     val ws = diag(params.w).map(wi => InverseGamma(11.0, 1.0).logPdf(wi)).sum
 
@@ -181,10 +182,6 @@ object OneStepForecastTraffic extends App with ReadTrafficData {
       val initState = pf.initialiseState(model, p, data)
       val lastState = data.foldLeft(initState)(pf.step(model, p)).state
 
-      // println(s"Data has ${data.size} observations")
-      // println(s"Test has ${test.size} observations")
-      // lastState.take(10).foreach(println)
-
       val fcst = Dglm
         .forecastParticles(model, lastState, p, test.take(200))
         .map {
@@ -199,4 +196,70 @@ object OneStepForecastTraffic extends App with ReadTrafficData {
       println(s)
       system.terminate()
     })
+}
+
+object TrafficNegBinOnline extends App with ReadTrafficData {
+  implicit val system = ActorSystem("online-parameters-traffic")
+  implicit val materializer = ActorMaterializer()
+
+  val model = Dglm.negativeBinomial(Dlm.polynomial(1) |+| Dlm.seasonal(24, 4))
+
+  // convert hours from the epoch to datetime
+  def hoursToDatetime(hours: Double) = {
+    val inst = Instant.ofEpochSecond(hours.toLong * 60 * 60)
+    val tz = ZoneOffset.UTC
+    LocalDateTime.ofInstant(inst, tz)
+  }
+
+  val params = Streaming
+    .readCsv("examples/data/negbin_traffic_auxiliary_500_0.05_pmmh_0.csv")
+    .drop(1000)
+    .map(_.map(_.toDouble).toList)
+    .map(
+      l =>
+        DlmParameters(v = DenseMatrix(l.head),
+                      w = diag(DenseVector(l.slice(1, 10).toArray)),
+                      m0 = DenseVector.zeros[Double](9),
+                      c0 = DenseMatrix.eye[Double](9) * 100.0)).
+    runWith(Sink.seq)
+
+  val out = new java.io.File("examples/data/filter_traffic_negbin_online.csv")
+  val headers = rfc.withHeader("time", "median", "lower", "upper")
+
+  val n = 1000
+  // val pf = ParticleFilter(n, n, ParticleFilter.multinomialResample)
+  // val initState = pf.initialiseState(model, p, data)
+  // val lastState = data.foldLeft(initState)(pf.step(model, p)).state
+
+  // smoothing parameter for the mixture of gaussians,
+  // equal to (3 delta - 1) / 2 delta
+  val a = (3 * 0.95 - 1) / 2 * 0.95
+
+  (for {
+     p <- params
+     prior = new Rand[DlmParameters] {
+       def draw = {
+         val i = scala.util.Random.nextInt(p.size)
+         p(i)
+       }
+     }
+     filtered = LiuAndWestFilter(n, prior, a, n).
+       filter(model, test.take(200), p.head)
+     fcst = filtered.
+     map { st =>
+       val dt = 1.0
+       val at = (st.state zip st.params).
+         map { case (x, ps) =>
+           Dglm.stepState(model, ps map math.exp)(x, dt).draw }
+       val ft = at.zip(st.params).map { case (x, ps) =>
+         model.observation(x, ps.v map math.exp).draw }
+       (hoursToDatetime(st.time), Dglm.medianAndIntervals(0.75)(ft))
+     }
+     .map { case (t, (f, l, u)) => (t, f(0), l(0), u(0)) }
+     io <- Future.successful(out.writeCsv(fcst, headers))
+   } yield io)
+  .onComplete{ s =>
+    println(s)
+    system.terminate()
+  }
 }

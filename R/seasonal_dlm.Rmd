@@ -9,6 +9,7 @@ library(ggmcmc)
 library(patchwork)
 knitr::opts_chunk$set(cache=TRUE, message=FALSE, warning=FALSE, echo=FALSE)
 theme_set(theme_minimal())
+source("mcmc_summarise.R")
 ```
 
 # Simulate From a Seasonal DLM
@@ -43,7 +44,7 @@ $$F = \begin{pmatrix}1 & 0 & 1 & \dots & 1 & 0 \end{pmatrix}.$$
 We can specify a seasonal model with trend using:
 
 ```tut:silent
-import core.dlm.model._
+import com.github.jonnylaw.dlm._
 import cats.implicits._
 
 val mod = Dlm.polynomial(1) |+| Dlm.seasonal(24, 3)
@@ -60,14 +61,14 @@ Then we can simulate from the model by supplying parameters and use the `simulat
 ```tut:silent
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 
-val p = Dlm.Parameters(
+val p = DlmParameters(
   v = DenseMatrix((1.0)),
   w = diag(DenseVector(0.01, 0.2, 0.4, 0.5, 0.2, 0.1, 0.4)),
   m0 = DenseVector.fill(7)(0.0),
   c0 = diag(DenseVector.fill(7)(1.0))
 )
 
-val sims = Dlm.simulateRegular(0, mod, p, 1.0).
+val sims = Dlm.simulateRegular(mod, p, 1.0).
   steps.
   take(1000).
   toVector
@@ -102,7 +103,7 @@ sims %>%
 We can perform Kalman Filtering, to learn the distribution of the latent state given the data we have simulated:
 
 ```tut:silent
-val filtered = KalmanFilter.filter(mod, sims.map(_._1), p)
+val filtered = KalmanFilter.filterDlm(mod, sims.map(_._1), p)
 ```
 
 ```{r filtered-seasonal}
@@ -149,7 +150,7 @@ smoothed %>%
        subtitle = "Actual state and smoothed state, with associated 95% intervals")
 ```
 
-## Parameter Learning using Gibbs Sampling
+## Parameter Inference using Gibbs Sampling
 
 ```{r parameter_values}
 actual_values = tibble(
@@ -176,34 +177,15 @@ iters = read_csv("../examples/data/seasonal_dlm_gibbs.csv")
 
 params = ggs(mcmc(iters))
 
-p1 = params %>%
+params %>%
   filter(Parameter == "V") %>%
-  inner_join(actual_values) %>%
-  ggplot(aes(x = Iteration, y = value)) +
-  geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  labs(title = "Diagnostic plots for the observation variance parameter, V", 
-       subtitle = "(Top) Traceplot (Middle) autocorrelation (Bottom) Empirical Posterior Density")
-
-p2 = params %>%
-  filter(Parameter == "V") %>%
-  ggs_autocorrelation()
-
-p3 = params %>%
-  filter(Parameter == "V") %>%
-  ggs_density()
-
-p1 / p2 / p3
+  plot_diagnostics_sim(actual_values = actual_values)
 ```
 
 ```{r seasonal-w-diagnostics, echo=FALSE, fig.cap="Diagnostic plots for the MCMC chain representing draws from the posterior distribution of the System noise covariance matrix for the simulated seasonal model"}
 params %>%
   filter(Parameter %in% paste0("W", 1:7)) %>%
-  inner_join(actual_values) %>%
-  ggplot(aes(x = Iteration, y = value)) +
-  geom_line() +
-  geom_hline(aes(yintercept = actual_value), colour = "#ff0000") +
-  facet_wrap(~Parameter, strip.position = "right")
+  traceplot()
 ```
 
 # Forecast DLM
@@ -221,15 +203,15 @@ import breeze.stats.mean
 val mcmcChain = Paths.get("examples/data/seasonal_dlm_gibbs.csv")
 val read = mcmcChain.asCsvReader[List[Double]](rfc.withHeader)
 
-val params: List[Double] = read.    
+val params: List[Double] = read.
   collect { case Right(a) => a }.
   toList.
   transpose.
   map(a => mean(a))
 
-val meanParameters = Dlm.Parameters(
-  v = DenseMatrix(params.head), 
-  w = diag(DenseVector(params.tail.toArray)), 
+val meanParameters = DlmParameters(
+  v = DenseMatrix(params.head),
+  w = diag(DenseVector(params.tail.toArray)),
   m0 = p.m0,
   c0 = p.c0)
 ```
@@ -237,7 +219,7 @@ val meanParameters = Dlm.Parameters(
 We use these parameters to get the posterior distribution of the final state:
 
 ```tut:silent
-val filtered = KalmanFilter.filter(mod, sims.map(_._1), meanParameters)
+val filtered = KalmanFilter.filterDlm(mod, sims.map(_._1), meanParameters)
 val (mt, ct, initTime) = filtered.map(a => (a.mt, a.ct, a.time)).last
 ```
 
@@ -255,8 +237,6 @@ The mean of the forecast and 99% prediction intervals are below:
 forecast = read_csv("../examples/data/seasonal_model_forecast.csv")
 
 forecast %>%
-  mutate(upper = qnorm(p = 0.995, mean = forecast, sd = sqrt(variance)),
-         lower = qnorm(p = 0.005, mean = forecast, sd = sqrt(variance))) %>%
   bind_rows(sims) %>%
   filter(time > 900) %>%
   gather(key, value, forecast, observation) %>%
@@ -265,5 +245,5 @@ forecast %>%
   geom_ribbon(aes(x = time, ymin = lower, ymax = upper), colour = NA, alpha = 0.3) +
   labs(title = "Forecast for 100 Time Points") +
   theme(legend.position = "bottom") +
-  coord_cartesian(ylim = c(-50, 50))
+  coord_cartesian(ylim = c(-75, 75))
 ```

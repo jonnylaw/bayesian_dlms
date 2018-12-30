@@ -10,30 +10,31 @@ library(ggmcmc)
 library(patchwork)
 library(latex2exp)
 theme_set(theme_minimal())
+source("mcmc_summarise.R")
 ```
 
 # Simulation
 
 $$\begin{align}
 Y_t &= x_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
-X_t &= \phi x_{t-1} + w_t, \quad w_t \sim \mathcal{N}(0, W), \\
-X_0 &\sim \mathcal{N}(m_0, C_0).
+\alpha_t &= \phi (\alpha_{t-1}-\mu) + eta_t, \quad w_t \sim \mathcal{N}(0, \sigma_\eta), \\
+\alpha_0 &\sim \mathcal{N}(m_0, C_0).
 \end{align}$$
 
 The code required to simulate from this model is given below:
 
 ```tut:silent
-import core.dlm.model._
+import com.github.jonnylaw.dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 
 val mod = Dlm.autoregressive(phi = 0.9)
-val p = Dlm.Parameters(
-  DenseMatrix(4.0), 
-  DenseMatrix(2.0), 
-  DenseVector(0.0), 
+val p = DlmParameters(
+  DenseMatrix(4.0),
+  DenseMatrix(2.0),
+  DenseVector(0.0),
   DenseMatrix(1.0))
 
-val data = Dlm.simulateRegular(0, mod, p, 1.0).
+val data = Dlm.simulateRegular(mod, p, 1.0).
   steps.
   take(1000).
   toVector
@@ -55,27 +56,32 @@ data %>%
 
 # Filtering
 
-To perform Kalman Filtering on a `Vector` of `Data`, we simply discard the state from the simulated data and pass it into the `KalmanFilter.filter` function:
+To perform Kalman Filtering on a `Vector` of `Data`, we simply discard the state from the simulated data and pass it into the `KalmanFilter.filterDlm` function:
 
 ```tut:silent
-val filtered = KalmanFilter.filter(mod, data.map(_._1), p)
+import cats.implicits._
+val filtered = KalmanFilter.filterDlm(mod, data.map(_._1), p)
 ```
 
+The `filterDlm` function is implemented for any collection which has a
+`Traverse` instance, cats provides an instance for `Vector[A]` (via the import `cats.implicits._`).
+
 ```{r ar1-filtered}
-filtered= read_csv("../examples/data/ar_dlm_filtered.csv")
+filtered = read_csv("../examples/data/ar_dlm_filtered.csv")
 
 filtered %>%
+  filter(time < 500) %>%
   mutate(lower = qnorm(p = 0.005, mean = state_mean, sd = sqrt(state_variance)),
          upper = qnorm(p = 0.995, mean = state_mean, sd = sqrt(state_variance))) %>%
   inner_join(data) %>%
-  gather(key, value, state_mean, observation) %>%
+  gather(key, value, state_mean, state) %>%
   ggplot(aes(x = time, y = value, colour = key)) +
   geom_line() +
     geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3, colour = NA) +
     labs(title = "Filtered state for the AR(1) DLM")
 ```
 
-# Parameter Learning
+# Parameter Inference
 
 The figure below shows the prior distributions for the parameters and the diagnostics from 100,000 iterations of the MCMC algorithm. A Beta prior and proposal is used in a Metropolis-Hastings step to learn the autoregressive parameter $\phi$.
 
@@ -106,13 +112,13 @@ phi = plot_density(dbeta, 20, 2, range = c(0, 1), title = TeX("Prior distributio
 phi + v + w + plot_layout(ncol = 1)
 ```
 
-Next we can use the prior distribution to construct at `Dlm.Parameters` object which can be drawn from to initialise the Markov chain.
+Next we can use the prior distribution to construct at `DlmParameters` object which can be drawn from to initialise the Markov chain.
 
 ```tut:silent
 val prior = for {
   v <- priorV
   w <- priorW
-} yield Dlm.Parameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)
+} yield DlmParameters(DenseMatrix(v), DenseMatrix(w), p.m0, p.c0)
 ```
 
 Next we create a single step of the Markov Chain which samples the value of $\phi$ using a Metropolis Hastings step. The function `updateModel` is used to change the value of the system evolution matrix $G$ to include the new value of the autoregressive parameter $\phi$. 
@@ -125,17 +131,17 @@ val step = (s: (Double, GibbsSampling.State)) => for {
 } yield (phi, newS)
 ```
 
-Next the inital state of the MCMC is created:
+Next the inital parameter distribution can be defined as:
 
 ```tut:silent
 val init = for {
   p <- prior
   phi <- priorPhi
-  state <- Smoothing.ffbs(mod, data.map(_._1), p)
+  state <- Smoothing.ffbsDlm(mod, data.map(_._1), p)
 } yield (phi, GibbsSampling.State(p, state))
 ```
 
-Finally we can construct the Markov Chain:
+This allows us to intialise the MCMC with a draw from the prior distribution. Finally we can construct the Markov Chain:
 
 ```tut:silent
 val iters = MarkovChain(init.draw)(step).steps.take(100000)
@@ -143,32 +149,139 @@ val iters = MarkovChain(init.draw)(step).steps.take(100000)
 
 ```{r actual_parameters_ar1}
 actual_params = tibble(
-  Parameter = c("Phi", "V", "W"),
-  actual_value = c(0.9, 4.0, 2.0)
+  Parameter = c("phi", "mu", "sigmaEta", "V"),
+  actual_value = c(0.8, 1.0, 0.3, 0.5)
 )
 ```
 
 The figure below shows the posterior distributions of the static parameters in the autoregressive DLM. 10,000 iterations are discarded as burnin and 100,000 samples are taken from the Markov Chain.
 
 ```{r ar1-parameter-diagnostics}
-chain = read_csv("../examples/data/ar_dlm_gibbs.csv", col_names = c("Phi", "V", "W"), skip = 10000)
+files = c("../examples/data/ar_dlm_params_0.csv",
+          "../examples/data/ar_dlm_params_1.csv")
+chains = read_chains(files, param_names = c("V", "phi", "mu", "sigmaEta"), drop = 1e3, nth = 5)
 
-params = chain %>%
-  add_column(Iteration = 1:nrow(chain)) %>%
-  gather(key = Parameter, value, -Iteration) %>%
-  inner_join(actual_params)
+plot_diagnostics_sim(chains, actual_params)
+```
 
-p1 = ggplot(params, aes(x = value)) +
-  geom_density() +
-  geom_vline(aes(xintercept = actual_value), linetype = "dashed") +
-  facet_wrap(~Parameter, scales = "free", ncol = 1)
+## Continuous Time Autoregressive Process
 
-p2 = params %>%
-  group_by(Parameter) %>%
-  do(ac(.$value, 50)) %>%
-  ggplot(aes(x = Lag, weight = Autocorrelation)) +
-  geom_bar() +
-  facet_wrap(~Parameter, ncol = 1)
+The Ornstein-Uhlenbeck process is a continuous time autoregressive process. Define a partially observed Markov process with an OU latent-state as:
 
-p1 + p2
+\begin{align*}
+Y_t &= x_t + v_t, \quad v_t \sim \mathcal{N}(0, V), \\
+\textrm{d}\alpha_t &= \phi(\alpha_t - \mu)\textrm{d}t + \sigma  \textrm{d}W_t. 
+\end{align*}
+
+The Figure below shows a simulation from the OU process DLM with observation variance $V = 0.5$, $\phi = 0.2$, $\mu = 1.0$ and $\sigma = 0.3$. To simulate the OU process DLM, define parameters of the OU process and use the transition kernel defined in the `StochasticVolatility` class. The observation distribution is Gaussian with variance $V = 0.5$. Since this process can be simulated at arbitrary time points, a vector of random times is simulated by defining the difference between the observations to be `deltas`. Then the state, $\alpha_0$ is initialised at the stationary solution of the OU process and a scan is used to simulate the data.
+
+```tut
+import com.github.jonnylaw.dlm._
+
+val p = SvParameters(0.2, 1.0, 0.3)
+def stepDlm(t: Double, dt: Double, x: Double) =
+  for {
+    x1 <- StochasticVolatility.stepOu(p, x, dt)
+    y <- Gaussian(x1, math.sqrt(0.5))
+  } yield (t + dt, y, x1)
+val deltas = Vector.fill(5000)(scala.util.Random.nextDouble())
+
+val init = Gaussian(p.mu, math.sqrt(p.sigmaEta * p.sigmaEta / 2 * p.phi))
+val sims = deltas.scanLeft((0.0, 0.0, init.draw)) {
+  case ((t, y, xt), dt) =>
+    stepDlm(t + dt, dt, xt).draw
+}
+
+```
+
+```{r ou-sums}
+ou_sims = read_csv("../examples/data/ou_dlm.csv")
+
+ou_sims %>%
+    filter(time < 500) %>%
+    rename(simulated_state = x, observation = y) %>%
+    gather(key, value, -time) %>%
+    ggplot(aes(x = time, y = value, colour = key)) +
+    geom_line()
+```
+
+The figure below shows a Kalman Filter for the OU process, since the transition kernel of the OU process is known and given by a Gaussian distribution the Kalman Filter can be performed:
+
+```tut
+val ys = sims.map { case (t, y, a) => (t, y.some) }
+val filtered = FilterOu.filterUnivariate(ys, Vector.fill(ys.size)(0.5), p)
+```
+
+```{r filtering-ou-process}
+filtered = read_csv("../examples/data/ou_dlm_filtered.csv")
+
+filtered %>%
+    filter(time < 500) %>%
+    inner_join(ou_sims, by = "time") %>%
+    rename(simulated_state = x) %>%
+    mutate(upper = qnorm(p = 0.975, state_mean, sqrt(state_variance)),
+           lower = qnorm(p = 0.025, state_mean, sqrt(state_variance))) %>%
+    select(-y, -state_variance) %>%
+    gather(key, value, -time, -upper, -lower) %>%
+    ggplot(aes(x = time, y = value, colour = key)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.5, colour = NA)
+```
+
+Parameter inference is performed using the Kalman filter to calculate the marginal likelihood of the OU process which is then used in a Metropolis-Hastings algorithm to determine the static parameters of the latent state, $\phi, \mu$ and $\sigma$. The value of the observation variance, $V$, is determined using a Gibbs step:
+
+```tut
+import StochasticVolatility._
+
+val p = SvParameters(0.2, 1.0, 0.3)
+val priorPhi = new Beta(2.0, 5.0)
+val priorMu = Gaussian(1.0, 1.0)
+val priorSigma = InverseGamma(5.0, 1.0)
+val priorV = InverseGamma(2.0, 2.0)
+val f = (dt: Double) => DenseMatrix(1.0)
+
+val step = (s: (StochasticVolatilityKnots.OuSvState, DenseMatrix[Double])) =>
+  for {
+    theta <- FilterOu.ffbs(s._1.params, ys, Vector.fill(ys.size)(s._2(0, 0)))
+    st = theta.map(x => (x.time, x.sample))
+    (phi, acceptedPhi) <- samplePhiOu(priorPhi, s._1.params, st, 0.05, 0.25)(
+      s._1.params.phi)
+    (mu, acceptedMu) <- sampleMuOu(priorMu, 0.2, s._1.params, st)(
+      s._1.params.mu)
+    (sigma, acceptedSigma) <- sampleSigmaMetropOu(priorSigma,
+                                                  0.1,
+                                                  s._1.params,
+                                                  st)(s._1.params.sigmaEta)
+    v <- GibbsSampling.sampleObservationMatrix(
+      priorV,
+      f,
+      ys.map(x => DenseVector(x._2)),
+      st.map { case (t, x) => (t, DenseVector(x)) })
+    accepted = DenseVector(Array(acceptedPhi, acceptedMu, acceptedSigma))
+  } yield
+    (StochasticVolatilityKnots.OuSvState(SvParameters(phi, mu, sigma),
+                                         theta,
+                                         s._1.accepted + accepted),
+     v)
+val initState = FilterOu.ffbs(p, ys, Vector.fill(ys.size)(priorV.draw))
+val init = (StochasticVolatilityKnots.OuSvState(p,
+                                                initState.draw,
+                                                DenseVector.zeros[Int](3)),
+            DenseMatrix(priorV.draw))
+
+val iters = MarkovChain(init)(step)
+
+```
+
+```{r parameter-inference-ou}
+param_names = c("v", "phi", "mu", "sigma")
+actual_values_ou = data_frame(
+  Parameter = param_names,
+  actual_value = c(0.5, 0.2, 1.0, 0.3))
+
+files = c("../examples/data/ou_dlm_params_0.csv",
+          "../examples/data/ou_dlm_params_1.csv")
+chains = read_chains(files = files, drop = 1e4, nth = 20, param_names = param_names)
+
+plot_diagnostics_sim(chains, actual_values_ou)
 ```

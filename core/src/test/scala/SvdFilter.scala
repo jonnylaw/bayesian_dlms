@@ -1,4 +1,4 @@
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import org.scalatest._
 import prop._
 import org.scalactic.Equality

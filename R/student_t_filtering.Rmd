@@ -12,7 +12,7 @@ library(ggmcmc)
 theme_set(theme_minimal())
 ```
 
-The Student's t-distribution is not part of the exponential family of distributions, hence is not a DGLM (Dynamic generalised linear model), however it is still useful in its own right. The Student's t-distribution has thicker tails than the normal distribution for low values of the degrees of freedom hence is more foregiving of outliers in the measurements. The scaled, shifted Student's t-distribution is parameterised by the location, $\ell$, scale $s$ and degrees of freedom $\nu$, the probability density function is:
+The Student's t-distribution has thicker tails than the normal distribution for low values of the degrees of freedom hence is more foregiving of outliers in the measurements. The scaled, shifted Student's t-distribution is parameterised by the location, $\ell$, scale $s$ and degrees of freedom $\nu$, the probability density function is:
 
 $$p(x|\ell, s, \nu) = \frac{\Gamma\left(\frac{\nu + 1}{2}\right)}{\sqrt{\pi\nu s}\Gamma(\frac{\nu}{2})} \left(\frac{(x-\ell)^2}{\nu s^2} + 1 \right)^{- \frac{\nu + 1}{2}}$$
 
@@ -27,7 +27,7 @@ x_0 &\sim \mathcal{N}(m_0, C_0).
 The Student's t model is specified in scala by first specifying a DLM model, which specifys the system and observation matrices ($G_t$ and $F_t$) then specifying the observation model using the `Dglm` class:
 
 ```tut:silent
-import core.dlm.model._
+import com.github.jonnylaw.dlm._
 
 val dlm = Dlm.polynomial(1)
 val mod = Dglm.studentT(3, dlm)
@@ -38,14 +38,14 @@ The code below can be used to simulate 1,000 iterations from the Student's t mod
 ```tut:silent
 import breeze.linalg.{DenseVector, DenseMatrix}
 
-val params = Dlm.Parameters(
-  DenseMatrix(3.0), 
-  DenseMatrix(0.1), 
-  DenseVector(0.0), 
+val params = DlmParameters(
+  DenseMatrix(3.0),
+  DenseMatrix(0.1),
+  DenseVector(0.0),
   DenseMatrix(1.0))
 
 
-val data = Dglm.simulate(mod, params).
+val data = Dglm.simulateRegular(mod, params, 1.0).
   steps.
   take(1000).
   toVector
@@ -65,23 +65,22 @@ sims %>%
        subtitle = TeX("$s^2 = 3, W = 0.1, m_0 = 0, C_0 = 1$"))
 ```
 
-## Parameter learning
+## Parameter Inference
 
-In order to fit the t-distributed state space model to observed data we need to learn the values of the parameters $\psi = \{s^2, W, m_0, C_0\}$. A particle filter can be used to find an (unbiased) estimate of the likelihood, then Metropolis Hastings can be used to learn the posterior distribution of the parameters. Alternatively, Particle Gibbs can be used to sample a value of the state then the conjugate structure of the latent-state with unknown variance, $W$ can be exploited. The scale would then be updated using Metropolis hastings. However, since the Student's t-distrubtion is an Inverse Gamma mixture of normals, we can use the Kalman Filter to sample the value of the state and perform Gibbs sampling for the value of the scale, $s$.
+In order to fit the t-distributed state space model to observed data we need to learn the values of the parameters $\psi = \{s^2, W, m_0, C_0\}$. A particle filter can be used to find an (unbiased) estimate of the likelihood, then Metropolis Hastings can be used to learn the posterior distribution of the parameters. 
 
 ```{r pmmh-diagnostics, eval=FALSE}
-chain = read_csv("../examples/data/student_t_dglm_pmmh.csv")
-parameters = chain[-c(1:1000),] %>%
-  mcmc() %>% ggs()
-
-p1 = ggs_traceplot(parameters) + facet_wrap(~Parameter, strip.position = "right", scales = "free_y")
-p2 = ggs_autocorrelation(parameters)
-p3 = ggs_running(parameters) + 
-  facet_wrap(~Parameter, strip.position = "right", scales = "free_y") + 
-  theme(legend.position = "none")
-
-gridExtra::grid.arrange(p1, p2, p3, ncol = 1)
+files = c("../examples/data/student_t_dglm_pmmh_0.csv",
+          "../examples/data/student_t_dglm_pmmh_1.csv")
+actual_values = tibble(
+  Parameter = c("scale", "W", "nu"),
+  actual_value = c(3.0, 0.1, 3)
+)
+chains = read_chains(files, param_names = actual_values$Parameter, nth = 1, drop = 0)
+plot_diagnostics_sim(chains, actual_values)
 ```
+
+<!-- Alternatively, Particle Gibbs can be used to sample a value of the state then the conjugate structure of the latent-state with unknown variance, $W$ can be exploited. The scale would then be updated using Metropolis hastings. However, since the Student's t-distrubtion is an Inverse Gamma mixture of normals, we can use the Kalman Filter to sample the value of the state and perform Gibbs sampling for the value of the scale, $s$. -->
 
 ```{r pg-ar, eval=FALSE}
 chain = read_csv("../examples/data/student_t_dglm_gibbs_ancestor.csv")
@@ -196,36 +195,26 @@ variance = function(a, b) {
 The prior distribution of the system evolution matrix is Inv-Gamma$(`r alpha`, `r beta`)$, for a mean of `r mean(alpha, beta)` and variance `r variance(alpha, beta)`. The prior distribution for $W$ looks like:
 
 ```{r}
-prior_w = data_frame(x = 1 / rgamma(n = 10000, shape = alpha, rate = beta))
-
-ggplot(data = prior_w, aes(x = x)) + 
-  geom_density() +
-  # coord_cartesian(xlim = c(0, 1)) +
-  geom_vline(aes(xintercept = 0.1), colour = "#ff0000") +
-  labs(title = "Density of the prior distribution of W")
-  # stat_function(fun = function(x) 1 / dgamma(x = x, shape = 3.0, rate = 2.0))
+plot_density(MCMCpack::dinvgamma, alpha, beta, title = "Density of the prior distribution of W", range = c(0, 1))
 ```	
 
 In order to run the perform Gibbs sampling on the sampled data, we use the following code:
 
 ```tut:silent
-val iters = StudentT.sample(3, data.map(_._1), InverseGamma(21.0, 2.0), mod, params)
+import breeze.stats.distributions.Poisson
+val propNu = (x: Int) => Poisson(x)
+val propNuP = (from: Int, to: Int) => Poisson(from).logProbabilityOf(to)
+val iters = StudentT.sample(data.map(_._1), InverseGamma(21.0, 2.0),
+    Poisson(3), propNu, propNuP, mod, params)
 ```
 
 ```{r density_student_t}
-chain = read_csv("../examples/data/student_t_dglm_gibbs.csv")
-
-parameters = chain[-c(1:1000),] %>% 
-  mcmc() %>% 
-  ggs()
-
-p1 = ggs_traceplot(parameters) + 
-  facet_wrap(~Parameter, strip.position = "right", scales = "free_y")
-
-p2 = ggs_autocorrelation(parameters)
-p3 = ggs_running(parameters) +
-  facet_wrap(~Parameter, strip.position = "right", scales = "free_y") + 
-  theme(legend.position = "none")
-
-gridExtra::grid.arrange(p1, p2, p3, ncol = 1)
+files = c("../examples/data/student_t_dglm_gibbs_0.csv",
+          "../examples/data/student_t_dglm_gibbs_1.csv")
+actual_values = tibble(
+  Parameter = c("nu", "scale", "W"),
+  actual_value = c(3, 3.0, 0.1)
+)
+chains = read_chains(files, param_names = actual_values$Parameter, nth = 1, drop = 1e3)
+plot_diagnostics_sim(chains, actual_values)
 ```

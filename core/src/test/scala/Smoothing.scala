@@ -1,4 +1,4 @@
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import Dlm._
 import breeze.linalg.{DenseMatrix, DenseVector}
 import org.scalatest._

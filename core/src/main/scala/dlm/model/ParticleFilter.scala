@@ -1,4 +1,4 @@
-package dlm.core.model
+package com.github.jonnylaw.dlm
 
 import breeze.linalg.DenseVector
 import breeze.stats.distributions._
@@ -96,7 +96,7 @@ object ParticleFilter {
                                    model: Dglm,
                                    p: DlmParameters) = {
 
-    state traverse (x => Dglm.stepState(model, p)(x, dt))
+    Rand.always(state map (x => Dglm.stepState(model, p)(x, dt).draw))
   }
 
   def calcWeight(mod: Dglm,

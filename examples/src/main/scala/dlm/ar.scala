@@ -1,6 +1,6 @@
-package examples.dlm
+package com.github.jonnylaw.dlm.example
 
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import Dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag}
 import breeze.stats.distributions._
@@ -118,7 +118,7 @@ object SimulateOuDlm extends App {
     } yield (t + dt, y, x1)
   val deltas = Vector.fill(5000)(scala.util.Random.nextDouble())
 
-  val init = Gaussian(p.mu, math.sqrt(p.sigmaEta * p.sigmaEta / p.phi * p.phi))
+  val init = Gaussian(p.mu, math.sqrt(p.sigmaEta * p.sigmaEta / 2 * p.phi))
   val sims = deltas.scanLeft((0.0, 0.0, init.draw)) {
     case ((t, y, xt), dt) =>
       stepDlm(t + dt, dt, xt).draw
@@ -163,7 +163,7 @@ object FitOuDlm extends App {
       case Right(a) => (a._1, a._2.some)
     }
     .toVector
-    .take(500)
+
 
   val p = SvParameters(0.2, 1.0, 0.3)
   val priorPhi = new Beta(2.0, 5.0)
@@ -178,11 +178,11 @@ object FitOuDlm extends App {
       st = theta.map(x => (x.time, x.sample))
       (phi, acceptedPhi) <- samplePhiOu(priorPhi, s._1.params, st, 0.05, 0.25)(
         s._1.params.phi)
-      (mu, acceptedMu) <- sampleMuOu(priorMu, 0.2, s._1.params, st)(
+      (mu, acceptedMu) <- sampleMuOu(priorMu, 0.2, s._1.params.copy(phi = phi), st)(
         s._1.params.mu)
       (sigma, acceptedSigma) <- sampleSigmaMetropOu(priorSigma,
                                                     0.1,
-                                                    s._1.params,
+                                                    s._1.params.copy(phi = phi, mu = mu),
                                                     st)(s._1.params.sigmaEta)
       v <- GibbsSampling.sampleObservationMatrix(
         priorV,
@@ -205,12 +205,12 @@ object FitOuDlm extends App {
 
   def formatParameters(
       s: (StochasticVolatilityKnots.OuSvState, DenseMatrix[Double])) =
-    List(s._2(0, 0), s._1.params.phi, s._1.params.mu, s._1.params.sigmaEta) // ++ s._1.accepted.map(_.toDouble).data.toList
+    List(s._2(0, 0), s._1.params.phi, s._1.params.mu, s._1.params.sigmaEta)
 
   Streaming
     .writeParallelChain(iters,
                         2,
-                        10000,
+                        100000,
                         "examples/data/ou_dlm_params",
                         formatParameters)
     .runWith(Sink.onComplete(_ => system.terminate()))

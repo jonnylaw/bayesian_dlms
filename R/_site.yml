@@ -6,24 +6,27 @@ navbar:
     - text: "Home"
       href: index.html
     - text: "Model Building"
+      menu:
       - text: "DLMs and DGLMs"
-      - href: model_building_simulation.html
+        href: model_building_simulation.html
       - text: "Stochastic Volatility"
-      - href: stochastic_volatility.html
+        href: stochastic_volatility.html
+      - text: "Factor Stochastic Volatility"
+        href: factor_stochastic_volatility.html
     - text: "Filtering"
       menu:
       - text: "Kalman Filter"
         href: kalman_filter.html
       - text: "Bootstrap Particle Filter"
         href: particle_filter.html
-#      - text: "Particle Gibbs"
-#        href: particle_gibbs_sampling.html
-    - text: "Parameter Learning"
+    - text: "Parameter Inference"
       menu:
       - text: "Gibbs Sampling"
         href: gibbs_sampling.html
       - text: "PMMH"
         href: pmmh.html
+      - text: "Online Parameter Inference"
+        href: online_filtering.html
     - text: "Forecasting"
       href: forecasting.html
     - text: "Examples"
@@ -42,6 +45,8 @@ navbar:
         href: ar1.html
       - text: "Spain Investment Data"
         href: spain_investment_data.html
+    - text: "Github"
+      href: https://git.io/dlm
 output:
   html_document:
     theme: cosmo

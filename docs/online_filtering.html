@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+
+
+
+<title>Online Parameter Inference</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css" data-origin="pandoc">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; background-color: #ffffff; color: #1f1c1b; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; background-color: #ffffff; color: #a0a0a0; border-right: 1px solid #a0a0a0; }
+td.sourceCode { padding-left: 5px; }
+pre, code { color: #1f1c1b; background-color: #ffffff; }
+code > span.kw { color: #1f1c1b; font-weight: bold; } /* Keyword */
+code > span.dt { color: #0057ae; } /* DataType */
+code > span.dv { color: #b08000; } /* DecVal */
+code > span.bn { color: #b08000; } /* BaseN */
+code > span.fl { color: #b08000; } /* Float */
+code > span.cn { color: #aa5500; } /* Constant */
+code > span.ch { color: #924c9d; } /* Char */
+code > span.sc { color: #3daee9; } /* SpecialChar */
+code > span.st { color: #bf0303; } /* String */
+code > span.vs { color: #bf0303; } /* VerbatimString */
+code > span.ss { color: #ff5500; } /* SpecialString */
+code > span.im { color: #ff5500; } /* Import */
+code > span.co { color: #898887; } /* Comment */
+code > span.do { color: #607880; } /* Documentation */
+code > span.an { color: #ca60ca; } /* Annotation */
+code > span.cv { color: #0095ff; } /* CommentVar */
+code > span.ot { color: #006e28; } /* Other */
+code > span.fu { color: #644a9b; } /* Function */
+code > span.va { color: #0057ae; } /* Variable */
+code > span.cf { color: #1f1c1b; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #1f1c1b; } /* Operator */
+code > span.bu { color: #644a9b; font-weight: bold; } /* BuiltIn */
+code > span.ex { color: #0095ff; font-weight: bold; } /* Extension */
+code > span.pp { color: #006e28; } /* Preprocessor */
+code > span.at { color: #0057ae; } /* Attribute */
+code > span.re { color: #0057ae; } /* RegionMarker */
+code > span.in { color: #b08000; } /* Information */
+code > span.wa { color: #bf0303; } /* Warning */
+code > span.al { color: #bf0303; font-weight: bold; } /* Alert */
+code > span.er { color: #bf0303; text-decoration: underline; } /* Error */
+code > span. { color: #1f1c1b; } /* Normal */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' || rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+  height: auto;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 51px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h2 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h3 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h4 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h5 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h6 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+<div class="container-fluid main-container">
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Bayesian Inference for DLMs</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Model Building
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="model_building_simulation.html">DLMs and DGLMs</a>
+    </li>
+    <li>
+      <a href="stochastic_volatility.html">Stochastic Volatility</a>
+    </li>
+    <li>
+      <a href="factor_stochastic_volatility.html">Factor Stochastic Volatility</a>
+    </li>
+  </ul>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Filtering
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="kalman_filter.html">Kalman Filter</a>
+    </li>
+    <li>
+      <a href="particle_filter.html">Bootstrap Particle Filter</a>
+    </li>
+  </ul>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Parameter Inference
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="gibbs_sampling.html">Gibbs Sampling</a>
+    </li>
+    <li>
+      <a href="pmmh.html">PMMH</a>
+    </li>
+    <li>
+      <a href="online_filtering.html">Online Parameter Inference</a>
+    </li>
+  </ul>
+</li>
+<li>
+  <a href="forecasting.html">Forecasting</a>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Examples
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="FirstOrderDlm.html">First Order DLM</a>
+    </li>
+    <li>
+      <a href="second_order_dlm.html">Linear Growth DLM</a>
+    </li>
+    <li>
+      <a href="seasonal_dlm.html">Seasonal Composed DLM</a>
+    </li>
+    <li>
+      <a href="CorrelatedModel.html">Multivariate DLM</a>
+    </li>
+    <li>
+      <a href="student_t_filtering.html">Student's t-distributed DLM</a>
+    </li>
+    <li>
+      <a href="ar1.html">Autoregressive Model</a>
+    </li>
+    <li>
+      <a href="spain_investment_data.html">Spain Investment Data</a>
+    </li>
+  </ul>
+</li>
+<li>
+  <a href="https://git.io/dlm">Github</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">Online Parameter Inference</h1>
+
+</div>
+
+
+<p>Given a DLM, with observations <span class="math inline">\(Y_{1:N}\)</span> and latent state <span class="math inline">\(x_{0:N}\)</span> with observation and state equations:</p>
+<span class="math display">\[\begin{align*}
+Y_t &amp;= F_t^Tx_t + v_t, &amp; v_t &amp;\sim \mathcal{N}(0, V_t), \\
+X_t &amp;= G_tx_{t-1} + w_t, &amp; w_t &amp;\sim \mathcal{N}(0, W_t), \\
+x_0 &amp;\sim \mathcal{N}(m_0, C_0)
+\end{align*}\]</span>
+<p>We can joint posterior distribution of the parameters and latent-state, <span class="math inline">\(p(\psi_t, x_t|y_{1:N})\)</span> using on of the following online algorithms. These are useful for streaming data as they don’t require re-running of costly MCMC algorithms as each new data point is observed.</p>
+<p>The online filters will be demonstrated for a first order polynomial DLM, with <span class="math inline">\(V = 2, W = 3\)</span>, plotted in the figure below.</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+<span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+
+scala&gt; <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">15</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">15</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+<span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+
+scala&gt; <span class="kw">val</span> mod = <span class="fu">Dlm</span>(
+     |   f = (t: Double) =&gt; <span class="fu">DenseMatrix</span>((<span class="fl">1.0</span>)),
+     |   g = (t: Double) =&gt; <span class="fu">DenseMatrix</span>((<span class="fl">1.0</span>))
+     | )
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+mod: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Dlm</span> = <span class="fu">Dlm</span>($$Lambda$<span class="dv">7176</span>/<span class="dv">1387060605</span>@3561f0e4,$$Lambda$<span class="dv">7177</span>/<span class="dv">873481534</span>@dfde1d2)
+
+scala&gt; <span class="kw">val</span> p = <span class="fu">DlmParameters</span>(v = <span class="fu">DenseMatrix</span>(<span class="fl">2.0</span>),
+     |                       w = <span class="fu">DenseMatrix</span>(<span class="fl">3.0</span>),
+     |                       <span class="fu">DenseVector</span>(<span class="fl">0.0</span>),
+     |                       <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>))
+p: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">DlmParameters</span> = <span class="fu">DlmParameters</span>(<span class="fl">2.0</span>  ,<span class="fl">3.0</span>  ,<span class="fu">DenseVector</span>(<span class="fl">0.0</span>),<span class="fl">1.0</span>  )
+
+scala&gt; <span class="kw">val</span> data = Dlm.<span class="fu">simulateRegular</span>(mod, p, <span class="fl">1.0</span>).
+     |              steps.
+     |              <span class="fu">take</span>(<span class="dv">100</span>).
+     |              toVector.
+     |              <span class="fu">map</span>(_._<span class="dv">1</span>)
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+data: scala.<span class="fu">collection</span>.<span class="fu">immutable</span>.<span class="fu">Vector</span>[com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Data</span>] = Vector(<span class="fu">Data</span>(<span class="fl">1.0</span>,<span class="fu">DenseVector</span>(Some(-<span class="fl">2.5293023867229123</span>))), <span class="fu">Data</span>(<span class="fl">2.0</span>,<span class="fu">DenseVector</span>(Some(-<span class="fl">1.6779925288016404</span>))), <span class="fu">Data</span>(<span class="fl">3.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">4.226481325906972</span>))), <span class="fu">Data</span>(<span class="fl">4.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">4.6912843209107535</span>))), <span class="fu">Data</span>(<span class="fl">5.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">4.783935988541616</span>))), <span class="fu">Data</span>(<span class="fl">6.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">5.870163707104027</span>))), <span class="fu">Data</span>(<span class="fl">7.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">5.86367115767524</span>))), <span class="fu">Data</span>(<span class="fl">8.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">5.321197241005569</span>))), <span class="fu">Data</span>(<span class="fl">9.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">5.775779586003766</span>))), <span class="fu">Data</span>(<span class="fl">10.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">5.914323679662503</span>))), <span class="fu">Data</span>(<span class="fl">11.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">6.769272425760471</span>))), <span class="fu">Data</span>(<span class="fl">12.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">8.32019363232675</span>))), <span class="fu">Data</span>(<span class="fl">13.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">6.430201264460451</span>))), <span class="fu">Data</span>(<span class="fl">14.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">5.440527789674329</span>))), <span class="fu">Data</span>(<span class="fl">15.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">8.339597663</span>...</code></pre></div>
+<p><img src="online_filtering_files/figure-html/first-order-simulated-online-1.png" width="672" /></p>
+<div id="conjugate-filter" class="section level2">
+<h2>Conjugate Filter</h2>
+<p>The Conjugate filter is an exact filter, which augments the Kalman Filter to learn the observation variance using a conjugate update of the Gamma distribution.</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">val</span> prior = <span class="fu">InverseGamma</span>(<span class="fl">3.0</span>, <span class="fl">4.0</span>)
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+prior: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">InverseGamma</span> = <span class="fu">InverseGamma</span>(<span class="fl">3.0</span>,<span class="fl">4.0</span>)
+
+scala&gt; <span class="kw">val</span> filtered = <span class="fu">ConjugateFilter</span>(prior, ConjugateFilter.<span class="fu">advanceState</span>(p, mod.<span class="fu">g</span>)).<span class="fu">filter</span>(mod, data, p)
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+filtered: Vector[com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">InverseGammaState</span>] = Vector(<span class="fu">InverseGammaState</span>(<span class="fu">KfState</span>(<span class="fl">0.0</span>,<span class="fu">DenseVector</span>(<span class="fl">0.0</span>),<span class="fl">1.0</span>  ,<span class="fu">DenseVector</span>(<span class="fl">0.0</span>),<span class="fl">1.0</span>  ,None,None),Vector(<span class="fu">InverseGamma</span>(<span class="fl">3.0</span>,<span class="fl">4.0</span>))), <span class="fu">InverseGammaState</span>(<span class="fu">KfState</span>(<span class="fl">1.0</span>,<span class="fu">DenseVector</span>(-<span class="fl">1.6862015911486081</span>),<span class="fl">1.3333333333333335</span>  ,<span class="fu">DenseVector</span>(<span class="fl">0.0</span>),<span class="fl">4.0</span>  ,Some(<span class="fu">DenseVector</span>(<span class="fl">0.0</span>)),Some(<span class="fl">6.0</span>  )),Vector(<span class="fu">InverseGamma</span>(<span class="fl">4.0</span>,<span class="fl">6.132456854494073</span>))), <span class="fu">InverseGammaState</span>(<span class="fu">KfState</span>(<span class="fl">2.0</span>,<span class="fu">DenseVector</span>(-<span class="fl">1.680623749718091</span>),<span class="fl">1.3889475828905695</span>  ,<span class="fu">DenseVector</span>(-<span class="fl">1.6862015911486081</span>),<span class="fl">4.333333333333334</span>  ,Some(<span class="fu">DenseVector</span>(-<span class="fl">1.6862015911486081</span>)),Some(<span class="fl">6.377485618164691</span>  )),Vector(<span class="fu">InverseGamma</span>(<span class="fl">5.0</span>,<span class="fl">6.1324784543506246</span>))), <span class="fu">InverseGammaState</span>(<span class="fu">KfState</span>(<span class="fl">3.0</span>,<span class="fu">DenseVector</span>(<span class="fl">2.697235143703967</span>),<span class="fl">1.1362217616070254</span>  ,<span class="fu">DenseVector</span>(-<span class="fl">1.680623749718091</span>),<span class="fl">4.3889475828905695</span>  ,Some(<span class="fu">DenseVector</span>(-<span class="fl">1.680623749718091</span>)...</code></pre></div>
+<p><img src="online_filtering_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
+</div>
+<div id="liu-and-west-filter" class="section level2">
+<h2>Liu and West Filter</h2>
+<p>The Liu and West filter can be used for general state space models:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">val</span> n = <span class="dv">500</span>
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+n: Int = <span class="dv">500</span>
+
+scala&gt; <span class="kw">val</span> n0 = <span class="dv">500</span>
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+n0: Int = <span class="dv">500</span>
+
+scala&gt; <span class="co">// smoothing parameter for the mixture of gaussians, equal to (3 delta - 1) / 2 delta</span>
+     | <span class="kw">val</span> a = (<span class="dv">3</span> * <span class="fl">0.95</span> - <span class="dv">1</span>) / <span class="dv">2</span> * <span class="fl">0.95</span>
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+a: Double = <span class="fl">0.8787499999999998</span>
+
+scala&gt; <span class="kw">val</span> prior = <span class="kw">for</span> {
+     |   v &lt;- <span class="fu">InverseGamma</span>(<span class="fl">3.0</span>, <span class="fl">4.0</span>)
+     |   w &lt;- <span class="fu">InverseGamma</span>(<span class="fl">3.0</span>, <span class="fl">10.0</span>)
+     | } <span class="kw">yield</span> <span class="fu">DlmParameters</span>(<span class="fu">DenseMatrix</span>(v), <span class="fu">DenseMatrix</span>(w), p.<span class="fu">m0</span>, p.<span class="fu">c0</span>)
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+prior: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Rand</span>[com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">DlmParameters</span>] = <span class="fu">FlatMappedRand</span>(<span class="fu">InverseGamma</span>(<span class="fl">3.0</span>,<span class="fl">4.0</span>),$$Lambda$<span class="dv">7192</span>/<span class="dv">1145516293</span>@3abaa626)
+
+scala&gt; <span class="kw">val</span> filtered = <span class="fu">LiuAndWestFilter</span>(n, prior, a, n0).<span class="fu">filter</span>(mod, data, p)
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+filtered: Vector[com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">PfStateParams</span>] = Vector(<span class="fu">PfStateParams</span>(<span class="fl">0.0</span>,Vector(<span class="fu">DenseVector</span>(<span class="fl">1.0577222738067933</span>), <span class="fu">DenseVector</span>(<span class="fl">0.65907619291104</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.17823751304632046</span>), <span class="fu">DenseVector</span>(<span class="fl">0.035659525912833376</span>), <span class="fu">DenseVector</span>(<span class="fl">1.2117753447354738</span>), <span class="fu">DenseVector</span>(-<span class="fl">1.5310063344627534</span>), <span class="fu">DenseVector</span>(<span class="fl">1.3436117931016343</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.5682146672689058</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.007146604723922701</span>), <span class="fu">DenseVector</span>(<span class="fl">1.695918803155607</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.9668585825692261</span>), <span class="fu">DenseVector</span>(<span class="fl">0.2717232377169513</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.21173366560881243</span>), <span class="fu">DenseVector</span>(<span class="fl">0.15021711747480504</span>), <span class="fu">DenseVector</span>(<span class="fl">0.4104937700280198</span>), <span class="fu">DenseVector</span>(<span class="fl">0.43038621577598307</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.6693304793505566</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.2848665305125076</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.5314941308853947</span>), <span class="fu">DenseVector</span>(-<span class="fl">1.83509945985119</span>), <span class="fu">DenseVector</span>(<span class="fl">0.5844060246342688</span>), D...</code></pre></div>
+<p><img src="online_filtering_files/figure-html/liu-and-west-1.png" width="672" /></p>
+</div>
+<div id="rb-filter" class="section level2">
+<h2>RB Filter</h2>
+<p>The Rao-Blackwell filter marginalises the Gaussian part of the DLM in order to perform filtering using the Kalman filter conditional on sampled values of the static parameters. Parameter distributions at each time point are approximated by a weighted particle cloud. A Kalman filter is performed for conditional on the value of each particle. Thereby determining the join posterior of the parameters and latent state.</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="co">// smoothing parameter for the mixture of gaussians</span>
+     | <span class="kw">val</span> delta = <span class="fl">0.99</span>
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+delta: Double = <span class="fl">0.99</span>
+
+scala&gt; <span class="kw">val</span> a = (<span class="dv">3</span> * delta - <span class="dv">1</span>) / <span class="dv">2</span> * delta
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+a: Double = <span class="fl">0.9751499999999999</span>
+
+scala&gt; <span class="kw">val</span> prior = <span class="kw">for</span> {
+     |   v &lt;- <span class="fu">InverseGamma</span>(<span class="fl">3.0</span>, <span class="fl">4.0</span>)
+     |   w &lt;- <span class="fu">InverseGamma</span>(<span class="fl">3.0</span>, <span class="fl">10.0</span>)
+     | } <span class="kw">yield</span> <span class="fu">DlmParameters</span>(<span class="fu">DenseMatrix</span>(v), <span class="fu">DenseMatrix</span>(w), p.<span class="fu">m0</span>, p.<span class="fu">c0</span>)
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+prior: breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Rand</span>[com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">DlmParameters</span>] = <span class="fu">FlatMappedRand</span>(<span class="fu">InverseGamma</span>(<span class="fl">3.0</span>,<span class="fl">4.0</span>),$$Lambda$<span class="dv">7245</span>/<span class="dv">573816379</span>@<span class="dv">30852497</span>)
+
+scala&gt; <span class="kw">val</span> filtered = <span class="fu">RaoBlackwellFilter</span>(<span class="dv">500</span>, prior, a, <span class="dv">250</span>).<span class="fu">filter</span>(mod, data, p)
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+filtered: Vector[com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">RbState</span>] = Vector(<span class="fu">RbState</span>(<span class="fl">0.0</span>,Vector(<span class="fu">DlmParameters</span>(<span class="fl">0.07099092072515194</span>  ,<span class="fl">1.7673292858471434</span>  ,<span class="fu">DenseVector</span>(-Infinity),<span class="fl">0.0</span>  ), <span class="fu">DlmParameters</span>(<span class="fl">0.45044177682675507</span>  ,<span class="fl">1.312731169788882</span>  ,<span class="fu">DenseVector</span>(-Infinity),<span class="fl">0.0</span>  ), <span class="fu">DlmParameters</span>(-<span class="fl">0.14838537656764245</span>  ,<span class="fl">2.728102242428066</span>  ,<span class="fu">DenseVector</span>(-Infinity),<span class="fl">0.0</span>  ), <span class="fu">DlmParameters</span>(-<span class="fl">0.21394137993869727</span>  ,<span class="fl">1.2170529583303318</span>  ,<span class="fu">DenseVector</span>(-Infinity),<span class="fl">0.0</span>  ), <span class="fu">DlmParameters</span>(<span class="fl">0.8110134577366094</span>  ,<span class="fl">1.2526742132506905</span>  ,<span class="fu">DenseVector</span>(-Infinity),<span class="fl">0.0</span>  ), <span class="fu">DlmParameters</span>(-<span class="fl">0.9807177792059666</span>  ,<span class="fl">1.3161701464877373</span>  ,<span class="fu">DenseVector</span>(-Infinity),<span class="fl">0.0</span>  ), <span class="fu">DlmParameters</span>(<span class="fl">0.2426307104889515</span>  ,<span class="fl">2.798466333356446</span>  ,<span class="fu">DenseVector</span>(-Infinity),<span class="fl">0.0</span>  ), <span class="fu">DlmParameters</span>(<span class="fl">0.19361330542672445</span>  ,<span class="fl">1.4046223486343579</span>  ,<span class="fu">DenseVector</span>(-Infinity),<span class="fl">0.0</span>  ), <span class="fu">DlmParameters</span>(<span class="fl">0.55</span>...</code></pre></div>
+<p><img src="online_filtering_files/figure-html/rb-filter-1.png" width="672" /></p>
+</div>
+<div id="storvik-filter" class="section level2">
+<h2>Storvik Filter</h2>
+<p>Using conjugate updating for <span class="math inline">\(V\)</span> and <span class="math inline">\(W\)</span>:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">val</span> priorV = <span class="fu">InverseGamma</span>(<span class="fl">3.0</span>, <span class="fl">4.0</span>)
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+priorV: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">InverseGamma</span> = <span class="fu">InverseGamma</span>(<span class="fl">3.0</span>,<span class="fl">4.0</span>)
+
+scala&gt; <span class="kw">val</span> priorW = <span class="fu">InverseGamma</span>(<span class="fl">3.0</span>, <span class="fl">10.0</span>)
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+priorW: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">InverseGamma</span> = <span class="fu">InverseGamma</span>(<span class="fl">3.0</span>,<span class="fl">10.0</span>)
+
+scala&gt; <span class="kw">val</span> filtered = StorvikFilter.<span class="fu">filterTs</span>(mod, data, p, priorV, priorW, n, n)
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+filtered: Vector[com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">StorvikState</span>] = Vector(<span class="fu">StorvikState</span>(<span class="fl">0.0</span>,Vector(<span class="fu">DenseVector</span>(<span class="fl">1.1054674388251258</span>), <span class="fu">DenseVector</span>(-<span class="fl">1.1288317927649705</span>), <span class="fu">DenseVector</span>(<span class="fl">0.07231666137262859</span>), <span class="fu">DenseVector</span>(-<span class="fl">1.8847571229918934</span>), <span class="fu">DenseVector</span>(<span class="fl">0.42279777154662246</span>), <span class="fu">DenseVector</span>(<span class="fl">1.199060658542842</span>), <span class="fu">DenseVector</span>(<span class="fl">0.3376020298001149</span>), <span class="fu">DenseVector</span>(<span class="fl">0.3129548590826655</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.14847668805838232</span>), <span class="fu">DenseVector</span>(<span class="fl">1.7992087122295282</span>), <span class="fu">DenseVector</span>(<span class="fl">1.206819106098928</span>), <span class="fu">DenseVector</span>(<span class="fl">0.4021683104747289</span>), <span class="fu">DenseVector</span>(<span class="fl">0.9713168560299944</span>), <span class="fu">DenseVector</span>(<span class="fl">0.690403791858766</span>), <span class="fu">DenseVector</span>(<span class="fl">1.4464506920705553</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.5865709893639524</span>), <span class="fu">DenseVector</span>(<span class="fl">0.17738054742852583</span>), <span class="fu">DenseVector</span>(<span class="fl">1.488091877582659</span>), <span class="fu">DenseVector</span>(<span class="fl">0.8462074579529251</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.14495894712479473</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.051931569469057796</span>), DenseVe...</code></pre></div>
+<p><img src="online_filtering_files/figure-html/storvik-filter-1.png" width="672" /></p>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

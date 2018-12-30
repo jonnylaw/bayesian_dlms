@@ -1,8 +1,7 @@
-package dlm.core.model
+package com.github.jonnylaw.dlm
 
 import breeze.linalg.DenseVector
 import breeze.stats.distributions._
-//import cats.Traverse
 import cats.implicits._
 
 /**

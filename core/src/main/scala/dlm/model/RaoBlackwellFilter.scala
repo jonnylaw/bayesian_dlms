@@ -1,4 +1,4 @@
-package dlm.core.model
+package com.github.jonnylaw.dlm
 
 // exclude vector
 import breeze.linalg.{Vector => _, _}
@@ -58,20 +58,23 @@ case class RaoBlackwellFilter(n: Int,
 
   def step(mod: Dlm, p: DlmParameters)(x: RbState, d: Data): RbState = {
 
-    val varParams = LiuAndWestFilter.varParameters(x.params)
-    val mi = LiuAndWestFilter.scaleParameters(x.params, a)
+    val (meanParams, varianceParams) =
+      LiuAndWestFilter.weightedMeanVarianceParams(x.params, x.weights)
+    val varParams = LiuAndWestFilter.paramsToMatrix(varianceParams)
+    val mi = LiuAndWestFilter.scaleParameters(x.params, meanParams, a)
+
+    val dt = d.time - x.time
 
     val y = KalmanFilter.flattenObs(d.observation)
+    val thetaHat = (mi zip x.mt).map { case (m, t) =>
+      Dglm.stepState(mod, m map exp)(t, dt).draw }
     val auxVars =
-      LiuAndWestFilter.auxiliaryVariables(x.weights, x.mt, mod, y, mi)
+      LiuAndWestFilter.auxiliaryVariables(x.weights, thetaHat, mod, y, mi)
 
     // propose new log-parameters
-    val propVariance = diag(varParams * (1 - a * a))
+    val propVariance = diag(diag(varParams) * (1 - a * a))
     val newParams =
       auxVars.map(i => LiuAndWestFilter.proposal(mi(i), propVariance))
-
-    // update the state
-    val dt = d.time - x.time
 
     // use each parameter particle for a different Kalman Filter
     val (mean, covariance, logw) = (x.mt, x.ct, x.weights, newParams).parMapN {

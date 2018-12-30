@@ -1,4 +1,4 @@
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import breeze.linalg.{DenseMatrix, DenseVector, diag, inv, cholesky}
 import org.scalatest._
 import prop._
@@ -204,6 +204,6 @@ class KalmanFilterTest extends FunSuite with Matchers with BreezeGenerators {
   //   steps.take(100).map(_._1).toVector
 
   // test("Univariate Kalman Filter should be equivalent to multivariate Kalman Filter") {
-  //   val uniFiltered = KalmanFilter.univariateKf(ys.map(d => (d.time,
+  //   val uniFiltered = KalmanFilter.univariateKf(ys.map(d => (d.time, d.observation)), )
   // }
 }

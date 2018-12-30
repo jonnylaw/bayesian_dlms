@@ -11,7 +11,7 @@
 
 
 
-<title>Student’s t-distributed DLM</title>
+<title>Studentâ€™s t-distributed DLM</title>
 
 <script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -23,7 +23,7 @@
 
 
 <style type="text/css">code{white-space: pre;}</style>
-<style type="text/css">
+<style type="text/css" data-origin="pandoc">
 div.sourceCode { overflow-x: auto; }
 table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
   margin: 0; padding: 0; vertical-align: baseline; border: none; }
@@ -62,7 +62,29 @@ code > span.wa { color: #bf0303; } /* Warning */
 code > span.al { color: #bf0303; font-weight: bold; } /* Alert */
 code > span.er { color: #bf0303; text-decoration: underline; } /* Error */
 code > span. { color: #1f1c1b; } /* Normal */
+
 </style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' || rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
 <style type="text/css">
   pre:not([class]) {
     background-color: white;
@@ -119,8 +141,14 @@ img {
 .tabbed-pane {
   padding-top: 12px;
 }
+.html-widget {
+  margin-bottom: 20px;
+}
 button.code-folding-btn:focus {
   outline: none;
+}
+summary {
+  display: list-item;
 }
 </style>
 
@@ -136,7 +164,6 @@ body {
   padding-top: 56px;
   margin-top: -56px;
 }
-
 .section h2 {
   padding-top: 56px;
   margin-top: -56px;
@@ -156,6 +183,43 @@ body {
 .section h6 {
   padding-top: 56px;
   margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
 }
 </style>
 
@@ -177,18 +241,77 @@ $(document).ready(function () {
 });
 </script>
 
-
 <div class="container-fluid main-container">
 
 <!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
 <script>
 $(document).ready(function () {
   window.buildTabsets("TOC");
 });
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
 </script>
 
 <!-- code folding -->
-
 
 
 
@@ -209,8 +332,23 @@ $(document).ready(function () {
         <li>
   <a href="index.html">Home</a>
 </li>
-<li>
-  <a href="model_building_simulation.html">Model Building</a>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Model Building
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="model_building_simulation.html">DLMs and DGLMs</a>
+    </li>
+    <li>
+      <a href="stochastic_volatility.html">Stochastic Volatility</a>
+    </li>
+    <li>
+      <a href="factor_stochastic_volatility.html">Factor Stochastic Volatility</a>
+    </li>
+  </ul>
 </li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
@@ -229,7 +367,7 @@ $(document).ready(function () {
 </li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
-    Parameter Learning
+    Parameter Inference
      
     <span class="caret"></span>
   </a>
@@ -239,6 +377,9 @@ $(document).ready(function () {
     </li>
     <li>
       <a href="pmmh.html">PMMH</a>
+    </li>
+    <li>
+      <a href="online_filtering.html">Online Parameter Inference</a>
     </li>
   </ul>
 </li>
@@ -275,6 +416,9 @@ $(document).ready(function () {
     </li>
   </ul>
 </li>
+<li>
+  <a href="https://git.io/dlm">Github</a>
+</li>
       </ul>
       <ul class="nav navbar-nav navbar-right">
         
@@ -287,12 +431,12 @@ $(document).ready(function () {
 
 
 
-<h1 class="title toc-ignore">Student’s t-distributed DLM</h1>
+<h1 class="title toc-ignore">Studentâ€™s t-distributed DLM</h1>
 
 </div>
 
 
-<p>The Student’s t-distribution is not part of the exponential family of distributions, hence is not a DGLM (Dynamic generalised linear model), however it is still useful in its own right. The Student’s t-distribution has thicker tails than the normal distribution for low values of the degrees of freedom hence is more foregiving of outliers in the measurements. The scaled, shifted Student’s t-distribution is parameterised by the location, <span class="math inline">\(\ell\)</span>, scale <span class="math inline">\(s\)</span> and degrees of freedom <span class="math inline">\(\nu\)</span>, the probability density function is:</p>
+<p>The Student’s t-distribution has thicker tails than the normal distribution for low values of the degrees of freedom hence is more foregiving of outliers in the measurements. The scaled, shifted Student’s t-distribution is parameterised by the location, <span class="math inline">\(\ell\)</span>, scale <span class="math inline">\(s\)</span> and degrees of freedom <span class="math inline">\(\nu\)</span>, the probability density function is:</p>
 <p><span class="math display">\[p(x|\ell, s, \nu) = \frac{\Gamma\left(\frac{\nu + 1}{2}\right)}{\sqrt{\pi\nu s}\Gamma(\frac{\nu}{2})} \left(\frac{(x-\ell)^2}{\nu s^2} + 1 \right)^{- \frac{\nu + 1}{2}}\]</span></p>
 <p>Then the state-space model, with a first order polynomial latent-state evolution can be written as:</p>
 <p><span class="math display">\[\begin{aligned}
@@ -301,29 +445,30 @@ x_t &amp;= x_{t-1} + w_t, \qquad w_t \sim \mathcal{N}(0, W), \\
 x_0 &amp;\sim \mathcal{N}(m_0, C_0).
 \end{aligned}\]</span></p>
 <p>The Student’s t model is specified in scala by first specifying a DLM model, which specifys the system and observation matrices (<span class="math inline">\(G_t\)</span> and <span class="math inline">\(F_t\)</span>) then specifying the observation model using the <code>Dglm</code> class:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> core.<span class="fu">dlm</span>.<span class="fu">model</span>._
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
 
 <span class="kw">val</span> dlm = Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>)
 <span class="kw">val</span> mod = Dglm.<span class="fu">studentT</span>(<span class="dv">3</span>, dlm)</code></pre></div>
 <p>The code below can be used to simulate 1,000 iterations from the Student’s t model.</p>
 <div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseVector, DenseMatrix}
 
-<span class="kw">val</span> params = Dlm.<span class="fu">Parameters</span>(
-  <span class="fu">DenseMatrix</span>(<span class="fl">3.0</span>), 
-  <span class="fu">DenseMatrix</span>(<span class="fl">0.1</span>), 
-  <span class="fu">DenseVector</span>(<span class="fl">0.0</span>), 
+<span class="kw">val</span> params = <span class="fu">DlmParameters</span>(
+  <span class="fu">DenseMatrix</span>(<span class="fl">3.0</span>),
+  <span class="fu">DenseMatrix</span>(<span class="fl">0.1</span>),
+  <span class="fu">DenseVector</span>(<span class="fl">0.0</span>),
   <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>))
 
 
-<span class="kw">val</span> data = Dglm.<span class="fu">simulate</span>(mod, params).
+<span class="kw">val</span> data = Dglm.<span class="fu">simulateRegular</span>(mod, params, <span class="fl">1.0</span>).
   steps.
   <span class="fu">take</span>(<span class="dv">1000</span>).
   toVector</code></pre></div>
 <p>A simulation from the model with <span class="math inline">\(\{s^2, W, m_0, C_0\} = \{3, 0.1, 0, 1\}\)</span> is presented in the figure below:</p>
 <p><img src="student_t_filtering_files/figure-html/plot_student_t-1.png" width="672" /></p>
-<div id="parameter-learning" class="section level2">
-<h2>Parameter learning</h2>
-<p>In order to fit the t-distributed state space model to observed data we need to learn the values of the parameters <span class="math inline">\(\psi = \{s^2, W, m_0, C_0\}\)</span>. A particle filter can be used to find an (unbiased) estimate of the likelihood, then Metropolis Hastings can be used to learn the posterior distribution of the parameters. Alternatively, Particle Gibbs can be used to sample a value of the state then the conjugate structure of the latent-state with unknown variance, <span class="math inline">\(W\)</span> can be exploited. The scale would then be updated using Metropolis hastings. However, since the Student’s t-distrubtion is an Inverse Gamma mixture of normals, we can use the Kalman Filter to sample the value of the state and perform Gibbs sampling for the value of the scale, <span class="math inline">\(s\)</span>.</p>
+<div id="parameter-inference" class="section level2">
+<h2>Parameter Inference</h2>
+<p>In order to fit the t-distributed state space model to observed data we need to learn the values of the parameters <span class="math inline">\(\psi = \{s^2, W, m_0, C_0\}\)</span>. A particle filter can be used to find an (unbiased) estimate of the likelihood, then Metropolis Hastings can be used to learn the posterior distribution of the parameters.</p>
+<!-- Alternatively, Particle Gibbs can be used to sample a value of the state then the conjugate structure of the latent-state with unknown variance, $W$ can be exploited. The scale would then be updated using Metropolis hastings. However, since the Student's t-distrubtion is an Inverse Gamma mixture of normals, we can use the Kalman Filter to sample the value of the state and perform Gibbs sampling for the value of the scale, $s$. -->
 <div id="kalman-filtering" class="section level3">
 <h3>Kalman Filtering</h3>
 <p>Student’s t-distribution arises as a Inverse Gamma mixture of Normals, consider <span class="math inline">\(X | V \sim \mathcal{N}(\mu, V)\)</span>, <span class="math inline">\(W \sim \textrm{Inverse-Gamma}(\alpha, \beta)\)</span> then the marginal distribution of <span class="math inline">\(X\)</span> is:</p>
@@ -390,7 +535,11 @@ p(s^2|y_{1:T}, \textbf{x}_{0:T}, W, V) &amp;= \prod_{t=1}^T\textrm{InverseGamma}
 <p>The prior distribution of the system evolution matrix is Inv-Gamma<span class="math inline">\((21, 2)\)</span>, for a mean of 0.1 and variance 0.19. The prior distribution for <span class="math inline">\(W\)</span> looks like:</p>
 <p><img src="student_t_filtering_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
 <p>In order to run the perform Gibbs sampling on the sampled data, we use the following code:</p>
-<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">val</span> iters = StudentT.<span class="fu">sample</span>(<span class="dv">3</span>, data.<span class="fu">map</span>(_._<span class="dv">1</span>), <span class="fu">InverseGamma</span>(<span class="fl">21.0</span>, <span class="fl">2.0</span>), mod, params)</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala"><span class="kw">import</span> breeze.<span class="fu">stats</span>.<span class="fu">distributions</span>.<span class="fu">Poisson</span>
+<span class="kw">val</span> propNu = (x: Int) =&gt; <span class="fu">Poisson</span>(x)
+<span class="kw">val</span> propNuP = (from: Int, to: Int) =&gt; <span class="fu">Poisson</span>(from).<span class="fu">logProbabilityOf</span>(to)
+<span class="kw">val</span> iters = StudentT.<span class="fu">sample</span>(data.<span class="fu">map</span>(_._<span class="dv">1</span>), <span class="fu">InverseGamma</span>(<span class="fl">21.0</span>, <span class="fl">2.0</span>),
+    <span class="fu">Poisson</span>(<span class="dv">3</span>), propNu, propNuP, mod, params)</code></pre></div>
 <p><img src="student_t_filtering_files/figure-html/density_student_t-1.png" width="672" /></p>
 </div>
 </div>

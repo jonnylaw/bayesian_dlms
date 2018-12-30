@@ -1,0 +1,121 @@
+---
+title: "Factor Stochastic Volatility"
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(patchwork)
+library(ggmcmc)
+library(coda)
+library(latex2exp)
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
+theme_set(theme_minimal())
+source("mcmc_summarise.R")
+```
+
+## Factor Stochastic Volatility Model
+
+A factor structure can be used in order to model a full time varying covariance matrix. This reduces the amount of parameters to learn; if the covariance matrix is $p \times p$ and the number of factors used $k$, then the number of parameters to learn in a model with an AR(1) latent-state is $p \times k - \frac{k}{2}(k + 1) + 3k$. If $k << p$ then this results in a much lower dimensional parameter space.
+
+The factor stochastic volatility (FSV) model is written as:
+
+$$\begin{align}
+	Y_t &= \beta^Tf_t + v_t, &v_t &\sim \mathcal{N}(0, V), \\
+	f_t &= \sigma_t\exp\left\{ \frac{\alpha_t}{2} \right\}, & \sigma_t &\sim \mathcal{N}(0, 1), \\
+	\alpha_t &= \mu + \phi (\alpha_{t-1} - \mu) + \eta_t, & \eta_t &\sim \mathcal{N}(0, \sigma_\eta), \\
+	\alpha_0 &\sim \mathcal{N}(0, \sigma^2/(1-\phi^2)).
+\end{align}$$
+
+Where $V$ is a diagonal $p \times p$ matrix. Then the variance of the observations is:
+
+$$\begin{align}
+\operatorname{Var}(Y_t) &= \operatorname{Var}(\beta^Tf_t + v_t) \\
+&= \beta^T\operatorname{Var}(f_t)\beta + \operatorname{Var}(v_t) + 2\beta^T\operatorname{Cov}(f_t, v_t)\beta \\
+&= \beta^T\exp\left\{\alpha_t\right\}\beta + V
+\end{align}$$
+
+To define the factor stochastic volatility model, define the parmeters of the model and simulate using the parameters:
+
+```tut
+import com.github.jonnylaw.dlm._
+import breeze.linalg.DenseMatrix
+
+val beta = DenseMatrix((1.0, 0.0),
+                       (0.3, 1.0),
+                       (0.07, 0.25),
+                       (0.23, 0.23),
+                       (0.4, 0.25),
+                       (0.2, 0.23))
+
+val params = FsvParameters(
+  v = DenseMatrix.eye[Double](6) * 0.1,
+  beta,
+  Vector.fill(2)(SvParameters(0.8, 2.0, 0.3))
+)
+val sims = FactorSv.simulate(params).steps.take(1000)
+```
+
+```{r fsv-sims}
+sims = read_csv("../examples/data/fsv_sims.csv")
+
+sims %>%
+    gather(key, value, -time) %>%
+    ggplot(aes(x = time, y = value)) +
+    geom_line() +
+    facet_wrap(~key, scales = "free_y")
+```
+
+## Parameter Inference
+
+Gibbs sampling is used to perform inference for the parameter posterior distribution. First the prior distributions of the parameters can be specified, they must be from the same family as the distributions below, since the posterior distributions in Gibbs sampling are conditionally conjugate:
+
+```tut
+import breeze.stats.distributions._
+
+val priorBeta = Gaussian(0.0, 1.0)
+val priorSigmaEta = InverseGamma(2, 2.0)
+val priorPhi = Gaussian(0.8, 0.1)
+val priorMu = Gaussian(2.0, 1.0)
+val priorSigma = InverseGamma(10, 2.0)
+```
+
+Then performing Gibbs sampling for the FSV model using the simulated data, `sims`:
+
+```tut
+val iters = FactorSv.sampleAr(priorBeta,
+            priorSigmaEta,
+            priorMu,
+            priorPhi,
+            priorSigma,
+            sims.toVector.map(_._1),
+            params)
+```
+
+The figure below shows the diagnostics from 100,000 iterations of the MCMC with the first 10,000 iterations dropped for burn-in and every 20th iteration selected.
+
+```{r read-fsv-chains}
+beta = matrix(c(1, 0, 0.3, 1.0, 0.07, 0.25, 0.23, 0.23, 0.4, 0.25, 0.2, 0.23), ncol = 2, byrow = T)
+actual_values = tibble(
+  Parameter = c(paste0("v", 1:6), 
+                paste0("beta", 1:12),
+                paste0(c("phi", "mu", "sigma_eta"), rep(1:2, each = 3))),
+  actual_value = c(rep(0.1, 6), beta, rep(x = c(0.8, 2.0, 0.2), times = 2))
+)
+files = c("../examples/data/factor_sv_gibbs_0.csv", 
+          "../examples/data/factor_sv_gibbs_1.csv")
+chains = read_chains(files, param_names = actual_values$Parameter, nth = 20, drop = 1e4)
+```
+
+```{r fsv-diagnostics-latent-state}
+chains %>%
+  filter(grepl(Parameter, pattern = "phi|sigma_eta|mu")) %>%
+  plot_diagnostics_sim(actual_values)
+```
+
+```{r beta-matrix}
+chains %>%
+  filter(grepl(Parameter, pattern = "beta")) %>%
+  summary_table() %>%
+  inner_join(actual_values) %>%
+  kable()
+```

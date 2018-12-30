@@ -1,63 +1,35 @@
-all: correlated first_order second_order seasonal simulate_linear_trend gibbs_investment
+all: correlated first_order second_order seasonal simulate_linear_trend gibbs_investment ar1 ou dlm_fsv site
 
-correlated: simulate_correlated filter_correlated gibbs_correlated
+site:
+	cd .. && sbt ";project core; tut"
+	cd ../tut && Rscript -e "rmarkdown::render_site()"
 
-simulate_correlated:
-	cd .. && sbt "runMain dlm.examples.SimulateCorrelated"
+ar1:
+	cd .. && sbt ";project examples; runMain com.github.jonnylaw.dlm.example.SimulateArDlm; runMain com.github.jonnylaw.dlm.example.FilterArDlm; runMain com.github.jonnylaw.dlm.example.ParametersAr"
 
-filter_correlated: ../data/correlated_dlm.csv
-	cd .. && sbt "runMain dlm.examples.FilterCorrelatedDlm"
+ou:
+	cd .. && sbt ";project examples; runMain com.github.jonnylaw.dlm.example.SimulateOuDlm; runMain com.github.jonnylaw.dlm.example.FilterOuDlm; runMain com.github.jonnylaw.dlm.example.FitOuDlm"
 
-gibbs_correlated: ../data/correlated_dlm.csv
-	cd .. && sbt "runMain dlm.examples.GibbsCorrelated"
+correlated:
+	cd .. && sbt ";project examples; runMain com.github.jonnylaw.dlm.example.SimulateCorrelated; runMain com.github.jonnylaw.dlm.example.FilterCorrelatedDlm; runMain com.github.jonnylaw.dlm.example.FirstOrderLinearTrendDlm; runMain com.github.jonnylaw.dlm.example.GibbsCorrelated"
 
-simulate_linear_trend:
-	cd .. && sbt "runMain dlm.examples.FirstOrderLinearTrendDlm"
+second_order:
+	cd .. && sbt ";project examples; runMain com.github.jonnylaw.dlm.example.SimulateSecondOrderDlm; runMain com.github.jonnylaw.dlm.example.FilterSecondOrderDlm; runMain com.github.jonnylaw.dlm.example.GibbsSecondOrder"
 
-second_order: simulate_second_order filter_second_order gibbs_second_order
+gibbs_investment:
+	cd .. && sbt ";project examples; runMain com.github.jonnylaw.dlm.example.GibbsInvestParameters"
 
-simulate_second_order:
-	cd .. && sbt "runMain dlm.examples.SimulateSecondOrderDlm"
+first_order:
+	cd .. && sbt ";project examples; runMain com.github.jonnylaw.dlm.example.SimulateDlm; runMain com.github.jonnylaw.dlm.example.SmoothDlm; runMain com.github.jonnylaw.dlm.example.FilterDlm; runMain com.github.jonnylaw.dlm.example.GibbsParameters; runMain com.github.jonnylaw.dlm.example.SampleStates"
 
-filter_second_order: ../data/second_order_dlm.csv
-	cd .. && sbt "runMain dlm.examples.FilterSecondOrderDlm"
+seasonal:
+	cd .. && sbt ";project examples; runMain com.github.jonnylaw.dlm.example.SimulateSeasonalDlm; runMain com.github.jonnylaw.dlm.example.SampleStates; runMain com.github.jonnylaw.dlm.example.FilterSeasonalDlm; runMain com.github.jonnylaw.dlm.example.SmoothSeasonalDlm; runMain com.github.jonnylaw.dlm.example.SeasonalGibbsSampling"
 
-gibbs_second_order: ../data/second_order_dlm.csv
-	cd .. && sbt "runMain dlm.examples.GibbsSecondOrder"
+online:
+	cd .. && sbt ";project examples; runMain com.github.jonnylaw.dlm.example.ConjFilter; runMain com.github.jonnylaw.dlm.example.LiuAndWest; runMain com.github.jonnylaw.dlm.example.Storvik; runMain com.github.jonnylaw.dlm.example.RbFilter"
 
-gibbs_investment: ../data/invest2.dat
-	cd .. && sbt "runMain dlm.examples.GibbsInvestParameters"
-
-first_order: simulate_first_order filter_first_order smooth_first_order gibbs_first_order
-
-simulate_first_order:
-	cd .. && sbt "runMain dlm.examples.SimulateDlm"
-
-smooth_first_order: ../data/first_order_dlm.csv
-	cd .. && sbt "runMain dlm.examples.SmoothDlm"
-
-filter_first_order: ../data/first_order_dlm.csv
-	cd .. && sbt "runMain dlm.examples.FilterDlm"
-
-gibbs_first_order: ../data/first_order_dlm.csv
-	cd .. && sbt "runMain dlm.examples.GibbsParameters"
-
-seasonal: simulate_seasonal filter_seasonal sample_state_seasonal smooth_seasonal seasonal_gibbs
-
-simulate_seasonal:
-	cd .. && sbt "runMain dlm.examples.SimulateSeasonalDlm"
-
-sample_state_seasonal:
-	cd .. && sbt "runMain dlm.examples.SampleStates"
-
-filter_seasonal: ../data/seasonal_dlm.csv
-	cd .. && sbt "runMain dlm.examples.FilterSeasonalDlm"
-
-smooth_seasonal: ../data/seasonal_dlm.csv
-	cd .. && sbt "runMain dlm.examples.SmoothSeasonalDlm"
-
-seasonal_gibbs:	../data/seasonal_dlm.csv
-	cd .. && sbt "runMain dlm.examples.SeasonalGibbsSampling"
+dlm_fsv:
+	cd .. && sbt ";project examples; runMain com.github.jonnylaw.dlm.example.SimulateDlmFsvSystem; runMain com.github.jonnylaw.dlm.example.FitDlmFsvSystem"
 
 clean:
-	rm ../data/*.csv
+	rm ../examples/data/*.csv

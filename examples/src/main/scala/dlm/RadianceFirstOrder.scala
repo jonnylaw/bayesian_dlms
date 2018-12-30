@@ -1,7 +1,7 @@
-package examples.dlm
+package com.github.jonnylaw.dlm.example
 
 import breeze.linalg.{DenseVector, DenseMatrix, diag}
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import akka.actor.ActorSystem
 import cats.implicits._
 import kantan.csv._

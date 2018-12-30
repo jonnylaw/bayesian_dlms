@@ -22,6 +22,74 @@
 <script src="site_libs/navigation-1.1/tabsets.js"></script>
 
 
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css" data-origin="pandoc">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; background-color: #ffffff; color: #1f1c1b; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; background-color: #ffffff; color: #a0a0a0; border-right: 1px solid #a0a0a0; }
+td.sourceCode { padding-left: 5px; }
+pre, code { color: #1f1c1b; background-color: #ffffff; }
+code > span.kw { color: #1f1c1b; font-weight: bold; } /* Keyword */
+code > span.dt { color: #0057ae; } /* DataType */
+code > span.dv { color: #b08000; } /* DecVal */
+code > span.bn { color: #b08000; } /* BaseN */
+code > span.fl { color: #b08000; } /* Float */
+code > span.cn { color: #aa5500; } /* Constant */
+code > span.ch { color: #924c9d; } /* Char */
+code > span.sc { color: #3daee9; } /* SpecialChar */
+code > span.st { color: #bf0303; } /* String */
+code > span.vs { color: #bf0303; } /* VerbatimString */
+code > span.ss { color: #ff5500; } /* SpecialString */
+code > span.im { color: #ff5500; } /* Import */
+code > span.co { color: #898887; } /* Comment */
+code > span.do { color: #607880; } /* Documentation */
+code > span.an { color: #ca60ca; } /* Annotation */
+code > span.cv { color: #0095ff; } /* CommentVar */
+code > span.ot { color: #006e28; } /* Other */
+code > span.fu { color: #644a9b; } /* Function */
+code > span.va { color: #0057ae; } /* Variable */
+code > span.cf { color: #1f1c1b; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #1f1c1b; } /* Operator */
+code > span.bu { color: #644a9b; font-weight: bold; } /* BuiltIn */
+code > span.ex { color: #0095ff; font-weight: bold; } /* Extension */
+code > span.pp { color: #006e28; } /* Preprocessor */
+code > span.at { color: #0057ae; } /* Attribute */
+code > span.re { color: #0057ae; } /* RegionMarker */
+code > span.in { color: #b08000; } /* Information */
+code > span.wa { color: #bf0303; } /* Warning */
+code > span.al { color: #bf0303; font-weight: bold; } /* Alert */
+code > span.er { color: #bf0303; text-decoration: underline; } /* Error */
+code > span. { color: #1f1c1b; } /* Normal */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' || rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
 
 
 <style type="text/css">
@@ -73,8 +141,14 @@ img {
 .tabbed-pane {
   padding-top: 12px;
 }
+.html-widget {
+  margin-bottom: 20px;
+}
 button.code-folding-btn:focus {
   outline: none;
+}
+summary {
+  display: list-item;
 }
 </style>
 
@@ -90,7 +164,6 @@ body {
   padding-top: 56px;
   margin-top: -56px;
 }
-
 .section h2 {
   padding-top: 56px;
   margin-top: -56px;
@@ -110,6 +183,43 @@ body {
 .section h6 {
   padding-top: 56px;
   margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
 }
 </style>
 
@@ -131,18 +241,77 @@ $(document).ready(function () {
 });
 </script>
 
-
 <div class="container-fluid main-container">
 
 <!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
 <script>
 $(document).ready(function () {
   window.buildTabsets("TOC");
 });
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
 </script>
 
 <!-- code folding -->
-
 
 
 
@@ -163,8 +332,23 @@ $(document).ready(function () {
         <li>
   <a href="index.html">Home</a>
 </li>
-<li>
-  <a href="model_building_simulation.html">Model Building</a>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Model Building
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="model_building_simulation.html">DLMs and DGLMs</a>
+    </li>
+    <li>
+      <a href="stochastic_volatility.html">Stochastic Volatility</a>
+    </li>
+    <li>
+      <a href="factor_stochastic_volatility.html">Factor Stochastic Volatility</a>
+    </li>
+  </ul>
 </li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
@@ -183,7 +367,7 @@ $(document).ready(function () {
 </li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
-    Parameter Learning
+    Parameter Inference
      
     <span class="caret"></span>
   </a>
@@ -193,6 +377,9 @@ $(document).ready(function () {
     </li>
     <li>
       <a href="pmmh.html">PMMH</a>
+    </li>
+    <li>
+      <a href="online_filtering.html">Online Parameter Inference</a>
     </li>
   </ul>
 </li>
@@ -229,6 +416,9 @@ $(document).ready(function () {
     </li>
   </ul>
 </li>
+<li>
+  <a href="https://git.io/dlm">Github</a>
+</li>
       </ul>
       <ul class="nav navbar-nav navbar-right">
         
@@ -250,11 +440,11 @@ $(document).ready(function () {
 <h2>Particle Filter</h2>
 <p>The particle filter can be used for non-linear and non-Gaussian state space models, such as DGLMs. A general DGLM is given by:</p>
 <p><span class="math display">\[\begin{align*}
-Y_t &amp;\sim p(y_t | g(F_tx_t), \theta) \\
+Y_t &amp;\sim p(y_t | g(F_t^Tx_t), \theta) \\
 X_t &amp;= G_tX_{t-1} + w_t, \qquad w_t \sim \mathcal{N}(0, W), \\
 X_0 &amp;\sim \mathcal{N}(m_0, C_0).
 \end{align*}\]</span></p>
-<p>Where <span class="math inline">\(p(y_t | F_tx_t, \theta)\)</span> is an Exponential Family distribution, with optional static parameter <span class="math inline">\(\theta\)</span>.</p>
+<p>Where <span class="math inline">\(p(y_t | F_t^Tx_t, \theta)\)</span> is an Exponential Family distribution, with optional static parameter <span class="math inline">\(\theta\)</span>.</p>
 <p>The particle filter can be used to find the filtering state <span class="math inline">\(p(x_{0:t}|y_{1:T}, \psi)\)</span>, where <span class="math inline">\(\psi\)</span> represents the static parameters in the model. The particle filter algorithm proceeds as follows:</p>
 <p><em>Initialisation</em> 1. Sample <span class="math inline">\(k\)</span> initial particles from the initial distribution, <span class="math inline">\(x_0^{(i)} \sim \mathcal{N}(m_0, C_0), i = 1,\dots,k\)</span> 2. Initialise the particle weights <span class="math inline">\(w^{(i)} = \frac{1}{k}\)</span></p>
 <p><em>Main Loop</em></p>
@@ -266,6 +456,73 @@ X_0 &amp;\sim \mathcal{N}(m_0, C_0).
 <li>Resample the particles by sampling <span class="math inline">\(u_j \sim p(\pmb\pi_{t+1})\)</span> then select <span class="math inline">\(x^{(u_j)}_{t+1}\)</span> <span class="math inline">\(j = 1,\dots,k\)</span></li>
 </ol>
 <p>Repeat the mean loop until <span class="math inline">\(t = T\)</span>.</p>
+<p>To apply the particle filter to a model using this library, specify either a DGLM or a DLM model. Consider a poisson model</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+<span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+
+scala&gt; <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">15</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">15</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+<span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+
+scala&gt; <span class="kw">val</span> mod = Dglm.<span class="fu">poisson</span>(Dlm.<span class="fu">polynomial</span>(<span class="dv">1</span>))
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+mod: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Dglm</span> = <span class="fu">Dglm</span>(com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Dglm</span>$$$Lambda$<span class="dv">7171</span>/<span class="dv">2056819218</span>@77b45cca,com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">6788</span>/<span class="dv">1540206298</span>@362e0e9d,com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Dlm</span>$$$Lambda$<span class="dv">6789</span>/<span class="dv">1989125347</span>@68256bc7,com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Dglm</span>$$$Lambda$<span class="dv">7172</span>/<span class="dv">1171156020</span>@4982582c,com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Dglm</span>$$$Lambda$<span class="dv">7173</span>/<span class="dv">490903945</span>@7f9b32e4)
+
+scala&gt; <span class="kw">val</span> params = <span class="fu">DlmParameters</span>(<span class="fu">DenseMatrix</span>(<span class="fl">2.0</span>),
+     |                            <span class="fu">DenseMatrix</span>(<span class="fl">0.05</span>),
+     |                            <span class="fu">DenseVector</span>(<span class="fl">0.0</span>),
+     |                            <span class="fu">DenseMatrix</span>(<span class="fl">1.0</span>))
+params: com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">DlmParameters</span> = <span class="fu">DlmParameters</span>(<span class="fl">2.0</span>  ,<span class="fl">0.05</span>  ,<span class="fu">DenseVector</span>(<span class="fl">0.0</span>),<span class="fl">1.0</span>  )
+
+scala&gt; <span class="kw">val</span> sims = Dglm.<span class="fu">simulateRegular</span>(mod, params, <span class="fl">1.0</span>).
+     |              steps.<span class="fu">take</span>(<span class="dv">100</span>).<span class="fu">map</span>(_._<span class="dv">1</span>).<span class="fu">toVector</span>
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+sims: Vector[com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">Data</span>] = Vector(<span class="fu">Data</span>(<span class="fl">1.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">3.0</span>))), <span class="fu">Data</span>(<span class="fl">2.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">1.0</span>))), <span class="fu">Data</span>(<span class="fl">3.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">1.0</span>))), <span class="fu">Data</span>(<span class="fl">4.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">3.0</span>))), <span class="fu">Data</span>(<span class="fl">5.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">1.0</span>))), <span class="fu">Data</span>(<span class="fl">6.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">1.0</span>))), <span class="fu">Data</span>(<span class="fl">7.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">0.0</span>))), <span class="fu">Data</span>(<span class="fl">8.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">3.0</span>))), <span class="fu">Data</span>(<span class="fl">9.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">3.0</span>))), <span class="fu">Data</span>(<span class="fl">10.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">1.0</span>))), <span class="fu">Data</span>(<span class="fl">11.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">1.0</span>))), <span class="fu">Data</span>(<span class="fl">12.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">5.0</span>))), <span class="fu">Data</span>(<span class="fl">13.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">2.0</span>))), <span class="fu">Data</span>(<span class="fl">14.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">1.0</span>))), <span class="fu">Data</span>(<span class="fl">15.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">4.0</span>))), <span class="fu">Data</span>(<span class="fl">16.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">3.0</span>))), <span class="fu">Data</span>(<span class="fl">17.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">2.0</span>))), <span class="fu">Data</span>(<span class="fl">18.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">1.0</span>))), <span class="fu">Data</span>(<span class="fl">19.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">2.0</span>))), <span class="fu">Data</span>(<span class="fl">20.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">0.0</span>))), <span class="fu">Data</span>(<span class="fl">21.0</span>,<span class="fu">DenseVector</span>(Some(<span class="fl">1.0</span>))), <span class="fu">Data</span>(<span class="fl">22.0</span>,DenseVect...</code></pre></div>
+<p>A simulation from the Poisson model is presented in the figure below:</p>
+<p><img src="particle_filter_files/figure-html/poisson-dglm-1.png" width="672" /></p>
+<p>Then the bootstrap particle filter can be user to determine the latent-state of the partially observed inhomogeneous Poisson process:</p>
+<div class="sourceCode"><pre class="sourceCode scala"><code class="sourceCode scala">scala&gt; <span class="kw">val</span> n = <span class="dv">500</span>
+&lt;console&gt;:<span class="dv">10</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>._
+                                      ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+n: Int = <span class="dv">500</span>
+
+scala&gt; <span class="kw">val</span> filtered = <span class="fu">ParticleFilter</span>(n, n, ParticleFilter.<span class="fu">metropolisResampling</span>(<span class="dv">10</span>)).<span class="fu">filter</span>(mod, sims, params)
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                             ^
+&lt;console&gt;:<span class="dv">12</span>: warning: Unused <span class="kw">import</span>
+       <span class="kw">import</span> breeze.<span class="fu">linalg</span>.{DenseMatrix, DenseVector}
+                                          ^
+filtered: Vector[com.<span class="fu">github</span>.<span class="fu">jonnylaw</span>.<span class="fu">dlm</span>.<span class="fu">PfState</span>] = Vector(<span class="fu">PfState</span>(<span class="fl">1.0</span>,Vector(<span class="fu">DenseVector</span>(-<span class="fl">2.3625025642777553</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.4688224197480089</span>), <span class="fu">DenseVector</span>(-<span class="fl">1.162930600402134</span>), <span class="fu">DenseVector</span>(<span class="fl">0.9559243041815069</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.30087496731122293</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.37320994915993966</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.9885270620967307</span>), <span class="fu">DenseVector</span>(-<span class="fl">1.3840414978356388</span>), <span class="fu">DenseVector</span>(<span class="fl">0.42062251817069607</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.08129736644848612</span>), <span class="fu">DenseVector</span>(<span class="fl">1.1339618573822159</span>), <span class="fu">DenseVector</span>(<span class="fl">1.5243039004645105</span>), <span class="fu">DenseVector</span>(<span class="fl">0.20724178059092366</span>), <span class="fu">DenseVector</span>(<span class="fl">0.42514477645067666</span>), <span class="fu">DenseVector</span>(<span class="fl">0.8783650838210421</span>), <span class="fu">DenseVector</span>(<span class="fl">0.6805113607226727</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.5598110723253853</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.27956417907092973</span>), <span class="fu">DenseVector</span>(-<span class="fl">0.09300491121358057</span>), <span class="fu">DenseVector</span>(-<span class="fl">1.9330734556477431</span>), <span class="fu">DenseVector</span>(<span class="fl">1.484717472568114</span>), DenseVec...</code></pre></div>
+<p><img src="particle_filter_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
 </div>
 
 

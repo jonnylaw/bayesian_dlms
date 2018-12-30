@@ -1,7 +1,7 @@
 package benchmark.bench
 
 import org.openjdk.jmh.annotations.{Benchmark, State, Scope}
-import dlm.core.model._
+import com.github.jonnylaw.dlm._
 import breeze.linalg._
 import cats.implicits._
 
