@@ -2,7 +2,7 @@ lazy val commonSettings = Seq(
   scalaVersion := "2.12.7",
   name := "bayesian_dlms",
   organization := "com.github.jonnylaw",
-  version := "0.4.1",
+  version := "0.4.0",
   scalacOptions ++= Seq(
     "-encoding", "UTF-8",   // source files are in UTF-8
     "-deprecation",         // warn about use of deprecated APIs
@@ -14,7 +14,7 @@ lazy val commonSettings = Seq(
     "-Ypartial-unification", // allow the compiler to unify type constructors of different arities
     "-language:implicitConversions" // allow implicit conversion of DLM -> DGLM
   ),
-  crossScalaVersions := Seq("2.11.11","2.12.6"),
+  crossScalaVersions := Seq("2.11.11","2.12.7"),
   credentials += Credentials(Path.userHome / ".sbt" / ".credentials"),
   licenses := Seq("APL2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt")),
   homepage := Some(url("https://jonnylaw.github.io/bayesian_dlms")),
@@ -81,4 +81,3 @@ lazy val examples = project.
     )
   )
   .dependsOn(core, plot)
-
