@@ -1,13 +1,8 @@
 language: scala
-
-matrix:
-  include:
-    jdk: oraclejdk8
-    scala: 2.12.7
-    env: COMMAND=ci-all
-
-script:
-  - sbt -J-Xmx6144m ++$TRAVIS_SCALA_VERSION $COMMAND
+scala:
+  - 2.12.7
+jdk:
+- oraclejdk8
 
 after_success:
 - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then
