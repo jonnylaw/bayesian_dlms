@@ -4,13 +4,13 @@ scala:
 jdk:
 - oraclejdk8
 
-after_success:
-- if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then
-bash scripts/publish.sh; fi
-- if [ "$TRAVIS_PULL_REQUEST" = "true" ]; then echo "Not in master branch,
-skipping deploy and release"; fi
-- if ["$TRAVIS_BRANCH" = "snapshot" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then
-bash scripts/publish.sh; fi
+# after_success:
+# - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then
+# bash scripts/publish.sh; fi
+# - if [ "$TRAVIS_PULL_REQUEST" = "true" ]; then echo "Not in master branch,
+# skipping deploy and release"; fi
+# - if ["$TRAVIS_BRANCH" = "snapshot" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then
+# bash scripts/publish.sh; fi
 
 env:
   global:
