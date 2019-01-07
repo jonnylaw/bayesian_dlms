@@ -45,13 +45,13 @@ trait EmoteData {
 
   val testData = data
     .filter(
-      _.datetime.compareTo(LocalDateTime.of(2018, Month.JUNE, 1, 0, 0)) > 0)
+      _.datetime.compareTo(LocalDateTime.of(2018, Month.AUGUST, 1, 0, 0)) > 0)
     .filter(
-      _.datetime.compareTo(LocalDateTime.of(2018, Month.JULY, 1, 0, 0)) < 0)
+      _.datetime.compareTo(LocalDateTime.of(2018, Month.SEPTEMBER, 1, 0, 0)) < 0)
 
   def envToData(a: EnvSensor): Data =
     Data(a.datetime.toEpochSecond(ZoneOffset.UTC) / (60.0 * 60.0),
-         DenseVector(a.co, a.humidity, a.no map math.log, a.temperature))
+         DenseVector(a.co map math.log, a.humidity, a.no map math.log, a.temperature))
 }
 
 object FitFactorUo extends App with EmoteData {
@@ -62,7 +62,7 @@ object FitFactorUo extends App with EmoteData {
   val priorSigmaEta = InverseGamma(2.5, 3.0)
   val priorPhi = Gaussian(0.8, 0.1)
   val priorSigma = InverseGamma(2.5, 3.0)
-  val priorW = InverseGamma(2.5, 3.0)
+  val priorV = InverseGamma(2.5, 3.0)
   val priorMu = Gaussian(0.0, 1.0)
 
   val volP = for {
@@ -77,13 +77,13 @@ object FitFactorUo extends App with EmoteData {
     vp <- volP
   } yield
     FsvParameters(DenseMatrix.eye[Double](28) * sigma,
-                  FactorSv.buildBeta(28, 2, bij),
-                  Vector.fill(2)(vp))
+                  FactorSv.buildBeta(28, 1, bij),
+                  Vector.fill(1)(vp))
 
   val dlmP = for {
-    w <- priorW
-    seasonalP = DlmParameters(v = DenseMatrix.eye[Double](1),
-                              w = diag(DenseVector.fill(7)(w)),
+    v <- priorV
+    seasonalP = DlmParameters(v = DenseMatrix(v),
+                              w = DenseMatrix.eye[Double](7),
                               m0 = DenseVector.zeros[Double](7),
                               c0 = DenseMatrix.eye[Double](7))
   } yield List.fill(4)(seasonalP).reduce(Dlm.outerSumParameters)
@@ -102,7 +102,7 @@ object FitFactorUo extends App with EmoteData {
                                   priorPhi,
                                   priorMu,
                                   priorSigma,
-                                  priorW,
+                                  priorV,
                                   d,
                                   dlmComp,
                                   initP.draw)
@@ -111,7 +111,7 @@ object FitFactorUo extends App with EmoteData {
     .writeParallelChain(iters,
                         2,
                         100000,
-                        s"examples/data/uo_gibbs_two_factors_${id}",
+                        s"examples/data/uo_gibbs_one_factor_${id}",
                         (s: DlmFsvSystem.State) => s.p.toList)
     .runWith(Sink.onComplete { s =>
       println(s)
@@ -124,7 +124,7 @@ object InterpolateUo extends App with EmoteData {
   implicit val materializer = ActorMaterializer()
 
   Source(testData)
-    .filter(_.sensorId == "new_new_emote_2603")
+    .filter(_.sensorId == "new_new_emote_2604")
     .map(envToData)
     .grouped(10000)
     .mapAsync(1) { d =>
@@ -139,28 +139,30 @@ object InterpolateUo extends App with EmoteData {
         .via(Streaming.meanDlmFsvSystemParameters(4, 28, 2))
         .runWith(Sink.head)
 
-      val out =
-        new java.io.File(s"examples/data/interpolate_urbanobservatory_2603.csv")
+      val out = new java.io.File("examples/data/interpolate_urbanobservatory_2604_august.csv")
       val headers = rfc.withHeader(false)
 
-      // use mcmc to sample the missing observations
       for {
         params <- ps
-        iters = DlmFsvSystem
+        times = d.map(_.time)
+        iters: Iterator[Vector[DenseVector[Double]]] = DlmFsvSystem
           .sampleStateAr(d.toVector, dlmComp, params)
           .steps
-          .take(1000)
           .map { (s: DlmFsvSystem.State) =>
             val vol = s.volatility.map(x => (x.time, x.sample))
             val st = s.theta.map(x => (x.time, x.sample))
-            DlmFsv.obsVolatility(vol, st, dlmComp, params)
-          }
-          .map(s => s.map { case (t, y) => (t, Some(y(0))) })
-          .toVector
-        summary = DlmFsv.summariseInterpolation(iters, 0.95)
-        io <- Future.successful(out.writeCsv(summary, headers))
+            DlmFsv.obsVolatility(vol, st, dlmComp, params).
+              map(_._2)
+          }.
+        take(1000)
+        summary = iters.toVector.transpose.
+        map(Dglm.meanCovSamples).
+        map { case (mean, cov) => (mean.data ++ cov.data).toList }
+        // io <- Source.fromIterator(() => iters).
+        //   take(100).
+        //   runWith(Streaming.writeChainSink(outfile, x => x))
+        io <- Future.successful(out.writeCsv(times zip summary, headers))
       } yield io
-
     }
     .runWith(Sink.onComplete { s =>
       println(s)

@@ -58,24 +58,22 @@ case class RaoBlackwellFilter(n: Int,
 
   def step(mod: Dlm, p: DlmParameters)(x: RbState, d: Data): RbState = {
 
-    val (meanParams, varianceParams) =
-      LiuAndWestFilter.weightedMeanVarianceParams(x.params, x.weights)
-    val varParams = LiuAndWestFilter.paramsToMatrix(varianceParams)
+    val meanParams = LiuAndWestFilter.weightedMeanParams(x.params, x.weights)
+    val varParams = LiuAndWestFilter.varParameters(x.params)
     val mi = LiuAndWestFilter.scaleParameters(x.params, meanParams, a)
 
     val dt = d.time - x.time
 
     val y = KalmanFilter.flattenObs(d.observation)
     val thetaHat = (mi zip x.mt).map { case (m, t) =>
-      Dglm.stepState(mod, m map exp)(t, dt).draw }
+      Dglm.stepState(mod, m map exp)(t, dt).mean }
     val auxVars =
       LiuAndWestFilter.auxiliaryVariables(x.weights, thetaHat, mod, y, mi)
 
     // propose new log-parameters
-    val propVariance = diag(diag(varParams) * (1 - a * a))
+    val propVariance = diag(varParams * (1 - a * a))
     val newParams =
       auxVars.map(i => LiuAndWestFilter.proposal(mi(i), propVariance))
-
     // use each parameter particle for a different Kalman Filter
     val (mean, covariance, logw) = (x.mt, x.ct, x.weights, newParams).parMapN {
       case (m, c, w, ps) => kfStep(mod, dt, m, c, w, ps, d)

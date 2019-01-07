@@ -402,13 +402,18 @@ object DlmFsvSystem {
     val k = beta.cols
     val p = beta.rows
 
+    // initialise the variances of the system
+    val ws = Vector.fill(ys.size)(DenseMatrix.eye[Double](dlm.f(1.0).rows))
+
+    val initDlmState = ffbsSvd(dlm, ys, params.dlm, ws).draw
+    val thetaObs = initDlmState.map { ss =>
+      Data(ss.time, ss.sample.map(_.some))
+    }
+
     // initialise the latent state
-    val initFactorState = FactorSv.initialiseStateAr(params.fsv, ys, k)
+    val initFactorState = FactorSv.initialiseStateAr(params.fsv, thetaObs, k)
     val factors = initFactorState.factors
     val vol = initFactorState.volatility
-    val vs =
-      DlmFsvSystem.calculateVariance(vol.tail, params.fsv.beta, params.fsv.v)
-    val initDlmState = ffbsSvd(dlm, ys, params.dlm, vs).draw
     val init = State(params, initDlmState.toVector, factors, vol)
 
     def step(s: State) = {
